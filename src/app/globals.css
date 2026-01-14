@@ -2,15 +2,15 @@
 @import "tailwindcss";
 
 /* ============================================
-   APPLE-STYLE DESIGN SYSTEM
-   Clean, Minimal, Product-Focused
+   APPLE x LUSION PRO DESIGN SYSTEM
+   Clean, Minimal, Dynamic Animations
    ============================================ */
 
 :root {
-  /* === DARK MODE (Default - Apple.com style) === */
+  /* === DARK MODE (Default - Lusion + Apple style) === */
 
   /* Background */
-  --bg-primary: #000000;
+  --bg-primary: #0a0a0a;
   --bg-secondary: #1D1D1F;
   --bg-tertiary: #2D2D2F;
 
