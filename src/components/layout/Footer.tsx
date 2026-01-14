@@ -1,0 +1,98 @@
+import Link from 'next/link';
+
+const footerLinks = {
+    products: [
+        { name: 'Sản phẩm có sẵn', href: '/products' },
+        { name: 'Custom theo yêu cầu', href: '/custom' },
+        { name: 'Dịch vụ in 3D', href: '/printing' },
+    ],
+    support: [
+        { name: 'FAQ', href: '/faq' },
+        { name: 'Liên hệ', href: '/about' },
+        { name: 'Chính sách đổi trả', href: '/policy' },
+    ],
+    account: [
+        { name: 'Tài khoản', href: '/account' },
+        { name: 'Đơn hàng của tôi', href: '/account/orders' },
+        { name: 'Giỏ hàng', href: '/cart' },
+    ],
+};
+
+export function Footer() {
+    return (
+        <footer className="bg-[#1D1D1F] border-t border-white/[0.08]">
+            <div className="max-w-[1200px] mx-auto px-6 py-12">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                    {/* Brand */}
+                    <div className="space-y-4">
+                        <Link href="/" className="text-xl font-semibold text-white">
+                            3D Print
+                        </Link>
+                        <p className="text-sm text-[#A1A1A6]">
+                            Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu.
+                        </p>
+                    </div>
+
+                    {/* Products */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-white mb-4">Sản phẩm</h3>
+                        <ul className="space-y-3">
+                            {footerLinks.products.map((link) => (
+                                <li key={link.name}>
+                                    <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
+                                        {link.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* Support */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-white mb-4">Hỗ trợ</h3>
+                        <ul className="space-y-3">
+                            {footerLinks.support.map((link) => (
+                                <li key={link.name}>
+                                    <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
+                                        {link.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* Account */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-white mb-4">Tài khoản</h3>
+                        <ul className="space-y-3">
+                            {footerLinks.account.map((link) => (
+                                <li key={link.name}>
+                                    <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
+                                        {link.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Bottom */}
+                <div className="mt-12 pt-8 border-t border-white/[0.08]">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <p className="text-xs text-[#6E6E73]">
+                            Copyright © 2026 3D Print. All rights reserved.
+                        </p>
+                        <div className="flex items-center gap-6">
+                            <Link href="/privacy" className="text-xs text-[#6E6E73] hover:text-white transition-colors">
+                                Chính sách bảo mật
+                            </Link>
+                            <Link href="/terms" className="text-xs text-[#6E6E73] hover:text-white transition-colors">
+                                Điều khoản sử dụng
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    );
+}
