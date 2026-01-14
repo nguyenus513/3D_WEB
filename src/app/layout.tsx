@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/layout/Navbar";
+import { NavbarLusion } from "@/components/layout/NavbarLusion";
 import { Footer } from "@/components/layout/Footer";
+import { CustomCursor } from "@/components/ui/CustomCursor";
+import { SmoothScroll } from "@/components/ui/SmoothScroll";
 
 const inter = Inter({
   subsets: ["latin", "vietnamese"],
@@ -22,13 +24,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={inter.variable}>
-      <body className="antialiased">
-        <Navbar />
-        <main className="pt-12 min-h-screen">
-          {children}
-        </main>
-        <Footer />
+    <html lang="vi" className={inter.variable} style={{ cursor: 'none' }}>
+      <body className="antialiased bg-black text-white" style={{ cursor: 'none' }}>
+        <SmoothScroll>
+          <CustomCursor />
+          <NavbarLusion />
+          <main>
+            {children}
+          </main>
+          <Footer />
+        </SmoothScroll>
       </body>
     </html>
   );
