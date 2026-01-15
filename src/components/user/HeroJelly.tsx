@@ -1,15 +1,12 @@
 'use client';
 
-import { useRef, useMemo, useEffect, useState } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float, Environment, Text, useTexture } from '@react-three/drei';
-import { EffectComposer, ChromaticAberration } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import { Float, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { motion } from 'framer-motion';
 import { TextReveal } from '../ui/Animations';
 import Link from 'next/link';
-import { jellyVertexShader, basicFragmentShader } from '@/lib/shaders';
 
 // Velocity tracking hook
 function useScrollVelocity() {
@@ -135,26 +132,8 @@ function ParticleField({ count = 150 }) {
     );
 }
 
-// Main Scene
+// Main Scene - simplified without postprocessing to avoid alpha context errors
 function Scene() {
-    const [chromaticOffset, setChromaticOffset] = useState<[number, number]>([0, 0]);
-
-    useEffect(() => {
-        let lastX = 0;
-        let lastY = 0;
-
-        const handleMouseMove = (e: MouseEvent) => {
-            const vx = (e.clientX - lastX) * 0.00005;
-            const vy = (e.clientY - lastY) * 0.00005;
-            setChromaticOffset([Math.min(Math.abs(vx), 0.005), Math.min(Math.abs(vy), 0.005)]);
-            lastX = e.clientX;
-            lastY = e.clientY;
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => window.removeEventListener('mousemove', handleMouseMove);
-    }, []);
-
     return (
         <>
             <color attach="background" args={['#0a0a0a']} />
@@ -169,16 +148,6 @@ function Scene() {
             <ParticleField count={200} />
 
             <Environment preset="city" />
-
-            {/* Post-processing effects */}
-            <EffectComposer>
-                <ChromaticAberration
-                    blendFunction={BlendFunction.NORMAL}
-                    offset={new THREE.Vector2(chromaticOffset[0], chromaticOffset[1])}
-                    radialModulation={false}
-                    modulationOffset={0}
-                />
-            </EffectComposer>
         </>
     );
 }
