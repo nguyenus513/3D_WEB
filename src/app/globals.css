@@ -1,11 +1,11 @@
-/* Fontshare - Stardom (headlines) + Zodiak (body) - Lusion.co style */
-@import url('https://api.fontshare.com/v2/css?f[]=stardom@400&f[]=zodiak@400,500,600,700&display=swap');
+/* Fontshare - General Sans */
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap');
 @import "tailwindcss";
 
 /* ============================================
    APPLE x LUSION PRO DESIGN SYSTEM
    Clean, Minimal, Dynamic Animations
-   Fonts: Stardom (headlines), Zodiak (body)
+   Font: General Sans
    ============================================ */
 
 :root {
@@ -41,8 +41,8 @@
   --text-dark-secondary: #6E6E73;
 
   /* Fonts */
-  --font-body: 'Zodiak', Georgia, serif;
-  --font-heading: 'Stardom', 'Zodiak', sans-serif;
+  --font-body: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Light mode variables */
