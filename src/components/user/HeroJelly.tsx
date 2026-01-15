@@ -168,7 +168,7 @@ export function HeroJelly() {
 
             {/* Gradient Overlays */}
             <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/80 via-transparent to-[#0a0a0a] pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0071E3]/10 via-transparent to-[#8B5CF6]/10 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-white/5 pointer-events-none" />
 
             {/* Content */}
             <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6">
@@ -183,7 +183,7 @@ export function HeroJelly() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.3 }}
-                        className="text-sm md:text-base text-[#0071E3] font-medium tracking-widest uppercase mb-6"
+                        className="text-sm md:text-base text-white/50 font-medium tracking-widest uppercase mb-6"
                     >
                         Premium 3D Print Studio
                     </motion.p>
@@ -191,7 +191,7 @@ export function HeroJelly() {
                     {/* Main Title */}
                     <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1] tracking-[-0.04em] text-white mb-8 whitespace-nowrap">
                         <TextReveal text="Sản Phẩm " delay={0.4} />
-                        <span className="bg-gradient-to-r from-[#0071E3] via-[#00C7BE] to-[#8B5CF6] bg-clip-text text-transparent">
+                        <span className="text-white/70">
                             <TextReveal text="Độc Đáo" delay={0.7} />
                         </span>
                     </h1>

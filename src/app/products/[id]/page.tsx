@@ -148,7 +148,7 @@ export default function ProductDetailPage() {
                     {/* Right - Product Info */}
                     <div className="flex flex-col">
                         <AnimatedSection delay={0.1}>
-                            <span className="text-sm text-[#0071E3] font-medium tracking-widest uppercase">
+                            <span className="text-sm text-white/50 font-medium tracking-widest uppercase">
                                 {product.category}
                             </span>
                             <h1 className="text-4xl md:text-5xl font-bold text-white mt-2 mb-4">
@@ -200,7 +200,7 @@ export default function ProductDetailPage() {
                                 <div className="inline-flex items-center bg-[#1D1D1F] rounded-full">
                                     <button
                                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                        className="w-12 h-12 flex items-center justify-center text-white hover:text-[#0071E3] transition-colors"
+                                        className="w-12 h-12 flex items-center justify-center text-white hover:text-white/70 transition-colors"
                                         data-cursor
                                     >
                                         −
@@ -208,7 +208,7 @@ export default function ProductDetailPage() {
                                     <span className="w-12 text-center text-white font-medium">{quantity}</span>
                                     <button
                                         onClick={() => setQuantity(quantity + 1)}
-                                        className="w-12 h-12 flex items-center justify-center text-white hover:text-[#0071E3] transition-colors"
+                                        className="w-12 h-12 flex items-center justify-center text-white hover:text-white/70 transition-colors"
                                         data-cursor
                                     >
                                         +
@@ -236,7 +236,7 @@ export default function ProductDetailPage() {
                                 <ul className="space-y-3">
                                     {product.details.map((detail, index) => (
                                         <li key={index} className="flex items-center gap-3 text-white/60">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#0071E3]" />
+                                            <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
                                             {detail}
                                         </li>
                                     ))}

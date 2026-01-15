@@ -45,7 +45,7 @@ export default function CheckoutPage() {
             <div className="max-w-[1200px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="mb-12">
-                    <Link href="/cart" className="text-[#0071E3] text-sm mb-4 inline-flex items-center gap-2 hover:gap-4 transition-all">
+                    <Link href="/cart" className="text-white/70 text-sm mb-4 inline-flex items-center gap-2 hover:gap-4 transition-all">
                         ← Quay lại giỏ hàng
                     </Link>
                     <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
@@ -120,7 +120,7 @@ export default function CheckoutPage() {
                                             className={`
                         w-full p-4 rounded-xl flex items-center gap-4 transition-all text-left
                         ${paymentMethod === method.id
-                                                    ? 'bg-[#0071E3]/20 border-2 border-[#0071E3]'
+                                                    ? 'bg-white text-black/20 border-2 border-white/30'
                                                     : 'bg-[#2D2D2F] border-2 border-transparent hover:border-white/10'
                                                 }
                       `}
@@ -132,7 +132,7 @@ export default function CheckoutPage() {
                                                 <p className="text-white/50 text-sm">{method.desc}</p>
                                             </div>
                                             {paymentMethod === method.id && (
-                                                <span className="ml-auto text-[#0071E3]">✓</span>
+                                                <span className="ml-auto text-white/70">✓</span>
                                             )}
                                         </button>
                                     ))}
@@ -181,10 +181,10 @@ export default function CheckoutPage() {
                                 </div>
 
                                 {/* Deposit */}
-                                <div className="mt-4 p-4 bg-[#0071E3]/10 rounded-xl border border-[#0071E3]/30">
+                                <div className="mt-4 p-4 bg-white text-black/10 rounded-xl border border-white/30/30">
                                     <div className="flex justify-between items-baseline">
                                         <span className="text-white/70 text-sm">Thanh toán ngay (50%)</span>
-                                        <span className="text-xl font-bold text-[#0071E3]">
+                                        <span className="text-xl font-bold text-white/70">
                                             {deposit.toLocaleString('vi-VN')}đ
                                         </span>
                                     </div>
@@ -199,7 +199,7 @@ export default function CheckoutPage() {
 
                                 <p className="text-white/40 text-xs text-center mt-4">
                                     Bằng việc đặt hàng, bạn đồng ý với{' '}
-                                    <Link href="/terms" className="text-[#0071E3]">Điều khoản dịch vụ</Link>
+                                    <Link href="/terms" className="text-white/70">Điều khoản dịch vụ</Link>
                                 </p>
                             </div>
                         </AnimatedSection>

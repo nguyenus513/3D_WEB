@@ -55,7 +55,7 @@ export default function LoginPage() {
                                 placeholder="you@example.com"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all"
+                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
                             />
                         </div>
@@ -75,7 +75,7 @@ export default function LoginPage() {
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full pl-12 pr-12 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all"
+                                className="w-full pl-12 pr-12 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
                             />
                             <button
@@ -104,11 +104,11 @@ export default function LoginPage() {
                                 type="checkbox"
                                 checked={formData.remember}
                                 onChange={(e) => setFormData({ ...formData, remember: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/20 bg-[#1D1D1F] text-[#0071E3] focus:ring-[#0071E3]"
+                                className="w-4 h-4 rounded border-white/20 bg-[#1D1D1F] text-white focus:ring-white/30"
                             />
                             <span className="text-white/60 text-sm">Ghi nhớ đăng nhập</span>
                         </label>
-                        <Link href="/forgot-password" className="text-[#0071E3] text-sm hover:underline">
+                        <Link href="/forgot-password" className="text-white/70 text-sm hover:underline">
                             Quên mật khẩu?
                         </Link>
                     </div>
@@ -129,7 +129,7 @@ export default function LoginPage() {
                 {/* Register Link */}
                 <p className="text-center text-white/60">
                     Chưa có tài khoản?{' '}
-                    <Link href="/register" className="text-[#0071E3] font-medium hover:underline">
+                    <Link href="/register" className="text-white font-medium hover:underline">
                         Đăng ký ngay
                     </Link>
                 </p>

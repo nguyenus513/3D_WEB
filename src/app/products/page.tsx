@@ -35,7 +35,7 @@ export default function ProductsPage() {
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-sm text-[#0071E3] font-medium tracking-widest uppercase mb-4"
+                        className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4"
                     >
                         Bộ Sưu Tập
                     </motion.p>
@@ -132,7 +132,7 @@ export default function ProductsPage() {
                                     <div className="p-5">
                                         <div className="flex items-start justify-between gap-4">
                                             <div>
-                                                <h3 className="font-semibold text-white group-hover:text-[#0071E3] transition-colors">
+                                                <h3 className="font-semibold text-white group-hover:text-white/70 transition-colors">
                                                     {product.name}
                                                 </h3>
                                                 <p className="text-sm text-white/40 mt-1">

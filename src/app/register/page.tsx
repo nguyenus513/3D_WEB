@@ -60,7 +60,7 @@ export default function RegisterPage() {
                                 placeholder="Nguyễn Văn A"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all"
+                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
                             />
                         </div>
@@ -80,7 +80,7 @@ export default function RegisterPage() {
                                 placeholder="you@example.com"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all"
+                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
                             />
                         </div>
@@ -100,7 +100,7 @@ export default function RegisterPage() {
                                 placeholder="0912 345 678"
                                 value={formData.phone}
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all"
+                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
                             />
                         </div>
@@ -120,7 +120,7 @@ export default function RegisterPage() {
                                 placeholder="Tối thiểu 8 ký tự"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full pl-12 pr-12 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all"
+                                className="w-full pl-12 pr-12 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
                                 minLength={8}
                             />
@@ -146,7 +146,7 @@ export default function RegisterPage() {
                     {/* Shipping Address Section */}
                     <div className="border-t border-white/10 pt-5 mt-2">
                         <h3 className="text-white font-medium mb-4 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-[#0071E3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
@@ -161,7 +161,7 @@ export default function RegisterPage() {
                                 placeholder="Tên người nhận hàng"
                                 value={formData.recipientName}
                                 onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
-                                className="w-full px-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all"
+                                className="w-full px-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
                             />
                         </div>
@@ -173,7 +173,7 @@ export default function RegisterPage() {
                                 placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
                                 value={formData.address}
                                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                className="w-full px-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/10 transition-all resize-none"
+                                className="w-full px-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all resize-none"
                                 rows={2}
                                 required
                             />
@@ -185,7 +185,7 @@ export default function RegisterPage() {
                                 type="checkbox"
                                 checked={formData.saveAsDefault}
                                 onChange={(e) => setFormData({ ...formData, saveAsDefault: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/20 bg-[#1D1D1F] text-[#0071E3] focus:ring-[#0071E3]"
+                                className="w-4 h-4 rounded border-white/20 bg-[#1D1D1F] text-white/70 focus:ring-white/30"
                             />
                             <span className="text-white/60 text-sm">Lưu làm địa chỉ mặc định</span>
                         </label>
@@ -197,14 +197,14 @@ export default function RegisterPage() {
                             type="checkbox"
                             checked={formData.agreeTerms}
                             onChange={(e) => setFormData({ ...formData, agreeTerms: e.target.checked })}
-                            className="w-4 h-4 mt-1 rounded border-white/20 bg-[#1D1D1F] text-[#0071E3] focus:ring-[#0071E3]"
+                            className="w-4 h-4 mt-1 rounded border-white/20 bg-[#1D1D1F] text-white/70 focus:ring-white/30"
                             required
                         />
                         <span className="text-white/60 text-sm">
                             Tôi đồng ý với{' '}
-                            <Link href="/terms" className="text-[#0071E3] hover:underline">Điều khoản dịch vụ</Link>
+                            <Link href="/terms" className="text-white/70 hover:underline">Điều khoản dịch vụ</Link>
                             {' '}và{' '}
-                            <Link href="/privacy" className="text-[#0071E3] hover:underline">Chính sách bảo mật</Link>
+                            <Link href="/privacy" className="text-white/70 hover:underline">Chính sách bảo mật</Link>
                         </span>
                     </label>
 
@@ -224,7 +224,7 @@ export default function RegisterPage() {
                 {/* Login Link */}
                 <p className="text-center text-white/60">
                     Đã có tài khoản?{' '}
-                    <Link href="/login" className="text-[#0071E3] font-medium hover:underline">
+                    <Link href="/login" className="text-white/70 font-medium hover:underline">
                         Đăng nhập
                     </Link>
                 </p>

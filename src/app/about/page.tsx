@@ -26,7 +26,7 @@ export default function AboutPage() {
             <div className="max-w-[1200px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-16">
-                    <span className="text-sm text-[#0071E3] font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
                         Về Chúng Tôi
                     </span>
                     <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight mb-6">
@@ -81,7 +81,7 @@ export default function AboutPage() {
                                 transition={{ delay: 0.3 + index * 0.1 }}
                                 className="bg-[#1D1D1F] rounded-2xl p-6 text-center"
                             >
-                                <p className="text-3xl md:text-4xl font-bold text-[#0071E3]">{stat.value}</p>
+                                <p className="text-3xl md:text-4xl font-bold text-white/70">{stat.value}</p>
                                 <p className="text-white/60 mt-2">{stat.label}</p>
                             </motion.div>
                         ))}
@@ -118,7 +118,7 @@ export default function AboutPage() {
                                         href={social.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="w-12 h-12 rounded-full bg-[#2D2D2F] flex items-center justify-center text-xl hover:bg-[#0071E3] transition-colors"
+                                        className="w-12 h-12 rounded-full bg-[#2D2D2F] flex items-center justify-center text-xl hover:bg-white text-black transition-colors"
                                         data-cursor
                                     >
                                         {social.icon}
@@ -143,7 +143,7 @@ export default function AboutPage() {
                                 <Input placeholder="Email" type="email" />
                                 <textarea
                                     placeholder="Nội dung tin nhắn..."
-                                    className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-[#0071E3] border border-white/5"
+                                    className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/5"
                                     rows={5}
                                 />
                                 <Button variant="primary" size="lg" className="w-full">

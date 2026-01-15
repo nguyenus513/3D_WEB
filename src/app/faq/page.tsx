@@ -40,7 +40,7 @@ export default function FAQPage() {
             <div className="max-w-[800px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-12">
-                    <span className="text-sm text-[#0071E3] font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
                         Hỗ Trợ
                     </span>
                     <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
@@ -64,7 +64,7 @@ export default function FAQPage() {
                                     <span className="text-white font-medium pr-4">{faq.question}</span>
                                     <motion.span
                                         animate={{ rotate: openIndex === index ? 45 : 0 }}
-                                        className="text-[#0071E3] text-2xl flex-shrink-0"
+                                        className="text-white/70 text-2xl flex-shrink-0"
                                     >
                                         +
                                     </motion.span>
@@ -101,7 +101,7 @@ export default function FAQPage() {
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                             <Link
                                 href="/about"
-                                className="px-8 py-4 rounded-full bg-[#0071E3] text-white font-medium hover:scale-105 transition-transform"
+                                className="px-8 py-4 rounded-full bg-white text-black text-white font-medium hover:scale-105 transition-transform"
                                 data-cursor
                             >
                                 Liên hệ ngay

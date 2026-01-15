@@ -170,14 +170,14 @@ export function NavLusion() {
                                     <Link
                                         href="/login"
                                         onClick={() => setIsOpen(false)}
-                                        className="flex-1 py-2.5 text-center text-[#0071E3] font-medium text-sm border border-[#0071E3] rounded-full hover:bg-[#0071E3] hover:text-white transition-colors"
+                                        className="flex-1 py-2.5 text-center text-[#1D1D1F] font-medium text-sm border border-[#1D1D1F] rounded-full hover:bg-[#1D1D1F] hover:text-white transition-colors"
                                     >
                                         Đăng nhập
                                     </Link>
                                     <Link
                                         href="/register"
                                         onClick={() => setIsOpen(false)}
-                                        className="flex-1 py-2.5 text-center text-white font-medium text-sm bg-[#0071E3] rounded-full hover:bg-[#0077ED] transition-colors"
+                                        className="flex-1 py-2.5 text-center text-white font-medium text-sm bg-[#1D1D1F] rounded-full hover:bg-[#2D2D2F] transition-colors"
                                     >
                                         Đăng ký
                                     </Link>
@@ -193,17 +193,17 @@ export function NavLusion() {
                                 <Link
                                     href="/custom"
                                     onClick={() => setIsOpen(false)}
-                                    className="flex items-center justify-between bg-[#0071E3] rounded-full px-6 py-4 hover:bg-[#0077ED] transition-colors group"
+                                    className="flex items-center justify-between bg-white rounded-full px-6 py-4 hover:bg-white/90 transition-colors group"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                             </svg>
                                         </div>
-                                        <span className="text-white font-medium">ĐẶT HÀNG NGAY</span>
+                                        <span className="text-black font-medium">ĐẶT HÀNG NGAY</span>
                                     </div>
-                                    <svg className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 text-black group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                                     </svg>
                                 </Link>

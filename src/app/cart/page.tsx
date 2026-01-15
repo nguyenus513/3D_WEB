@@ -81,7 +81,7 @@ export default function CartPage() {
                                                 <div className="inline-flex items-center bg-[#2D2D2F] rounded-full">
                                                     <button
                                                         onClick={() => updateQuantity(item.id, -1)}
-                                                        className="w-8 h-8 flex items-center justify-center text-white hover:text-[#0071E3] transition-colors"
+                                                        className="w-8 h-8 flex items-center justify-center text-white hover:text-white/70 transition-colors"
                                                         data-cursor
                                                     >
                                                         −
@@ -89,7 +89,7 @@ export default function CartPage() {
                                                     <span className="w-8 text-center text-white text-sm">{item.quantity}</span>
                                                     <button
                                                         onClick={() => updateQuantity(item.id, 1)}
-                                                        className="w-8 h-8 flex items-center justify-center text-white hover:text-[#0071E3] transition-colors"
+                                                        className="w-8 h-8 flex items-center justify-center text-white hover:text-white/70 transition-colors"
                                                         data-cursor
                                                     >
                                                         +
@@ -129,7 +129,7 @@ export default function CartPage() {
                                     <div className="border-t border-white/10 pt-4 mb-4">
                                         <div className="flex justify-between items-baseline">
                                             <span className="text-white/60">Đặt cọc (50%)</span>
-                                            <span className="text-2xl font-bold text-[#0071E3]">
+                                            <span className="text-2xl font-bold text-white/70">
                                                 {deposit.toLocaleString('vi-VN')}đ
                                             </span>
                                         </div>

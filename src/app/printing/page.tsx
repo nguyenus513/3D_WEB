@@ -94,7 +94,7 @@ export default function PrintingPage() {
             <div className="max-w-[1200px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-12">
-                    <span className="text-sm text-[#0071E3] font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
                         3D Printing Service
                     </span>
                     <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
@@ -121,7 +121,7 @@ export default function PrintingPage() {
                                     className={`
                     border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer
                     ${dragActive
-                                            ? 'border-[#0071E3] bg-[#0071E3]/10'
+                                            ? 'border-white/30 bg-white/10'
                                             : 'border-white/20 hover:border-white/40'
                                         }
                   `}
@@ -183,7 +183,7 @@ export default function PrintingPage() {
                                             className={`
                         p-6 rounded-2xl text-left transition-all
                         ${order.type === type.id
-                                                    ? 'bg-[#0071E3] text-white ring-2 ring-[#0071E3] ring-offset-2 ring-offset-[#1D1D1F]'
+                                                    ? 'bg-[#0071E3] text-white ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
                                                     : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
                                                 }
                       `}
@@ -243,7 +243,7 @@ export default function PrintingPage() {
                                     <div className="inline-flex items-center bg-[#2D2D2F] rounded-full">
                                         <button
                                             onClick={() => setOrder(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
-                                            className="w-12 h-12 flex items-center justify-center text-white hover:text-[#0071E3] transition-colors"
+                                            className="w-12 h-12 flex items-center justify-center text-white hover:text-white/70 transition-colors"
                                             data-cursor
                                         >
                                             −
@@ -251,7 +251,7 @@ export default function PrintingPage() {
                                         <span className="w-12 text-center text-white font-medium">{order.quantity}</span>
                                         <button
                                             onClick={() => setOrder(prev => ({ ...prev, quantity: prev.quantity + 1 }))}
-                                            className="w-12 h-12 flex items-center justify-center text-white hover:text-[#0071E3] transition-colors"
+                                            className="w-12 h-12 flex items-center justify-center text-white hover:text-white/70 transition-colors"
                                             data-cursor
                                         >
                                             +
@@ -287,7 +287,7 @@ export default function PrintingPage() {
                                 <div className="border-t border-white/10 pt-4 mb-6">
                                     <div className="flex justify-between items-baseline">
                                         <span className="text-white/60">Giá ước tính</span>
-                                        <span className="text-2xl font-bold text-[#0071E3]">
+                                        <span className="text-2xl font-bold text-white/70">
                                             {estimatedPrice.toLocaleString('vi-VN')}đ
                                         </span>
                                     </div>

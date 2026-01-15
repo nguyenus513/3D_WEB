@@ -97,7 +97,7 @@ export default function CustomPage() {
             <div className="max-w-[900px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-12">
-                    <span className="text-sm text-[#0071E3] font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
                         Custom Order
                     </span>
                     <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
@@ -118,7 +118,7 @@ export default function CustomPage() {
                                     className={`
                     w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
                     ${currentStep >= step.id
-                                            ? 'bg-[#0071E3] text-white'
+                                            ? 'bg-white text-black text-white'
                                             : 'bg-[#1D1D1F] text-white/50'
                                         }
                   `}
@@ -126,7 +126,7 @@ export default function CustomPage() {
                                     {step.id}
                                 </button>
                                 {index < steps.length - 1 && (
-                                    <div className={`w-12 h-0.5 mx-1 ${currentStep > step.id ? 'bg-[#0071E3]' : 'bg-[#1D1D1F]'}`} />
+                                    <div className={`w-12 h-0.5 mx-1 ${currentStep > step.id ? 'bg-white text-black' : 'bg-[#1D1D1F]'}`} />
                                 )}
                             </div>
                         ))}
@@ -153,7 +153,7 @@ export default function CustomPage() {
                                             className={`
                         p-6 rounded-2xl text-left transition-all
                         ${orderData.type === type.id
-                                                    ? 'bg-[#0071E3] text-white ring-2 ring-[#0071E3] ring-offset-2 ring-offset-[#1D1D1F]'
+                                                    ? 'bg-white text-black text-white ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
                                                     : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
                                                 }
                       `}
@@ -190,7 +190,7 @@ export default function CustomPage() {
                                     className={`
                     border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer
                     ${dragActive
-                                            ? 'border-[#0071E3] bg-[#0071E3]/10'
+                                            ? 'border-white/30 bg-white text-black/10'
                                             : 'border-white/20 hover:border-white/40'
                                         }
                   `}
@@ -250,7 +250,7 @@ export default function CustomPage() {
                                             className={`
                         p-6 rounded-2xl text-center transition-all
                         ${orderData.size === size.id
-                                                    ? 'bg-[#0071E3] text-white'
+                                                    ? 'bg-white text-black text-white'
                                                     : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
                                                 }
                       `}
@@ -268,7 +268,7 @@ export default function CustomPage() {
                                         value={orderData.notes}
                                         onChange={(e) => setOrderData(prev => ({ ...prev, notes: e.target.value }))}
                                         placeholder="Mô tả chi tiết yêu cầu của bạn..."
-                                        className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-[#0071E3]"
+                                        className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
                                         rows={4}
                                     />
                                 </div>
@@ -304,7 +304,7 @@ export default function CustomPage() {
                                             </div>
                                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                                 <span className="text-white font-medium">Tổng cộng</span>
-                                                <span className="text-[#0071E3] font-bold text-lg">
+                                                <span className="text-white/70 font-bold text-lg">
                                                     {totalPrice.toLocaleString('vi-VN')}đ
                                                 </span>
                                             </div>
