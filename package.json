@@ -13,6 +13,7 @@
     "@react-three/fiber": "^9.5.0",
     "@react-three/postprocessing": "^3.0.4",
     "@studio-freight/lenis": "^1.0.42",
+    "@tabler/icons-react": "^3.36.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.26.2",
     "gsap": "^3.14.2",
