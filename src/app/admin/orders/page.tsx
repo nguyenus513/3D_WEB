@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -12,14 +13,23 @@ const orders = [
     { id: '#1004', customer: 'Phạm Thị D', email: 'phamthid@gmail.com', type: 'custom', items: 1, total: 650000, status: 'pending', date: '14/01/2026' },
     { id: '#1005', customer: 'Hoàng Văn E', email: 'hoangvane@gmail.com', type: 'product', items: 2, total: 280000, status: 'completed', date: '13/01/2026' },
     { id: '#1006', customer: 'Vũ Thị F', email: 'vuthif@gmail.com', type: 'printing', items: 1, total: 500000, status: 'cancelled', date: '13/01/2026' },
+    { id: '#1007', customer: 'Đỗ Văn G', email: 'dovang@gmail.com', type: 'printing', items: 2, total: 780000, status: 'processing', date: '12/01/2026' },
+    { id: '#1008', customer: 'Bùi Thị H', email: 'buithih@gmail.com', type: 'custom', items: 1, total: 920000, status: 'completed', date: '11/01/2026' },
 ];
 
-const tabs = [
-    { key: 'all', label: 'Tất cả', count: 6 },
-    { key: 'pending', label: 'Chờ xử lý', count: 2 },
-    { key: 'processing', label: 'Đang xử lý', count: 1 },
-    { key: 'completed', label: 'Hoàn thành', count: 2 },
-    { key: 'cancelled', label: 'Đã hủy', count: 1 },
+const statusTabs = [
+    { key: 'all', label: 'Tất cả' },
+    { key: 'pending', label: 'Chờ xử lý' },
+    { key: 'processing', label: 'Đang xử lý' },
+    { key: 'completed', label: 'Hoàn thành' },
+    { key: 'cancelled', label: 'Đã hủy' },
+];
+
+const typeTabs = [
+    { key: 'all', label: 'Tất cả', href: '/admin/orders' },
+    { key: 'product', label: 'Sản phẩm', href: '/admin/orders?type=product' },
+    { key: 'custom', label: 'Custom', href: '/admin/orders?type=custom' },
+    { key: 'printing', label: 'In 3D', href: '/admin/orders?type=printing' },
 ];
 
 const statusColors: Record<string, string> = {
@@ -42,24 +52,46 @@ const typeLabels: Record<string, string> = {
     printing: 'In 3D',
 };
 
-export default function AdminOrdersPage() {
-    const [activeTab, setActiveTab] = useState('all');
+const typeColors: Record<string, string> = {
+    product: 'bg-blue-500/20 text-blue-400',
+    custom: 'bg-purple-500/20 text-purple-400',
+    printing: 'bg-green-500/20 text-green-400',
+};
+
+function OrdersContent() {
+    const searchParams = useSearchParams();
+    const typeFilter = searchParams.get('type') || 'all';
+    const [activeStatus, setActiveStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredOrders = orders.filter(order => {
-        const matchesTab = activeTab === 'all' || order.status === activeTab;
+    // Filter by type from URL
+    const typeFilteredOrders = typeFilter === 'all'
+        ? orders
+        : orders.filter(order => order.type === typeFilter);
+
+    // Then filter by status and search
+    const filteredOrders = typeFilteredOrders.filter(order => {
+        const matchesStatus = activeStatus === 'all' || order.status === activeStatus;
         const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
             order.customer.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesTab && matchesSearch;
+        return matchesStatus && matchesSearch;
     });
+
+    // Count by status for current type
+    const getStatusCount = (status: string) => {
+        if (status === 'all') return typeFilteredOrders.length;
+        return typeFilteredOrders.filter(o => o.status === status).length;
+    };
+
+    const pageTitle = typeFilter === 'all' ? 'Tất cả đơn hàng' : `Đơn ${typeLabels[typeFilter]}`;
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Đơn hàng</h1>
-                    <p className="text-white/50 mt-1">Quản lý tất cả đơn hàng</p>
+                    <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
+                    <p className="text-white/50 mt-1">{filteredOrders.length} đơn hàng</p>
                 </div>
                 <button className="flex items-center gap-2 px-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,21 +101,36 @@ export default function AdminOrdersPage() {
                 </button>
             </div>
 
-            {/* Tabs */}
+            {/* Type tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2">
-                {tabs.map((tab) => (
-                    <button
+                {typeTabs.map((tab) => (
+                    <Link
                         key={tab.key}
-                        onClick={() => setActiveTab(tab.key)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${activeTab === tab.key
-                                ? 'bg-white text-black'
-                                : 'bg-[#1D1D1F] text-white/70 hover:text-white border border-white/10'
+                        href={tab.href}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${typeFilter === tab.key
+                            ? 'bg-white text-black'
+                            : 'bg-[#1D1D1F] text-white/70 hover:text-white border border-white/10'
                             }`}
                     >
                         {tab.label}
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.key ? 'bg-black/20' : 'bg-white/10'
-                            }`}>
-                            {tab.count}
+                    </Link>
+                ))}
+            </div>
+
+            {/* Status tabs */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+                {statusTabs.map((tab) => (
+                    <button
+                        key={tab.key}
+                        onClick={() => setActiveStatus(tab.key)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${activeStatus === tab.key
+                            ? 'bg-white/20 text-white'
+                            : 'text-white/50 hover:text-white'
+                            }`}
+                    >
+                        {tab.label}
+                        <span className="px-2 py-0.5 rounded-full bg-white/10 text-xs">
+                            {getStatusCount(tab.key)}
                         </span>
                     </button>
                 ))}
@@ -134,7 +181,7 @@ export default function AdminOrdersPage() {
                                     </div>
                                 </td>
                                 <td className="px-5 py-4">
-                                    <span className="px-3 py-1 rounded-full bg-white/10 text-white/70 text-sm">
+                                    <span className={`px-3 py-1 rounded-full text-sm ${typeColors[order.type]}`}>
                                         {typeLabels[order.type]}
                                     </span>
                                 </td>
@@ -171,5 +218,13 @@ export default function AdminOrdersPage() {
                 )}
             </motion.div>
         </div>
+    );
+}
+
+export default function AdminOrdersPage() {
+    return (
+        <Suspense fallback={<div className="p-6 text-white/50">Đang tải...</div>}>
+            <OrdersContent />
+        </Suspense>
     );
 }
