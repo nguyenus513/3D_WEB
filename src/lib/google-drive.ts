@@ -32,14 +32,85 @@ function getDriveClient() {
     return google.drive({ version: 'v3', auth });
 }
 
-// Folder IDs for different file types
+// Folder IDs for different file types - Set these in .env.local after creating folders
 export const DRIVE_FOLDERS = {
+    // Root folders
     products: process.env.GOOGLE_DRIVE_PRODUCTS_FOLDER_ID || FOLDER_ID,
     custom_orders: process.env.GOOGLE_DRIVE_CUSTOM_FOLDER_ID || FOLDER_ID,
     printing_orders: process.env.GOOGLE_DRIVE_PRINTING_FOLDER_ID || FOLDER_ID,
 };
 
 export type FolderType = keyof typeof DRIVE_FOLDERS;
+
+/**
+ * Folder Structure:
+ * 
+ * 📁 3D-Web-Uploads (ROOT)
+ * ├── 📁 products/           - Ảnh sản phẩm
+ * │   ├── 📁 models/         - Ảnh mô hình
+ * │   └── 📁 accessories/    - Ảnh phụ kiện
+ * ├── 📁 custom-orders/      - Đơn custom
+ * │   └── 📁 {order_code}/   - Folder per order
+ * │       ├── 📁 input/      - Ảnh khách gửi
+ * │       └── 📁 output/     - Ảnh demo
+ * └── 📁 printing-orders/    - Đơn in 3D
+ *     └── 📁 {order_code}/   - Folder per order
+ *         ├── stl files
+ *         └── obj files
+ */
+
+/**
+ * Create a subfolder inside a parent folder
+ */
+export async function createSubfolder(
+    folderName: string,
+    parentFolderId: string
+): Promise<string> {
+    const drive = getDriveClient();
+
+    // Check if folder already exists
+    const existing = await drive.files.list({
+        q: `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id)',
+    });
+
+    if (existing.data.files && existing.data.files.length > 0) {
+        return existing.data.files[0].id!;
+    }
+
+    // Create new folder
+    const response = await drive.files.create({
+        requestBody: {
+            name: folderName,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentFolderId],
+        },
+        fields: 'id',
+    });
+
+    return response.data.id!;
+}
+
+/**
+ * Get or create nested folder path
+ * Example: getOrCreatePath('products', ['models']) → creates products/models/
+ */
+export async function getOrCreatePath(
+    rootType: FolderType,
+    subfolders: string[]
+): Promise<string> {
+    let currentFolderId = DRIVE_FOLDERS[rootType];
+
+    if (!currentFolderId) {
+        throw new Error(`Root folder not configured: ${rootType}`);
+    }
+
+    for (const folder of subfolders) {
+        currentFolderId = await createSubfolder(folder, currentFolderId);
+    }
+
+    return currentFolderId;
+}
 
 interface UploadResult {
     fileId: string;
@@ -51,15 +122,17 @@ interface UploadResult {
 
 /**
  * Upload file to Google Drive
+ * @param customFolderId - Optional specific folder ID (for subfolder uploads)
  */
 export async function uploadFile(
     file: Buffer,
     fileName: string,
     mimeType: string,
-    folderType: FolderType = 'products'
+    folderType: FolderType = 'products',
+    customFolderId?: string
 ): Promise<UploadResult> {
     const drive = getDriveClient();
-    const folderId = DRIVE_FOLDERS[folderType];
+    const folderId = customFolderId || DRIVE_FOLDERS[folderType];
 
     if (!folderId) {
         throw new Error(`Folder ID not configured for: ${folderType}`);
