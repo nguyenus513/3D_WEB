@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -51,6 +51,11 @@ export default function AdminProductNewPage() {
         tags: [] as string[],
         isFeatured: false,
     });
+
+    // Auto-generate SKU when creating new product
+    useEffect(() => {
+        setFormData(prev => ({ ...prev, sku: generateId.sku() }));
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

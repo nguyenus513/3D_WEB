@@ -56,8 +56,26 @@ export const generateId = {
      */
     sku: (category?: string): string => {
         const code = generator8();
-        return category ? `${category.toUpperCase()}-${code}` : `SKU-${code}`;
+        return category ? `${category.toUpperCase()}-${code}` : `PRD-${code}`;
     },
+
+    /**
+     * Generate SKU for Resin 3D printing: RSN-XXXXXXXX
+     * @example RSN-A7K3M9B2
+     */
+    skuResin: (): string => `RSN-${generator8()}`,
+
+    /**
+     * Generate SKU for FDM 3D printing: FDM-XXXXXXXX
+     * @example FDM-B2N8P4C5
+     */
+    skuFdm: (): string => `FDM-${generator8()}`,
+
+    /**
+     * Generate SKU for Custom orders: CST-XXXXXXXX
+     * @example CST-K5J2H8M3
+     */
+    skuCustom: (): string => `CST-${generator8()}`,
 
     /**
      * Generate raw code without prefix (for custom use)
