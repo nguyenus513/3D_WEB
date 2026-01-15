@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { NavLusion } from "@/components/layout/NavLusion";
-import { Footer } from "@/components/layout/Footer";
+import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 
 export const metadata: Metadata = {
   title: "3D Print | Sản Phẩm 3D Độc Đáo - Custom & In 3D Theo Yêu Cầu",
@@ -17,15 +16,12 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className="antialiased bg-[#0a0a0a] text-white">
-        <NavLusion />
-        <main>
-          {children}
-        </main>
-        <Footer />
+        <LayoutWrapper>{children}</LayoutWrapper>
       </body>
     </html>
   );
 }
+
 
 
 

@@ -1,10 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const navItems = [
+interface NavItem {
+    name: string;
+    href: string;
+    icon: React.ReactNode;
+    children?: { name: string; href: string }[];
+}
+
+const navItems: NavItem[] = [
     {
         name: 'Dashboard',
         href: '/admin',
@@ -40,6 +48,11 @@ const navItems = [
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
             </svg>
         ),
+        children: [
+            { name: 'Tất cả khách hàng', href: '/admin/customers' },
+            { name: 'Khách VIP', href: '/admin/customers/vip' },
+            { name: 'Thống kê', href: '/admin/customers/stats' },
+        ],
     },
     {
         name: 'In 3D',
@@ -73,6 +86,15 @@ const navItems = [
 
 export function AdminSidebar() {
     const pathname = usePathname();
+    const [expandedItems, setExpandedItems] = useState<string[]>(['Khách hàng']);
+
+    const toggleExpand = (name: string) => {
+        setExpandedItems(prev =>
+            prev.includes(name)
+                ? prev.filter(item => item !== name)
+                : [...prev, name]
+        );
+    };
 
     return (
         <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0a0a0a] border-r border-white/10 flex flex-col z-50">
@@ -96,28 +118,89 @@ export function AdminSidebar() {
                 {navItems.map((item) => {
                     const isActive = pathname === item.href ||
                         (item.href !== '/admin' && pathname.startsWith(item.href));
+                    const isExpanded = expandedItems.includes(item.name);
+                    const hasChildren = item.children && item.children.length > 0;
 
                     return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`
-                                flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-                                ${isActive
-                                    ? 'bg-white text-black'
-                                    : 'text-white/70 hover:text-white hover:bg-white/5'
-                                }
-                            `}
-                        >
-                            {item.icon}
-                            <span className="font-medium">{item.name}</span>
-                            {isActive && (
-                                <motion.div
-                                    layoutId="sidebar-indicator"
-                                    className="ml-auto w-1.5 h-1.5 rounded-full bg-black"
-                                />
+                        <div key={item.href}>
+                            {hasChildren ? (
+                                <>
+                                    <button
+                                        onClick={() => toggleExpand(item.name)}
+                                        className={`
+                                            w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                                            ${isActive
+                                                ? 'bg-white/10 text-white'
+                                                : 'text-white/70 hover:text-white hover:bg-white/5'
+                                            }
+                                        `}
+                                    >
+                                        {item.icon}
+                                        <span className="font-medium flex-1 text-left">{item.name}</span>
+                                        <svg
+                                            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    <AnimatePresence>
+                                        {isExpanded && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="pl-12 py-1 space-y-1">
+                                                    {item.children?.map((child) => {
+                                                        const isChildActive = pathname === child.href;
+                                                        return (
+                                                            <Link
+                                                                key={child.href}
+                                                                href={child.href}
+                                                                className={`
+                                                                    block px-3 py-2 rounded-lg text-sm transition-colors
+                                                                    ${isChildActive
+                                                                        ? 'bg-white text-black font-medium'
+                                                                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                                                                    }
+                                                                `}
+                                                            >
+                                                                {child.name}
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </>
+                            ) : (
+                                <Link
+                                    href={item.href}
+                                    className={`
+                                        flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                                        ${isActive
+                                            ? 'bg-white text-black'
+                                            : 'text-white/70 hover:text-white hover:bg-white/5'
+                                        }
+                                    `}
+                                >
+                                    {item.icon}
+                                    <span className="font-medium">{item.name}</span>
+                                    {isActive && (
+                                        <motion.div
+                                            layoutId="sidebar-indicator"
+                                            className="ml-auto w-1.5 h-1.5 rounded-full bg-black"
+                                        />
+                                    )}
+                                </Link>
                             )}
-                        </Link>
+                        </div>
                     );
                 })}
             </nav>
@@ -142,3 +225,4 @@ export function AdminSidebar() {
         </aside>
     );
 }
+
