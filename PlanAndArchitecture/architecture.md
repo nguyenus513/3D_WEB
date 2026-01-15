@@ -297,7 +297,51 @@ export const driveStorage = new GoogleDriveStorage();
 | **Framer Motion** | Page transitions, menu animations |
 | **Custom GLSL Shaders** | Jelly Distortion, RGB Shift |
 
-### 3.1.2 Jelly Distortion Shader (Core Effect)
+### 3.1.2 Icon System - Use Animations
+
+> [!IMPORTANT]
+> Sử dụng bộ icon **animated 2D** từ [https://useanimations.com](https://useanimations.com/#explore)
+
+| Icon Set | Use For | Format |
+|----------|---------|--------|
+| **useanimations** | Navigation, Actions | Lottie JSON / React |
+| **Heroicons** | Static fallback | SVG |
+| **Lucide** | Alternative | SVG |
+
+```tsx
+// Install
+npm install react-useanimations
+
+// Usage
+import UseAnimations from 'react-useanimations';
+import menu2 from 'react-useanimations/lib/menu2';
+import arrowDown from 'react-useanimations/lib/arrowDown';
+import loading from 'react-useanimations/lib/loading';
+
+<UseAnimations animation={menu2} size={24} />
+```
+
+### 3.1.3 NoiseBackground Button (Premium CTA)
+
+```tsx
+// NoiseBackground Order Button - Animated gradient border
+import { NoiseBackground, OrderButton } from '@/components/ui/NoiseBackground';
+
+// Pre-built component
+<OrderButton onClick={() => {}} />
+
+// Custom usage
+<NoiseBackground
+  containerClassName="w-fit p-[3px] rounded-full"
+  gradientColors={['rgb(0, 113, 227)', 'rgb(139, 92, 246)', 'rgb(0, 199, 190)']}
+>
+  <button className="rounded-full bg-[#0a0a0a] px-6 py-3 text-white">
+    Đặt hàng ngay →
+  </button>
+</NoiseBackground>
+```
+
+### 3.1.4 Jelly Distortion Shader (Core Effect)
 
 ```glsl
 // Vertex Shader - Jelly Distortion Effect
