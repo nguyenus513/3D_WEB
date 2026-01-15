@@ -5,16 +5,17 @@ import { generateVietQR, generateTransferContent, formatCurrency, BANK_INFO, typ
 
 interface PaymentQRProps {
     orderCode: string;
+    customerCode?: string;
     amount: number;
     bankId: BankCode;
     accountNo: string;
     accountName: string;
 }
 
-export function PaymentQR({ orderCode, amount, bankId, accountNo, accountName }: PaymentQRProps) {
+export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, accountName }: PaymentQRProps) {
     const [copied, setCopied] = useState<'account' | 'content' | null>(null);
 
-    const transferContent = generateTransferContent(orderCode);
+    const transferContent = generateTransferContent(orderCode, customerCode);
     const qrUrl = generateVietQR({
         bankId,
         accountNo,

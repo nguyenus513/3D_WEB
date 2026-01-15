@@ -8,22 +8,18 @@ import { useCart } from '@/lib/store/cart';
 import { getSupabase } from '@/lib/supabase/client';
 import { PaymentQR } from '@/components/PaymentQR';
 import { generateId } from '@/lib/generateId';
+import { getBankConfig, type OrderType } from '@/lib/vietqr';
 
 export default function CheckoutPaymentPage() {
     const router = useRouter();
     const { items, totalPrice, clearCart } = useCart();
     const [orderCode, setOrderCode] = useState('');
+    const [customerCode, setCustomerCode] = useState('');
     const [orderId, setOrderId] = useState('');
+    const [orderType, setOrderType] = useState<OrderType>('ready_made');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'checking' | 'success'>('pending');
-
-    // Bank config - should come from settings
-    const bankConfig = {
-        bankId: 'MB' as const,
-        accountNo: '0123456789',
-        accountName: 'NGUYEN VAN A',
-    };
 
     useEffect(() => {
         createOrder();
@@ -170,10 +166,11 @@ export default function CheckoutPaymentPage() {
                     {/* QR Section */}
                     <PaymentQR
                         orderCode={orderCode}
+                        customerCode={customerCode}
                         amount={depositAmount}
-                        bankId={bankConfig.bankId}
-                        accountNo={bankConfig.accountNo}
-                        accountName={bankConfig.accountName}
+                        bankId={getBankConfig(orderType).bankId}
+                        accountNo={getBankConfig(orderType).accountNo}
+                        accountName={getBankConfig(orderType).accountName}
                     />
 
                     {/* Order Summary */}

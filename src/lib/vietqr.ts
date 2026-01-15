@@ -69,11 +69,14 @@ export function generateVietQR({
 }
 
 /**
- * Generate bank transfer content with order code
+ * Generate bank transfer content with order code and customer code
  */
-export function generateTransferContent(orderCode: string): string {
-    // Format: "Thanh toan don hang ORD-XXXXXXXXXX"
-    return `Thanh toan ${orderCode}`;
+export function generateTransferContent(orderCode: string, customerCode?: string): string {
+    // Format: "ORD-XXXX KH-YYYY"
+    if (customerCode) {
+        return `${orderCode} ${customerCode}`;
+    }
+    return orderCode;
 }
 
 /**
@@ -110,9 +113,37 @@ export const BANK_INFO: Record<BankCode, { name: string; shortName: string }> = 
     AGR: { name: 'Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam', shortName: 'Agribank' },
 };
 
-// Default store bank config (can be updated from settings)
-export const DEFAULT_BANK_CONFIG: VietQRConfig = {
-    bankId: 'MB',
-    accountNo: '0123456789',
-    accountName: '3D PRINT SHOP',
+// Order type to determine which bank account to use
+export type OrderType = 'ready_made' | 'custom' | 'printing';
+
+// Bank configs by order type
+export const BANK_CONFIGS: Record<OrderType, VietQRConfig> = {
+    // Sản phẩm + Custom → Techcombank (Nguyen Ngoc Lan Nhi)
+    ready_made: {
+        bankId: 'TCB',
+        accountNo: '19039561357018',
+        accountName: 'NGUYEN NGOC LAN NHI',
+    },
+    custom: {
+        bankId: 'TCB',
+        accountNo: '19039561357018',
+        accountName: 'NGUYEN NGOC LAN NHI',
+    },
+    // In 3D → Sacombank (Nguyen Nhat Minh)
+    printing: {
+        bankId: 'STB',
+        accountNo: '067410012004',
+        accountName: 'NGUYEN NHAT MINH',
+    },
 };
+
+/**
+ * Get bank config by order type
+ */
+export function getBankConfig(orderType: OrderType): VietQRConfig {
+    return BANK_CONFIGS[orderType] || BANK_CONFIGS.ready_made;
+}
+
+// Default fallback
+export const DEFAULT_BANK_CONFIG = BANK_CONFIGS.ready_made;
+
