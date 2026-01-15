@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { NavLusion } from "@/components/layout/NavLusion";
 import { Footer } from "@/components/layout/Footer";
-import { CustomCursor } from "@/components/ui/CustomCursor";
 import { SmoothScroll } from "@/components/ui/SmoothScroll";
 
 const inter = Inter({
@@ -25,12 +24,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className={inter.variable}>
-      <body
-        className="antialiased bg-[#0a0a0a] text-white"
-        style={{ cursor: 'none' }}
-      >
+      <body className="antialiased bg-[#0a0a0a] text-white">
         <SmoothScroll>
-          <CustomCursor />
           <NavLusion />
           <main>
             {children}
@@ -41,3 +36,4 @@ export default function RootLayout({
     </html>
   );
 }
+
