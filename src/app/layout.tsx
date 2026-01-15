@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { NavLusion } from "@/components/layout/NavLusion";
 import { Footer } from "@/components/layout/Footer";
-import { SmoothScroll } from "@/components/ui/SmoothScroll";
 
 const inter = Inter({
   subsets: ["latin", "vietnamese"],
@@ -25,13 +24,11 @@ export default function RootLayout({
   return (
     <html lang="vi" className={inter.variable}>
       <body className="antialiased bg-[#0a0a0a] text-white">
-        <SmoothScroll>
-          <NavLusion />
-          <main>
-            {children}
-          </main>
-          <Footer />
-        </SmoothScroll>
+        <NavLusion />
+        <main>
+          {children}
+        </main>
+        <Footer />
       </body>
     </html>
   );
