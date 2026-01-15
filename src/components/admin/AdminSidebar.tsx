@@ -39,6 +39,12 @@ const navItems: NavItem[] = [
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
         ),
+        children: [
+            { name: 'Tất cả', href: '/admin/orders' },
+            { name: 'Sản phẩm', href: '/admin/orders?type=product' },
+            { name: 'Custom', href: '/admin/orders?type=custom' },
+            { name: 'In 3D', href: '/admin/orders?type=printing' },
+        ],
     },
     {
         name: 'Khách hàng',
@@ -53,24 +59,6 @@ const navItems: NavItem[] = [
             { name: 'Khách VIP', href: '/admin/customers/vip' },
             { name: 'Thống kê', href: '/admin/customers/stats' },
         ],
-    },
-    {
-        name: 'In 3D',
-        href: '/admin/printing',
-        icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-        ),
-    },
-    {
-        name: 'Custom',
-        href: '/admin/custom',
-        icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-        ),
     },
     {
         name: 'Cài đặt',

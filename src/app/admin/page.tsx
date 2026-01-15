@@ -98,6 +98,75 @@ export default function AdminDashboard() {
                 ))}
             </div>
 
+            {/* Revenue Breakdown */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+            >
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-lg font-semibold text-white">Doanh thu theo loại đơn</h2>
+                        <p className="text-white/50 text-sm mt-1">Tháng này</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-3xl font-bold text-white">45.2M</p>
+                        <p className="text-green-400 text-sm">+12% so với tháng trước</p>
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    {/* Sản phẩm */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-blue-400" />
+                                <span className="text-white">Sản phẩm</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-white font-medium">15.5M</span>
+                                <span className="text-white/50 ml-2">34%</span>
+                            </div>
+                        </div>
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-400 rounded-full" style={{ width: '34%' }} />
+                        </div>
+                    </div>
+                    {/* Custom */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-purple-400" />
+                                <span className="text-white">Custom</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-white font-medium">22.1M</span>
+                                <span className="text-white/50 ml-2">49%</span>
+                            </div>
+                        </div>
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-400 rounded-full" style={{ width: '49%' }} />
+                        </div>
+                    </div>
+                    {/* In 3D */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-green-400" />
+                                <span className="text-white">In 3D</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-white font-medium">7.6M</span>
+                                <span className="text-white/50 ml-2">17%</span>
+                            </div>
+                        </div>
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-400 rounded-full" style={{ width: '17%' }} />
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+
             {/* Main content grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Recent orders */}
