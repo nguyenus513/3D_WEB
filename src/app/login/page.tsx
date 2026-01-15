@@ -2,22 +2,61 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { getSupabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
+    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [formData, setFormData] = useState({
         email: '',
         password: '',
         remember: false,
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Handle login logic
-        console.log('Login:', formData);
+        setLoading(true);
+        setError('');
+
+        try {
+            const supabase = getSupabase();
+            const { data, error: authError } = await supabase.auth.signInWithPassword({
+                email: formData.email,
+                password: formData.password,
+            });
+
+            if (authError) {
+                setError(authError.message === 'Invalid login credentials'
+                    ? 'Email hoặc mật khẩu không đúng'
+                    : authError.message);
+                return;
+            }
+
+            if (data.user) {
+                // Check if admin
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (profile?.role === 'admin') {
+                    router.push('/admin');
+                } else {
+                    router.push('/account');
+                }
+                router.refresh();
+            }
+        } catch {
+            setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -39,6 +78,13 @@ export default function LoginPage() {
                     <p className="text-white/50">Chào mừng bạn quay trở lại</p>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                        {error}
+                    </div>
+                )}
+
                 {/* Login Form */}
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Email */}
@@ -57,6 +103,7 @@ export default function LoginPage() {
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
+                                disabled={loading}
                             />
                         </div>
                     </div>
@@ -77,6 +124,7 @@ export default function LoginPage() {
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 className="w-full pl-12 pr-12 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
+                                disabled={loading}
                             />
                             <button
                                 type="button"
@@ -114,8 +162,14 @@ export default function LoginPage() {
                     </div>
 
                     {/* Submit */}
-                    <Button type="submit" variant="primary" size="lg" className="w-full">
-                        Đăng nhập
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        size="lg"
+                        className="w-full"
+                        disabled={loading}
+                    >
+                        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                     </Button>
                 </form>
 

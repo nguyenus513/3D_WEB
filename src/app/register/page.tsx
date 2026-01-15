@@ -2,28 +2,123 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
+import { getSupabase } from '@/lib/supabase/client';
 
 export default function RegisterPage() {
+    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         phone: '',
         password: '',
-        // Shipping Address
-        recipientName: '',
         address: '',
-        saveAsDefault: true,
         agreeTerms: false,
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Handle register logic
-        console.log('Register:', formData);
+
+        if (!formData.agreeTerms) {
+            setError('Vui lòng đồng ý với điều khoản dịch vụ');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            const supabase = getSupabase();
+
+            // 1. Create auth user
+            const { data, error: authError } = await supabase.auth.signUp({
+                email: formData.email,
+                password: formData.password,
+                options: {
+                    data: {
+                        full_name: formData.name,
+                        phone: formData.phone,
+                    }
+                }
+            });
+
+            if (authError) {
+                if (authError.message.includes('already registered')) {
+                    setError('Email này đã được đăng ký');
+                } else {
+                    setError(authError.message);
+                }
+                return;
+            }
+
+            if (data.user) {
+                // 2. Update profile with additional info
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .upsert({
+                        id: data.user.id,
+                        email: formData.email,
+                        full_name: formData.name,
+                        phone: formData.phone,
+                        role: 'customer',
+                    });
+
+                if (profileError) {
+                    console.error('Profile update error:', profileError);
+                }
+
+                // Check if email confirmation is required
+                if (data.session) {
+                    // Auto-confirmed, redirect to account
+                    router.push('/account');
+                    router.refresh();
+                } else {
+                    // Need email confirmation
+                    setSuccess(true);
+                }
+            }
+        } catch {
+            setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
+        }
     };
+
+    // Success state - show confirmation message
+    if (success) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-20">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="w-full max-w-md text-center"
+                >
+                    <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6">
+                        <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <h1 className="text-3xl font-bold text-white mb-4">Đăng Ký Thành Công!</h1>
+                    <p className="text-white/60 mb-8">
+                        Chúng tôi đã gửi email xác nhận đến <strong className="text-white">{formData.email}</strong>.
+                        Vui lòng kiểm tra hộp thư và click vào link xác nhận để hoàn tất đăng ký.
+                    </p>
+                    <Link href="/login">
+                        <Button variant="primary" size="lg">
+                            Đi đến trang đăng nhập
+                        </Button>
+                    </Link>
+                </motion.div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-20">
@@ -44,6 +139,13 @@ export default function RegisterPage() {
                     <p className="text-white/50">Bắt đầu với 3D Print ngay hôm nay</p>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                        {error}
+                    </div>
+                )}
+
                 {/* Register Form */}
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Name */}
@@ -62,6 +164,7 @@ export default function RegisterPage() {
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
+                                disabled={loading}
                             />
                         </div>
                     </div>
@@ -82,6 +185,7 @@ export default function RegisterPage() {
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
+                                disabled={loading}
                             />
                         </div>
                     </div>
@@ -102,6 +206,7 @@ export default function RegisterPage() {
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
+                                disabled={loading}
                             />
                         </div>
                     </div>
@@ -117,12 +222,13 @@ export default function RegisterPage() {
                             </span>
                             <input
                                 type={showPassword ? 'text' : 'password'}
-                                placeholder="Tối thiểu 8 ký tự"
+                                placeholder="Tối thiểu 6 ký tự"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 className="w-full pl-12 pr-12 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
                                 required
-                                minLength={8}
+                                minLength={6}
+                                disabled={loading}
                             />
                             <button
                                 type="button"
@@ -143,54 +249,6 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
-                    {/* Shipping Address Section */}
-                    <div className="border-t border-white/10 pt-5 mt-2">
-                        <h3 className="text-white font-medium mb-4 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            Địa chỉ giao hàng
-                        </h3>
-
-                        {/* Recipient Name */}
-                        <div className="mb-4">
-                            <label className="text-white/70 text-sm mb-2 block">Tên người nhận</label>
-                            <input
-                                type="text"
-                                placeholder="Tên người nhận hàng"
-                                value={formData.recipientName}
-                                onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
-                                className="w-full px-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
-                                required
-                            />
-                        </div>
-
-                        {/* Address */}
-                        <div className="mb-4">
-                            <label className="text-white/70 text-sm mb-2 block">Địa chỉ</label>
-                            <textarea
-                                placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
-                                value={formData.address}
-                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                className="w-full px-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all resize-none"
-                                rows={2}
-                                required
-                            />
-                        </div>
-
-                        {/* Save as Default */}
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={formData.saveAsDefault}
-                                onChange={(e) => setFormData({ ...formData, saveAsDefault: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/20 bg-[#1D1D1F] text-white/70 focus:ring-white/30"
-                            />
-                            <span className="text-white/60 text-sm">Lưu làm địa chỉ mặc định</span>
-                        </label>
-                    </div>
-
                     {/* Terms */}
                     <label className="flex items-start gap-3 cursor-pointer">
                         <input
@@ -209,8 +267,14 @@ export default function RegisterPage() {
                     </label>
 
                     {/* Submit */}
-                    <Button type="submit" variant="primary" size="lg" className="w-full">
-                        Tạo tài khoản
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        size="lg"
+                        className="w-full"
+                        disabled={loading}
+                    >
+                        {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
                     </Button>
                 </form>
 
