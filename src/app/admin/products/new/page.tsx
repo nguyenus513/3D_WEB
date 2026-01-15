@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { generateId } from '@/lib/generateId';
+import { getSupabase } from '@/lib/supabase/client';
 
 const categories = ['Figure', 'Bust', 'Trophy', 'Custom', 'Accessory'];
 const availableTags = ['Hot', 'New', 'Sale', 'Limited', 'Exclusive', 'Best Seller'];
@@ -19,6 +20,7 @@ interface SizeVariant {
 export default function AdminProductNewPage() {
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
     const [formData, setFormData] = useState({
         // Basic
         name: '',
@@ -57,13 +59,66 @@ export default function AdminProductNewPage() {
         setFormData(prev => ({ ...prev, sku: generateId.sku() }));
     }, []);
 
+    // Generate slug from name
+    const generateSlug = (name: string) => {
+        return name
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Save product:', formData);
-        setIsSaving(false);
-        router.push('/admin/products');
+        setError('');
+
+        try {
+            const supabase = getSupabase();
+
+            // Prepare product data
+            const productData = {
+                sku: formData.sku,
+                name: formData.name,
+                slug: generateSlug(formData.name) + '-' + Date.now(),
+                status: formData.status,
+                short_description: formData.shortDescription || null,
+                description: formData.description || null,
+                base_price: parseInt(formData.basePrice) || 0,
+                sale_price: formData.salePrice ? parseInt(formData.salePrice) : null,
+                stock: parseInt(formData.totalStock) || 0,
+                low_stock_alert: parseInt(formData.lowStockAlert) || 5,
+                images: formData.images.length > 0 ? formData.images.map(url => ({ url, is_main: false })) : [],
+                video_url: formData.videoUrl || null,
+                sizes: formData.sizes.filter(s => s.enabled).map(s => ({
+                    name: s.name,
+                    price: parseInt(s.price) || 0,
+                    stock: parseInt(s.stock) || 0,
+                    enabled: s.enabled,
+                })),
+                seo_title: formData.metaTitle || null,
+                seo_description: formData.metaDescription || null,
+                tags: formData.tags,
+                is_featured: formData.isFeatured,
+            };
+
+            const { error: insertError } = await supabase
+                .from('products')
+                .insert(productData);
+
+            if (insertError) {
+                setError('Không thể tạo sản phẩm: ' + insertError.message);
+                return;
+            }
+
+            router.push('/admin/products');
+        } catch (err) {
+            setError('Đã có lỗi xảy ra: ' + (err as Error).message);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const toggleTag = (tag: string) => {
