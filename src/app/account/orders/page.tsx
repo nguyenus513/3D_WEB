@@ -1,52 +1,95 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { getSupabase } from '@/lib/supabase/client';
+import type { Order, OrderItem } from '@/types/database';
 
-// Mock orders data
-const orders = [
-    { id: '#1001', date: '15/01/2026', items: [{ name: 'Custom Couple Figure', qty: 1 }, { name: 'Accessory Set', qty: 1 }], total: 850000, status: 'processing' },
-    { id: '#0998', date: '10/01/2026', items: [{ name: 'Dragon Figure', qty: 1 }], total: 350000, status: 'completed' },
-    { id: '#0995', date: '05/01/2026', items: [{ name: 'Printing Service', qty: 3 }], total: 1200000, status: 'completed' },
-    { id: '#0990', date: '28/12/2025', items: [{ name: 'Anime Character', qty: 2 }], total: 560000, status: 'completed' },
-];
+interface OrderWithItems extends Order {
+    order_items: OrderItem[];
+}
 
 const tabs = [
     { key: 'all', label: 'Tất cả' },
+    { key: 'pending', label: 'Chờ thanh toán' },
     { key: 'processing', label: 'Đang xử lý' },
     { key: 'completed', label: 'Hoàn thành' },
 ];
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
-    processing: 'bg-blue-500/20 text-blue-400',
-    completed: 'bg-green-500/20 text-green-400',
+    paid: 'bg-blue-500/20 text-blue-400',
+    preparing: 'bg-purple-500/20 text-purple-400',
+    shipped: 'bg-cyan-500/20 text-cyan-400',
+    delivered: 'bg-green-500/20 text-green-400',
+    cancelled: 'bg-red-500/20 text-red-400',
 };
 
 const statusLabels: Record<string, string> = {
-    pending: 'Chờ xử lý',
-    processing: 'Đang xử lý',
-    completed: 'Hoàn thành',
+    pending: 'Chờ thanh toán',
+    paid: 'Đã thanh toán',
+    preparing: 'Đang chuẩn bị',
+    shipped: 'Đã gửi hàng',
+    delivered: 'Hoàn thành',
+    cancelled: 'Đã hủy',
 };
 
 export default function AccountOrdersPage() {
+    const [orders, setOrders] = useState<OrderWithItems[]>([]);
+    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
+
+    useEffect(() => {
+        fetchOrders();
+    }, []);
+
+    const fetchOrders = async () => {
+        const supabase = getSupabase();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*, order_items(*)')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
+            setOrders(data);
+        }
+        setLoading(false);
+    };
 
     const filteredOrders = activeTab === 'all'
         ? orders
-        : orders.filter(order => order.status === activeTab);
+        : activeTab === 'processing'
+            ? orders.filter(o => ['paid', 'preparing', 'shipped'].includes(o.status))
+            : activeTab === 'completed'
+                ? orders.filter(o => o.status === 'delivered')
+                : orders.filter(o => o.status === activeTab);
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-white">Đơn hàng của tôi</h1>
-                <p className="text-white/50 mt-1">Theo dõi và quản lý đơn hàng</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-white">Đơn hàng của tôi</h1>
+                    <p className="text-white/50 mt-1">
+                        {loading ? 'Đang tải...' : `${orders.length} đơn hàng`}
+                    </p>
+                </div>
+                <button onClick={fetchOrders} className="px-4 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white">
+                    Làm mới
+                </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
                 {tabs.map((tab) => (
                     <button
                         key={tab.key}
@@ -62,67 +105,83 @@ export default function AccountOrdersPage() {
             </div>
 
             {/* Orders list */}
-            <div className="space-y-4">
-                {filteredOrders.map((order, index) => (
-                    <motion.div
-                        key={order.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
-                    >
-                        {/* Order header */}
-                        <div className="p-5 border-b border-white/10 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <span className="text-white font-semibold">{order.id}</span>
-                                <span className="text-white/50 text-sm">{order.date}</span>
+            {loading ? (
+                <div className="p-12 text-center">
+                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white/50">Đang tải đơn hàng...</p>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {filteredOrders.map((order, index) => (
+                        <motion.div
+                            key={order.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                        >
+                            {/* Order header */}
+                            <div className="p-5 border-b border-white/10 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <span className="text-white font-semibold">{order.order_code}</span>
+                                    <span className="text-white/50 text-sm">
+                                        {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                                    </span>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
+                                    {statusLabels[order.status] || order.status}
+                                </span>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                                {statusLabels[order.status]}
-                            </span>
-                        </div>
 
-                        {/* Order items */}
-                        <div className="p-5">
-                            <div className="space-y-3">
-                                {order.items.map((item, i) => (
-                                    <div key={i} className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                                            <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                            </svg>
+                            {/* Order items */}
+                            <div className="p-5">
+                                <div className="space-y-3">
+                                    {order.order_items?.slice(0, 3).map((item, i) => (
+                                        <div key={i} className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                                                <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-white">{item.name}</p>
+                                                <p className="text-white/50 text-sm">x{item.quantity}</p>
+                                            </div>
+                                            <p className="text-white">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-white">{item.name}</p>
-                                            <p className="text-white/50 text-sm">x{item.qty}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                    {(order.order_items?.length || 0) > 3 && (
+                                        <p className="text-white/50 text-sm">+{(order.order_items?.length || 0) - 3} sản phẩm khác</p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Order footer */}
-                        <div className="px-5 py-4 bg-white/5 flex items-center justify-between">
-                            <div>
-                                <span className="text-white/50 text-sm">Tổng cộng: </span>
-                                <span className="text-white font-semibold">{order.total.toLocaleString('vi-VN')}đ</span>
+                            {/* Order footer */}
+                            <div className="px-5 py-4 bg-white/5 flex items-center justify-between">
+                                <div>
+                                    <span className="text-white/50 text-sm">Tổng cộng: </span>
+                                    <span className="text-white font-semibold">{Number(order.total).toLocaleString('vi-VN')}đ</span>
+                                </div>
+                                <Link
+                                    href={`/account/orders/${order.id}`}
+                                    className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/20"
+                                >
+                                    Xem chi tiết
+                                </Link>
                             </div>
-                            <Link
-                                href={`/account/orders/${order.id.replace('#', '')}`}
-                                className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/20 transition-colors"
-                            >
-                                Xem chi tiết
+                        </motion.div>
+                    ))}
+
+                    {filteredOrders.length === 0 && (
+                        <div className="text-center py-12 bg-[#1D1D1F] rounded-2xl border border-white/10">
+                            <p className="text-white/50">Không có đơn hàng nào</p>
+                            <Link href="/products" className="inline-block mt-4 px-6 py-2 bg-white text-black rounded-xl font-medium">
+                                Mua sắm ngay
                             </Link>
                         </div>
-                    </motion.div>
-                ))}
-
-                {filteredOrders.length === 0 && (
-                    <div className="text-center py-12">
-                        <p className="text-white/50">Không có đơn hàng nào</p>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

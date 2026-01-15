@@ -87,6 +87,7 @@ export type OrderStatus =
     | 'paid'
     | 'preparing'
     | 'designing'
+    | 'review'
     | 'pending_demo_approval'
     | 'contact_requested'
     | 'approved'

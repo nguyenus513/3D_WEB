@@ -1,21 +1,79 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { getSupabase } from '@/lib/supabase/client';
+import type { Profile } from '@/types/database';
 
 export default function AccountProfilePage() {
-    const [formData, setFormData] = useState({
-        name: 'Nguyễn Văn A',
-        email: 'nguyenvana@gmail.com',
-        phone: '0901234567',
-    });
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState({
+        full_name: '',
+        phone: '',
+    });
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Handle save
-        setIsEditing(false);
+    useEffect(() => {
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        const supabase = getSupabase();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+        if (!error && data) {
+            setProfile(data);
+            setFormData({
+                full_name: data.full_name || '',
+                phone: data.phone || '',
+            });
+        }
+        setLoading(false);
     };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!profile) return;
+
+        setSaving(true);
+        const supabase = getSupabase();
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({
+                full_name: formData.full_name,
+                phone: formData.phone,
+            })
+            .eq('id', profile.id);
+
+        if (!error) {
+            setProfile({ ...profile, ...formData });
+            setIsEditing(false);
+        }
+        setSaving(false);
+    };
+
+    if (loading) {
+        return (
+            <div className="p-12 text-center">
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-white/50">Đang tải...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -28,7 +86,7 @@ export default function AccountProfilePage() {
                 {!isEditing && (
                     <button
                         onClick={() => setIsEditing(true)}
-                        className="px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors"
+                        className="px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20"
                     >
                         Chỉnh sửa
                     </button>
@@ -44,15 +102,14 @@ export default function AccountProfilePage() {
             >
                 {/* Avatar */}
                 <div className="flex items-center gap-5">
-                    <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center">
-                        <svg className="w-10 h-10 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
+                    <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-2xl font-bold text-white">
+                        {formData.full_name?.charAt(0) || profile?.email?.charAt(0) || '?'}
                     </div>
-                    {isEditing && (
-                        <button type="button" className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white transition-colors">
-                            Đổi ảnh
-                        </button>
+                    {profile?.customer_code && (
+                        <div>
+                            <p className="text-white/50 text-sm">Mã khách hàng</p>
+                            <code className="text-white font-mono">{profile.customer_code}</code>
+                        </div>
                     )}
                 </div>
 
@@ -61,8 +118,8 @@ export default function AccountProfilePage() {
                     <label className="text-white/70 text-sm mb-2 block">Họ tên</label>
                     <input
                         type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                         disabled={!isEditing}
                         className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
                                 ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
@@ -76,7 +133,7 @@ export default function AccountProfilePage() {
                     <label className="text-white/70 text-sm mb-2 block">Email</label>
                     <input
                         type="email"
-                        value={formData.email}
+                        value={profile?.email || ''}
                         disabled
                         className="w-full px-4 py-3 rounded-xl bg-transparent text-white/50 cursor-not-allowed"
                     />
@@ -91,6 +148,7 @@ export default function AccountProfilePage() {
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         disabled={!isEditing}
+                        placeholder="Nhập số điện thoại"
                         className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
                                 ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
                                 : 'bg-transparent border-transparent text-white'
@@ -103,14 +161,21 @@ export default function AccountProfilePage() {
                     <div className="flex gap-3 pt-4">
                         <button
                             type="submit"
-                            className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-colors"
+                            disabled={saving}
+                            className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 disabled:opacity-50"
                         >
-                            Lưu thay đổi
+                            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
                         </button>
                         <button
                             type="button"
-                            onClick={() => setIsEditing(false)}
-                            className="px-6 py-3 rounded-xl border border-white/20 text-white/70 hover:text-white transition-colors"
+                            onClick={() => {
+                                setIsEditing(false);
+                                setFormData({
+                                    full_name: profile?.full_name || '',
+                                    phone: profile?.phone || '',
+                                });
+                            }}
+                            className="px-6 py-3 rounded-xl border border-white/20 text-white/70 hover:text-white"
                         >
                             Hủy
                         </button>
@@ -130,7 +195,7 @@ export default function AccountProfilePage() {
                         <h3 className="text-white font-semibold">Đổi mật khẩu</h3>
                         <p className="text-white/50 text-sm mt-1">Cập nhật mật khẩu tài khoản</p>
                     </div>
-                    <button className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white transition-colors">
+                    <button className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white">
                         Đổi mật khẩu
                     </button>
                 </div>
