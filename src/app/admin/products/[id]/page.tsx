@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { generateId } from '@/lib/generateId';
 
 const categories = ['Figure', 'Bust', 'Trophy', 'Custom', 'Accessory'];
 const availableTags = ['Hot', 'New', 'Sale', 'Limited', 'Exclusive', 'Best Seller'];
@@ -161,13 +162,22 @@ export default function AdminProductEditPage() {
                             </div>
                             <div>
                                 <label className="text-white/70 text-sm mb-2 block">SKU (Mã sản phẩm)</label>
-                                <input
-                                    type="text"
-                                    value={formData.sku}
-                                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                    placeholder="VD: DRAGON-001"
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
-                                />
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={formData.sku}
+                                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                                        placeholder="VD: SKU-A7K3M9B2"
+                                        className="flex-1 px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, sku: generateId.sku() })}
+                                        className="px-4 py-3 bg-white/10 rounded-xl text-white/70 hover:text-white hover:bg-white/20 transition-colors text-sm whitespace-nowrap"
+                                    >
+                                        Tạo mã
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label className="text-white/70 text-sm mb-2 block">Danh mục</label>
