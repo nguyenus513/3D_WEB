@@ -189,9 +189,8 @@ export function HeroJelly() {
                     </motion.p>
 
                     {/* Main Title */}
-                    <h1 className="text-[clamp(48px,12vw,140px)] font-bold leading-[0.85] tracking-[-0.04em] text-white mb-8">
-                        <TextReveal text="Sản Phẩm" delay={0.4} />
-                        <br />
+                    <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1] tracking-[-0.04em] text-white mb-8 whitespace-nowrap">
+                        <TextReveal text="Sản Phẩm " delay={0.4} />
                         <span className="bg-gradient-to-r from-[#0071E3] via-[#00C7BE] to-[#8B5CF6] bg-clip-text text-transparent">
                             <TextReveal text="Độc Đáo" delay={0.7} />
                         </span>
