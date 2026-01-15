@@ -9,27 +9,39 @@ const services = [
         id: 'products',
         title: 'Sản Phẩm Có Sẵn',
         description: 'Khám phá bộ sưu tập mô hình 3D độc đáo, chất lượng cao.',
-        icon: '🎭',
+        icon: (
+            <svg className="w-16 h-16 md:w-20 md:h-20 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+        ),
         href: '/products',
-        gradient: 'from-[#FF6B6B]/20 to-[#FF8E53]/10',
+        gradient: 'from-white/5 to-white/0',
         size: 'normal',
     },
     {
         id: 'custom',
         title: 'Tùy Biến Theo Yêu Cầu',
         description: 'Tạo mô hình từ ảnh của bạn. Single, Couple, Group.',
-        icon: '✨',
+        icon: (
+            <svg className="w-16 h-16 md:w-20 md:h-20 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+        ),
         href: '/custom',
-        gradient: 'from-[#4ECDC4]/20 to-[#44A08D]/10',
+        gradient: 'from-white/5 to-white/0',
         size: 'normal',
     },
     {
         id: 'printing',
         title: 'Dịch Vụ In 3D',
         description: 'Upload file STL • Báo giá tự động • FDM & Resin',
-        icon: '🖨️',
+        icon: (
+            <svg className="w-16 h-16 md:w-20 md:h-20 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+        ),
         href: '/printing',
-        gradient: 'from-[#A855F7]/20 to-[#6366F1]/10',
+        gradient: 'from-white/5 to-white/0',
         size: 'wide',
     },
 ];
@@ -72,7 +84,7 @@ export function BentoGrid() {
                                     {/* Icon with parallax */}
                                     <Parallax speed={-0.2}>
                                         <div className={`
-                      text-7xl md:text-8xl mb-6
+                      mb-6
                       transform group-hover:scale-110 transition-transform duration-500
                       ${service.size === 'wide' ? 'absolute right-8 top-1/2 -translate-y-1/2' : ''}
                     `}>

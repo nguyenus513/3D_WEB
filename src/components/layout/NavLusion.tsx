@@ -129,7 +129,9 @@ export function NavLusion() {
                             >
                                 <h3 className="text-[#1D1D1F] font-semibold text-lg mb-4 flex items-center gap-2">
                                     <span className="w-8 h-8 rounded-full bg-[#F5F5F7] flex items-center justify-center">
-                                        👤
+                                        <svg className="w-4 h-4 text-[#1D1D1F]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
                                     </span>
                                     Tài Khoản
                                 </h3>
@@ -141,7 +143,9 @@ export function NavLusion() {
                                         onClick={() => setIsOpen(false)}
                                         className="flex items-center gap-2 p-3 bg-[#F5F5F7] rounded-xl hover:bg-[#E8E8ED] transition-colors"
                                     >
-                                        <span>🛒</span>
+                                        <svg className="w-4 h-4 text-[#1D1D1F]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
                                         <span className="text-[#1D1D1F] text-sm font-medium">Giỏ hàng</span>
                                         {cartCount > 0 && (
                                             <span className="ml-auto text-xs bg-[#0071E3] text-white px-2 py-0.5 rounded-full">
@@ -154,7 +158,9 @@ export function NavLusion() {
                                         onClick={() => setIsOpen(false)}
                                         className="flex items-center gap-2 p-3 bg-[#F5F5F7] rounded-xl hover:bg-[#E8E8ED] transition-colors"
                                     >
-                                        <span>❓</span>
+                                        <svg className="w-4 h-4 text-[#1D1D1F]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
                                         <span className="text-[#1D1D1F] text-sm font-medium">FAQ</span>
                                     </Link>
                                 </div>
@@ -191,7 +197,9 @@ export function NavLusion() {
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                                            <span className="text-lg">🛍️</span>
+                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                            </svg>
                                         </div>
                                         <span className="text-white font-medium">ĐẶT HÀNG NGAY</span>
                                     </div>
