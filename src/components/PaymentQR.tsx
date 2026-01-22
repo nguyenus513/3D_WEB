@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { generateVietQR, generateTransferContent, formatCurrency, BANK_INFO, type BankCode } from '@/lib/vietqr';
+import { useState, useMemo } from 'react';
+import { BANK_INFO, type BankCode } from '@/lib/vietqr';
 
 interface PaymentQRProps {
     orderCode: string;
@@ -14,15 +14,22 @@ interface PaymentQRProps {
 
 export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, accountName }: PaymentQRProps) {
     const [copied, setCopied] = useState<'account' | 'content' | null>(null);
+    const [imgError, setImgError] = useState(false);
 
-    const transferContent = generateTransferContent(orderCode, customerCode);
-    const qrUrl = generateVietQR({
-        bankId,
-        accountNo,
-        accountName,
-        amount,
-        addInfo: transferContent,
-    });
+    const transferContent = customerCode ? `${orderCode} ${customerCode}` : orderCode;
+
+    // Generate VietQR image URL directly - simple and reliable
+    const qrUrl = useMemo(() => {
+        const params = new URLSearchParams({
+            amount: amount.toString(),
+            addInfo: transferContent,
+            accountName: accountName.toUpperCase(),
+        });
+        return `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?${params.toString()}`;
+    }, [amount, transferContent, accountName, bankId, accountNo]);
+
+    // Debug log
+    console.log('PaymentQR URL:', qrUrl);
 
     const handleCopy = async (text: string, type: 'account' | 'content') => {
         try {
@@ -34,6 +41,13 @@ export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, 
         }
     };
 
+    const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND',
+        }).format(value);
+    };
+
     return (
         <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 max-w-md mx-auto">
             {/* Header */}
@@ -42,13 +56,25 @@ export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, 
                 <p className="text-white/50 text-sm">Quét mã QR hoặc chuyển khoản thủ công</p>
             </div>
 
-            {/* QR Code */}
+            {/* QR Code - Direct from VietQR */}
             <div className="bg-white rounded-xl p-4 mb-6">
-                <img
-                    src={qrUrl}
-                    alt="VietQR Payment Code"
-                    className="w-full aspect-square object-contain"
-                />
+                {imgError ? (
+                    <div className="w-full aspect-square flex flex-col items-center justify-center text-gray-500">
+                        <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p className="text-sm text-center">Không thể tải QR</p>
+                        <p className="text-xs mt-1">Vui lòng chuyển khoản thủ công</p>
+                    </div>
+                ) : (
+                    <img
+                        src={qrUrl}
+                        alt="VietQR Payment Code"
+                        className="w-full aspect-square object-contain"
+                        onError={() => setImgError(true)}
+                    />
+                )}
+                <p className="text-center text-xs text-gray-500 mt-2">Powered by VietQR</p>
             </div>
 
             {/* Bank Info */}

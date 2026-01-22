@@ -2,42 +2,52 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useSession } from 'next-auth/react';
 import { getSupabase } from '@/lib/supabase/client';
-import type { Profile } from '@/types/database';
+
+interface UserProfile {
+    id: string;
+    email: string;
+    name: string | null;
+    phone: string | null;
+    customer_code: string | null;
+}
 
 export default function AccountProfilePage() {
-    const [profile, setProfile] = useState<Profile | null>(null);
+    const { data: session, status } = useSession();
+    const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [formData, setFormData] = useState({
-        full_name: '',
+        name: '',
         phone: '',
     });
 
     useEffect(() => {
-        fetchProfile();
-    }, []);
+        if (status === 'authenticated' && session?.user?.email) {
+            fetchProfile();
+        } else if (status === 'unauthenticated') {
+            setLoading(false);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [status, session]);
 
     const fetchProfile = async () => {
+        if (!session?.user?.email) return;
+
         const supabase = getSupabase();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            setLoading(false);
-            return;
-        }
-
         const { data, error } = await supabase
             .from('profiles')
-            .select('*')
-            .eq('id', user.id)
+            .select('id, email, name, phone, customer_code')
+            .eq('email', session.user.email)
             .single();
 
         if (!error && data) {
             setProfile(data);
             setFormData({
-                full_name: data.full_name || '',
+                name: data.name || '',
                 phone: data.phone || '',
             });
         }
@@ -49,28 +59,42 @@ export default function AccountProfilePage() {
         if (!profile) return;
 
         setSaving(true);
-        const supabase = getSupabase();
+        setMessage(null);
 
+        const supabase = getSupabase();
         const { error } = await supabase
             .from('profiles')
             .update({
-                full_name: formData.full_name,
+                name: formData.name,
                 phone: formData.phone,
+                updated_at: new Date().toISOString(),
             })
             .eq('id', profile.id);
 
-        if (!error) {
+        if (error) {
+            setMessage({ type: 'error', text: 'Không thể lưu thay đổi. Vui lòng thử lại.' });
+        } else {
             setProfile({ ...profile, ...formData });
             setIsEditing(false);
+            setMessage({ type: 'success', text: 'Đã lưu thay đổi thành công!' });
+            setTimeout(() => setMessage(null), 3000);
         }
         setSaving(false);
     };
 
-    if (loading) {
+    if (status === 'loading' || loading) {
         return (
             <div className="p-12 text-center">
                 <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
                 <p className="text-white/50">Đang tải...</p>
+            </div>
+        );
+    }
+
+    if (!session?.user) {
+        return (
+            <div className="p-12 text-center">
+                <p className="text-white/50">Vui lòng đăng nhập để xem hồ sơ</p>
             </div>
         );
     }
@@ -93,6 +117,20 @@ export default function AccountProfilePage() {
                 )}
             </div>
 
+            {/* Message */}
+            {message && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-4 rounded-xl ${message.type === 'success'
+                        ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                        : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                        }`}
+                >
+                    {message.text}
+                </motion.div>
+            )}
+
             {/* Profile form */}
             <motion.form
                 initial={{ opacity: 0, y: 20 }}
@@ -102,8 +140,8 @@ export default function AccountProfilePage() {
             >
                 {/* Avatar */}
                 <div className="flex items-center gap-5">
-                    <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-2xl font-bold text-white">
-                        {formData.full_name?.charAt(0) || profile?.email?.charAt(0) || '?'}
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white">
+                        {formData.name?.charAt(0) || session.user.email?.charAt(0) || '?'}
                     </div>
                     {profile?.customer_code && (
                         <div>
@@ -118,12 +156,13 @@ export default function AccountProfilePage() {
                     <label className="text-white/70 text-sm mb-2 block">Họ tên</label>
                     <input
                         type="text"
-                        value={formData.full_name}
-                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         disabled={!isEditing}
+                        placeholder="Nhập họ tên"
                         className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
-                                ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
-                                : 'bg-transparent border-transparent text-white'
+                            ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
+                            : 'bg-transparent border-transparent text-white'
                             }`}
                     />
                 </div>
@@ -133,7 +172,7 @@ export default function AccountProfilePage() {
                     <label className="text-white/70 text-sm mb-2 block">Email</label>
                     <input
                         type="email"
-                        value={profile?.email || ''}
+                        value={session.user.email || ''}
                         disabled
                         className="w-full px-4 py-3 rounded-xl bg-transparent text-white/50 cursor-not-allowed"
                     />
@@ -150,8 +189,8 @@ export default function AccountProfilePage() {
                         disabled={!isEditing}
                         placeholder="Nhập số điện thoại"
                         className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
-                                ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
-                                : 'bg-transparent border-transparent text-white'
+                            ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
+                            : 'bg-transparent border-transparent text-white'
                             }`}
                     />
                 </div>
@@ -171,7 +210,7 @@ export default function AccountProfilePage() {
                             onClick={() => {
                                 setIsEditing(false);
                                 setFormData({
-                                    full_name: profile?.full_name || '',
+                                    name: profile?.name || '',
                                     phone: profile?.phone || '',
                                 });
                             }}
@@ -182,24 +221,6 @@ export default function AccountProfilePage() {
                     </div>
                 )}
             </motion.form>
-
-            {/* Password section */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
-            >
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h3 className="text-white font-semibold">Đổi mật khẩu</h3>
-                        <p className="text-white/50 text-sm mt-1">Cập nhật mật khẩu tài khoản</p>
-                    </div>
-                    <button className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white">
-                        Đổi mật khẩu
-                    </button>
-                </div>
-            </motion.div>
         </div>
     );
 }

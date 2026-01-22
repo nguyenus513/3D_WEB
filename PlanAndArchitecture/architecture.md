@@ -2837,7 +2837,11 @@ sequenceDiagram
 - Chỉ hiển thị giá cuối
 
 ### Phase 5: Checkout & Payment (2 tuần)
-- Cart, PayOS integration
+- Cart implementation
+- **VietQR integration (thay PayOS)**
+  - **Sản phẩm + Custom**: Techcombank 19039561357018 (Nguyen Ngoc Lan Nhi)
+  - **In 3D (Printing)**: Sacombank 067410012004 (Nguyen Nhat Minh)
+- Nội dung CK: `{MÃ ĐƠN} {MÃ KHÁCH}`
 - 50% deposit cho có sẵn/custom
 - 100% cho printing
 

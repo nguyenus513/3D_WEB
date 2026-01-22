@@ -69,7 +69,7 @@ export default function FAQPage() {
                     <div className="space-y-4">
                         {displayFaqs.map((faq, index) => (
                             <AnimatedSection key={faq.id} delay={index * 0.05}>
-                                <div className="bg-[#1D1D1F] rounded-2xl overflow-hidden">
+                                <div className="bg-white/5 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/10">
                                     <button
                                         onClick={() => setOpenIndex(openIndex === index ? null : index)}
                                         className="w-full flex items-center justify-between p-6 text-left"
@@ -105,7 +105,7 @@ export default function FAQPage() {
 
                 {/* Contact CTA */}
                 <AnimatedSection delay={0.4} className="mt-16 text-center">
-                    <div className="bg-[#1D1D1F] rounded-3xl p-8 md:p-12">
+                    <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-white/10">
                         <h2 className="text-2xl font-semibold text-white mb-4">
                             Không tìm thấy câu trả lời?
                         </h2>

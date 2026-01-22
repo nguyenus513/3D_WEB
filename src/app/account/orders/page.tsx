@@ -3,10 +3,21 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useSession } from 'next-auth/react';
 import { getSupabase } from '@/lib/supabase/client';
-import type { Order, OrderItem } from '@/types/database';
 
-interface OrderWithItems extends Order {
+interface OrderItem {
+    name: string;
+    quantity: number;
+    total_price: number;
+}
+
+interface Order {
+    id: string;
+    order_code: string;
+    created_at: string;
+    total: number;
+    status: string;
     order_items: OrderItem[];
 }
 
@@ -36,17 +47,31 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function AccountOrdersPage() {
-    const [orders, setOrders] = useState<OrderWithItems[]>([]);
+    const { data: session, status } = useSession();
+    const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
 
     useEffect(() => {
-        fetchOrders();
-    }, []);
+        if (status === 'authenticated' && session?.user?.email) {
+            fetchOrders();
+        } else if (status === 'unauthenticated') {
+            setLoading(false);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [status, session]);
 
     const fetchOrders = async () => {
+        if (!session?.user?.email) return;
+
         const supabase = getSupabase();
-        const { data: { user } } = await supabase.auth.getUser();
+
+        // Get user ID from email
+        const { data: user } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', session.user.email)
+            .single();
 
         if (!user) {
             setLoading(false);
@@ -73,6 +98,15 @@ export default function AccountOrdersPage() {
                 ? orders.filter(o => o.status === 'delivered')
                 : orders.filter(o => o.status === activeTab);
 
+    if (status === 'loading' || loading) {
+        return (
+            <div className="p-12 text-center">
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-white/50">Đang tải đơn hàng...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -80,7 +114,7 @@ export default function AccountOrdersPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-white">Đơn hàng của tôi</h1>
                     <p className="text-white/50 mt-1">
-                        {loading ? 'Đang tải...' : `${orders.length} đơn hàng`}
+                        {orders.length} đơn hàng
                     </p>
                 </div>
                 <button onClick={fetchOrders} className="px-4 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white">
@@ -95,8 +129,8 @@ export default function AccountOrdersPage() {
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === tab.key
-                                ? 'bg-white text-black'
-                                : 'bg-[#1D1D1F] text-white/70 hover:text-white border border-white/10'
+                            ? 'bg-white text-black'
+                            : 'bg-[#1D1D1F] text-white/70 hover:text-white border border-white/10'
                             }`}
                     >
                         {tab.label}
@@ -105,83 +139,76 @@ export default function AccountOrdersPage() {
             </div>
 
             {/* Orders list */}
-            {loading ? (
-                <div className="p-12 text-center">
-                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/50">Đang tải đơn hàng...</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {filteredOrders.map((order, index) => (
-                        <motion.div
-                            key={order.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
-                        >
-                            {/* Order header */}
-                            <div className="p-5 border-b border-white/10 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <span className="text-white font-semibold">{order.order_code}</span>
-                                    <span className="text-white/50 text-sm">
-                                        {new Date(order.created_at).toLocaleDateString('vi-VN')}
-                                    </span>
-                                </div>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                                    {statusLabels[order.status] || order.status}
+            <div className="space-y-4">
+                {filteredOrders.map((order, index) => (
+                    <motion.div
+                        key={order.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                    >
+                        {/* Order header */}
+                        <div className="p-5 border-b border-white/10 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <span className="text-white font-semibold">{order.order_code}</span>
+                                <span className="text-white/50 text-sm">
+                                    {new Date(order.created_at).toLocaleDateString('vi-VN')}
                                 </span>
                             </div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
+                                {statusLabels[order.status] || order.status}
+                            </span>
+                        </div>
 
-                            {/* Order items */}
-                            <div className="p-5">
-                                <div className="space-y-3">
-                                    {order.order_items?.slice(0, 3).map((item, i) => (
-                                        <div key={i} className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                                                <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                </svg>
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-white">{item.name}</p>
-                                                <p className="text-white/50 text-sm">x{item.quantity}</p>
-                                            </div>
-                                            <p className="text-white">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
+                        {/* Order items */}
+                        <div className="p-5">
+                            <div className="space-y-3">
+                                {order.order_items?.slice(0, 3).map((item, i) => (
+                                    <div key={i} className="flex items-center gap-3">
+                                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                            </svg>
                                         </div>
-                                    ))}
-                                    {(order.order_items?.length || 0) > 3 && (
-                                        <p className="text-white/50 text-sm">+{(order.order_items?.length || 0) - 3} sản phẩm khác</p>
-                                    )}
-                                </div>
+                                        <div className="flex-1">
+                                            <p className="text-white">{item.name}</p>
+                                            <p className="text-white/50 text-sm">x{item.quantity}</p>
+                                        </div>
+                                        <p className="text-white">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
+                                    </div>
+                                ))}
+                                {(order.order_items?.length || 0) > 3 && (
+                                    <p className="text-white/50 text-sm">+{(order.order_items?.length || 0) - 3} sản phẩm khác</p>
+                                )}
                             </div>
+                        </div>
 
-                            {/* Order footer */}
-                            <div className="px-5 py-4 bg-white/5 flex items-center justify-between">
-                                <div>
-                                    <span className="text-white/50 text-sm">Tổng cộng: </span>
-                                    <span className="text-white font-semibold">{Number(order.total).toLocaleString('vi-VN')}đ</span>
-                                </div>
-                                <Link
-                                    href={`/account/orders/${order.id}`}
-                                    className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/20"
-                                >
-                                    Xem chi tiết
-                                </Link>
+                        {/* Order footer */}
+                        <div className="px-5 py-4 bg-white/5 flex items-center justify-between">
+                            <div>
+                                <span className="text-white/50 text-sm">Tổng cộng: </span>
+                                <span className="text-white font-semibold">{Number(order.total).toLocaleString('vi-VN')}đ</span>
                             </div>
-                        </motion.div>
-                    ))}
-
-                    {filteredOrders.length === 0 && (
-                        <div className="text-center py-12 bg-[#1D1D1F] rounded-2xl border border-white/10">
-                            <p className="text-white/50">Không có đơn hàng nào</p>
-                            <Link href="/products" className="inline-block mt-4 px-6 py-2 bg-white text-black rounded-xl font-medium">
-                                Mua sắm ngay
+                            <Link
+                                href={`/account/orders/${order.id}`}
+                                className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/20"
+                            >
+                                Xem chi tiết
                             </Link>
                         </div>
-                    )}
-                </div>
-            )}
+                    </motion.div>
+                ))}
+
+                {filteredOrders.length === 0 && (
+                    <div className="text-center py-12 bg-[#1D1D1F] rounded-2xl border border-white/10">
+                        <p className="text-white/50">Không có đơn hàng nào</p>
+                        <Link href="/products" className="inline-block mt-4 px-6 py-2 bg-white text-black rounded-xl font-medium">
+                            Mua sắm ngay
+                        </Link>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

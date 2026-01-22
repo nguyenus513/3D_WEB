@@ -126,6 +126,11 @@ export interface Order {
     customer_note: string | null;
     admin_note: string | null;
     paid_at: string | null;
+    processing_at: string | null;
+    designing_at: string | null;
+    review_at: string | null;
+    approved_at: string | null;
+    printing_at: string | null;
     shipped_at: string | null;
     delivered_at: string | null;
     created_at: string;

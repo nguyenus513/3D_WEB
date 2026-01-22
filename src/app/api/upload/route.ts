@@ -1,43 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-    uploadFile,
-    generateFileName,
-    isValidImageType,
-    isValidSTLType,
-    getOrCreatePath,
-    type FolderType
-} from '@/lib/google-drive';
+    uploadWithNaming,
+    isDriveConnected,
+    getDirectUrl,
+    getThumbnailUrl,
+} from '@/lib/google-drive-oauth';
 
 /**
- * Upload API - Supports organized folder structure
- * 
  * POST /api/upload
+ * Upload file to Google Drive with automatic naming and folder organization
+ * 
  * FormData:
  *   - file: File (required)
- *   - folderType: 'products' | 'custom_orders' | 'printing_orders'
- *   - subfolders: JSON array of subfolder names, e.g. '["ORD001", "input"]'
- *   - prefix: filename prefix
- * 
- * Examples:
- *   - Product image: folderType='products', subfolders='["models"]'
- *   - Custom order input: folderType='custom_orders', subfolders='["ORD001", "input"]'
- *   - Printing STL: folderType='printing_orders', subfolders='["PRT001"]'
+ *   - type: 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview'
+ *   - index: number (file index, e.g. 1, 2, 3)
+ *   
+ *   For products:
+ *   - sku: string (e.g., 'FIG-001')
+ *   
+ *   For printing/custom:
+ *   - customerCode: string (e.g., 'CUS-ABC123')
+ *   - orderCode: string (e.g., 'P3D-2024-001' or 'CUS-2024-001')
  */
 export async function POST(request: NextRequest) {
     try {
+        // Check if Drive is connected
+        const connected = await isDriveConnected();
+        if (!connected) {
+            return NextResponse.json({
+                error: 'Google Drive chưa được kết nối. Vui lòng vào Admin Settings để kết nối.'
+            }, { status: 400 });
+        }
+
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const folderType = (formData.get('folderType') as FolderType) || 'products';
-        const subfoldersRaw = formData.get('subfolders') as string;
-        const prefix = (formData.get('prefix') as string) || '';
+        const type = formData.get('type') as 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview';
+        const index = parseInt(formData.get('index') as string) || 1;
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
+        if (!type) {
+            return NextResponse.json({ error: 'Upload type is required' }, { status: 400 });
+        }
+
         // Validate file type
-        const isImage = isValidImageType(file.type);
-        const isSTL = isValidSTLType(file.type) || file.name.endsWith('.stl') || file.name.endsWith('.obj');
+        const isImage = file.type.startsWith('image/');
+        const isSTL = file.name.endsWith('.stl') || file.name.endsWith('.obj');
 
         if (!isImage && !isSTL) {
             return NextResponse.json({
@@ -45,61 +55,66 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // Validate file size (max 100MB for STL/OBJ)
-        const maxSize = isSTL ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
+        // Validate file size (max 100MB)
+        const maxSize = 100 * 1024 * 1024;
         if (file.size > maxSize) {
             return NextResponse.json({
-                error: `File too large. Maximum: ${isSTL ? '100MB' : '50MB'}`
+                error: 'File too large. Maximum: 100MB'
             }, { status: 400 });
-        }
-
-        // Parse subfolders
-        let subfolders: string[] = [];
-        if (subfoldersRaw) {
-            try {
-                subfolders = JSON.parse(subfoldersRaw);
-            } catch {
-                return NextResponse.json({ error: 'Invalid subfolders format' }, { status: 400 });
-            }
-        }
-
-        // Get or create folder path
-        let targetFolderId: string | undefined;
-        if (subfolders.length > 0) {
-            targetFolderId = await getOrCreatePath(folderType, subfolders);
         }
 
         // Convert File to Buffer
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Generate unique filename
-        const fileName = generateFileName(file.name, prefix);
+        // Build upload options
+        const options: Parameters<typeof uploadWithNaming>[3] = {
+            type,
+            index,
+            sku: formData.get('sku') as string,
+            customerCode: formData.get('customerCode') as string,
+            orderCode: formData.get('orderCode') as string,
+        };
 
-        // Upload to Google Drive
-        const result = await uploadFile(buffer, fileName, file.type, folderType, targetFolderId);
+        // Upload with automatic naming
+        const result = await uploadWithNaming(
+            buffer,
+            file.name,
+            file.type || 'application/octet-stream',
+            options
+        );
 
+        // Return with proper URLs
         return NextResponse.json({
             success: true,
             file: {
                 id: result.fileId,
                 name: result.fileName,
-                url: result.webContentLink,
+                url: getDirectUrl(result.fileId),
+                thumbnail: getThumbnailUrl(result.fileId, 400),
                 viewUrl: result.webViewLink,
-                thumbnail: result.thumbnailLink,
+                downloadUrl: result.webContentLink,
             },
         });
     } catch (error) {
         console.error('Upload error:', error);
 
-        if ((error as Error).message?.includes('credentials')) {
+        const errorMessage = (error as Error).message;
+
+        if (errorMessage.includes('not connected')) {
             return NextResponse.json({
-                error: 'Google Drive not configured. Please set up credentials.'
-            }, { status: 500 });
+                error: 'Google Drive chưa được kết nối. Vui lòng vào Admin Settings để kết nối.'
+            }, { status: 400 });
+        }
+
+        if (errorMessage.includes('expired')) {
+            return NextResponse.json({
+                error: 'Token hết hạn. Vui lòng kết nối lại Google Drive trong Admin Settings.'
+            }, { status: 401 });
         }
 
         return NextResponse.json({
-            error: 'Upload failed: ' + (error as Error).message
+            error: 'Upload failed: ' + errorMessage
         }, { status: 500 });
     }
 }

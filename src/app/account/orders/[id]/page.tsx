@@ -1,61 +1,237 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useSession } from 'next-auth/react';
+import { getSupabase } from '@/lib/supabase/client';
 
-// Mock order data
-const mockOrder = {
-    id: '#1001',
-    status: 'processing',
-    type: 'custom',
-    created_at: '15/01/2026 10:30',
-    items: [
-        { name: 'Custom Couple Figure', qty: 1, price: 650000, size: 'M (15cm)', image: '🎭' },
-        { name: 'Accessory Set', qty: 1, price: 200000, size: 'S (5cm)', image: '✨' },
-    ],
-    subtotal: 850000,
-    shipping_fee: 30000,
-    total: 880000,
-    deposit: 440000,
-    remaining: 440000,
-    shipping: {
-        recipient: 'Nguyễn Văn A',
-        phone: '0901234567',
-        address: '123 Nguyễn Văn Linh, Quận 7, TP.HCM',
-    },
-    tracking: {
-        code: 'VTP123456789',
-        carrier: 'Viettel Post',
-        url: 'https://viettelpost.vn/tracking',
-    },
-    timeline: [
-        { status: 'ordered', label: 'Đặt hàng thành công', date: '15/01/2026 10:30', completed: true },
-        { status: 'paid', label: 'Đã thanh toán cọc 50%', date: '15/01/2026 10:35', completed: true },
-        { status: 'processing', label: 'Đang sản xuất', date: '15/01/2026 14:00', completed: true },
-        { status: 'review', label: 'Gửi ảnh xác nhận', date: '', completed: false },
-        { status: 'shipping', label: 'Đang giao hàng', date: '', completed: false },
-        { status: 'completed', label: 'Hoàn thành', date: '', completed: false },
-    ],
+interface OrderItem {
+    id: string;
+    product_name: string;
+    product_sku: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    configuration: {
+        size?: string;
+    };
+}
+
+interface Order {
+    id: string;
+    order_code: string;
+    order_type: 'ready_made' | 'custom' | 'printing';
+    status: string;
+    subtotal: number;
+    shipping_fee: number;
+    total: number;
+    deposit_amount: number;
+    deposit_paid: boolean;
+    shipping_address: {
+        name: string;
+        phone: string;
+        address: string;
+        ward: string;
+        district: string;
+        province: string;
+    } | null;
+    shipping_code: string | null;
+    customer_note: string | null;
+    admin_note: string | null;
+    created_at: string;
+    paid_at: string | null;
+    shipped_at: string | null;
+    delivered_at: string | null;
+    custom_config?: {
+        type: string;
+        size: string;
+        images: { url: string; thumbnail: string }[];
+        notes: string;
+    };
+    printing_config?: {
+        type: string;
+        color: string;
+        quantity: number;
+        analysis: { grams: number; hours: number; price: number };
+        files: { url: string; name: string }[];
+    };
+    order_items: OrderItem[];
+}
+
+const statusLabels: Record<string, string> = {
+    pending: 'Chờ thanh toán',
+    paid: 'Đã thanh toán',
+    processing: 'Đang sản xuất',
+    designing: 'Đang thiết kế',
+    review: 'Chờ xác nhận',
+    approved: 'Đã duyệt',
+    printing: 'Đang in',
+    shipping: 'Đang giao hàng',
+    delivered: 'Đã giao hàng',
+    cancelled: 'Đã hủy',
 };
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    paid: 'bg-emerald-500/20 text-emerald-400',
     processing: 'bg-blue-500/20 text-blue-400',
+    designing: 'bg-purple-500/20 text-purple-400',
+    review: 'bg-amber-500/20 text-amber-400',
+    approved: 'bg-cyan-500/20 text-cyan-400',
+    printing: 'bg-indigo-500/20 text-indigo-400',
     shipping: 'bg-orange-500/20 text-orange-400',
-    completed: 'bg-green-500/20 text-green-400',
+    delivered: 'bg-green-500/20 text-green-400',
+    cancelled: 'bg-red-500/20 text-red-400',
 };
 
-const statusLabels: Record<string, string> = {
-    pending: 'Chờ xử lý',
-    processing: 'Đang sản xuất',
-    shipping: 'Đang giao hàng',
-    completed: 'Hoàn thành',
+const orderTypeLabels: Record<string, string> = {
+    ready_made: 'Sản phẩm có sẵn',
+    custom: 'Đặt theo yêu cầu',
+    printing: 'Dịch vụ in 3D',
 };
 
 export default function AccountOrderDetailPage() {
     const params = useParams();
-    const order = mockOrder;
+    const router = useRouter();
+    const { data: session, status } = useSession();
+    const [order, setOrder] = useState<Order | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (status === 'authenticated' && session?.user?.email) {
+            fetchOrder();
+        } else if (status === 'unauthenticated') {
+            router.push('/login?redirect=/account/orders');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [status, session, params.id]);
+
+    const fetchOrder = async () => {
+        if (!session?.user?.email) return;
+
+        try {
+            const supabase = getSupabase();
+
+            // Get user ID from email
+            const { data: user } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', session.user.email)
+                .single();
+
+            if (!user) {
+                setError('Không tìm thấy người dùng');
+                setLoading(false);
+                return;
+            }
+
+            // Fetch order
+            const { data, error: fetchError } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    order_items (*)
+                `)
+                .eq('id', params.id)
+                .eq('user_id', user.id)
+                .single();
+
+            if (fetchError) {
+                setError('Không tìm thấy đơn hàng');
+                setLoading(false);
+                return;
+            }
+
+            setOrder(data);
+            setLoading(false);
+        } catch (err) {
+            setError((err as Error).message);
+            setLoading(false);
+        }
+    };
+
+    const formatDate = (dateStr: string | null) => {
+        if (!dateStr) return '';
+        return new Date(dateStr).toLocaleString('vi-VN');
+    };
+
+    const getTimeline = () => {
+        if (!order) return [];
+
+        const baseTimeline = [
+            {
+                status: 'ordered',
+                label: 'Đặt hàng thành công',
+                date: formatDate(order.created_at),
+                completed: true
+            },
+        ];
+
+        if (order.deposit_paid || order.paid_at) {
+            baseTimeline.push({
+                status: 'paid',
+                label: order.order_type === 'printing' ? 'Đã thanh toán 100%' : 'Đã cọc 50%',
+                date: formatDate(order.paid_at),
+                completed: true,
+            });
+        }
+
+        // Add type-specific steps
+        if (order.order_type === 'custom') {
+            baseTimeline.push(
+                { status: 'designing', label: 'Đang thiết kế', date: '', completed: order.status === 'designing' || ['review', 'approved', 'processing', 'shipping', 'delivered'].includes(order.status) },
+                { status: 'review', label: 'Chờ xác nhận ảnh', date: '', completed: ['review', 'approved', 'processing', 'shipping', 'delivered'].includes(order.status) },
+            );
+        }
+
+        if (order.order_type === 'printing') {
+            baseTimeline.push(
+                { status: 'printing', label: 'Đang in', date: '', completed: ['printing', 'shipping', 'delivered'].includes(order.status) },
+            );
+        }
+
+        baseTimeline.push(
+            { status: 'processing', label: 'Đang sản xuất', date: '', completed: ['processing', 'shipping', 'delivered'].includes(order.status) },
+            { status: 'shipping', label: 'Đang giao hàng', date: formatDate(order.shipped_at), completed: ['shipping', 'delivered'].includes(order.status) },
+            { status: 'delivered', label: 'Đã giao hàng', date: formatDate(order.delivered_at), completed: order.status === 'delivered' },
+        );
+
+        return baseTimeline;
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white/50">Đang tải...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !order) {
+        return (
+            <div className="text-center py-20">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Không tìm thấy đơn hàng</h2>
+                <p className="text-white/50 mb-6">{error}</p>
+                <Link href="/account/orders" className="px-6 py-3 bg-white text-black rounded-xl font-medium">
+                    Quay lại đơn hàng
+                </Link>
+            </div>
+        );
+    }
+
+    const remaining = order.total - order.deposit_amount;
+    const timeline = getTimeline();
 
     return (
         <div className="space-y-6">
@@ -71,12 +247,14 @@ export default function AccountOrderDetailPage() {
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Đơn hàng {order.id}</h1>
-                        <p className="text-white/50 mt-1">Đặt lúc {order.created_at}</p>
+                        <h1 className="text-2xl font-bold text-white">Đơn hàng {order.order_code}</h1>
+                        <p className="text-white/50 mt-1">
+                            {orderTypeLabels[order.order_type]} • {formatDate(order.created_at)}
+                        </p>
                     </div>
                 </div>
-                <span className={`px-4 py-2 rounded-xl text-sm font-medium ${statusColors[order.status]}`}>
-                    {statusLabels[order.status]}
+                <span className={`px-4 py-2 rounded-xl text-sm font-medium ${statusColors[order.status] || 'bg-gray-500/20 text-gray-400'}`}>
+                    {statusLabels[order.status] || order.status}
                 </span>
             </div>
 
@@ -91,11 +269,11 @@ export default function AccountOrderDetailPage() {
                     >
                         <h2 className="text-lg font-semibold text-white mb-6">Trạng thái đơn hàng</h2>
                         <div className="relative">
-                            {order.timeline.map((step, index) => (
+                            {timeline.map((step, index) => (
                                 <div key={step.status} className="flex gap-4 pb-6 last:pb-0">
                                     <div className="flex flex-col items-center">
                                         <div className={`w-4 h-4 rounded-full ${step.completed ? 'bg-white' : 'bg-white/20'}`} />
-                                        {index < order.timeline.length - 1 && (
+                                        {index < timeline.length - 1 && (
                                             <div className={`w-0.5 flex-1 ${step.completed ? 'bg-white/50' : 'bg-white/10'}`} />
                                         )}
                                     </div>
@@ -112,32 +290,133 @@ export default function AccountOrderDetailPage() {
                         </div>
                     </motion.div>
 
-                    {/* Order items */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
-                    >
-                        <h2 className="text-lg font-semibold text-white mb-4">Sản phẩm</h2>
-                        <div className="space-y-4">
-                            {order.items.map((item, index) => (
-                                <div key={index} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl">
-                                    <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center text-2xl">
-                                        {item.image}
+                    {/* Order items - Ready Made */}
+                    {order.order_type === 'ready_made' && order.order_items.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        >
+                            <h2 className="text-lg font-semibold text-white mb-4">Sản phẩm</h2>
+                            <div className="space-y-4">
+                                {order.order_items.map((item) => (
+                                    <div key={item.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl">
+                                        <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center text-2xl">
+                                            📦
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-white font-medium">{item.product_name}</p>
+                                            <p className="text-white/50 text-sm">
+                                                {item.configuration?.size || item.product_sku} × {item.quantity}
+                                            </p>
+                                        </div>
+                                        <p className="text-white font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="text-white font-medium">{item.name}</p>
-                                        <p className="text-white/50 text-sm">{item.size} × {item.qty}</p>
-                                    </div>
-                                    <p className="text-white font-medium">{item.price.toLocaleString('vi-VN')}đ</p>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Custom Config */}
+                    {order.order_type === 'custom' && order.custom_config && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        >
+                            <h2 className="text-lg font-semibold text-white mb-4">Chi tiết đơn Custom</h2>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="p-4 bg-white/5 rounded-xl">
+                                    <p className="text-white/50 text-sm">Loại</p>
+                                    <p className="text-white font-medium capitalize">{order.custom_config.type}</p>
                                 </div>
-                            ))}
-                        </div>
-                    </motion.div>
+                                <div className="p-4 bg-white/5 rounded-xl">
+                                    <p className="text-white/50 text-sm">Kích thước</p>
+                                    <p className="text-white font-medium">{order.custom_config.size}</p>
+                                </div>
+                            </div>
+                            {order.custom_config.notes && (
+                                <div className="p-4 bg-white/5 rounded-xl mb-4">
+                                    <p className="text-white/50 text-sm">Ghi chú</p>
+                                    <p className="text-white">{order.custom_config.notes}</p>
+                                </div>
+                            )}
+                            {order.custom_config.images?.length > 0 && (
+                                <div>
+                                    <p className="text-white/50 text-sm mb-2">Ảnh tham khảo</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {order.custom_config.images.map((img, i) => (
+                                            <a
+                                                key={i}
+                                                href={img.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="aspect-square rounded-xl bg-white/10 overflow-hidden hover:ring-2 ring-white/50 transition-all"
+                                            >
+                                                <img
+                                                    src={img.thumbnail || img.url}
+                                                    alt={`Ảnh ${i + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+
+                    {/* Printing Config */}
+                    {order.order_type === 'printing' && order.printing_config && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        >
+                            <h2 className="text-lg font-semibold text-white mb-4">Chi tiết đơn In 3D</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                <div className="p-4 bg-white/5 rounded-xl">
+                                    <p className="text-white/50 text-sm">Loại in</p>
+                                    <p className="text-white font-medium uppercase">{order.printing_config.type}</p>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-xl">
+                                    <p className="text-white/50 text-sm">Màu</p>
+                                    <p className="text-white font-medium capitalize">{order.printing_config.color}</p>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-xl">
+                                    <p className="text-white/50 text-sm">Số lượng</p>
+                                    <p className="text-white font-medium">×{order.printing_config.quantity}</p>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-xl">
+                                    <p className="text-white/50 text-sm">Khối lượng</p>
+                                    <p className="text-white font-medium">{order.printing_config.analysis?.grams || 0}g</p>
+                                </div>
+                            </div>
+                            {order.printing_config.files?.length > 0 && (
+                                <div className="p-4 bg-white/5 rounded-xl">
+                                    <p className="text-white/50 text-sm mb-2">File 3D</p>
+                                    {order.printing_config.files.map((file, i) => (
+                                        <a
+                                            key={i}
+                                            href={file.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 text-blue-400 hover:underline"
+                                        >
+                                            <span>📄</span>
+                                            <span>{file.name}</span>
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
 
                     {/* Tracking */}
-                    {order.tracking.code && (
+                    {order.shipping_code && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -147,11 +426,11 @@ export default function AccountOrderDetailPage() {
                             <h2 className="text-lg font-semibold text-white mb-4">Theo dõi vận chuyển</h2>
                             <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
                                 <div>
-                                    <p className="text-white/50 text-sm">Mã vận đơn ({order.tracking.carrier})</p>
-                                    <p className="text-white font-medium mt-1">{order.tracking.code}</p>
+                                    <p className="text-white/50 text-sm">Mã vận đơn (Viettel Post)</p>
+                                    <p className="text-white font-medium mt-1">{order.shipping_code}</p>
                                 </div>
                                 <a
-                                    href={order.tracking.url}
+                                    href={`https://viettelpost.vn/tra-cuu-hanh-trinh-don?code=${order.shipping_code}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="px-4 py-2 rounded-xl bg-white text-black text-sm font-medium hover:bg-white/90 transition-colors"
@@ -165,20 +444,24 @@ export default function AccountOrderDetailPage() {
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                    {/* Shipping */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
-                    >
-                        <h2 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h2>
-                        <div className="space-y-2">
-                            <p className="text-white">{order.shipping.recipient}</p>
-                            <p className="text-white/70">{order.shipping.phone}</p>
-                            <p className="text-white/50">{order.shipping.address}</p>
-                        </div>
-                    </motion.div>
+                    {/* Shipping Address */}
+                    {order.shipping_address && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        >
+                            <h2 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h2>
+                            <div className="space-y-2">
+                                <p className="text-white">{order.shipping_address.name}</p>
+                                <p className="text-white/70">{order.shipping_address.phone}</p>
+                                <p className="text-white/50">
+                                    {order.shipping_address.address}, {order.shipping_address.ward}, {order.shipping_address.district}, {order.shipping_address.province}
+                                </p>
+                            </div>
+                        </motion.div>
+                    )}
 
                     {/* Payment */}
                     <motion.div
@@ -202,15 +485,30 @@ export default function AccountOrderDetailPage() {
                                 <span className="text-white font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between text-green-400">
-                                <span>Đã cọc</span>
-                                <span>{order.deposit.toLocaleString('vi-VN')}đ</span>
+                                <span>{order.order_type === 'printing' ? 'Đã thanh toán' : 'Đã cọc'}</span>
+                                <span>{order.deposit_amount.toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="flex justify-between text-yellow-400">
-                                <span>Còn lại</span>
-                                <span>{order.remaining.toLocaleString('vi-VN')}đ</span>
-                            </div>
+                            {remaining > 0 && order.order_type !== 'printing' && (
+                                <div className="flex justify-between text-yellow-400">
+                                    <span>Còn lại</span>
+                                    <span>{remaining.toLocaleString('vi-VN')}đ</span>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
+
+                    {/* Customer Note */}
+                    {order.customer_note && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.45 }}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        >
+                            <h2 className="text-lg font-semibold text-white mb-4">Ghi chú</h2>
+                            <p className="text-white/70">{order.customer_note}</p>
+                        </motion.div>
+                    )}
 
                     {/* Actions */}
                     <motion.div
@@ -219,12 +517,19 @@ export default function AccountOrderDetailPage() {
                         transition={{ delay: 0.5 }}
                         className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-3"
                     >
-                        <button className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-colors">
+                        <a
+                            href="https://zalo.me/0901234567"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full py-3 rounded-xl bg-white text-black font-medium text-center hover:bg-white/90 transition-colors"
+                        >
                             Liên hệ hỗ trợ
-                        </button>
-                        <button className="w-full py-3 rounded-xl border border-white/20 text-white/70 hover:text-white transition-colors">
-                            Hủy đơn hàng
-                        </button>
+                        </a>
+                        {order.status === 'pending' && (
+                            <button className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
+                                Hủy đơn hàng
+                            </button>
+                        )}
                     </motion.div>
                 </div>
             </div>

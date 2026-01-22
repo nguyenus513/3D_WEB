@@ -7,17 +7,32 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
 
-const categories = ['Tất cả', 'Figure', 'Bust', 'Trophy', 'Custom', 'Accessory'];
+interface Category {
+    id: string;
+    name: string;
+    slug: string;
+}
 
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [activeCategory, setActiveCategory] = useState('Tất cả');
     const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
 
     useEffect(() => {
+        fetchCategories();
         fetchProducts();
     }, []);
+
+    const fetchCategories = async () => {
+        const supabase = getSupabase();
+        const { data } = await supabase
+            .from('categories')
+            .select('*')
+            .order('sort_order', { ascending: true });
+        setCategories(data || []);
+    };
 
     const fetchProducts = async () => {
         const supabase = getSupabase();
@@ -35,7 +50,7 @@ export default function ProductsPage() {
 
     const filteredProducts = activeCategory === 'Tất cả'
         ? products
-        : products.filter(p => p.tags?.includes(activeCategory) || p.type === activeCategory.toLowerCase());
+        : products.filter(p => p.category_id === categories.find(c => c.name === activeCategory)?.id);
 
     // Generate gradient colors from product
     const getColors = (index: number) => {
@@ -72,19 +87,31 @@ export default function ProductsPage() {
                 {/* Category Tabs */}
                 <AnimatedSection delay={0.2} className="flex justify-center mb-12">
                     <div className="inline-flex bg-[#1D1D1F] rounded-full p-1 flex-wrap justify-center gap-1">
+                        <button
+                            onClick={() => setActiveCategory('Tất cả')}
+                            className={`
+                                px-6 py-3 rounded-full text-sm font-medium transition-all
+                                ${activeCategory === 'Tất cả'
+                                    ? 'bg-white text-[#0a0a0a]'
+                                    : 'text-white/70 hover:text-white'
+                                }
+                            `}
+                        >
+                            Tất cả
+                        </button>
                         {categories.map((category) => (
                             <button
-                                key={category}
-                                onClick={() => setActiveCategory(category)}
+                                key={category.id}
+                                onClick={() => setActiveCategory(category.name)}
                                 className={`
                                     px-6 py-3 rounded-full text-sm font-medium transition-all
-                                    ${activeCategory === category
+                                    ${activeCategory === category.name
                                         ? 'bg-white text-[#0a0a0a]'
                                         : 'text-white/70 hover:text-white'
                                     }
                                 `}
                             >
-                                {category}
+                                {category.name}
                             </button>
                         ))}
                     </div>
@@ -155,14 +182,19 @@ export default function ProductsPage() {
                                                         }}
                                                         transition={{ duration: 0.4 }}
                                                     >
-                                                        📦
+                                                        <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                        </svg>
                                                     </motion.span>
                                                 )}
 
                                                 {/* Featured badge */}
                                                 {product.is_featured && (
-                                                    <span className="absolute top-4 left-4 px-3 py-1 bg-yellow-400/90 text-black text-xs font-bold rounded-full z-20">
-                                                        ⭐ Nổi bật
+                                                    <span className="absolute top-4 left-4 px-3 py-1 bg-yellow-400/90 text-black text-xs font-bold rounded-full z-20 flex items-center gap-1">
+                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                        </svg>
+                                                        Nổi bật
                                                     </span>
                                                 )}
 
@@ -225,20 +257,16 @@ export default function ProductsPage() {
                 {/* Empty State */}
                 {!loading && filteredProducts.length === 0 && (
                     <div className="text-center py-20">
-                        <p className="text-6xl mb-4">📦</p>
+                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
+                            <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                        </div>
                         <p className="text-white/50 mb-4">
                             {products.length === 0
                                 ? 'Chưa có sản phẩm nào'
                                 : 'Không có sản phẩm nào trong danh mục này'}
                         </p>
-                        {products.length === 0 && (
-                            <Link
-                                href="/admin/products/new"
-                                className="inline-block px-6 py-3 bg-white text-black rounded-full font-medium hover:bg-white/90 transition-colors"
-                            >
-                                Thêm sản phẩm đầu tiên
-                            </Link>
-                        )}
                     </div>
                 )}
             </div>

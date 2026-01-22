@@ -116,34 +116,85 @@ export const BANK_INFO: Record<BankCode, { name: string; shortName: string }> = 
 // Order type to determine which bank account to use
 export type OrderType = 'ready_made' | 'custom' | 'printing';
 
-// Bank configs by order type
-export const BANK_CONFIGS: Record<OrderType, VietQRConfig> = {
-    // Sản phẩm + Custom → Techcombank (Nguyen Ngoc Lan Nhi)
-    ready_made: {
-        bankId: 'TCB',
-        accountNo: '19039561357018',
-        accountName: 'NGUYEN NGOC LAN NHI',
-    },
-    custom: {
-        bankId: 'TCB',
-        accountNo: '19039561357018',
-        accountName: 'NGUYEN NGOC LAN NHI',
-    },
-    // In 3D → Sacombank (Nguyen Nhat Minh)
-    printing: {
-        bankId: 'STB',
-        accountNo: '067410012004',
-        accountName: 'NGUYEN NHAT MINH',
-    },
-};
+/**
+ * Get bank config from environment variables
+ * SECURITY: Bank account info should not be in source code
+ * 
+ * Required env vars:
+ * - BANK_TCB_ACCOUNT_NO
+ * - BANK_TCB_ACCOUNT_NAME
+ * - BANK_STB_ACCOUNT_NO
+ * - BANK_STB_ACCOUNT_NAME
+ */
+function getBankConfigFromEnv(bankId: BankCode): VietQRConfig {
+    const configs: Record<string, { accountNoKey: string; accountNameKey: string }> = {
+        TCB: { accountNoKey: 'BANK_TCB_ACCOUNT_NO', accountNameKey: 'BANK_TCB_ACCOUNT_NAME' },
+        STB: { accountNoKey: 'BANK_STB_ACCOUNT_NO', accountNameKey: 'BANK_STB_ACCOUNT_NAME' },
+    };
+
+    const envConfig = configs[bankId];
+    if (!envConfig) {
+        throw new Error(`Bank config not found for ${bankId}`);
+    }
+
+    const accountNo = process.env[envConfig.accountNoKey];
+    const accountName = process.env[envConfig.accountNameKey];
+
+    if (!accountNo || !accountName) {
+        console.warn(`[SECURITY] Missing bank env vars for ${bankId}. Using fallback.`);
+        // Fallback for development only - should never happen in production
+        if (process.env.NODE_ENV === 'development') {
+            return {
+                bankId,
+                accountNo: 'DEMO_ACCOUNT',
+                accountName: 'DEMO_NAME',
+            };
+        }
+        throw new Error(`Missing bank configuration for ${bankId}`);
+    }
+
+    return {
+        bankId,
+        accountNo,
+        accountName,
+    };
+}
+
+// Bank configs by order type - lazy loaded from env
+const bankConfigCache: Partial<Record<OrderType, VietQRConfig>> = {};
+
+export function getBankConfigForOrderType(orderType: OrderType): VietQRConfig {
+    // Check cache first
+    if (bankConfigCache[orderType]) {
+        return bankConfigCache[orderType]!;
+    }
+
+    // Map order types to bank IDs
+    const orderToBankMap: Record<OrderType, BankCode> = {
+        ready_made: 'TCB',
+        custom: 'TCB',
+        printing: 'STB',
+    };
+
+    const bankId = orderToBankMap[orderType];
+    const config = getBankConfigFromEnv(bankId);
+
+    // Cache for subsequent calls
+    bankConfigCache[orderType] = config;
+
+    return config;
+}
 
 /**
  * Get bank config by order type
+ * @deprecated Use getBankConfigForOrderType instead
  */
 export function getBankConfig(orderType: OrderType): VietQRConfig {
-    return BANK_CONFIGS[orderType] || BANK_CONFIGS.ready_made;
+    return getBankConfigForOrderType(orderType);
 }
 
-// Default fallback
-export const DEFAULT_BANK_CONFIG = BANK_CONFIGS.ready_made;
+// Default fallback - use for ready_made
+export function getDefaultBankConfig(): VietQRConfig {
+    return getBankConfigForOrderType('ready_made');
+}
 

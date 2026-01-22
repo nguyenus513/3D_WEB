@@ -2,10 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
-import type { Address } from '@/types/database';
+import { useSession } from 'next-auth/react';
+
+interface Address {
+    id: string;
+    user_id: string;
+    label: string;
+    full_name: string;
+    phone: string;
+    address_line: string;
+    province: string;
+    is_default: boolean;
+}
 
 export default function AccountAddressesPage() {
+    const { data: session, status } = useSession();
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -19,79 +30,88 @@ export default function AccountAddressesPage() {
     });
 
     useEffect(() => {
-        fetchAddresses();
-    }, []);
-
-    const fetchAddresses = async () => {
-        const supabase = getSupabase();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
+        if (status === 'authenticated') {
+            fetchAddresses();
+        } else if (status === 'unauthenticated') {
             setLoading(false);
-            return;
         }
+    }, [status]);
 
-        const { data, error } = await supabase
-            .from('addresses')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('is_default', { ascending: false });
-
-        if (!error && data) {
-            setAddresses(data);
+    // Fetch via secure API
+    const fetchAddresses = async () => {
+        try {
+            const res = await fetch('/api/addresses');
+            const data = await res.json();
+            if (data.addresses) {
+                setAddresses(data.addresses);
+            }
+        } catch (error) {
+            console.error('Fetch addresses error:', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
+    // Set default via API
     const setDefault = async (id: string) => {
-        const supabase = getSupabase();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        // Reset all to non-default
-        await supabase.from('addresses').update({ is_default: false }).eq('user_id', user.id);
-        // Set selected as default
-        await supabase.from('addresses').update({ is_default: true }).eq('id', id);
-
-        fetchAddresses();
+        try {
+            await fetch('/api/addresses', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, is_default: true }),
+            });
+            fetchAddresses();
+        } catch (error) {
+            console.error('Set default error:', error);
+        }
     };
 
+    // Delete via API
     const deleteAddress = async (id: string) => {
         if (!confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
 
-        const supabase = getSupabase();
-        await supabase.from('addresses').delete().eq('id', id);
-        setAddresses(addresses.filter(a => a.id !== id));
+        try {
+            await fetch(`/api/addresses?id=${id}`, { method: 'DELETE' });
+            setAddresses(addresses.filter(a => a.id !== id));
+        } catch (error) {
+            console.error('Delete error:', error);
+        }
     };
 
+    // Create via API
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
 
-        const supabase = getSupabase();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        try {
+            const res = await fetch('/api/addresses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...formData,
+                    is_default: addresses.length === 0,
+                }),
+            });
+
+            if (res.ok) {
+                setShowForm(false);
+                setFormData({ label: '', full_name: '', phone: '', address_line: '', province: '' });
+                fetchAddresses();
+            }
+        } catch (error) {
+            console.error('Submit error:', error);
+        } finally {
             setSaving(false);
-            return;
         }
-
-        const { error } = await supabase.from('addresses').insert({
-            user_id: user.id,
-            label: formData.label,
-            full_name: formData.full_name,
-            phone: formData.phone,
-            address_line: formData.address_line,
-            province: formData.province || 'TP.HCM',
-            is_default: addresses.length === 0,
-        });
-
-        if (!error) {
-            setShowForm(false);
-            setFormData({ label: '', full_name: '', phone: '', address_line: '', province: '' });
-            fetchAddresses();
-        }
-        setSaving(false);
     };
+
+    if (status === 'loading' || loading) {
+        return (
+            <div className="p-12 text-center">
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -100,7 +120,7 @@ export default function AccountAddressesPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-white">Địa chỉ giao hàng</h1>
                     <p className="text-white/50 mt-1">
-                        {loading ? 'Đang tải...' : `${addresses.length} địa chỉ`}
+                        {addresses.length} địa chỉ
                     </p>
                 </div>
                 <button
@@ -114,78 +134,69 @@ export default function AccountAddressesPage() {
                 </button>
             </div>
 
-            {/* Loading */}
-            {loading && (
-                <div className="p-12 text-center">
-                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-                </div>
-            )}
-
             {/* Addresses list */}
-            {!loading && (
-                <div className="space-y-4">
-                    {addresses.map((address, index) => (
-                        <motion.div
-                            key={address.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className={`bg-[#1D1D1F] rounded-2xl border p-5 ${address.is_default ? 'border-white/30' : 'border-white/10'
-                                }`}
-                        >
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <h3 className="text-white font-semibold">{address.label || 'Địa chỉ'}</h3>
-                                        {address.is_default && (
-                                            <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs">
-                                                Mặc định
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-white">{address.full_name}</p>
-                                    <p className="text-white/70">{address.phone}</p>
-                                    <p className="text-white/50 mt-2">{address.address_line}</p>
-                                    {address.province && <p className="text-white/50">{address.province}</p>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {!address.is_default && (
-                                        <button
-                                            onClick={() => deleteAddress(address.id)}
-                                            className="p-2 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
+            <div className="space-y-4">
+                {addresses.map((address, index) => (
+                    <motion.div
+                        key={address.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={`bg-[#1D1D1F] rounded-2xl border p-5 ${address.is_default ? 'border-white/30' : 'border-white/10'
+                            }`}
+                    >
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <h3 className="text-white font-semibold">{address.label || 'Địa chỉ'}</h3>
+                                    {address.is_default && (
+                                        <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs">
+                                            Mặc định
+                                        </span>
                                     )}
                                 </div>
+                                <p className="text-white">{address.full_name}</p>
+                                <p className="text-white/70">{address.phone}</p>
+                                <p className="text-white/50 mt-2">{address.address_line}</p>
+                                {address.province && <p className="text-white/50">{address.province}</p>}
                             </div>
-
-                            {!address.is_default && (
-                                <button
-                                    onClick={() => setDefault(address.id)}
-                                    className="mt-4 text-sm text-white/50 hover:text-white"
-                                >
-                                    Đặt làm mặc định
-                                </button>
-                            )}
-                        </motion.div>
-                    ))}
-
-                    {addresses.length === 0 && (
-                        <div className="text-center py-12 bg-[#1D1D1F] rounded-2xl border border-white/10">
-                            <p className="text-white/50 mb-4">Chưa có địa chỉ nào</p>
-                            <button
-                                onClick={() => setShowForm(true)}
-                                className="px-6 py-2 bg-white text-black rounded-xl font-medium"
-                            >
-                                Thêm địa chỉ đầu tiên
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {!address.is_default && (
+                                    <button
+                                        onClick={() => deleteAddress(address.id)}
+                                        className="p-2 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    )}
-                </div>
-            )}
+
+                        {!address.is_default && (
+                            <button
+                                onClick={() => setDefault(address.id)}
+                                className="mt-4 text-sm text-white/50 hover:text-white"
+                            >
+                                Đặt làm mặc định
+                            </button>
+                        )}
+                    </motion.div>
+                ))}
+
+                {addresses.length === 0 && (
+                    <div className="text-center py-12 bg-[#1D1D1F] rounded-2xl border border-white/10">
+                        <p className="text-white/50 mb-4">Chưa có địa chỉ nào</p>
+                        <button
+                            onClick={() => setShowForm(true)}
+                            className="px-6 py-2 bg-white text-black rounded-xl font-medium"
+                        >
+                            Thêm địa chỉ đầu tiên
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* Add address form modal */}
             {showForm && (

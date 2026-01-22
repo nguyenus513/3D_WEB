@@ -1,21 +1,29 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import Link from 'next/link';
+import { getSupabase } from '@/lib/supabase/client';
+import { generateId } from '@/lib/generateId';
 
 type OrderType = 'single' | 'couple' | 'group';
+
+interface FileInfo {
+    id: string;
+    name: string;
+    url: string;
+    thumbnail: string;
+}
 
 interface OrderData {
     type: OrderType;
     images: File[];
     size: string;
     notes: string;
-    name: string;
-    phone: string;
 }
 
 const steps = [
@@ -26,9 +34,39 @@ const steps = [
 ];
 
 const orderTypes = [
-    { id: 'single' as OrderType, name: 'Single', desc: '1 người', price: 350000, emoji: '👤' },
-    { id: 'couple' as OrderType, name: 'Couple', desc: '2 người', price: 550000, emoji: '👥' },
-    { id: 'group' as OrderType, name: 'Group', desc: '3+ người', price: 750000, emoji: '👨‍👩‍👧‍👦' },
+    {
+        id: 'single' as OrderType,
+        name: 'Single',
+        desc: '1 người',
+        price: 350000,
+        icon: (
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+        )
+    },
+    {
+        id: 'couple' as OrderType,
+        name: 'Couple',
+        desc: '2 người',
+        price: 550000,
+        icon: (
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+        )
+    },
+    {
+        id: 'group' as OrderType,
+        name: 'Group',
+        desc: '3+ người',
+        price: 750000,
+        icon: (
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+        )
+    },
 ];
 
 const sizes = [
@@ -39,20 +77,152 @@ const sizes = [
 ];
 
 export default function CustomPage() {
+    const router = useRouter();
+    const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+    const [customerCode, setCustomerCode] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
     const [currentStep, setCurrentStep] = useState(1);
     const [orderData, setOrderData] = useState<OrderData>({
         type: 'single',
         images: [],
         size: 'M',
         notes: '',
-        name: '',
-        phone: '',
     });
     const [dragActive, setDragActive] = useState(false);
 
     const basePrice = orderTypes.find(t => t.id === orderData.type)?.price || 350000;
     const sizeMultiplier = sizes.find(s => s.id === orderData.size)?.multiplier || 1;
     const totalPrice = Math.round(basePrice * sizeMultiplier);
+    const shippingFee = 30000;
+    const depositAmount = Math.round((totalPrice + shippingFee) * 0.5);
+
+    const { data: session, status } = useSession();
+
+    // Auth check on mount
+    useEffect(() => {
+        if (status === 'loading') return;
+
+        if (status === 'unauthenticated') {
+            router.push('/login?redirect=/custom');
+            return;
+        }
+
+        const fetchUserData = async () => {
+            if (!session?.user?.email) return;
+
+            const supabase = getSupabase();
+            const { data: user } = await supabase
+                .from('profiles')
+                .select('id, customer_code')
+                .eq('email', session.user.email)
+                .single();
+
+            if (user) {
+                setUser({ id: user.id, email: session.user.email });
+                setCustomerCode(user.customer_code || generateId.user());
+            }
+            setLoading(false);
+        };
+
+        fetchUserData();
+    }, [status, session, router]);
+
+    // Upload images to Google Drive
+    const uploadImages = async (orderCode: string): Promise<FileInfo[]> => {
+        const uploadedImages: FileInfo[] = [];
+
+        for (let i = 0; i < orderData.images.length; i++) {
+            const formData = new FormData();
+            formData.append('file', orderData.images[i]);
+            formData.append('type', 'custom_main');
+            formData.append('customerCode', customerCode);
+            formData.append('orderCode', orderCode);
+            formData.append('index', String(i + 1));
+
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            uploadedImages.push(data.file);
+        }
+
+        return uploadedImages;
+    };
+
+    // Submit order
+    const handleSubmit = async () => {
+        if (!user) return;
+
+        setSubmitting(true);
+        setError('');
+
+        try {
+            const supabase = getSupabase();
+            const orderCode = generateId.custom();
+
+            // Upload images to Drive
+            const images = await uploadImages(orderCode);
+
+            // Create order in Supabase (without custom_config JSONB)
+            const { data: order, error: orderError } = await supabase
+                .from('orders')
+                .insert({
+                    order_code: orderCode,
+                    user_id: user.id,
+                    order_type: 'custom',
+                    status: 'pending',
+                    subtotal: totalPrice,
+                    shipping_fee: shippingFee,
+                    total: totalPrice + shippingFee,
+                    deposit_amount: depositAmount,
+                })
+                .select()
+                .single();
+
+            if (orderError) {
+                throw new Error(orderError.message);
+            }
+
+            // Insert into order_configs (normalized)
+            await supabase.from('order_configs').insert({
+                order_id: order.id,
+                custom_type: orderData.type,
+                custom_size: orderData.size,
+            });
+
+            // Insert files into order_files (normalized)
+            if (images && images.length > 0) {
+                const orderFiles = images.map((img: FileInfo) => ({
+                    order_id: order.id,
+                    file_id: img.id,
+                    file_type: 'photo',
+                    file_name: img.name || null,
+                }));
+                await supabase.from('order_files').insert(orderFiles);
+            }
+
+            // Store notes in customer_note field
+            if (orderData.notes) {
+                await supabase.from('orders').update({ customer_note: orderData.notes }).eq('id', order.id);
+            }
+
+            // Store order type for payment page
+            sessionStorage.setItem('checkout_order_type', 'custom');
+            sessionStorage.setItem('checkout_order_id', order.id);
+
+            // Redirect to payment
+            router.push('/checkout/payment?orderId=' + order.id);
+        } catch (err) {
+            setError((err as Error).message);
+            setSubmitting(false);
+        }
+    };
 
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -92,6 +262,18 @@ export default function CustomPage() {
     const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 4));
     const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
+    // Loading state
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white/50">Đang tải...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
             <div className="max-w-[900px] mx-auto px-6">
@@ -118,7 +300,7 @@ export default function CustomPage() {
                                     className={`
                     w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
                     ${currentStep >= step.id
-                                            ? 'bg-white text-black text-white'
+                                            ? 'bg-white text-black'
                                             : 'bg-[#1D1D1F] text-white/50'
                                         }
                   `}
@@ -126,7 +308,7 @@ export default function CustomPage() {
                                     {step.id}
                                 </button>
                                 {index < steps.length - 1 && (
-                                    <div className={`w-12 h-0.5 mx-1 ${currentStep > step.id ? 'bg-white text-black' : 'bg-[#1D1D1F]'}`} />
+                                    <div className={`w-12 h-0.5 mx-1 ${currentStep > step.id ? 'bg-white' : 'bg-[#1D1D1F]'}`} />
                                 )}
                             </div>
                         ))}
@@ -153,13 +335,13 @@ export default function CustomPage() {
                                             className={`
                         p-6 rounded-2xl text-left transition-all
                         ${orderData.type === type.id
-                                                    ? 'bg-white text-black text-white ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
+                                                    ? 'bg-white text-black ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
                                                     : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
                                                 }
                       `}
                                             data-cursor
                                         >
-                                            <span className="text-4xl mb-4 block">{type.emoji}</span>
+                                            <div className="mb-4 flex justify-center text-white/80">{type.icon}</div>
                                             <h3 className="text-lg font-semibold">{type.name}</h3>
                                             <p className="text-sm opacity-70">{type.desc}</p>
                                             <p className="text-lg font-semibold mt-2">
@@ -190,7 +372,7 @@ export default function CustomPage() {
                                     className={`
                     border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer
                     ${dragActive
-                                            ? 'border-white/30 bg-white text-black/10'
+                                            ? 'border-white/30 bg-white/10'
                                             : 'border-white/20 hover:border-white/40'
                                         }
                   `}
@@ -204,7 +386,11 @@ export default function CustomPage() {
                                         id="file-upload"
                                     />
                                     <label htmlFor="file-upload" className="cursor-pointer">
-                                        <span className="text-5xl mb-4 block">📷</span>
+                                        <div className="mb-4 flex justify-center text-white/70">
+                                            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                            </svg>
+                                        </div>
                                         <p className="text-white font-medium">Kéo thả ảnh vào đây</p>
                                         <p className="text-white/50 text-sm mt-2">hoặc click để chọn file</p>
                                     </label>
@@ -250,7 +436,7 @@ export default function CustomPage() {
                                             className={`
                         p-6 rounded-2xl text-center transition-all
                         ${orderData.size === size.id
-                                                    ? 'bg-white text-black text-white'
+                                                    ? 'bg-white text-black'
                                                     : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
                                                 }
                       `}
@@ -303,29 +489,32 @@ export default function CustomPage() {
                                                 <span className="text-white">{orderData.images.length} ảnh</span>
                                             </div>
                                             <div className="border-t border-white/10 pt-3 flex justify-between">
+                                                <span className="text-white/60">Tạm tính</span>
+                                                <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-white/60">Phí ship</span>
+                                                <span className="text-white">{shippingFee.toLocaleString('vi-VN')}đ</span>
+                                            </div>
+                                            <div className="border-t border-white/10 pt-3 flex justify-between">
                                                 <span className="text-white font-medium">Tổng cộng</span>
-                                                <span className="text-white/70 font-bold text-lg">
-                                                    {totalPrice.toLocaleString('vi-VN')}đ
+                                                <span className="text-white font-bold text-lg">
+                                                    {(totalPrice + shippingFee).toLocaleString('vi-VN')}đ
                                                 </span>
+                                            </div>
+                                            <div className="flex justify-between text-green-400">
+                                                <span>Cọc 50%</span>
+                                                <span className="font-bold">{depositAmount.toLocaleString('vi-VN')}đ</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Contact Info */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <Input
-                                            label="Họ tên"
-                                            placeholder="Nhập họ tên của bạn"
-                                            value={orderData.name}
-                                            onChange={(e) => setOrderData(prev => ({ ...prev, name: e.target.value }))}
-                                        />
-                                        <Input
-                                            label="Số điện thoại"
-                                            placeholder="Nhập số điện thoại"
-                                            value={orderData.phone}
-                                            onChange={(e) => setOrderData(prev => ({ ...prev, phone: e.target.value }))}
-                                        />
-                                    </div>
+                                    {/* Error message */}
+                                    {error && (
+                                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
+                                            {error}
+                                        </div>
+                                    )}
                                 </div>
                             </motion.div>
                         )}
@@ -336,19 +525,34 @@ export default function CustomPage() {
                         <Button
                             variant="outline"
                             onClick={prevStep}
-                            disabled={currentStep === 1}
+                            disabled={currentStep === 1 || submitting}
                             className={currentStep === 1 ? 'opacity-50' : ''}
                         >
                             ← Quay lại
                         </Button>
 
                         {currentStep < 4 ? (
-                            <Button variant="primary" onClick={nextStep}>
+                            <Button
+                                variant="primary"
+                                onClick={nextStep}
+                                disabled={currentStep === 2 && orderData.images.length === 0}
+                            >
                                 Tiếp tục →
                             </Button>
                         ) : (
-                            <Button variant="primary">
-                                Đặt hàng - {totalPrice.toLocaleString('vi-VN')}đ
+                            <Button
+                                variant="primary"
+                                onClick={handleSubmit}
+                                disabled={submitting || orderData.images.length === 0}
+                            >
+                                {submitting ? (
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                                        Đang xử lý...
+                                    </span>
+                                ) : (
+                                    `Đặt hàng - ${depositAmount.toLocaleString('vi-VN')}đ`
+                                )}
                             </Button>
                         )}
                     </div>

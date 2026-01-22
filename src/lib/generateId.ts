@@ -1,99 +1,107 @@
 import { customAlphabet } from 'nanoid';
 
 /**
- * Custom alphabet for ID generation
- * Excludes I, O to avoid confusion with 1, 0
+ * ID Format Specification
  * 
- * With 10 chars (34^10 = 2.06 quadrillion combinations):
- * - Virtually zero collision probability
- * - Still verify uniqueness in DB for safety
+ * | Entity           | Prefix | Format        | Example      |
+ * |------------------|--------|---------------|--------------|
+ * | Custom Order     | CUS    | CUS-XXXXXXXX  | CUS-A7K3M9B2 |
+ * | Product Order    | PDC    | PDC-XXXXXXXX  | PDC-B2N8P4K5 |
+ * | 3D Printing      | 3DP    | 3DP-XXXXXXXX  | 3DP-M4R7S2N9 |
+ * | User Code        | USR    | USR-XXXXXXXX  | USR-K5J2H8M4 |
+ * | Admin Code       | ADM    | ADM-XXXXXXXX  | ADM-N9L3K6A7 |
+ * | Product SKU      | PRD    | PRD-XXXXXXXX  | PRD-A7K3M9B2 |
+ * 
+ * Format: 3-char prefix + hyphen + 8-char alphanumeric (total 12 chars)
+ * Alphabet excludes I, O to avoid confusion with 1, 0
  */
+
 const ALPHABET = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-// Pre-configured generators with specific lengths
-const generator10 = customAlphabet(ALPHABET, 10);
+// 8-character generator for all IDs
+const generator8 = customAlphabet(ALPHABET, 8);
 
 /**
  * Generate unique IDs for different entities
- * Using NanoID with custom alphabet for collision-resistant random IDs
- * All IDs are 10 characters for consistency and maximum uniqueness
  */
 export const generateId = {
     /**
-     * Generate Order ID: ORD-XXXXXXXXXX
-     * @example ORD-A7K3M9B2N8
+     * Generate Custom Order ID: CUS-XXXXXXXX
+     * @example CUS-A7K3M9B2
      */
-    order: (): string => `ORD-${generator10()}`,
+    custom: (): string => `CUS-${generator8()}`,
 
     /**
-     * Generate Product ID: PRD-XXXXXXXXXX
-     * @example PRD-B2N8P4K5J2
+     * Generate Product Order ID: PDC-XXXXXXXX
+     * @example PDC-B2N8P4K5
      */
-    product: (): string => `PRD-${generator10()}`,
+    product: (): string => `PDC-${generator8()}`,
 
     /**
-     * Generate Customer ID: CUS-XXXXXXXXXX
-     * @example CUS-K5J2H8M4R7
+     * Generate 3D Printing Order ID: 3DP-XXXXXXXX
+     * @example 3DP-M4R7S2N9
      */
-    customer: (): string => `CUS-${generator10()}`,
+    printing: (): string => `3DP-${generator8()}`,
 
     /**
-     * Generate 3D Printing Request ID: PRT-XXXXXXXXXX
-     * @example PRT-M4R7S2N9L3
+     * Generate User Code: USR-XXXXXXXX
+     * @example USR-K5J2H8M4
      */
-    printing: (): string => `PRT-${generator10()}`,
+    user: (): string => `USR-${generator8()}`,
 
     /**
-     * Generate Custom Order ID: CST-XXXXXXXXXX
-     * @example CST-N9L3K6A7K3
+     * Generate Admin Code: ADM-XXXXXXXX
+     * @example ADM-N9L3K6A7
      */
-    custom: (): string => `CST-${generator10()}`,
+    admin: (): string => `ADM-${generator8()}`,
 
     /**
-     * Generate SKU for products: PRD-XXXXXXXXXX
-     * @param category Optional category prefix (e.g., 'DRG' for Dragon)
-     * @example PRD-A7K3M9B2N8 or DRG-A7K3M9B2N8
+     * Generate Product SKU: PRD-XXXXXXXX
+     * @example PRD-A7K3M9B2
      */
-    sku: (category?: string): string => {
-        const code = generator10();
-        return category ? `${category.toUpperCase()}-${code}` : `PRD-${code}`;
-    },
+    sku: (): string => `PRD-${generator8()}`,
 
     /**
-     * Generate SKU for Resin 3D printing: RSN-XXXXXXXXXX
-     * @example RSN-A7K3M9B2N8
+     * Alias for user() - backward compatibility
+     * @deprecated Use user() instead
      */
-    skuResin: (): string => `RSN-${generator10()}`,
+    customer: (): string => `USR-${generator8()}`,
 
     /**
-     * Generate SKU for FDM 3D printing: FDM-XXXXXXXXXX
-     * @example FDM-B2N8P4C5K6
+     * Alias for product() - for cart/checkout flow
+     * Used when ordering from product catalog
      */
-    skuFdm: (): string => `FDM-${generator10()}`,
+    order: (): string => `PDC-${generator8()}`,
 
     /**
-     * Generate SKU for Custom orders: CST-XXXXXXXXXX
-     * @example CST-K5J2H8M3N9
+     * Generate raw code without prefix
+     * @example A7K3M9B2
      */
-    skuCustom: (): string => `CST-${generator10()}`,
-
-    /**
-     * Generate raw code without prefix (for custom use)
-     * @example A7K3M9B2N8
-     */
-    raw: (): string => generator10(),
+    raw: (): string => generator8(),
 };
 
 /**
- * Validate ID format (10 character codes)
+ * Validate ID format (8-char codes)
  */
 export const validateId = {
-    order: (id: string): boolean => /^ORD-[0-9A-HJ-NP-Z]{10}$/.test(id),
-    product: (id: string): boolean => /^PRD-[0-9A-HJ-NP-Z]{10}$/.test(id),
-    customer: (id: string): boolean => /^CUS-[0-9A-HJ-NP-Z]{10}$/.test(id),
-    printing: (id: string): boolean => /^PRT-[0-9A-HJ-NP-Z]{10}$/.test(id),
-    custom: (id: string): boolean => /^CST-[0-9A-HJ-NP-Z]{10}$/.test(id),
-    sku: (id: string): boolean => /^[A-Z]{3}-[0-9A-HJ-NP-Z]{10}$/.test(id),
+    custom: (id: string): boolean => /^CUS-[0-9A-HJ-NP-Z]{8}$/.test(id),
+    product: (id: string): boolean => /^PDC-[0-9A-HJ-NP-Z]{8}$/.test(id),
+    printing: (id: string): boolean => /^3DP-[0-9A-HJ-NP-Z]{8}$/.test(id),
+    user: (id: string): boolean => /^USR-[0-9A-HJ-NP-Z]{8}$/.test(id),
+    admin: (id: string): boolean => /^ADM-[0-9A-HJ-NP-Z]{8}$/.test(id),
+    sku: (id: string): boolean => /^PRD-[0-9A-HJ-NP-Z]{8}$/.test(id),
+    // Generic validation for any valid ID format
+    any: (id: string): boolean => /^[A-Z0-9]{3}-[0-9A-HJ-NP-Z]{8}$/.test(id),
+};
+
+/**
+ * Extract order type from ID prefix
+ */
+export const getOrderTypeFromId = (id: string): 'custom' | 'product' | 'printing' | 'unknown' => {
+    if (id.startsWith('CUS-')) return 'custom';
+    if (id.startsWith('PDC-')) return 'product';
+    if (id.startsWith('3DP-')) return 'printing';
+    return 'unknown';
 };
 
 export default generateId;

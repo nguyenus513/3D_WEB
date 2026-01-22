@@ -26,7 +26,7 @@ function getDriveClient() {
     const auth = new google.auth.JWT({
         email: SERVICE_ACCOUNT_EMAIL,
         key: PRIVATE_KEY,
-        scopes: ['https://www.googleapis.com/auth/drive.file'],
+        scopes: ['https://www.googleapis.com/auth/drive'],
     });
 
     return google.drive({ version: 'v3', auth });
@@ -171,16 +171,18 @@ export async function uploadFile(
 
 /**
  * Get direct image URL from Google Drive
+ * Uses lh3.googleusercontent.com which works better for img tags
  */
 export function getDirectImageUrl(fileId: string): string {
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
 
 /**
  * Get thumbnail URL
+ * Uses lh3.googleusercontent.com with size parameter
  */
 export function getThumbnailUrl(fileId: string, size: number = 400): string {
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
+    return `https://lh3.googleusercontent.com/d/${fileId}=w${size}`;
 }
 
 /**

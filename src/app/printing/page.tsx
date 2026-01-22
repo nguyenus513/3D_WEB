@@ -1,56 +1,396 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
+import { getSupabase } from '@/lib/supabase/client';
+import { generateId } from '@/lib/generateId';
 
 type PrintType = 'fdm' | 'resin';
 
+interface FileInfo {
+    id: string;
+    name: string;
+    url: string;
+    thumbnail: string;
+}
+
+interface AnalysisResult {
+    volume: number;
+    grams: number;
+    hours: number;
+    price: number;
+    boundingBox: { x: number; y: number; z: number };
+}
+
+interface FileItem {
+    id: string;
+    file: File;
+    analysis: AnalysisResult | null;
+    quantity: number;
+    analyzing: boolean;
+}
+
 interface PrintOrder {
-    files: File[];
+    items: FileItem[];
     type: PrintType;
     color: string;
-    quantity: number;
+    infill: string;
+    layerHeight: string;
+    notes: string;
 }
 
 const printTypes = [
     {
         id: 'fdm' as PrintType,
         name: 'FDM',
-        desc: 'Phổ biến, giá rẻ, bền',
-        basePrice: 50000,
-        icon: '🔧'
+        desc: 'Nhựa PETG - Bền, chịu nhiệt tốt',
     },
     {
         id: 'resin' as PrintType,
-        name: 'Resin',
+        name: 'SLA (Resin)',
         desc: 'Chi tiết cao, mịn màng',
-        basePrice: 100000,
-        icon: '✨'
     },
 ];
 
-const colors = [
+// Colors per print type
+const FDM_COLORS = [
     { id: 'white', name: 'Trắng', hex: '#FFFFFF' },
     { id: 'black', name: 'Đen', hex: '#1D1D1F' },
-    { id: 'gray', name: 'Xám', hex: '#6E6E73' },
-    { id: 'blue', name: 'Xanh dương', hex: '#0071E3' },
-    { id: 'red', name: 'Đỏ', hex: '#FF453A' },
-    { id: 'green', name: 'Xanh lá', hex: '#30D158' },
+    { id: 'transparent', name: 'Trong suốt', hex: '#E5E5EA' },
 ];
 
+const RESIN_COLORS = [
+    { id: 'white', name: 'Trắng', hex: '#FFFFFF' },
+];
+
+// Constants for calculation
+const DENSITY: Record<string, number> = {
+    fdm: 1.24,
+
+    resin: 1.1,
+};
+
+const PRINT_SPEED: Record<string, number> = {
+    fdm: 12, // g/hour
+    resin: 6,
+};
+
+const SHELL_FACTOR = 1.2;
+const RESIN_FACTOR = 1.25; // 25% extra for supports and waste
+
+const INFILL_FACTORS: Record<string, number> = {
+    '15%': 0.15,
+    '20%': 0.20,
+    '30%': 0.30,
+    '50%': 0.50,
+};
+
+const LAYER_TIME_MULT: Record<string, number> = {
+    '0.2': 1,
+    '0.12': 2,
+    '0.08': 4,
+};
+
 export default function PrintingPage() {
+    const router = useRouter();
+    const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+    const [customerCode, setCustomerCode] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
     const [order, setOrder] = useState<PrintOrder>({
-        files: [],
+        items: [],
         type: 'fdm',
         color: 'white',
-        quantity: 1,
+        infill: '20%',
+        layerHeight: '0.2',
+        notes: '',
     });
     const [dragActive, setDragActive] = useState(false);
 
-    const basePrice = printTypes.find(t => t.id === order.type)?.basePrice || 50000;
-    const estimatedPrice = basePrice * order.quantity * (order.files.length || 1);
+    // Calculate total price from all items
+    const totalPrice = order.items.reduce((sum, item) => {
+        return sum + (item.analysis ? item.analysis.price * item.quantity : 0);
+    }, 0);
+    const grandTotal = totalPrice;
+
+    // Check if any item is analyzing
+    const isAnalyzing = order.items.some(item => item.analyzing);
+
+    const { data: session, status } = useSession();
+
+    // Auth check on mount
+    useEffect(() => {
+        if (status === 'loading') return;
+
+        if (status === 'unauthenticated') {
+            router.push('/login?redirect=/printing');
+            return;
+        }
+
+        const fetchUserData = async () => {
+            if (!session?.user?.email) return;
+
+            const supabase = getSupabase();
+            const { data: user } = await supabase
+                .from('profiles')
+                .select('id, customer_code')
+                .eq('email', session.user.email)
+                .single();
+
+            if (user) {
+                setUser({ id: user.id, email: session.user.email } as any);
+                setCustomerCode(user.customer_code || generateId.user());
+            }
+            setLoading(false);
+        };
+
+        fetchUserData();
+    }, [status, session, router]);
+
+    // Analyze a single file item
+    const analyzeItem = async (itemId: string, file: File) => {
+        // Set analyzing state for this item
+        setOrder(prev => ({
+            ...prev,
+            items: prev.items.map(item =>
+                item.id === itemId ? { ...item, analyzing: true } : item
+            )
+        }));
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', order.type);
+
+            const res = await fetch('/api/analyze-stl', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Analysis failed');
+            }
+
+            // Calculate initial metrics
+            const metrics = calculateMetrics(
+                data.volume,
+                order.type,
+                order.infill,
+                order.layerHeight
+            );
+
+            // Update item with analysis result
+            setOrder(prev => ({
+                ...prev,
+                items: prev.items.map(item =>
+                    item.id === itemId ? {
+                        ...item,
+                        analyzing: false,
+                        analysis: {
+                            volume: data.volume,
+                            boundingBox: data.boundingBox,
+                            ...metrics
+                        }
+                    } : item
+                )
+            }));
+        } catch (err) {
+            setError((err as Error).message);
+            // Clear analyzing state on error
+            setOrder(prev => ({
+                ...prev,
+                items: prev.items.map(item =>
+                    item.id === itemId ? { ...item, analyzing: false } : item
+                )
+            }));
+        }
+    };
+
+    // Recalculate metrics based on current settings
+    const calculateMetrics = useCallback((volume: number, type: PrintType, infill: string, layerHeight: string) => {
+        const density = DENSITY[type];
+        let grams = 0;
+
+        if (type === 'fdm') {
+            const infillPercent = INFILL_FACTORS[infill] || 0.20; // Default 20%
+            // Formula: Vin = Vmodel * (shell_factor + infill)
+            // Mass = Vin * density
+            const vIn = volume * (SHELL_FACTOR + infillPercent);
+            grams = vIn * density;
+        } else {
+            // Formula: Vreal = Vmodel * k (k=1.25 for standard supports/waste)
+            // Mass = Vreal * density
+            const vReal = volume * RESIN_FACTOR;
+            grams = vReal * density;
+        }
+
+        const speed = PRINT_SPEED[type];
+        let hours = grams / speed;
+
+        if (type === 'fdm') {
+            hours = hours * (LAYER_TIME_MULT[layerHeight] || 1);
+        }
+
+        let price = 0;
+        if (type === 'fdm') {
+            price = 600 * grams + 3000 * hours;
+        } else {
+            price = 3000 * hours + 3000 * grams;
+        }
+
+        return {
+            grams: Math.round(grams),
+            hours: Math.round(hours * 10) / 10,
+            price: Math.round(price),
+        };
+    }, []);
+
+    // Re-calculate all items when print settings change
+    useEffect(() => {
+        if (order.items.length > 0) {
+            setOrder(prev => ({
+                ...prev,
+                items: prev.items.map(item => {
+                    if (item.analysis) {
+                        const metrics = calculateMetrics(
+                            item.analysis.volume,
+                            prev.type,
+                            prev.infill,
+                            prev.layerHeight
+                        );
+                        return {
+                            ...item,
+                            analysis: {
+                                ...item.analysis,
+                                ...metrics
+                            }
+                        };
+                    }
+                    return item;
+                })
+            }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [order.type, order.infill, order.layerHeight, calculateMetrics]);
+
+    // Upload files to Google Drive
+    const uploadFiles = async (orderCode: string): Promise<FileInfo[]> => {
+        const uploadedFiles: FileInfo[] = [];
+
+        for (let i = 0; i < order.items.length; i++) {
+            const item = order.items[i];
+            const formData = new FormData();
+            formData.append('file', item.file);
+            formData.append('type', 'printing');
+            formData.append('customerCode', customerCode);
+            formData.append('orderCode', orderCode);
+            formData.append('index', String(i + 1));
+
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            uploadedFiles.push(data.file);
+        }
+
+        return uploadedFiles;
+    };
+
+    // Submit order
+    const handleSubmit = async () => {
+        // Must have at least one item with analysis
+        const hasValidItem = order.items.some(item => item.analysis !== null);
+        if (!user || !hasValidItem) return;
+
+        setSubmitting(true);
+        setError('');
+
+        try {
+            const supabase = getSupabase();
+            const orderCode = generateId.printing();
+
+            // Upload files to Drive
+            const files = await uploadFiles(orderCode);
+
+            // Build customer note with all items
+            const itemsNote = order.items.map((item, idx) =>
+                `${item.file.name} x${item.quantity}`
+            ).join('\n');
+            const settingsNote = order.type === 'fdm'
+                ? `Infill: ${order.infill} | Layer: ${order.layerHeight}mm`
+                : '';
+            const customerNote = [settingsNote, itemsNote, order.notes].filter(Boolean).join('\n');
+
+            // Create order in Supabase
+            const { data: orderData, error: orderError } = await supabase
+                .from('orders')
+                .insert({
+                    order_code: orderCode,
+                    user_id: user.id,
+                    order_type: 'printing',
+                    status: 'pending',
+                    subtotal: totalPrice,
+                    shipping_fee: 0,
+                    total: grandTotal,
+                    deposit_amount: grandTotal, // 100% for printing
+                    customer_note: customerNote || null,
+                })
+                .select()
+                .single();
+
+            if (orderError) {
+                throw new Error(orderError.message);
+            }
+
+            // Insert config for each item into order_configs
+            for (const item of order.items) {
+                if (item.analysis) {
+                    await supabase.from('order_configs').insert({
+                        order_id: orderData.id,
+                        print_tech: order.type,
+                        material: order.type === 'resin' ? 'standard_resin' : 'pla',
+                        color: order.color,
+                        quantity: item.quantity,
+                        print_volume: item.analysis.volume,
+                        print_weight: item.analysis.grams,
+                        print_time: item.analysis.hours,
+                    });
+                }
+            }
+
+            // Insert files into order_files (normalized)
+            if (files && files.length > 0) {
+                const orderFiles = files.map((f: FileInfo) => ({
+                    order_id: orderData.id,
+                    file_id: f.id,
+                    file_type: 'stl',
+                    file_name: f.name || null,
+                }));
+                await supabase.from('order_files').insert(orderFiles);
+            }
+
+            // Store order type for payment page
+            sessionStorage.setItem('checkout_order_type', 'printing');
+            sessionStorage.setItem('checkout_order_id', orderData.id);
+
+            // Redirect to payment
+            router.push('/checkout/payment?orderId=' + orderData.id);
+        } catch (err) {
+            setError((err as Error).message);
+            setSubmitting(false);
+        }
+    };
 
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -67,27 +407,87 @@ export default function PrintingPage() {
         e.stopPropagation();
         setDragActive(false);
 
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            const files = Array.from(e.dataTransfer.files).filter(
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const validFiles = Array.from(e.dataTransfer.files).filter(
                 f => f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf')
             );
-            setOrder(prev => ({ ...prev, files: [...prev.files, ...files] }));
+
+            // Create new FileItems for each file
+            const newItems: FileItem[] = validFiles.map(file => ({
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                file,
+                analysis: null,
+                quantity: 1,
+                analyzing: false,
+            }));
+
+            setOrder(prev => ({ ...prev, items: [...prev.items, ...newItems] }));
+
+            // Trigger analysis for each new file
+            newItems.forEach(item => {
+                analyzeItem(item.id, item.file);
+            });
         }
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [order.type, order.infill, order.layerHeight]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files);
-            setOrder(prev => ({ ...prev, files: [...prev.files, ...files] }));
+        if (e.target.files && e.target.files.length > 0) {
+            const validFiles = Array.from(e.target.files).filter(
+                f => f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf')
+            );
+
+            // Create new FileItems for each file
+            const newItems: FileItem[] = validFiles.map(file => ({
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                file,
+                analysis: null,
+                quantity: 1,
+                analyzing: false,
+            }));
+
+            setOrder(prev => ({ ...prev, items: [...prev.items, ...newItems] }));
+
+            // Trigger analysis for each new file
+            newItems.forEach(item => {
+                analyzeItem(item.id, item.file);
+            });
+
+            // Reset the input to allow re-selecting same file
+            e.target.value = '';
         }
     };
 
-    const removeFile = (index: number) => {
+    const removeItem = (itemId: string) => {
         setOrder(prev => ({
             ...prev,
-            files: prev.files.filter((_, i) => i !== index)
+            items: prev.items.filter(item => item.id !== itemId),
         }));
     };
+
+    // Update item quantity
+    const updateItemQuantity = (itemId: string, delta: number) => {
+        setOrder(prev => ({
+            ...prev,
+            items: prev.items.map(item =>
+                item.id === itemId
+                    ? { ...item, quantity: Math.max(1, item.quantity + delta) }
+                    : item
+            ),
+        }));
+    };
+
+    // Loading state
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white/50">Đang tải...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
@@ -101,7 +501,7 @@ export default function PrintingPage() {
                         Dịch Vụ In 3D
                     </h1>
                     <p className="text-white/50 max-w-lg mx-auto">
-                        Upload file STL/OBJ của bạn, nhận báo giá tự động và đặt in ngay
+                        Upload file STL/OBJ của bạn, hệ thống sẽ tự động tính giá
                     </p>
                 </AnimatedSection>
 
@@ -128,51 +528,120 @@ export default function PrintingPage() {
                                 >
                                     <input
                                         type="file"
-                                        multiple
-                                        accept=".stl,.obj,.3mf"
+                                        accept=".stl,.obj"
                                         onChange={handleFileChange}
                                         className="hidden"
                                         id="file-upload"
                                     />
                                     <label htmlFor="file-upload" className="cursor-pointer">
-                                        <span className="text-5xl mb-4 block">📦</span>
+                                        <div className="mb-4 flex justify-center text-white/70">
+                                            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                            </svg>
+                                        </div>
                                         <p className="text-white font-medium">Kéo thả file 3D vào đây</p>
-                                        <p className="text-white/50 text-sm mt-2">Hỗ trợ: STL, OBJ, 3MF</p>
+                                        <p className="text-white/50 text-sm mt-2">Hỗ trợ: STL, OBJ</p>
                                     </label>
                                 </div>
 
-                                {/* File List */}
-                                {order.files.length > 0 && (
-                                    <div className="mt-6 space-y-3">
-                                        {order.files.map((file, index) => (
-                                            <div
-                                                key={index}
-                                                className="flex items-center justify-between bg-[#2D2D2F] rounded-xl p-4"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-2xl">📄</span>
-                                                    <div>
-                                                        <p className="text-white font-medium text-sm">{file.name}</p>
-                                                        <p className="text-white/50 text-xs">
-                                                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                                                        </p>
+                                {/* File List with Individual Quantities */}
+                                {order.items.length > 0 && (
+                                    <div className="mt-6 space-y-4">
+                                        {order.items.map((item) => (
+                                            <div key={item.id} className="bg-gradient-to-br from-[#2D2D2F] to-[#1D1D1F] rounded-xl p-4 border border-white/10">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div className="text-white/70 flex-shrink-0">
+                                                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-white font-medium text-sm truncate">{item.file.name}</p>
+                                                            <p className="text-white/50 text-xs">
+                                                                {(item.file.size / 1024 / 1024).toFixed(2)} MB
+                                                            </p>
+                                                        </div>
                                                     </div>
+                                                    <button
+                                                        onClick={() => removeItem(item.id)}
+                                                        className="w-8 h-8 rounded-full bg-white/10 text-white hover:bg-red-500 transition-colors flex items-center justify-center flex-shrink-0"
+                                                    >
+                                                        ×
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    onClick={() => removeFile(index)}
-                                                    className="w-8 h-8 rounded-full bg-white/10 text-white hover:bg-red-500 transition-colors flex items-center justify-center"
-                                                >
-                                                    ×
-                                                </button>
+
+                                                {/* Analysis Loading */}
+                                                {item.analyzing && (
+                                                    <div className="bg-[#2D2D2F] rounded-lg p-3 text-center">
+                                                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                                                        <p className="text-white/50 text-xs">Đang phân tích...</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Analysis Result */}
+                                                {item.analysis && !item.analyzing && (
+                                                    <div className="space-y-3">
+                                                        <div className="grid grid-cols-4 gap-2 text-center">
+                                                            <div>
+                                                                <span className="text-white/50 text-xs block">Thể tích</span>
+                                                                <span className="text-sm font-bold text-white">{item.analysis.volume}</span>
+                                                                <span className="text-white/40 text-xs">cm³</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-white/50 text-xs block">Khối lượng</span>
+                                                                <span className="text-sm font-bold text-white">{item.analysis.grams}</span>
+                                                                <span className="text-white/40 text-xs">g</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-white/50 text-xs block">Thời gian</span>
+                                                                <span className="text-sm font-bold text-white">{item.analysis.hours}</span>
+                                                                <span className="text-white/40 text-xs">h</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-white/50 text-xs block">Giá/cái</span>
+                                                                <span className="text-sm font-bold text-white">{item.analysis.price.toLocaleString('vi-VN')}</span>
+                                                                <span className="text-white/40 text-xs">đ</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Quantity Controls */}
+                                                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                                                            <span className="text-white/70 text-sm">Số lượng</span>
+                                                            <div className="inline-flex items-center bg-[#2D2D2F] rounded-full">
+                                                                <button
+                                                                    onClick={() => updateItemQuantity(item.id, -1)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-white hover:text-white/70 transition-colors"
+                                                                >
+                                                                    −
+                                                                </button>
+                                                                <span className="w-8 text-center text-white font-medium text-sm">{item.quantity}</span>
+                                                                <button
+                                                                    onClick={() => updateItemQuantity(item.id, 1)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-white hover:text-white/70 transition-colors"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
+                                    </div>
+                                )}
+
+                                {/* Global Analyzing Indicator */}
+                                {isAnalyzing && (
+                                    <div className="mt-4 text-center">
+                                        <p className="text-white/40 text-xs">Đang xử lý file...</p>
                                     </div>
                                 )}
                             </div>
                         </AnimatedSection>
 
                         {/* Print Type */}
-                        <AnimatedSection delay={0.2}>
+                        <div className="mt-6">
                             <div className="bg-[#1D1D1F] rounded-3xl p-8">
                                 <h2 className="text-xl font-semibold text-white mb-6">Loại in</h2>
                                 <div className="grid grid-cols-2 gap-4">
@@ -189,24 +658,81 @@ export default function PrintingPage() {
                       `}
                                             data-cursor
                                         >
-                                            <span className="text-3xl mb-3 block">{type.icon}</span>
                                             <h3 className="text-lg font-semibold">{type.name}</h3>
                                             <p className="text-sm opacity-70">{type.desc}</p>
-                                            <p className="text-sm mt-2">
-                                                Từ {type.basePrice.toLocaleString('vi-VN')}đ
-                                            </p>
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                        </AnimatedSection>
+                        </div>
+
+                        {/* Infill Selection (only for FDM) */}
+                        {order.type === 'fdm' && (
+                            <div className="mt-6">
+                                <div className="bg-[#1D1D1F] rounded-3xl p-8">
+                                    <h2 className="text-xl font-semibold text-white mb-6">Độ đậm đặc (Infill)</h2>
+                                    <div className="flex flex-wrap gap-3">
+                                        {['15%', '20%', '30%', '50%'].map((val) => (
+                                            <button
+                                                key={val}
+                                                onClick={() => setOrder(prev => ({ ...prev, infill: val }))}
+                                                className={`
+                            px-6 py-3 rounded-full transition-all text-sm font-medium
+                            ${order.infill === val
+                                                        ? 'bg-white text-black'
+                                                        : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                    }
+                          `}
+                                            >
+                                                {val}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-white/40 text-sm mt-4">
+                                        *Độ infill càng cao, vật thể càng đặc và cứng hơn
+                                    </p>
+                                </div>
+                            </div>
+
+                        )}
+
+                        {/* Layer Height Selection (only for FDM) */}
+                        {order.type === 'fdm' && (
+                            <div className="mt-6">
+                                <div className="bg-[#1D1D1F] rounded-3xl p-8">
+                                    <h2 className="text-xl font-semibold text-white mb-6">Độ mịn (Layer Height)</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        {[
+                                            { val: '0.2', label: '0.2mm - Chuẩn', time: 'x1' },
+                                            { val: '0.12', label: '0.12mm - Mịn', time: 'x2' },
+                                            { val: '0.08', label: '0.08mm - Siêu mịn', time: 'x4' }
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.val}
+                                                onClick={() => setOrder(prev => ({ ...prev, layerHeight: opt.val }))}
+                                                className={`
+                            p-4 rounded-xl text-left transition-all
+                            ${order.layerHeight === opt.val
+                                                        ? 'bg-white text-black'
+                                                        : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                    }
+                          `}
+                                            >
+                                                <div className="font-semibold">{opt.label}</div>
+                                                <div className="text-xs opacity-70 mt-1">{opt.time}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Color Selection */}
-                        <AnimatedSection delay={0.3}>
+                        <div className="mt-6">
                             <div className="bg-[#1D1D1F] rounded-3xl p-8">
                                 <h2 className="text-xl font-semibold text-white mb-6">Màu sắc</h2>
                                 <div className="flex flex-wrap gap-3">
-                                    {colors.map((color) => (
+                                    {(order.type === 'fdm' ? FDM_COLORS : RESIN_COLORS).map((color) => (
                                         <button
                                             key={color.id}
                                             onClick={() => setOrder(prev => ({ ...prev, color: color.id }))}
@@ -228,7 +754,21 @@ export default function PrintingPage() {
                                     ))}
                                 </div>
                             </div>
-                        </AnimatedSection>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="mt-6">
+                            <div className="bg-[#1D1D1F] rounded-3xl p-8">
+                                <h2 className="text-xl font-semibold text-white mb-6">Ghi chú</h2>
+                                <textarea
+                                    value={order.notes}
+                                    onChange={(e) => setOrder(prev => ({ ...prev, notes: e.target.value }))}
+                                    placeholder="Yêu cầu thêm"
+                                    className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
+                                    rows={3}
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Right - Order Summary */}
@@ -237,27 +777,22 @@ export default function PrintingPage() {
                             <div className="bg-[#1D1D1F] rounded-3xl p-8 sticky top-28">
                                 <h2 className="text-xl font-semibold text-white mb-6">Đơn hàng</h2>
 
-                                {/* Quantity */}
-                                <div className="mb-6">
-                                    <label className="text-white/70 text-sm mb-2 block">Số lượng</label>
-                                    <div className="inline-flex items-center bg-[#2D2D2F] rounded-full">
-                                        <button
-                                            onClick={() => setOrder(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
-                                            className="w-12 h-12 flex items-center justify-center text-white hover:text-white/70 transition-colors"
-                                            data-cursor
-                                        >
-                                            −
-                                        </button>
-                                        <span className="w-12 text-center text-white font-medium">{order.quantity}</span>
-                                        <button
-                                            onClick={() => setOrder(prev => ({ ...prev, quantity: prev.quantity + 1 }))}
-                                            className="w-12 h-12 flex items-center justify-center text-white hover:text-white/70 transition-colors"
-                                            data-cursor
-                                        >
-                                            +
-                                        </button>
+                                {/* Items List */}
+                                {order.items.length > 0 && (
+                                    <div className="mb-6 space-y-2 max-h-60 overflow-y-auto">
+                                        {order.items.map((item) => (
+                                            <div key={item.id} className="flex justify-between items-center text-sm py-2 border-b border-white/5">
+                                                <span className="text-white/80 truncate max-w-[150px]">{item.file.name}</span>
+                                                <span className="text-white flex items-center gap-2">
+                                                    <span className="text-white/50">x{item.quantity}</span>
+                                                    {item.analysis && (
+                                                        <span className="font-medium">{(item.analysis.price * item.quantity).toLocaleString('vi-VN')}đ</span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Summary */}
                                 <div className="space-y-3 mb-6 text-sm">
@@ -270,58 +805,90 @@ export default function PrintingPage() {
                                     <div className="flex justify-between">
                                         <span className="text-white/60">Màu sắc</span>
                                         <span className="text-white">
-                                            {colors.find(c => c.id === order.color)?.name}
+                                            {(order.type === 'fdm' ? FDM_COLORS : RESIN_COLORS).find(c => c.id === order.color)?.name}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Số file</span>
-                                        <span className="text-white">{order.files.length || 0}</span>
+                                        <span className="text-white/60">Số sản phẩm</span>
+                                        <span className="text-white">{order.items.length}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Số lượng</span>
-                                        <span className="text-white">x{order.quantity}</span>
+                                        <span className="text-white/60">Tổng số lượng</span>
+                                        <span className="text-white">
+                                            {order.items.reduce((sum, item) => sum + item.quantity, 0)}
+                                        </span>
                                     </div>
                                 </div>
 
-                                {/* Estimated Price */}
+                                {/* Price */}
                                 <div className="border-t border-white/10 pt-4 mb-6">
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-white/60">Giá ước tính</span>
-                                        <span className="text-2xl font-bold text-white/70">
-                                            {estimatedPrice.toLocaleString('vi-VN')}đ
-                                        </span>
-                                    </div>
-                                    <p className="text-white/40 text-xs mt-2">
-                                        *Giá cuối cùng phụ thuộc vào kích thước file
-                                    </p>
+                                    {order.items.some(item => item.analysis) ? (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between">
+                                                <span className="text-white/60">Tạm tính</span>
+                                                <span className="text-white">
+                                                    {totalPrice.toLocaleString('vi-VN')}đ
+                                                    {order.type === 'fdm' && (
+                                                        <div className="text-xs text-right text-white/40 mt-1 space-y-1">
+                                                            <span className="block">Infill: {order.infill}</span>
+                                                            <span className="block">Layer: {order.layerHeight}mm</span>
+                                                        </div>
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-baseline pt-2 border-t border-white/10">
+                                                <span className="text-white font-medium">Tổng cộng</span>
+                                                <span className="text-2xl font-bold text-white">
+                                                    {grandTotal.toLocaleString('vi-VN')}đ
+                                                </span>
+                                            </div>
+                                            <p className="text-amber-400 text-xs">
+                                                *Thanh toán 100% cho dịch vụ in 3D
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4">
+                                            <p className="text-white/40 text-sm">
+                                                Upload file để xem giá ước tính
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
+
+                                {/* Error */}
+                                {error && (
+                                    <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
+                                        {error}
+                                    </div>
+                                )}
 
                                 <Button
                                     variant="primary"
                                     size="lg"
                                     className="w-full"
-                                    disabled={order.files.length === 0}
+                                    disabled={order.items.length === 0 || !order.items.some(item => item.analysis) || submitting || isAnalyzing}
+                                    onClick={handleSubmit}
                                 >
-                                    {order.files.length === 0 ? 'Vui lòng upload file' : 'Đặt in ngay'}
+                                    {submitting ? (
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                                            Đang xử lý...
+                                        </span>
+                                    ) : order.items.length === 0 ? (
+                                        'Vui lòng upload file'
+                                    ) : isAnalyzing ? (
+                                        'Đang phân tích...'
+                                    ) : (
+                                        `Đặt in - ${grandTotal.toLocaleString('vi-VN')}đ`
+                                    )}
                                 </Button>
 
-                                {/* Features */}
-                                <div className="mt-8 space-y-3">
-                                    <div className="flex items-center gap-3 text-sm text-white/60">
-                                        <span>✅</span> Báo giá trong 30 phút
-                                    </div>
-                                    <div className="flex items-center gap-3 text-sm text-white/60">
-                                        <span>🚚</span> Giao hàng 3-5 ngày
-                                    </div>
-                                    <div className="flex items-center gap-3 text-sm text-white/60">
-                                        <span>🛡️</span> Bảo hành 30 ngày
-                                    </div>
-                                </div>
+
                             </div>
                         </AnimatedSection>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

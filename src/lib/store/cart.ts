@@ -16,6 +16,7 @@ export interface CartItem {
 interface CartStore {
     items: CartItem[];
     isOpen: boolean;
+    isHydrated: boolean; // Track hydration state
 
     // Actions
     addItem: (item: Omit<CartItem, 'id'>) => void;
@@ -25,6 +26,7 @@ interface CartStore {
     toggleCart: () => void;
     openCart: () => void;
     closeCart: () => void;
+    setHydrated: () => void;
 
     // Computed
     getTotalItems: () => number;
@@ -36,6 +38,7 @@ export const useCartStore = create<CartStore>()(
         (set, get) => ({
             items: [],
             isOpen: false,
+            isHydrated: false,
 
             addItem: (item) => {
                 const { items } = get();
@@ -44,12 +47,10 @@ export const useCartStore = create<CartStore>()(
                 );
 
                 if (existingIndex >= 0) {
-                    // Update quantity if item exists
                     const updated = [...items];
                     updated[existingIndex].quantity += item.quantity;
                     set({ items: updated });
                 } else {
-                    // Add new item
                     const newItem: CartItem = {
                         ...item,
                         id: `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -80,6 +81,8 @@ export const useCartStore = create<CartStore>()(
             openCart: () => set({ isOpen: true }),
             closeCart: () => set({ isOpen: false }),
 
+            setHydrated: () => set({ isHydrated: true }),
+
             getTotalItems: () => {
                 return get().items.reduce((sum, item) => sum + item.quantity, 0);
             },
@@ -93,6 +96,10 @@ export const useCartStore = create<CartStore>()(
         }),
         {
             name: '3d-print-cart',
+            onRehydrateStorage: () => (state) => {
+                // Mark as hydrated after rehydration completes
+                state?.setHydrated();
+            },
         }
     )
 );
@@ -103,6 +110,7 @@ export const useCart = () => {
     return {
         items: store.items,
         isOpen: store.isOpen,
+        isHydrated: store.isHydrated,
         totalItems: store.getTotalItems(),
         totalPrice: store.getTotalPrice(),
         addItem: store.addItem,
