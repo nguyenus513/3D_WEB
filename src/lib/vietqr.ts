@@ -117,77 +117,119 @@ export const BANK_INFO: Record<BankCode, { name: string; shortName: string }> = 
 export type OrderType = 'ready_made' | 'custom' | 'printing';
 
 /**
- * Get bank config from environment variables
- * SECURITY: Bank account info should not be in source code
- * 
- * Required env vars:
- * - BANK_TCB_ACCOUNT_NO
- * - BANK_TCB_ACCOUNT_NAME
- * - BANK_STB_ACCOUNT_NO
- * - BANK_STB_ACCOUNT_NAME
+ * Get bank config from Supabase database
+ * SECURITY: Bank account info stored securely in database with RLS
  */
-function getBankConfigFromEnv(bankId: BankCode): VietQRConfig {
-    const configs: Record<string, { accountNoKey: string; accountNameKey: string }> = {
-        TCB: { accountNoKey: 'BANK_TCB_ACCOUNT_NO', accountNameKey: 'BANK_TCB_ACCOUNT_NAME' },
-        STB: { accountNoKey: 'BANK_STB_ACCOUNT_NO', accountNameKey: 'BANK_STB_ACCOUNT_NAME' },
-    };
+import { getAdminSupabase } from './supabase/admin';
 
-    const envConfig = configs[bankId];
-    if (!envConfig) {
-        throw new Error(`Bank config not found for ${bankId}`);
+// Cache for bank configs (refreshed on demand)
+const bankConfigCache: Map<OrderType, { config: VietQRConfig; timestamp: number }> = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Fetch bank config from database
+ */
+async function fetchBankConfigFromDB(orderType: OrderType): Promise<VietQRConfig | null> {
+    try {
+        const supabase = getAdminSupabase();
+
+        const { data, error } = await supabase
+            .from('payment_configs')
+            .select('bank_code, account_no, account_name')
+            .eq('order_type', orderType)
+            .eq('is_active', true)
+            .single();
+
+        if (error || !data) {
+            console.error('[VietQR] Failed to fetch config from DB:', error);
+            return null;
+        }
+
+        return {
+            bankId: data.bank_code as BankCode,
+            accountNo: data.account_no,
+            accountName: data.account_name,
+        };
+    } catch (error) {
+        console.error('[VietQR] Error fetching config:', error);
+        return null;
+    }
+}
+
+/**
+ * Get bank config for order type with caching
+ * Falls back to env vars if DB unavailable
+ */
+export async function getBankConfigForOrderTypeAsync(orderType: OrderType): Promise<VietQRConfig> {
+    // Check cache first
+    const cached = bankConfigCache.get(orderType);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.config;
     }
 
-    const accountNo = process.env[envConfig.accountNoKey];
-    const accountName = process.env[envConfig.accountNameKey];
+    // Try database first
+    const dbConfig = await fetchBankConfigFromDB(orderType);
+    if (dbConfig) {
+        bankConfigCache.set(orderType, { config: dbConfig, timestamp: Date.now() });
+        return dbConfig;
+    }
+
+    // Fallback to env vars (for backward compatibility)
+    console.warn('[VietQR] DB unavailable, falling back to env vars');
+    return getBankConfigFromEnv(orderType);
+}
+
+/**
+ * Synchronous version - uses cache only, falls back to env
+ * Use this for client components that can't await
+ */
+export function getBankConfigForOrderType(orderType: OrderType): VietQRConfig {
+    // Check cache first
+    const cached = bankConfigCache.get(orderType);
+    if (cached) {
+        return cached.config;
+    }
+
+    // Fall back to env vars
+    return getBankConfigFromEnv(orderType);
+}
+
+/**
+ * Get config from environment variables (fallback)
+ */
+function getBankConfigFromEnv(orderType: OrderType): VietQRConfig {
+    const orderToBankMap: Record<OrderType, { bankId: BankCode; envNo: string; envName: string }> = {
+        ready_made: { bankId: 'TCB', envNo: 'BANK_TCB_ACCOUNT_NO', envName: 'BANK_TCB_ACCOUNT_NAME' },
+        custom: { bankId: 'TCB', envNo: 'BANK_TCB_ACCOUNT_NO', envName: 'BANK_TCB_ACCOUNT_NAME' },
+        printing: { bankId: 'STB', envNo: 'BANK_STB_ACCOUNT_NO', envName: 'BANK_STB_ACCOUNT_NAME' },
+    };
+
+    const mapping = orderToBankMap[orderType];
+    const accountNo = process.env[mapping.envNo];
+    const accountName = process.env[mapping.envName];
 
     if (!accountNo || !accountName) {
-        console.warn(`[SECURITY] Missing bank env vars for ${bankId}. Using fallback.`);
-        // Fallback for development only - should never happen in production
+        // Development fallback
         if (process.env.NODE_ENV === 'development') {
             return {
-                bankId,
+                bankId: mapping.bankId,
                 accountNo: 'DEMO_ACCOUNT',
                 accountName: 'DEMO_NAME',
             };
         }
-        throw new Error(`Missing bank configuration for ${bankId}`);
+        throw new Error(`Missing bank config for ${orderType}`);
     }
 
     return {
-        bankId,
+        bankId: mapping.bankId,
         accountNo,
         accountName,
     };
 }
 
-// Bank configs by order type - lazy loaded from env
-const bankConfigCache: Partial<Record<OrderType, VietQRConfig>> = {};
-
-export function getBankConfigForOrderType(orderType: OrderType): VietQRConfig {
-    // Check cache first
-    if (bankConfigCache[orderType]) {
-        return bankConfigCache[orderType]!;
-    }
-
-    // Map order types to bank IDs
-    const orderToBankMap: Record<OrderType, BankCode> = {
-        ready_made: 'TCB',
-        custom: 'TCB',
-        printing: 'STB',
-    };
-
-    const bankId = orderToBankMap[orderType];
-    const config = getBankConfigFromEnv(bankId);
-
-    // Cache for subsequent calls
-    bankConfigCache[orderType] = config;
-
-    return config;
-}
-
 /**
  * Get bank config by order type
- * @deprecated Use getBankConfigForOrderType instead
+ * @deprecated Use getBankConfigForOrderTypeAsync for async or getBankConfigForOrderType for sync
  */
 export function getBankConfig(orderType: OrderType): VietQRConfig {
     return getBankConfigForOrderType(orderType);
@@ -198,3 +240,8 @@ export function getDefaultBankConfig(): VietQRConfig {
     return getBankConfigForOrderType('ready_made');
 }
 
+// Pre-warm cache on server start (optional)
+export async function preloadBankConfigs(): Promise<void> {
+    const types: OrderType[] = ['ready_made', 'custom', 'printing'];
+    await Promise.all(types.map(t => getBankConfigForOrderTypeAsync(t)));
+}
