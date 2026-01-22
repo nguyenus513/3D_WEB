@@ -1,12 +1,10 @@
 /**
  * Cloudflare R2 Storage Service
  * 
- * Phase 7: Hybrid Storage - R2 for hot storage, Google Drive for cold archive
- * 
- * Usage:
- * - Product images: R2 (stay on R2, public)
+ * Hybrid Storage Flow:
+ * - Product images: R2 (permanent, fast serving)
  * - Customer uploads (images): R2 → Drive after order complete
- * - STL/OBJ files: Direct to Google Drive (large files)
+ * - STL/OBJ files: Direct to Google Drive
  */
 
 import {
@@ -23,7 +21,7 @@ const R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || '3d-print-uploads';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // Custom domain or R2.dev URL
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 // Check if R2 is configured
 export function isR2Configured(): boolean {
@@ -46,18 +44,65 @@ function getR2Client(): S3Client {
     });
 }
 
-// File categories for storage routing
-export type FileCategory = 'product_image' | 'customer_upload' | 'model_3d';
+/**
+ * Upload types for storage routing
+ * - product: Product images (permanent on R2)
+ * - printing: 3D printing order files
+ * - custom_main/custom_accessory/custom_preview: Custom order files
+ */
+export type UploadType = 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview';
 
-// Determine storage destination based on file category
-export function getStorageDestination(category: FileCategory, fileExtension: string): 'r2' | 'drive' {
+/**
+ * Check if upload type should stay permanent on R2 (no migration)
+ */
+export function isPermanentOnR2(uploadType: UploadType): boolean {
+    return uploadType === 'product';
+}
+
+/**
+ * Determine storage destination based on file type
+ */
+export function getStorageDestination(filename: string, uploadType: UploadType): 'r2' | 'drive' {
+    const ext = filename.toLowerCase().split('.').pop() || '';
+
     // 3D models always go to Drive
-    if (category === 'model_3d' || ['stl', 'obj', '3mf'].includes(fileExtension.toLowerCase())) {
+    if (['stl', 'obj', '3mf'].includes(ext)) {
         return 'drive';
     }
 
-    // Images go to R2 for fast serving
+    // All images go to R2
     return 'r2';
+}
+
+/**
+ * Generate R2 key with proper folder structure
+ */
+export function generateR2Key(
+    uploadType: UploadType,
+    identifier: string, // SKU for products, orderCode for orders
+    filename: string,
+    index?: number
+): string {
+    const timestamp = Date.now();
+    const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+    const safeName = filename
+        .toLowerCase()
+        .replace(/\.[^.]+$/, '') // Remove extension
+        .replace(/[^a-z0-9]/g, '_')
+        .slice(0, 50);
+
+    // Folder structure:
+    // products/{sku}/{filename}
+    // orders/{orderCode}/{filename}
+
+    if (uploadType === 'product') {
+        const indexSuffix = index ? `_${index}` : '';
+        return `products/${identifier}/${safeName}${indexSuffix}_${timestamp}.${ext}`;
+    }
+
+    // Customer orders
+    const typePrefix = uploadType.replace('custom_', '');
+    return `orders/${identifier}/${typePrefix}_${timestamp}.${ext}`;
 }
 
 /**
@@ -76,6 +121,7 @@ export async function uploadToR2(
         Key: key,
         Body: file,
         ContentType: contentType,
+        CacheControl: 'public, max-age=31536000', // 1 year cache for images
         Metadata: metadata,
     });
 
@@ -84,7 +130,7 @@ export async function uploadToR2(
     // Return public URL
     const url = R2_PUBLIC_URL
         ? `${R2_PUBLIC_URL}/${key}`
-        : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+        : `https://pub-${R2_ACCOUNT_ID}.r2.dev/${key}`;
 
     return { url, key };
 }
@@ -163,17 +209,23 @@ export async function existsInR2(key: string): Promise<boolean> {
 }
 
 /**
- * Generate unique key for upload
+ * Extract R2 key from URL
  */
-export function generateR2Key(
-    category: FileCategory,
-    orderId: string,
-    filename: string
-): string {
-    const timestamp = Date.now();
-    const safeName = filename
-        .toLowerCase()
-        .replace(/[^a-z0-9.-]/g, '_');
+export function extractR2KeyFromUrl(url: string): string | null {
+    try {
+        const urlObj = new URL(url);
+        return urlObj.pathname.slice(1); // Remove leading slash
+    } catch {
+        return null;
+    }
+}
 
-    return `${category}/${orderId}/${timestamp}_${safeName}`;
+/**
+ * Check if URL is from R2
+ */
+export function isR2Url(url: string): boolean {
+    if (!url) return false;
+    const r2Indicators = ['r2.dev', 'r2.cloudflarestorage.com'];
+    if (R2_PUBLIC_URL) r2Indicators.push(R2_PUBLIC_URL);
+    return r2Indicators.some(indicator => url.includes(indicator));
 }

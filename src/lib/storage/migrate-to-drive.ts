@@ -1,28 +1,27 @@
 /**
  * Migrate to Drive Service
  * 
- * Phase 7: Hybrid Storage - Migrate files from R2 to Google Drive
- * when order is completed (cold storage archival)
+ * Migrates files from R2 to Google Drive when order is completed.
  * 
  * Flow:
- * 1. Order status changes to COMPLETED
- * 2. Download files from R2
- * 3. Upload to Google Drive archived folder
- * 4. Update database URLs (R2 → Drive)
- * 5. Delete files from R2
+ * 1. Order status → COMPLETED
+ * 2. Find R2 files for this order
+ * 3. Download from R2
+ * 4. Upload to Google Drive (archived folder)
+ * 5. Update database URLs
+ * 6. Delete from R2
  */
 
-import { downloadFromR2, deleteFromR2, isR2Configured } from './r2';
+import { downloadFromR2, deleteFromR2, isR2Configured, isR2Url, extractR2KeyFromUrl } from './r2';
 import { getAdminSupabase } from '../supabase/admin';
+import { uploadWithNaming, isDriveConnected, getDirectUrl } from '../google-drive-oauth';
 
-// Google Drive OAuth import (existing)
-// Note: This uses the existing google-drive-oauth.ts service
-
-interface MigrationResult {
+export interface MigrationResult {
     success: boolean;
     migratedFiles: number;
     errors: string[];
     orderId: string;
+    newUrls?: Record<string, string>;
 }
 
 /**
@@ -35,11 +34,18 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
         migratedFiles: 0,
         errors: [],
         orderId,
+        newUrls: {},
     };
 
     // Skip if R2 not configured
     if (!isR2Configured()) {
-        result.errors.push('R2 not configured, skipping migration');
+        return result;
+    }
+
+    // Check if Drive is connected
+    const driveConnected = await isDriveConnected();
+    if (!driveConnected) {
+        result.errors.push('Google Drive not connected, skipping migration');
         return result;
     }
 
@@ -49,7 +55,7 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
         // 1. Get order with file URLs
         const { data: order, error: orderError } = await supabase
             .from('orders')
-            .select('id, order_code, image_urls, file_url')
+            .select('id, order_code, order_type, image_urls, file_url, user_id')
             .eq('id', orderId)
             .single();
 
@@ -59,11 +65,21 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
             return result;
         }
 
-        // 2. Identify R2 files (check if URL contains R2 domain)
-        const r2Domain = process.env.R2_PUBLIC_URL || 'r2.cloudflarestorage.com';
-        const filesToMigrate: { type: 'image' | 'file'; url: string; index?: number }[] = [];
+        // Get customer code for folder naming
+        let customerCode = 'GUEST';
+        if (order.user_id) {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('customer_code')
+                .eq('id', order.user_id)
+                .single();
+            customerCode = profile?.customer_code || 'GUEST';
+        }
 
-        // Check image_urls (array or JSON)
+        // 2. Collect R2 URLs to migrate
+        const filesToMigrate: { url: string; type: 'image' | 'file'; index: number }[] = [];
+
+        // Parse image_urls (can be array or JSON string)
         let imageUrls: string[] = [];
         if (order.image_urls) {
             if (Array.isArray(order.image_urls)) {
@@ -78,35 +94,86 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
         }
 
         imageUrls.forEach((url, index) => {
-            if (url && url.includes(r2Domain)) {
-                filesToMigrate.push({ type: 'image', url, index });
+            if (url && isR2Url(url)) {
+                filesToMigrate.push({ url, type: 'image', index: index + 1 });
             }
         });
-
-        // Check file_url
-        if (order.file_url && order.file_url.includes(r2Domain)) {
-            filesToMigrate.push({ type: 'file', url: order.file_url });
-        }
 
         if (filesToMigrate.length === 0) {
             // No R2 files to migrate
             return result;
         }
 
+        console.log(`[Migration] Starting migration for order ${order.order_code}: ${filesToMigrate.length} files`);
+
         // 3. Migrate each file
-        // Note: This is a placeholder - actual implementation needs Google Drive OAuth service
-        console.log(`[Migration] Would migrate ${filesToMigrate.length} files for order ${order.order_code}`);
+        const newImageUrls: string[] = [...imageUrls];
 
-        // For now, just log - actual implementation requires:
-        // - Download from R2: await downloadFromR2(key)
-        // - Upload to Drive: await uploadToGoogleDrive(buffer, folder)
-        // - Update DB: await supabase.from('orders').update({ image_urls: newUrls })
-        // - Delete from R2: await deleteFromR2(key)
+        for (const file of filesToMigrate) {
+            try {
+                const r2Key = extractR2KeyFromUrl(file.url);
+                if (!r2Key) {
+                    result.errors.push(`Could not extract key from URL: ${file.url}`);
+                    continue;
+                }
 
-        result.migratedFiles = filesToMigrate.length;
+                // Download from R2
+                const buffer = await downloadFromR2(r2Key);
 
-        // Log for tracking
-        console.log(`[Migration] Order ${order.order_code}: ${result.migratedFiles} files ready for archival`);
+                // Determine MIME type from URL
+                const ext = file.url.split('.').pop()?.toLowerCase() || 'jpg';
+                const mimeType = ext === 'png' ? 'image/png' :
+                    ext === 'webp' ? 'image/webp' : 'image/jpeg';
+
+                // Upload to Drive
+                const uploadType = order.order_type === 'printing' ? 'printing' : 'custom_main';
+                const driveResult = await uploadWithNaming(
+                    buffer,
+                    `archived_${file.index}.${ext}`,
+                    mimeType,
+                    {
+                        type: uploadType,
+                        index: file.index,
+                        customerCode,
+                        orderCode: order.order_code,
+                    }
+                );
+
+                const driveUrl = getDirectUrl(driveResult.fileId);
+
+                // Update URL in array
+                const originalIndex = imageUrls.indexOf(file.url);
+                if (originalIndex !== -1) {
+                    newImageUrls[originalIndex] = driveUrl;
+                }
+
+                // Delete from R2
+                await deleteFromR2(r2Key);
+
+                result.migratedFiles++;
+                console.log(`[Migration] Migrated: ${file.url} → ${driveUrl}`);
+
+            } catch (fileError) {
+                result.errors.push(`Failed to migrate ${file.url}: ${(fileError as Error).message}`);
+            }
+        }
+
+        // 4. Update database with new URLs
+        if (result.migratedFiles > 0) {
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({ image_urls: newImageUrls })
+                .eq('id', orderId);
+
+            if (updateError) {
+                result.errors.push(`Failed to update database: ${updateError.message}`);
+                result.success = false;
+            } else {
+                result.newUrls = { image_urls: JSON.stringify(newImageUrls) };
+            }
+        }
+
+        console.log(`[Migration] Complete: ${result.migratedFiles} files migrated for order ${order.order_code}`);
 
         return result;
 
@@ -115,32 +182,4 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
         result.errors.push((error as Error).message);
         return result;
     }
-}
-
-/**
- * Extract R2 key from URL
- */
-export function extractR2Key(url: string): string | null {
-    try {
-        const urlObj = new URL(url);
-        // Remove leading slash
-        return urlObj.pathname.slice(1);
-    } catch {
-        return null;
-    }
-}
-
-/**
- * Check if URL is from R2
- */
-export function isR2Url(url: string): boolean {
-    const r2Domain = process.env.R2_PUBLIC_URL || 'r2.cloudflarestorage.com';
-    return url.includes(r2Domain);
-}
-
-/**
- * Check if URL is from Google Drive
- */
-export function isDriveUrl(url: string): boolean {
-    return url.includes('drive.google.com') || url.includes('googleusercontent.com');
 }

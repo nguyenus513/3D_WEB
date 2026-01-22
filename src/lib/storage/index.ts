@@ -14,13 +14,14 @@ export {
     existsInR2,
     generateR2Key,
     getStorageDestination,
-    type FileCategory,
+    isPermanentOnR2,
+    extractR2KeyFromUrl,
+    isR2Url,
+    type UploadType,
 } from './r2';
 
 // Migration Service
 export {
     migrateOrderToArchive,
-    extractR2Key,
-    isR2Url,
-    isDriveUrl,
+    type MigrationResult,
 } from './migrate-to-drive';
