@@ -31,6 +31,8 @@ export {
     detectFileType,
     validateUploadedFile,
     sanitizeFilename,
+    validateSTLFile,
+    STL_LIMITS,
     ALLOWED_MIME_TYPES
 } from './file-validation';
 

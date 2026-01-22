@@ -117,7 +117,7 @@ export function validateUploadedFile(
     file: File,
     buffer: Buffer,
     allowedCategories: ('image' | 'model')[] = ['image', 'model']
-): { valid: boolean; error?: string; detectedType?: string } {
+): { valid: boolean; error?: string; detectedType?: string; warning?: string } {
     // Check file size (max 100MB)
     const MAX_SIZE = 100 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
@@ -146,7 +146,19 @@ export function validateUploadedFile(
 
     // For 3D models, check file extension since magic bytes are unreliable
     const ext = file.name.toLowerCase().split('.').pop();
-    if (['stl', 'obj', '3mf'].includes(ext || '')) {
+    if (['stl', 'obj'].includes(ext || '')) {
+        // STL-specific validation
+        if (ext === 'stl') {
+            const stlValidation = validateSTLFile(buffer, file.size);
+            if (!stlValidation.valid) {
+                return stlValidation;
+            }
+            return {
+                valid: true,
+                detectedType: 'model/stl',
+                warning: stlValidation.warning
+            };
+        }
         return { valid: true, detectedType: `model/${ext}` };
     }
 
@@ -160,6 +172,70 @@ export function validateUploadedFile(
     }
 
     return { valid: true, detectedType: detectedType || declaredType };
+}
+
+// =====================================================
+// Phase 5: Upload Hardening - STL Specific Validation
+// =====================================================
+
+// STL Processing Limits
+export const STL_LIMITS = {
+    MAX_TRIANGLES: 500000,          // Max triangles for instant processing
+    MAX_SIZE_INSTANT: 20 * 1024 * 1024, // 20MB for instant pricing
+    MAX_SIZE_UPLOAD: 100 * 1024 * 1024,  // 100MB max upload
+    PROCESSING_TIMEOUT: 30000,       // 30 seconds timeout
+};
+
+/**
+ * Validate STL file for processing safety
+ */
+export function validateSTLFile(buffer: Buffer, fileSize: number): {
+    valid: boolean;
+    error?: string;
+    warning?: string;
+    triangleCount?: number;
+    isAscii?: boolean;
+} {
+    // Check if ASCII or Binary STL
+    const header = buffer.slice(0, 5).toString('ascii');
+    const isAscii = header === 'solid';
+
+    let triangleCount = 0;
+
+    if (isAscii) {
+        // ASCII STL - count 'facet' occurrences
+        const content = buffer.toString('ascii');
+        const facetMatches = content.match(/facet normal/gi);
+        triangleCount = facetMatches?.length || 0;
+    } else {
+        // Binary STL - triangle count is at bytes 80-84
+        if (buffer.length >= 84) {
+            triangleCount = buffer.readUInt32LE(80);
+        }
+    }
+
+    // Check triangle count
+    if (triangleCount > STL_LIMITS.MAX_TRIANGLES) {
+        return {
+            valid: false,
+            error: `File STL quá phức tạp (${triangleCount.toLocaleString()} triangles). Tối đa ${STL_LIMITS.MAX_TRIANGLES.toLocaleString()} triangles cho xử lý tự động.`,
+            triangleCount,
+            isAscii,
+        };
+    }
+
+    // Warning for large files
+    let warning: string | undefined;
+    if (fileSize > STL_LIMITS.MAX_SIZE_INSTANT) {
+        warning = 'File lớn có thể mất thêm thời gian xử lý.';
+    }
+
+    return {
+        valid: true,
+        triangleCount,
+        isAscii,
+        warning,
+    };
 }
 
 /**
