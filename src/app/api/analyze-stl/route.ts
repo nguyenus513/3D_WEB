@@ -191,8 +191,43 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
+        // PHASE 6: Size limits for instant pricing
+        const MAX_SIZE_INSTANT = 20 * 1024 * 1024; // 20MB
+        const MAX_SIZE_UPLOAD = 100 * 1024 * 1024; // 100MB
+
+        if (file.size > MAX_SIZE_UPLOAD) {
+            return NextResponse.json({
+                error: 'File quá lớn. Tối đa 100MB.',
+                requireManualQuote: true,
+            }, { status: 400 });
+        }
+
         const buffer = Buffer.from(await file.arrayBuffer());
+
+        // PHASE 6: Check triangle count for binary STL
+        const isAscii = buffer.slice(0, 5).toString('ascii') === 'solid';
+        let triangleCount = 0;
+
+        if (!isAscii && buffer.length >= 84) {
+            triangleCount = buffer.readUInt32LE(80);
+        }
+
+        const MAX_TRIANGLES = 500000;
+        if (triangleCount > MAX_TRIANGLES) {
+            return NextResponse.json({
+                error: `File quá phức tạp (${triangleCount.toLocaleString()} triangles).`,
+                triangleCount,
+                requireManualQuote: true,
+                message: 'Vui lòng liên hệ để được báo giá thủ công cho file phức tạp.',
+            }, { status: 400 });
+        }
+
         const result = parseSTL(buffer);
+
+        // Warning for large files (still process but add warning)
+        const warning = file.size > MAX_SIZE_INSTANT
+            ? 'File lớn - thời gian xử lý có thể lâu hơn dự kiến.'
+            : undefined;
 
         // Volume in cm³ (STL is typically in mm, so divide by 1000)
         const volumeCm3 = result.volume / 1000;
@@ -239,6 +274,7 @@ export async function POST(request: NextRequest) {
                 y: Math.round(result.boundingBox.y * 10) / 10,
                 z: Math.round(result.boundingBox.z * 10) / 10,
             },
+            ...(warning && { warning }), // Include warning if present
         });
     } catch (error) {
         console.error('STL analysis error:', error);
