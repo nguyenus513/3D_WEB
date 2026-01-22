@@ -95,7 +95,7 @@ function Scene() {
             <pointLight position={[-10, -10, -10]} color="#0071E3" intensity={0.5} />
             <FloatingSphere />
             <Particles count={200} />
-            <Environment preset="city" />
+            {/* Removed Environment preset - uses custom lighting instead */}
         </>
     );
 }

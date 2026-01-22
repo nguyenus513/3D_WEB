@@ -147,7 +147,7 @@ function Scene() {
             <JellyMesh />
             <ParticleField count={200} />
 
-            <Environment preset="city" />
+            {/* Removed Environment preset - uses custom lighting instead */}
         </>
     );
 }
