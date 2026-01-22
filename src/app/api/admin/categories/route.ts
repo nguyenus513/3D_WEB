@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/security/admin-guard';
 
 /**
  * GET /api/admin/categories
  * Fetch all categories
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        // SECURITY: Verify admin access
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
         const supabase = getAdminSupabase();
 
         const { data, error } = await supabase
@@ -32,6 +37,10 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
     try {
+        // SECURITY: Verify admin access
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
         const supabase = getAdminSupabase();
         const body = await request.json();
 
@@ -89,6 +98,10 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
     try {
+        // SECURITY: Verify admin access
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
         const supabase = getAdminSupabase();
         const { id } = await request.json();
 
@@ -119,6 +132,10 @@ export async function DELETE(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
     try {
+        // SECURITY: Verify admin access
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
         const supabase = getAdminSupabase();
         const body = await request.json();
 

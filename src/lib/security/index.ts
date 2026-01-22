@@ -61,3 +61,9 @@ export {
     getBlockedAttempts,
     unblockIp,
 } from './brute-force';
+
+// Admin Auth Guard
+export {
+    requireAdmin,
+    isAdmin,
+} from './admin-guard';

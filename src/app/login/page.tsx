@@ -46,17 +46,9 @@ function LoginForm() {
             }
 
             if (result?.ok) {
-                // Check if user is admin by fetching session
-                const sessionRes = await fetch('/api/auth/session');
-                const session = await sessionRes.json();
-
-                if (session?.user?.role === 'admin') {
-                    // Admin user - redirect to Phoenix launcher (generates random path)
-                    router.push('/api/admin/launch');
-                } else {
-                    // Regular user - redirect to callbackUrl (original page)
-                    router.push(callbackUrl);
-                }
+                // Redirect to callbackUrl for all users (including admin)
+                // Admin can access admin panel via menu - no need to force redirect
+                router.push(callbackUrl);
                 router.refresh();
             }
         } catch {

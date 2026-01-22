@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/security/admin-guard';
 
 /**
  * GET /api/admin/orders
@@ -7,6 +8,10 @@ import { getAdminSupabase } from '@/lib/supabase/admin';
  */
 export async function GET(request: Request) {
     try {
+        // SECURITY: Verify admin access
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
         const supabase = getAdminSupabase();
         const { searchParams } = new URL(request.url);
         const orderType = searchParams.get('type') || 'all';

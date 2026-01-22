@@ -85,7 +85,15 @@ export function Navbar() {
                                     >
                                         Đơn hàng
                                     </Link>
-                                    {/* Admin link removed - auto redirect after login */}
+                                    {isAdmin && (
+                                        <Link
+                                            href="/api/admin/launch"
+                                            className="block px-4 py-2 text-sm text-blue-400 hover:text-blue-300 hover:bg-white/5"
+                                            onClick={() => setShowUserMenu(false)}
+                                        >
+                                            🛡️ Admin Panel
+                                        </Link>
+                                    )}
                                     <button
                                         onClick={() => signOut({ callbackUrl: '/' })}
                                         className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5"
@@ -142,7 +150,15 @@ export function Navbar() {
                                 >
                                     Tài khoản
                                 </Link>
-                                {/* Admin link removed from mobile - auto redirect after login */}
+                                {isAdmin && (
+                                    <Link
+                                        href="/api/admin/launch"
+                                        className="block text-base text-blue-400 hover:text-blue-300 transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        🛡️ Admin Panel
+                                    </Link>
+                                )}
                                 <button
                                     onClick={() => signOut({ callbackUrl: '/' })}
                                     className="block text-base text-red-400 hover:text-red-300 transition-colors"

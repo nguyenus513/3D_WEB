@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/security/admin-guard';
 
 interface MonthlyData {
     month: number;
@@ -19,6 +20,10 @@ interface MonthlyData {
  */
 export async function GET(request: Request) {
     try {
+        // SECURITY: Verify admin access
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
         const { searchParams } = new URL(request.url);
         const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1));
         const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));

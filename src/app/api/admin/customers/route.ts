@@ -1,12 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/security/admin-guard';
 
 /**
  * GET /api/admin/customers
  * Fetch all customers using admin privileges (bypasses RLS)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        // SECURITY: Verify admin access
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
         const supabase = getAdminSupabase();
 
         // Fetch all profiles
