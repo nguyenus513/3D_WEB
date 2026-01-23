@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
+import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
 
@@ -117,13 +118,8 @@ export default function ProductsPage() {
                     </div>
                 </AnimatedSection>
 
-                {/* Loading */}
-                {loading && (
-                    <div className="text-center py-20">
-                        <div className="inline-block w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mb-4" />
-                        <p className="text-white/50">Đang tải sản phẩm...</p>
-                    </div>
-                )}
+                {/* Loading Skeleton */}
+                {loading && <ProductGridSkeleton count={8} />}
 
                 {/* Products Grid */}
                 {!loading && (
