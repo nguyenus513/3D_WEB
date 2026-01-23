@@ -20,6 +20,7 @@ export default function ProductsPage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [activeCategory, setActiveCategory] = useState('Tất cả');
     const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchCategories();
@@ -49,9 +50,21 @@ export default function ProductsPage() {
         setLoading(false);
     };
 
-    const filteredProducts = activeCategory === 'Tất cả'
-        ? products
-        : products.filter(p => p.category_id === categories.find(c => c.name === activeCategory)?.id);
+    // Filter products by category and search query
+    const filteredProducts = products.filter(p => {
+        // Category filter
+        const matchesCategory = activeCategory === 'Tất cả'
+            || p.category_id === categories.find(c => c.name === activeCategory)?.id;
+
+        // Search filter
+        const searchLower = searchQuery.toLowerCase().trim();
+        const matchesSearch = !searchLower ||
+            p.name.toLowerCase().includes(searchLower) ||
+            p.sku?.toLowerCase().includes(searchLower) ||
+            p.short_description?.toLowerCase().includes(searchLower);
+
+        return matchesCategory && matchesSearch;
+    });
 
     // Generate gradient colors from product
     const getColors = (index: number) => {
@@ -83,6 +96,42 @@ export default function ProductsPage() {
                     <p className="text-lg text-white/50 max-w-xl mx-auto">
                         Khám phá bộ sưu tập mô hình 3D độc đáo, được chế tác thủ công với chất lượng cao nhất
                     </p>
+                </AnimatedSection>
+
+                {/* Search Bar */}
+                <AnimatedSection delay={0.15} className="max-w-md mx-auto mb-8">
+                    <div className="relative">
+                        <svg
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                            />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm sản phẩm..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 bg-[#1D1D1F] border border-white/10 rounded-full text-white placeholder:text-white/30 focus:outline-none focus:border-[#0071E3] focus:ring-2 focus:ring-[#0071E3]/20 transition-all"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 hover:text-white transition-colors"
+                            >
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
                 </AnimatedSection>
 
                 {/* Category Tabs */}
