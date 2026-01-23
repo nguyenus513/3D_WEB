@@ -1,0 +1,102 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+        - button "MENU" [ref=e9]: MENU
+      - generic [ref=e13]:
+        - link [ref=e15] [cursor=pointer]:
+          - /url: /cart
+          - img [ref=e16]
+        - generic [ref=e18]:
+          - link "Đăng nhập" [ref=e20] [cursor=pointer]:
+            - /url: /login?callbackUrl=%2Fproducts
+          - link "Đăng ký" [ref=e22] [cursor=pointer]:
+            - /url: /register?callbackUrl=%2Fproducts
+  - main [ref=e23]:
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - paragraph [ref=e27]: Bộ Sưu Tập
+        - heading "Sản Phẩm" [level=1] [ref=e28]
+        - paragraph [ref=e29]: Khám phá bộ sưu tập mô hình 3D độc đáo, được chế tác thủ công với chất lượng cao nhất
+      - generic [ref=e31]:
+        - img [ref=e32]
+        - textbox "Tìm kiếm sản phẩm..." [active] [ref=e34]: <script>alert("xss")</script>
+        - button [ref=e35]:
+          - img [ref=e36]
+      - button "Tất cả" [ref=e40]
+      - generic [ref=e41]:
+        - paragraph [ref=e42]:
+          - text: 0 sản phẩm
+          - generic [ref=e43]: cho "<script>alert("xss")</script>"
+        - generic [ref=e44]:
+          - generic [ref=e45]: "Sắp xếp:"
+          - combobox [ref=e46] [cursor=pointer]:
+            - option "Mới nhất" [selected]
+            - option "Giá thấp → cao"
+            - option "Giá cao → thấp"
+            - option "Bán chạy"
+      - generic [ref=e47]:
+        - img [ref=e49]
+        - paragraph [ref=e51]: Chưa có sản phẩm nào
+  - contentinfo [ref=e52]:
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - link "3D Print" [ref=e56] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=e57]: Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu.
+        - generic [ref=e58]:
+          - heading "Sản phẩm" [level=3] [ref=e59]
+          - list [ref=e60]:
+            - listitem [ref=e61]:
+              - link "Sản phẩm có sẵn" [ref=e62] [cursor=pointer]:
+                - /url: /products
+            - listitem [ref=e63]:
+              - link "Custom theo yêu cầu" [ref=e64] [cursor=pointer]:
+                - /url: /custom
+            - listitem [ref=e65]:
+              - link "Dịch vụ in 3D" [ref=e66] [cursor=pointer]:
+                - /url: /printing
+        - generic [ref=e67]:
+          - heading "Hỗ trợ" [level=3] [ref=e68]
+          - list [ref=e69]:
+            - listitem [ref=e70]:
+              - link "FAQ" [ref=e71] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e72]:
+              - link "Liên hệ" [ref=e73] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e74]:
+              - link "Chính sách đổi trả" [ref=e75] [cursor=pointer]:
+                - /url: /policy
+        - generic [ref=e76]:
+          - heading "Tài khoản" [level=3] [ref=e77]
+          - list [ref=e78]:
+            - listitem [ref=e79]:
+              - link "Tài khoản" [ref=e80] [cursor=pointer]:
+                - /url: /account
+            - listitem [ref=e81]:
+              - link "Đơn hàng của tôi" [ref=e82] [cursor=pointer]:
+                - /url: /account/orders
+            - listitem [ref=e83]:
+              - link "Giỏ hàng" [ref=e84] [cursor=pointer]:
+                - /url: /cart
+      - generic [ref=e86]:
+        - paragraph [ref=e87]: Copyright © 2026 3D Print. All rights reserved.
+        - generic [ref=e88]:
+          - link "Chính sách bảo mật" [ref=e89] [cursor=pointer]:
+            - /url: /privacy
+          - link "Điều khoản sử dụng" [ref=e90] [cursor=pointer]:
+            - /url: /terms
+  - button [ref=e92]:
+    - img [ref=e94]
+  - button "Open Next.js Dev Tools" [ref=e101] [cursor=pointer]:
+    - img [ref=e102]
+  - alert [ref=e105]
+```

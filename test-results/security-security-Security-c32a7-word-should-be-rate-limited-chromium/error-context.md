@@ -1,0 +1,89 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+        - button "MENU" [ref=e9]: MENU
+      - generic [ref=e13]:
+        - link [ref=e15] [cursor=pointer]:
+          - /url: /cart
+          - img [ref=e16]
+        - generic [ref=e18]:
+          - link "Đăng nhập" [ref=e20] [cursor=pointer]:
+            - /url: /login?callbackUrl=%2Fforgot-password
+          - link "Đăng ký" [ref=e22] [cursor=pointer]:
+            - /url: /register?callbackUrl=%2Fforgot-password
+  - main [ref=e23]:
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - heading "Quên mật khẩu?" [level=1] [ref=e27]
+        - paragraph [ref=e28]: Kiểm tra email của bạn để đặt lại mật khẩu
+      - generic [ref=e29]:
+        - img [ref=e31]
+        - heading "Email đã được gửi!" [level=2] [ref=e33]
+        - paragraph [ref=e34]:
+          - text: Chúng tôi đã gửi hướng dẫn đặt lại mật khẩu đến
+          - strong [ref=e35]: test0@example.com
+        - link "Quay lại đăng nhập" [ref=e36] [cursor=pointer]:
+          - /url: /login
+  - contentinfo [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - link "3D Print" [ref=e41] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=e42]: Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu.
+        - generic [ref=e43]:
+          - heading "Sản phẩm" [level=3] [ref=e44]
+          - list [ref=e45]:
+            - listitem [ref=e46]:
+              - link "Sản phẩm có sẵn" [ref=e47] [cursor=pointer]:
+                - /url: /products
+            - listitem [ref=e48]:
+              - link "Custom theo yêu cầu" [ref=e49] [cursor=pointer]:
+                - /url: /custom
+            - listitem [ref=e50]:
+              - link "Dịch vụ in 3D" [ref=e51] [cursor=pointer]:
+                - /url: /printing
+        - generic [ref=e52]:
+          - heading "Hỗ trợ" [level=3] [ref=e53]
+          - list [ref=e54]:
+            - listitem [ref=e55]:
+              - link "FAQ" [ref=e56] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e57]:
+              - link "Liên hệ" [ref=e58] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e59]:
+              - link "Chính sách đổi trả" [ref=e60] [cursor=pointer]:
+                - /url: /policy
+        - generic [ref=e61]:
+          - heading "Tài khoản" [level=3] [ref=e62]
+          - list [ref=e63]:
+            - listitem [ref=e64]:
+              - link "Tài khoản" [ref=e65] [cursor=pointer]:
+                - /url: /account
+            - listitem [ref=e66]:
+              - link "Đơn hàng của tôi" [ref=e67] [cursor=pointer]:
+                - /url: /account/orders
+            - listitem [ref=e68]:
+              - link "Giỏ hàng" [ref=e69] [cursor=pointer]:
+                - /url: /cart
+      - generic [ref=e71]:
+        - paragraph [ref=e72]: Copyright © 2026 3D Print. All rights reserved.
+        - generic [ref=e73]:
+          - link "Chính sách bảo mật" [ref=e74] [cursor=pointer]:
+            - /url: /privacy
+          - link "Điều khoản sử dụng" [ref=e75] [cursor=pointer]:
+            - /url: /terms
+  - button [ref=e77]:
+    - img [ref=e79]
+  - button "Open Next.js Dev Tools" [ref=e86] [cursor=pointer]:
+    - img [ref=e87]
+  - alert [ref=e90]
+```
