@@ -46,8 +46,18 @@ function LoginForm() {
             }
 
             if (result?.ok) {
-                // Redirect to callbackUrl for all users (including admin)
-                // Admin can access admin panel via menu - no need to force redirect
+                // Fetch user session to check role
+                const sessionRes = await fetch('/api/auth/session');
+                const session = await sessionRes.json();
+
+                // If user is admin, redirect to admin panel via Phoenix Protocol
+                if (session?.user?.role === 'admin') {
+                    // Redirect to admin launch which will set up Phoenix token
+                    window.location.href = '/api/admin/launch';
+                    return;
+                }
+
+                // Regular users go to callback URL or account page
                 router.push(callbackUrl);
                 router.refresh();
             }
