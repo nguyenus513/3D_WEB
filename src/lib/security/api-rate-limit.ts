@@ -17,6 +17,15 @@ export const API_RATE_LIMITS: Record<string, { limit: number; windowMs: number }
     // Upload routes - moderate limits
     '/api/upload': { limit: 30, windowMs: 60 * 60 * 1000 }, // 30 per hour
 
+    // Email - very strict to prevent spam/abuse
+    '/api/send-email': { limit: 10, windowMs: 60 * 1000 }, // 10 per minute
+
+    // STL Analysis - compute-heavy, strict limit
+    '/api/analyze-stl': { limit: 5, windowMs: 60 * 1000 }, // 5 per minute
+
+    // Drive OAuth - one-time action, very strict
+    '/api/drive': { limit: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
+
     // Admin routes - higher limits but still bounded
     '/api/admin': { limit: 100, windowMs: 60 * 1000 }, // 100 per minute
 

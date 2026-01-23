@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/security/admin-guard';
 import { customAlphabet } from 'nanoid';
 
 // 50-char generator with alphanumeric
@@ -7,15 +7,11 @@ const generateToken = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
-    // 1. Verify session
-    const session = await auth();
-    const user = session?.user;
-    const isAdmin = (user as { role?: string })?.role === 'admin';
-
-    // 2. If not admin, redirect to home (security)
-    if (!isAdmin) {
-        const url = new URL(req.url);
+export async function GET(request: NextRequest) {
+    // SECURITY: Verify admin
+    const { authorized } = await requireAdmin(request);
+    if (!authorized) {
+        const url = new URL(request.url);
         return NextResponse.redirect(new URL('/', url.origin));
     }
 
@@ -23,7 +19,7 @@ export async function GET(req: Request) {
     const sessionToken = generateToken();
 
     // 4. Create Redirect to the new random path
-    const url = new URL(req.url);
+    const url = new URL(request.url);
     const redirectUrl = new URL(`/${sessionToken}`, url.origin);
 
     const response = NextResponse.redirect(redirectUrl);

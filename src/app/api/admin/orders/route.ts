@@ -5,6 +5,8 @@ import { requireAdmin } from '@/lib/security/admin-guard';
 /**
  * GET /api/admin/orders
  * Fetch orders with profile data using admin privileges (bypasses RLS)
+ * 
+ * SECURITY: Pagination enforced with max limit to prevent DoS
  */
 export async function GET(request: Request) {
     try {
@@ -16,25 +18,30 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const orderType = searchParams.get('type') || 'all';
 
-        // 1. Fetch orders
+        // SECURITY: Pagination with enforced max limit
+        const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+        const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50'))); // Max 100
+
+        // 1. Fetch orders with pagination
         let query = supabase
             .from('orders')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .select('*', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range((page - 1) * limit, page * limit - 1);
 
         if (orderType !== 'all') {
             query = query.eq('order_type', orderType);
         }
 
-        const { data: orders, error } = await query;
+        const { data: orders, count, error } = await query;
 
         if (error) {
             console.error('Error fetching orders:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
         }
 
         if (!orders || orders.length === 0) {
-            return NextResponse.json({ orders: [] });
+            return NextResponse.json({ orders: [], total: 0, page, limit });
         }
 
         // 2. Get unique user_ids
@@ -61,7 +68,12 @@ export async function GET(request: Request) {
             profiles: order.user_id && profileMap[order.user_id] ? profileMap[order.user_id] : null
         }));
 
-        return NextResponse.json({ orders: ordersWithProfiles });
+        return NextResponse.json({
+            orders: ordersWithProfiles,
+            total: count || 0,
+            page,
+            limit
+        });
     } catch (error) {
         console.error('Admin orders API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

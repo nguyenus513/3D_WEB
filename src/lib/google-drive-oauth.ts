@@ -2,10 +2,16 @@
  * Google Drive OAuth Integration
  * Uses Admin's personal Google account (15GB free storage)
  * Tokens stored securely in Supabase
+ * 
+ * SECURITY:
+ * - State parameter for CSRF protection
+ * - Admin-only callback validation
  */
 
 import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
+import { randomBytes } from 'crypto';
+import { encryptTokenData, decryptTokenData } from '@/lib/security/token-encryption';
 
 // Environment variables
 const CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
@@ -29,10 +35,54 @@ function getOAuth2Client() {
 }
 
 /**
- * Generate OAuth authorization URL
+ * Generate and store OAuth state for CSRF protection
  */
-export function getAuthUrl(): string {
+export async function generateOAuthState(): Promise<string> {
+    const state = randomBytes(32).toString('hex');
+
+    // Store state temporarily (expires in 10 minutes)
+    await supabaseAdmin
+        .from('settings')
+        .upsert({
+            key: 'oauth_state_pending',
+            value: { state, expires: Date.now() + 10 * 60 * 1000 },
+            updated_at: new Date().toISOString(),
+        }, { onConflict: 'key' });
+
+    return state;
+}
+
+/**
+ * Validate OAuth state parameter
+ */
+export async function validateOAuthState(state: string): Promise<boolean> {
+    const { data } = await supabaseAdmin
+        .from('settings')
+        .select('value')
+        .eq('key', 'oauth_state_pending')
+        .single();
+
+    if (!data?.value) return false;
+
+    const { state: storedState, expires } = data.value as { state: string; expires: number };
+
+    // Clean up used state
+    await supabaseAdmin
+        .from('settings')
+        .delete()
+        .eq('key', 'oauth_state_pending');
+
+    if (Date.now() > expires) return false;
+    return state === storedState;
+}
+
+/**
+ * Generate OAuth authorization URL
+ * NOTE: This is now async due to state generation
+ */
+export async function getAuthUrl(): Promise<string> {
     const oauth2Client = getOAuth2Client();
+    const state = await generateOAuthState();
 
     return oauth2Client.generateAuthUrl({
         access_type: 'offline', // Get refresh token
@@ -41,6 +91,7 @@ export function getAuthUrl(): string {
             'https://www.googleapis.com/auth/drive.file',
             'https://www.googleapis.com/auth/userinfo.email',
         ],
+        state,
     });
 }
 
@@ -54,16 +105,19 @@ export async function getTokensFromCode(code: string) {
 }
 
 /**
- * Save tokens to Supabase settings (encrypted in DB)
+ * Save tokens to Supabase settings (encrypted)
  */
 export async function saveTokens(tokens: {
     access_token?: string | null;
     refresh_token?: string | null;
     expiry_date?: number | null;
 }) {
+    // SECURITY: Encrypt tokens before storing
+    const encryptedTokens = encryptTokenData(tokens);
+
     const tokenData = {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
+        access_token: encryptedTokens.access_token,
+        refresh_token: encryptedTokens.refresh_token,
         expiry_date: tokens.expiry_date,
         updated_at: new Date().toISOString(),
     };
@@ -85,7 +139,7 @@ export async function saveTokens(tokens: {
 }
 
 /**
- * Get tokens from Supabase
+ * Get tokens from Supabase (decrypted)
  */
 export async function getStoredTokens() {
     const { data, error } = await supabaseAdmin
@@ -98,10 +152,19 @@ export async function getStoredTokens() {
         return null;
     }
 
-    return data.value as {
+    const storedTokens = data.value as {
         access_token: string;
         refresh_token: string;
         expiry_date: number;
+    };
+
+    // SECURITY: Decrypt tokens after retrieving
+    const decryptedTokens = decryptTokenData(storedTokens);
+
+    return {
+        access_token: decryptedTokens.access_token || '',
+        refresh_token: decryptedTokens.refresh_token || '',
+        expiry_date: storedTokens.expiry_date,
     };
 }
 

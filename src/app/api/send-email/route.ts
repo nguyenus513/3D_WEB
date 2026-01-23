@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/security/admin-guard';
+import { isRateLimited, rateLimitedResponse } from '@/lib/security';
 import {
     sendPaymentConfirmationEmail,
     sendCompletionEmail,
@@ -10,9 +12,23 @@ import {
  * 
  * POST /api/send-email
  * Body: { type, data }
+ * 
+ * SECURITY:
+ * - Requires admin authentication
+ * - Rate limited: 10 emails per minute
  */
 export async function POST(request: NextRequest) {
     try {
+        // SECURITY: Admin only - prevent spam/phishing abuse
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
+
+        // SECURITY: Rate limit to prevent quota exhaustion
+        const rateCheck = isRateLimited(request);
+        if (rateCheck.limited) {
+            return rateLimitedResponse(rateCheck.resetIn);
+        }
+
         const body = await request.json();
         const { type, data } = body;
 
@@ -67,7 +83,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[API/send-email] Error:', error);
         return NextResponse.json(
-            { error: (error as Error).message },
+            { error: 'Failed to send email' },
             { status: 500 }
         );
     }

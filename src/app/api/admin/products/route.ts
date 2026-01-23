@@ -4,21 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
-
-// Admin check
-async function isAdmin(): Promise<boolean> {
-    const session = await auth();
-    return (session?.user as { role?: string } | undefined)?.role === 'admin';
-}
 
 // GET /api/admin/products - List products
 export async function GET(request: NextRequest) {
     try {
-        if (!await isAdmin()) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
 
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get('page') || '1');
@@ -54,9 +47,8 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/products - Create product
 export async function POST(request: NextRequest) {
     try {
-        if (!await isAdmin()) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
 
         const body = await request.json();
 
@@ -117,9 +109,8 @@ export async function POST(request: NextRequest) {
 // PUT /api/admin/products - Update product
 export async function PUT(request: NextRequest) {
     try {
-        if (!await isAdmin()) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
 
         const body = await request.json();
         const { id, ...updates } = body;
@@ -164,9 +155,8 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/admin/products - Delete product (soft delete)
 export async function DELETE(request: NextRequest) {
     try {
-        if (!await isAdmin()) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
 
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');

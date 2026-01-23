@@ -4,16 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
-
-// Admin check helper
-async function isAdmin(): Promise<boolean> {
-    const session = await auth();
-    // Cast to include role (extended in next-auth types)
-    const user = session?.user as { role?: string } | undefined;
-    return user?.role === 'admin';
-}
 
 // PUT /api/admin/orders/[id] - Update order (admin only)
 export async function PUT(
@@ -22,9 +14,8 @@ export async function PUT(
 ) {
     try {
         // Verify admin
-        if (!await isAdmin()) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
 
         const { id } = await params;
         if (!id) {
@@ -126,9 +117,8 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        if (!await isAdmin()) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const { authorized, response } = await requireAdmin(request);
+        if (!authorized) return response;
 
         const { id } = await params;
         const supabase = getAdminSupabase();

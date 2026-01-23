@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { isRateLimited, rateLimitedResponse } from '@/lib/security';
 
 /**
  * STL Analysis API
  * Calculates volume, weight, and estimated print time from STL files
+ * 
+ * SECURITY:
+ * - Requires authentication (compute-heavy operation)
+ * - Rate limited: 5 requests per minute
  * 
  * Uses node-stl library for parsing binary/ASCII STL files
  */
@@ -175,6 +181,18 @@ function parseAsciiSTL(buffer: Buffer): { volume: number; boundingBox: { x: numb
 
 export async function POST(request: NextRequest) {
     try {
+        // SECURITY: Require authentication
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // SECURITY: Strict rate limit for compute-heavy endpoint
+        const rateCheck = isRateLimited(request);
+        if (rateCheck.limited) {
+            return rateLimitedResponse(rateCheck.resetIn);
+        }
+
         const formData = await request.formData();
         const file = formData.get('file') as File;
         const printType = (formData.get('type') as string) || 'fdm';
@@ -279,7 +297,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('STL analysis error:', error);
         return NextResponse.json({
-            error: 'Failed to analyze file: ' + (error as Error).message
+            error: 'Failed to analyze file'
         }, { status: 500 });
     }
 }
