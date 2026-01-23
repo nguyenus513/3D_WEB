@@ -44,7 +44,7 @@ if (typeof setInterval !== 'undefined') {
     }, RATE_WINDOW);
 }
 
-export default auth((req) => {
+export const proxy = auth((req) => {
     const { nextUrl } = req;
 
     // Rate limiting - get IP
