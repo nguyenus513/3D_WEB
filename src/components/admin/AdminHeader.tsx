@@ -20,7 +20,7 @@ const typeLabels: Record<string, string> = {
     printing: 'In 3D',
 };
 
-export function AdminHeader() {
+export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     const { adminRoot } = useAdminPath();
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -76,7 +76,17 @@ export function AdminHeader() {
 
     return (
         <header className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/10">
-            <div className="flex items-center justify-between h-16 px-6">
+            <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+                {/* Mobile menu button */}
+                <button
+                    onClick={onMenuClick}
+                    className="lg:hidden p-2 rounded-xl hover:bg-white/5 transition-colors mr-2"
+                >
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+
                 {/* Search */}
                 <div className="flex-1 max-w-md">
                     <div className="relative">

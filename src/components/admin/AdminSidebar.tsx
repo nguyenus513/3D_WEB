@@ -86,7 +86,7 @@ const navConfig: NavItem[] = [
     },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
     const pathname = usePathname();
     const { data: session } = useSession();
     const [expandedItems, setExpandedItems] = useState<string[]>(['Khách hàng']);
@@ -120,7 +120,12 @@ export function AdminSidebar() {
     };
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0a0a0a] border-r border-white/10 flex flex-col z-50">
+        <aside className={`
+            fixed left-0 top-0 h-screen w-64 bg-[#0a0a0a] border-r border-white/10 flex flex-col z-50
+            transform transition-transform duration-300 ease-in-out
+            ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+            lg:translate-x-0
+        `}>
             {/* Logo */}
             <div className="p-6 border-b border-white/10">
                 <Link href={adminRoot || '/sys_internal'} className="flex items-center gap-3">
