@@ -73,6 +73,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 // Skip email verification check for admin
                 if (user.role !== 'admin' && !user.email_verified) {
+                    // Check if account has expired (past OTP expiration time - 15 minutes)
+                    const createdAt = new Date(user.created_at);
+                    const now = new Date();
+                    const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+
+                    if (diffMinutes > 15) {
+                        // Account expired - delete it
+                        try {
+                            await supabaseAdmin.from('addresses').delete().eq('user_id', user.id);
+                            await supabaseAdmin.from('verification_tokens').delete().eq('identifier', user.email);
+                            await supabaseAdmin.from('profiles').delete().eq('id', user.id);
+                            throw new Error('Tài khoản đã hết hạn và bị xóa. Vui lòng đăng ký lại.');
+                        } catch {
+                            throw new Error('Tài khoản đã hết hạn. Vui lòng đăng ký lại.');
+                        }
+                    }
+
                     throw new Error('Email chưa được xác thực. Vui lòng kiểm tra hộp thư.');
                 }
 
