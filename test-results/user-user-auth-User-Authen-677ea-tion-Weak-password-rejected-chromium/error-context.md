@@ -1,0 +1,121 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+        - button "MENU" [ref=e9]: MENU
+      - generic [ref=e13]:
+        - link [ref=e15] [cursor=pointer]:
+          - /url: /cart
+          - img [ref=e16]
+        - generic [ref=e18]:
+          - link "Đăng nhập" [ref=e20] [cursor=pointer]:
+            - /url: /login?callbackUrl=%2Fregister
+          - link "Đăng ký" [ref=e22] [cursor=pointer]:
+            - /url: /register?callbackUrl=%2Fregister
+  - main [ref=e23]:
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - heading "Đăng Ký" [level=1] [ref=e27]
+        - paragraph [ref=e28]: Tạo tài khoản để đặt hàng
+      - generic [ref=e29]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: "1"
+          - generic [ref=e33]: Tài khoản
+        - generic [ref=e36]:
+          - generic [ref=e37]: "2"
+          - generic [ref=e38]: Thông tin
+        - generic [ref=e41]:
+          - generic [ref=e42]: "3"
+          - generic [ref=e43]: Địa chỉ
+        - generic [ref=e46]:
+          - generic [ref=e47]: "4"
+          - generic [ref=e48]: Xác nhận
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]: Email
+            - textbox "your@email.com" [ref=e53]: test@example.com
+          - generic [ref=e54]:
+            - generic [ref=e55]: Mật khẩu
+            - generic [ref=e56]:
+              - textbox "Tối thiểu 6 ký tự" [active] [ref=e57]: "123"
+              - button "👁️" [ref=e58]
+          - generic [ref=e59]:
+            - generic [ref=e60]: Xác nhận mật khẩu
+            - textbox "Nhập lại mật khẩu" [ref=e61]
+        - button "Tiếp tục" [ref=e63] [cursor=pointer]
+      - paragraph [ref=e64]:
+        - text: Đã có tài khoản?
+        - link "Đăng nhập" [ref=e65] [cursor=pointer]:
+          - /url: /login
+  - contentinfo [ref=e66]:
+    - generic [ref=e67]:
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - link "3D Print" [ref=e70] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=e71]: Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu.
+        - generic [ref=e72]:
+          - heading "Sản phẩm" [level=3] [ref=e73]
+          - list [ref=e74]:
+            - listitem [ref=e75]:
+              - link "Sản phẩm có sẵn" [ref=e76] [cursor=pointer]:
+                - /url: /products
+            - listitem [ref=e77]:
+              - link "Custom theo yêu cầu" [ref=e78] [cursor=pointer]:
+                - /url: /custom
+            - listitem [ref=e79]:
+              - link "Dịch vụ in 3D" [ref=e80] [cursor=pointer]:
+                - /url: /printing
+        - generic [ref=e81]:
+          - heading "Hỗ trợ" [level=3] [ref=e82]
+          - list [ref=e83]:
+            - listitem [ref=e84]:
+              - link "FAQ" [ref=e85] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e86]:
+              - link "Liên hệ" [ref=e87] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e88]:
+              - link "Chính sách đổi trả" [ref=e89] [cursor=pointer]:
+                - /url: /policy
+        - generic [ref=e90]:
+          - heading "Tài khoản" [level=3] [ref=e91]
+          - list [ref=e92]:
+            - listitem [ref=e93]:
+              - link "Tài khoản" [ref=e94] [cursor=pointer]:
+                - /url: /account
+            - listitem [ref=e95]:
+              - link "Đơn hàng của tôi" [ref=e96] [cursor=pointer]:
+                - /url: /account/orders
+            - listitem [ref=e97]:
+              - link "Giỏ hàng" [ref=e98] [cursor=pointer]:
+                - /url: /cart
+      - generic [ref=e100]:
+        - paragraph [ref=e101]: Copyright © 2026 3D Print. All rights reserved.
+        - generic [ref=e102]:
+          - link "Chính sách bảo mật" [ref=e103] [cursor=pointer]:
+            - /url: /privacy
+          - link "Điều khoản sử dụng" [ref=e104] [cursor=pointer]:
+            - /url: /terms
+  - button [ref=e106]:
+    - img [ref=e108]
+  - generic [ref=e114] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e115]:
+      - img [ref=e116]
+    - generic [ref=e119]:
+      - button "Open issues overlay" [ref=e120]:
+        - generic [ref=e121]:
+          - generic [ref=e122]: "0"
+          - generic [ref=e123]: "1"
+        - generic [ref=e124]: Issue
+      - button "Collapse issues badge" [ref=e125]:
+        - img [ref=e126]
+  - alert [ref=e128]
+```
