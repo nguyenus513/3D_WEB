@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
                 password: hashedPassword,
                 customer_code: customerCode,
                 role: 'customer', // This will be cast to user_role ENUM automatically
+                email_verified: false, // IMPORTANT: Require email verification before login
             })
             .select('id, customer_code')
             .single();
