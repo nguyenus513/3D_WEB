@@ -96,6 +96,23 @@ export async function PUT(
             return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
         }
 
+        // AUTO-MIGRATION HOOK
+        // If order is completed/delivered, migrate R2 files to Google Drive (Archive)
+        if (body.status === 'delivered' || body.status === 'completed') {
+            console.log(`[Hook] Order ${id} ${body.status} - triggering migration...`);
+
+            // Execute migration (non-blocking or blocking depending on preference)
+            // We await here to ensure it starts, but catch errors to not break response
+            try {
+                const { migrateOrderToArchive } = await import('@/lib/storage');
+                const result = await migrateOrderToArchive(id);
+                console.log('[Hook] Migration result:', result);
+            } catch (migError) {
+                console.error('[Hook] Migration failed:', migError);
+                // Don't fail the request, just log
+            }
+        }
+
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Admin orders API error:', error);

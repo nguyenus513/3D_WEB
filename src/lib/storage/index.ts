@@ -8,6 +8,7 @@
 export {
     isR2Configured,
     uploadToR2,
+    getPresignedUploadUrl, // New export
     downloadFromR2,
     deleteFromR2,
     getR2SignedUrl,

@@ -2,7 +2,7 @@
  * Cloudflare R2 Storage Service
  * 
  * Hybrid Storage Flow:
- * - Product images: R2 (permanent, fast serving)
+ * - Product images: R2 (permanent, fast serving via Worker)
  * - Customer uploads (images): R2 → Drive after order complete
  * - STL/OBJ files: Direct to Google Drive
  */
@@ -20,8 +20,8 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 const R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || '3d-print-uploads';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'miniver3d';
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // Should be Worker URL (e.g. cdn.miniver3d.com)
 
 // Check if R2 is configured
 export function isR2Configured(): boolean {
@@ -46,9 +46,6 @@ function getR2Client(): S3Client {
 
 /**
  * Upload types for storage routing
- * - product: Product images (permanent on R2)
- * - printing: 3D printing order files
- * - custom_main/custom_accessory/custom_preview: Custom order files
  */
 export type UploadType = 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview';
 
@@ -107,6 +104,7 @@ export function generateR2Key(
 
 /**
  * Upload file to R2
+ * NOTE: For large files, prefer getPresignedUploadUrl() and upload from client
  */
 export async function uploadToR2(
     file: Buffer,
@@ -127,16 +125,45 @@ export async function uploadToR2(
 
     await client.send(command);
 
-    // Return public URL
+    // Return URL using Worker domain if available
+    // R2_PUBLIC_URL should be "https://cdn.yourdomain.com"
     const url = R2_PUBLIC_URL
         ? `${R2_PUBLIC_URL}/${key}`
-        : `https://pub-${R2_ACCOUNT_ID}.r2.dev/${key}`;
+        : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
 
     return { url, key };
 }
 
 /**
+ * Get presigned URL for direct upload from client
+ * (Better performance for large files, bypasses server)
+ */
+export async function getPresignedUploadUrl(
+    key: string,
+    contentType: string,
+    expiresIn = 300 // 5 minutes
+): Promise<{ url: string; publicUrl: string; key: string }> {
+    const client = getR2Client();
+
+    const command = new PutObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: key,
+        ContentType: contentType,
+        // ACL: 'private', // Not supported by R2, access controlled by bucket settings
+    });
+
+    const url = await getSignedUrl(client, command, { expiresIn });
+
+    const publicUrl = R2_PUBLIC_URL
+        ? `${R2_PUBLIC_URL}/${key}`
+        : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+
+    return { url, publicUrl, key };
+}
+
+/**
  * Get signed URL for private file access
+ * Use this when bucket is private and file is not served via Worker
  */
 export async function getR2SignedUrl(key: string, expiresIn = 3600): Promise<string> {
     const client = getR2Client();
@@ -226,6 +253,12 @@ export function extractR2KeyFromUrl(url: string): string | null {
 export function isR2Url(url: string): boolean {
     if (!url) return false;
     const r2Indicators = ['r2.dev', 'r2.cloudflarestorage.com'];
-    if (R2_PUBLIC_URL) r2Indicators.push(R2_PUBLIC_URL);
+    if (R2_PUBLIC_URL) {
+        // Handle worker domain
+        try {
+            const workerHost = new URL(R2_PUBLIC_URL).host;
+            r2Indicators.push(workerHost);
+        } catch { }
+    }
     return r2Indicators.some(indicator => url.includes(indicator));
 }
