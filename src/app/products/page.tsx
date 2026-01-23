@@ -14,6 +14,8 @@ interface Category {
     slug: string;
 }
 
+type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'bestseller';
+
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
@@ -21,6 +23,8 @@ export default function ProductsPage() {
     const [activeCategory, setActiveCategory] = useState('Tất cả');
     const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState<SortOption>('newest');
+    const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000]);
 
     useEffect(() => {
         fetchCategories();
@@ -50,21 +54,42 @@ export default function ProductsPage() {
         setLoading(false);
     };
 
-    // Filter products by category and search query
-    const filteredProducts = products.filter(p => {
-        // Category filter
-        const matchesCategory = activeCategory === 'Tất cả'
-            || p.category_id === categories.find(c => c.name === activeCategory)?.id;
+    // Filter and sort products
+    const filteredProducts = products
+        .filter(p => {
+            // Category filter
+            const matchesCategory = activeCategory === 'Tất cả'
+                || p.category_id === categories.find(c => c.name === activeCategory)?.id;
 
-        // Search filter
-        const searchLower = searchQuery.toLowerCase().trim();
-        const matchesSearch = !searchLower ||
-            p.name.toLowerCase().includes(searchLower) ||
-            p.sku?.toLowerCase().includes(searchLower) ||
-            p.short_description?.toLowerCase().includes(searchLower);
+            // Search filter
+            const searchLower = searchQuery.toLowerCase().trim();
+            const matchesSearch = !searchLower ||
+                p.name.toLowerCase().includes(searchLower) ||
+                p.sku?.toLowerCase().includes(searchLower) ||
+                p.short_description?.toLowerCase().includes(searchLower);
 
-        return matchesCategory && matchesSearch;
-    });
+            // Price filter
+            const price = Number(p.sale_price || p.base_price);
+            const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
+
+            return matchesCategory && matchesSearch && matchesPrice;
+        })
+        .sort((a, b) => {
+            const priceA = Number(a.sale_price || a.base_price);
+            const priceB = Number(b.sale_price || b.base_price);
+
+            switch (sortBy) {
+                case 'price_asc':
+                    return priceA - priceB;
+                case 'price_desc':
+                    return priceB - priceA;
+                case 'bestseller':
+                    return (b.sold_count || 0) - (a.sold_count || 0);
+                case 'newest':
+                default:
+                    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+            }
+        });
 
     // Generate gradient colors from product
     const getColors = (index: number) => {
@@ -164,6 +189,30 @@ export default function ProductsPage() {
                                 {category.name}
                             </button>
                         ))}
+                    </div>
+                </AnimatedSection>
+
+                {/* Sort & Filter Bar */}
+                <AnimatedSection delay={0.25} className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                    {/* Results count */}
+                    <p className="text-white/50 text-sm">
+                        {loading ? 'Đang tải...' : `${filteredProducts.length} sản phẩm`}
+                        {searchQuery && <span className="text-white/30"> cho &quot;{searchQuery}&quot;</span>}
+                    </p>
+
+                    {/* Sort dropdown */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-white/50 text-sm hidden sm:inline">Sắp xếp:</span>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as SortOption)}
+                            className="bg-[#1D1D1F] border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-[#0071E3] cursor-pointer"
+                        >
+                            <option value="newest">Mới nhất</option>
+                            <option value="price_asc">Giá thấp → cao</option>
+                            <option value="price_desc">Giá cao → thấp</option>
+                            <option value="bestseller">Bán chạy</option>
+                        </select>
                     </div>
                 </AnimatedSection>
 
