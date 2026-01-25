@@ -103,6 +103,7 @@ export async function PUT(request: NextRequest) {
             console.log('[API/PROFILE] Generated customer code:', customerCode);
 
             const insertData = {
+                id: crypto.randomUUID(), // Generate UUID for id column
                 email,
                 name,
                 phone,
