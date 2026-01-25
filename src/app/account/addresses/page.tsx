@@ -11,6 +11,8 @@ interface Address {
     full_name: string;
     phone: string;
     address_line: string;
+    ward: string;
+    district: string;
     province: string;
     is_default: boolean;
 }
@@ -186,17 +188,51 @@ export default function AccountAddressesPage() {
                         <div className="flex items-start justify-between">
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-3">
-                                    <h3 className="text-white font-semibold">{address.label || 'Địa chỉ'}</h3>
-                                    {address.is_default && (
-                                        <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs">
-                                            Mặc định
-                                        </span>
-                                    )}
+                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-white font-semibold">{address.label || 'Địa chỉ'}</h3>
+                                        {address.is_default && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs mt-1">
+                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                                Mặc định
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                <p className="text-white">{address.full_name}</p>
-                                <p className="text-white/70">{address.phone}</p>
-                                <p className="text-white/50 mt-2">{address.address_line}</p>
-                                {address.province && <p className="text-white/50">{address.province}</p>}
+
+                                {/* Contact Info */}
+                                <div className="ml-13 pl-0.5 space-y-2 border-l-2 border-white/10 ml-5 pl-5">
+                                    <div className="flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        <span className="text-white font-medium">{address.full_name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                        </svg>
+                                        <span className="text-white/70">{address.phone}</span>
+                                    </div>
+
+                                    {/* Full Address */}
+                                    <div className="flex gap-2 mt-3">
+                                        <svg className="w-4 h-4 text-white/40 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        </svg>
+                                        <div className="text-white/60 text-sm">
+                                            <p className="text-white/80">{address.address_line}</p>
+                                            <p>{[address.ward, address.district, address.province].filter(Boolean).join(', ')}</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
