@@ -155,12 +155,14 @@ export default function AccountOrderDetailPage() {
                 return;
             }
 
-            // Fetch order
+            // Fetch order with configs and files
             const { data, error: fetchError } = await supabase
                 .from('orders')
                 .select(`
                     *,
-                    order_items (*)
+                    order_items (*),
+                    order_configs (*),
+                    order_files (*)
                 `)
                 .eq('id', params.id)
                 .eq('user_id', user.id)
@@ -172,7 +174,38 @@ export default function AccountOrderDetailPage() {
                 return;
             }
 
-            setOrder(data);
+            // Transform order_configs to custom_config/printing_config format
+            const orderData = { ...data };
+
+            if (data.order_configs && data.order_configs.length > 0) {
+                const config = data.order_configs[0];
+
+                if (data.order_type === 'custom') {
+                    orderData.custom_config = {
+                        type: config.config_type,
+                        size: config.size,
+                        notes: config.notes,
+                        images: data.order_files?.filter((f: { file_type: string }) => f.file_type === 'reference').map((f: { url: string; thumbnail_url?: string }) => ({
+                            url: f.url,
+                            thumbnail: f.thumbnail_url || f.url
+                        })) || []
+                    };
+                } else if (data.order_type === 'printing') {
+                    orderData.printing_config = {
+                        type: config.config_type,
+                        color: config.color,
+                        quantity: config.quantity,
+                        analysis: config.analysis,
+                        files: data.order_files?.filter((f: { file_type: string }) => f.file_type === 'model').map((f: { url: string; name: string }) => ({
+                            url: f.url,
+                            name: f.name
+                        })) || [],
+                        notes: config.notes
+                    };
+                }
+            }
+
+            setOrder(orderData);
             setLoading(false);
         } catch (err) {
             setError((err as Error).message);
