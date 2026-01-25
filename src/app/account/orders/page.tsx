@@ -117,7 +117,7 @@ export default function AccountOrdersPage() {
                         {orders.length} đơn hàng
                     </p>
                 </div>
-                <button onClick={fetchOrders} className="px-4 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white">
+                <button onClick={fetchOrders} className="px-4 py-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl text-white/70 hover:text-white">
                     Làm mới
                 </button>
             </div>
@@ -130,7 +130,7 @@ export default function AccountOrdersPage() {
                         onClick={() => setActiveTab(tab.key)}
                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === tab.key
                             ? 'bg-white text-black'
-                            : 'bg-[#1D1D1F] text-white/70 hover:text-white border border-white/10'
+                            : 'bg-white/5 backdrop-blur-xl text-white/70 hover:text-white border border-white/10'
                             }`}
                     >
                         {tab.label}
@@ -146,7 +146,7 @@ export default function AccountOrdersPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                        className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden"
                     >
                         {/* Order header */}
                         <div className="p-5 border-b border-white/10 flex items-center justify-between">
@@ -201,7 +201,7 @@ export default function AccountOrdersPage() {
                 ))}
 
                 {filteredOrders.length === 0 && (
-                    <div className="text-center py-12 bg-[#1D1D1F] rounded-2xl border border-white/10">
+                    <div className="text-center py-12 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10">
                         <p className="text-white/50">Không có đơn hàng nào</p>
                         <Link href="/products" className="inline-block mt-4 px-6 py-2 bg-white text-black rounded-xl font-medium">
                             Mua sắm ngay

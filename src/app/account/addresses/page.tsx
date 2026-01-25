@@ -142,7 +142,7 @@ export default function AccountAddressesPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className={`bg-[#1D1D1F] rounded-2xl border p-5 ${address.is_default ? 'border-white/30' : 'border-white/10'
+                        className={`bg-white/5 backdrop-blur-xl rounded-2xl border p-5 ${address.is_default ? 'border-white/30' : 'border-white/10'
                             }`}
                     >
                         <div className="flex items-start justify-between">
@@ -186,7 +186,7 @@ export default function AccountAddressesPage() {
                 ))}
 
                 {addresses.length === 0 && (
-                    <div className="text-center py-12 bg-[#1D1D1F] rounded-2xl border border-white/10">
+                    <div className="text-center py-12 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10">
                         <p className="text-white/50 mb-4">Chưa có địa chỉ nào</p>
                         <button
                             onClick={() => setShowForm(true)}
@@ -204,7 +204,7 @@ export default function AccountAddressesPage() {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="w-full max-w-md bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="w-full max-w-md bg-[#1a1a1b] backdrop-blur-xl rounded-2xl border border-white/10 p-6"
                     >
                         <h2 className="text-xl font-bold text-white mb-6">Thêm địa chỉ mới</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
