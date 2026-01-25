@@ -86,6 +86,8 @@ interface Order {
         files?: { url: string; name: string }[];
         notes?: string;
     };
+    // Demo image for review
+    demo_image_url?: string;
 }
 
 const statusLabels: Record<string, string> = {
@@ -643,8 +645,8 @@ export default function AdminOrderDetailPage() {
                                 </div>
                             )}
 
-                            {/* Demo Image Upload - For custom orders in designing status */}
-                            {order.order_type === 'custom' && ['designing', 'processing'].includes(order.status) && (
+                            {/* Demo Image Upload - For custom orders in designing/review status */}
+                            {order.order_type === 'custom' && ['designing', 'processing', 'review', 'revising'].includes(order.status) && (
                                 <div className="mt-6 pt-6 border-t border-white/10">
                                     <p className="text-white/50 text-sm mb-3">📷 Upload ảnh preview cho khách:</p>
                                     <label className={`
