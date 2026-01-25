@@ -185,11 +185,54 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             console.log('[AUTH DEBUG] Provider:', account?.provider);
             console.log('[AUTH DEBUG] User email:', user?.email);
 
-            // Temporarily simplified - just allow all sign ins
-            // Profile creation will happen in complete-profile page
-            if (account?.provider === 'google') {
-                console.log('[AUTH DEBUG] Google login - allowing');
-                (user as { isNewUser?: boolean }).isNewUser = true;
+            // Handle Google OAuth sign in
+            if (account?.provider === 'google' && user.email) {
+                console.log('[AUTH DEBUG] Processing Google OAuth for:', user.email);
+                try {
+                    // Check if user exists in profiles
+                    const { data: existingProfile, error: queryError } = await supabaseAdmin
+                        .from('profiles')
+                        .select('id, phone')
+                        .eq('email', user.email.toLowerCase())
+                        .maybeSingle();
+
+                    console.log('[AUTH DEBUG] Query result:', { existingProfile, queryError });
+
+                    if (!existingProfile) {
+                        // No profile found - create new one
+                        console.log('[AUTH DEBUG] Creating new profile for Google user');
+                        const { generateId } = await import('@/lib/generateId');
+                        const customerCode = generateId.user();
+
+                        const { error: insertError } = await supabaseAdmin
+                            .from('profiles')
+                            .insert({
+                                email: user.email.toLowerCase(),
+                                name: user.name || null,
+                                customer_code: customerCode,
+                                email_verified: true,
+                                role: 'user',
+                            });
+
+                        if (insertError) {
+                            console.error('[AUTH DEBUG] Insert error:', insertError);
+                        } else {
+                            console.log('[AUTH DEBUG] Profile created successfully');
+                        }
+
+                        // Mark as new user - needs to complete profile
+                        (user as { isNewUser?: boolean }).isNewUser = true;
+                    } else {
+                        // Profile exists - check if complete (has phone)
+                        const isProfileIncomplete = !existingProfile.phone;
+                        (user as { isNewUser?: boolean }).isNewUser = isProfileIncomplete;
+                        console.log('[AUTH DEBUG] Existing user, isNewUser:', isProfileIncomplete);
+                    }
+                } catch (error) {
+                    console.error('[AUTH DEBUG] Google signIn error:', error);
+                    // Allow login to proceed even if profile check fails
+                    (user as { isNewUser?: boolean }).isNewUser = true;
+                }
             }
 
             console.log('[AUTH DEBUG] signIn returning true');

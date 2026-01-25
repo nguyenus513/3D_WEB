@@ -223,7 +223,7 @@ function LoginForm() {
 
                 {/* Google Login */}
                 <button
-                    onClick={() => signIn('google', { callbackUrl: '/account' })}
+                    onClick={() => signIn('google', { callbackUrl: '/api/auth/google-callback' })}
                     disabled={loading}
                     className="w-full flex items-center justify-center gap-3 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-medium transition-all disabled:opacity-50"
                 >
