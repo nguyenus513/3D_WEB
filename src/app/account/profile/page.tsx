@@ -102,19 +102,9 @@ export default function AccountProfilePage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-white">Hồ sơ cá nhân</h1>
-                    <p className="text-white/50 mt-1">Quản lý thông tin tài khoản</p>
-                </div>
-                {!isEditing && (
-                    <button
-                        onClick={() => setIsEditing(true)}
-                        className="px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20"
-                    >
-                        Chỉnh sửa
-                    </button>
-                )}
+            <div>
+                <h1 className="text-2xl font-bold text-white">Hồ sơ cá nhân</h1>
+                <p className="text-white/50 mt-1">Quản lý thông tin tài khoản</p>
             </div>
 
             {/* Message */}
@@ -131,68 +121,88 @@ export default function AccountProfilePage() {
                 </motion.div>
             )}
 
-            {/* Profile form */}
+            {/* Account Info Card - Read Only */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6"
+            >
+                <h2 className="text-lg font-semibold text-white mb-4">Thông tin tài khoản</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Customer code */}
+                    {profile?.customer_code && (
+                        <div>
+                            <p className="text-white/50 text-sm mb-1">Mã khách hàng</p>
+                            <code className="text-white font-mono text-lg">{profile.customer_code}</code>
+                        </div>
+                    )}
+                    {/* Email */}
+                    <div>
+                        <p className="text-white/50 text-sm mb-1">Email</p>
+                        <p className="text-white">{session.user.email}</p>
+                        <p className="text-white/40 text-xs mt-1">Email không thể thay đổi</p>
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* Personal Info Card - Editable */}
             <motion.form
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
                 onSubmit={handleSubmit}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-6"
+                className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6"
             >
-                {/* Customer code */}
-                {profile?.customer_code && (
-                    <div className="pb-2">
-                        <p className="text-white/50 text-sm mb-1">Mã khách hàng</p>
-                        <code className="text-white font-mono">{profile.customer_code}</code>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-white">Thông tin cá nhân</h2>
+                    {!isEditing && (
+                        <button
+                            type="button"
+                            onClick={() => setIsEditing(true)}
+                            className="px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 text-sm"
+                        >
+                            Chỉnh sửa
+                        </button>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Name */}
+                    <div>
+                        <label className="text-white/50 text-sm mb-2 block">Họ tên</label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            disabled={!isEditing}
+                            placeholder="Nhập họ tên"
+                            className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
+                                ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
+                                : 'bg-transparent border-white/10 text-white'
+                                }`}
+                        />
                     </div>
-                )}
 
-                {/* Name */}
-                <div>
-                    <label className="text-white/70 text-sm mb-2 block">Họ tên</label>
-                    <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        disabled={!isEditing}
-                        placeholder="Nhập họ tên"
-                        className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
-                            ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
-                            : 'bg-transparent border-transparent text-white'
-                            }`}
-                    />
-                </div>
-
-                {/* Email */}
-                <div>
-                    <label className="text-white/70 text-sm mb-2 block">Email</label>
-                    <input
-                        type="email"
-                        value={session.user.email || ''}
-                        disabled
-                        className="w-full px-4 py-3 rounded-xl bg-transparent text-white/50 cursor-not-allowed"
-                    />
-                    <p className="text-white/40 text-xs mt-1">Email không thể thay đổi</p>
-                </div>
-
-                {/* Phone */}
-                <div>
-                    <label className="text-white/70 text-sm mb-2 block">Số điện thoại</label>
-                    <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        disabled={!isEditing}
-                        placeholder="Nhập số điện thoại"
-                        className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
-                            ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
-                            : 'bg-transparent border-transparent text-white'
-                            }`}
-                    />
+                    {/* Phone */}
+                    <div>
+                        <label className="text-white/50 text-sm mb-2 block">Số điện thoại</label>
+                        <input
+                            type="tel"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            disabled={!isEditing}
+                            placeholder="Nhập số điện thoại"
+                            className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
+                                ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
+                                : 'bg-transparent border-white/10 text-white'
+                                }`}
+                        />
+                    </div>
                 </div>
 
                 {/* Actions */}
                 {isEditing && (
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex gap-3 pt-6">
                         <button
                             type="submit"
                             disabled={saving}
