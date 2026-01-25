@@ -195,18 +195,25 @@ export default function AdminOrderDetailPage() {
         if (!order) return;
         setUpdating(true);
 
-        const supabase = getSupabase();
-        const { error } = await supabase
-            .from('orders')
-            .update({
-                deposit_paid: true,
-                status: 'paid',
-                paid_at: new Date().toISOString(),
-            })
-            .eq('id', order.id);
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    deposit_paid: true,
+                    status: 'paid',
+                    paid_at: new Date().toISOString(),
+                }),
+            });
 
-        if (!error) {
-            setOrder({ ...order, deposit_paid: true, status: 'paid' });
+            if (res.ok) {
+                setOrder({ ...order, deposit_paid: true, status: 'paid' });
+            } else {
+                const data = await res.json();
+                console.error('Update failed:', data.error);
+            }
+        } catch (error) {
+            console.error('Update error:', error);
         }
         setUpdating(false);
     };
@@ -215,7 +222,6 @@ export default function AdminOrderDetailPage() {
         if (!order) return;
         setUpdating(true);
 
-        const supabase = getSupabase();
         const updates: Record<string, unknown> = { status: newStatus };
         const now = new Date().toISOString();
 
@@ -238,25 +244,37 @@ export default function AdminOrderDetailPage() {
             updates.shipping_code = trackingCode;
         }
 
-        const { error } = await supabase
-            .from('orders')
-            .update(updates)
-            .eq('id', order.id);
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+            });
 
-        if (!error) {
-            setOrder({ ...order, status: newStatus, ...updates } as Order);
-            setShowTrackingModal(false);
+            if (res.ok) {
+                setOrder({ ...order, status: newStatus, ...updates } as Order);
+                setShowTrackingModal(false);
+            } else {
+                const data = await res.json();
+                console.error('Update failed:', data.error);
+            }
+        } catch (error) {
+            console.error('Update error:', error);
         }
         setUpdating(false);
     };
 
     const handleSaveNote = async () => {
         if (!order) return;
-        const supabase = getSupabase();
-        await supabase
-            .from('orders')
-            .update({ admin_note: adminNote })
-            .eq('id', order.id);
+        try {
+            await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admin_note: adminNote }),
+            });
+        } catch (error) {
+            console.error('Save note error:', error);
+        }
     };
 
     const formatDate = (dateStr: string | null) => {
