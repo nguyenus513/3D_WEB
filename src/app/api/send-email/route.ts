@@ -4,7 +4,9 @@ import { isRateLimited, rateLimitedResponse } from '@/lib/security';
 import {
     sendPaymentConfirmationEmail,
     sendCompletionEmail,
-    sendShippingEmail
+    sendShippingEmail,
+    sendReviewEmail,
+    sendApprovedEmail
 } from '@/lib/email/sendEmail';
 
 /**
@@ -36,6 +38,7 @@ export async function POST(request: NextRequest) {
 
         switch (type) {
             case 'payment':
+            case 'confirmed':
                 success = await sendPaymentConfirmationEmail({
                     customerName: data.customerName,
                     customerEmail: data.customerEmail,
@@ -62,6 +65,25 @@ export async function POST(request: NextRequest) {
                     orderCode: data.orderCode,
                     shippingCode: data.shippingCode,
                     carrier: data.carrier,
+                });
+                break;
+
+            case 'review':
+                success = await sendReviewEmail({
+                    customerName: data.customerName,
+                    customerEmail: data.customerEmail,
+                    orderCode: data.orderCode,
+                    demoImageUrl: data.demoImageUrl,
+                    reviewLink: data.reviewLink,
+                });
+                break;
+
+            case 'approved':
+                success = await sendApprovedEmail({
+                    customerName: data.customerName,
+                    customerEmail: data.customerEmail,
+                    orderCode: data.orderCode,
+                    estimatedDays: data.estimatedDays,
                 });
                 break;
 

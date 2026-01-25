@@ -90,29 +90,36 @@ interface Order {
 
 const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
-    paid: 'Đã thanh toán',
-    processing: 'Đang sản xuất',
+    confirmed: 'Đã xác nhận TT',
+    processing: 'Đang xử lý',
     designing: 'Đang thiết kế',
     review: 'Chờ xác nhận',
+    revising: 'Đang chỉnh sửa',
     approved: 'Đã xác nhận',
+    producing: 'Đang sản xuất',
     printing: 'Đang in',
-    shipping: 'Đang giao',
+    shipping: 'Đang giao hàng',
     delivered: 'Đã giao',
     cancelled: 'Đã hủy',
 };
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
-    paid: 'bg-green-500/20 text-green-400',
+    confirmed: 'bg-green-500/20 text-green-400',
     processing: 'bg-blue-500/20 text-blue-400',
     designing: 'bg-purple-500/20 text-purple-400',
     review: 'bg-orange-500/20 text-orange-400',
+    revising: 'bg-pink-500/20 text-pink-400',
     approved: 'bg-cyan-500/20 text-cyan-400',
-    printing: 'bg-indigo-500/20 text-indigo-400',
-    shipping: 'bg-orange-500/20 text-orange-400',
-    delivered: 'bg-green-500/20 text-green-400',
+    producing: 'bg-indigo-500/20 text-indigo-400',
+    printing: 'bg-violet-500/20 text-violet-400',
+    shipping: 'bg-amber-500/20 text-amber-400',
+    delivered: 'bg-emerald-500/20 text-emerald-400',
     cancelled: 'bg-red-500/20 text-red-400',
 };
+
+// Statuses that trigger email notification
+const emailTriggerStatuses = ['confirmed', 'review', 'approved', 'shipping'];
 
 export default function AdminOrderDetailPage() {
     const params = useParams();
@@ -201,13 +208,32 @@ export default function AdminOrderDetailPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     deposit_paid: true,
-                    status: 'paid',
+                    status: 'confirmed',
                     paid_at: new Date().toISOString(),
                 }),
             });
 
             if (res.ok) {
-                setOrder({ ...order, deposit_paid: true, status: 'paid' });
+                setOrder({ ...order, deposit_paid: true, status: 'confirmed' });
+
+                // Auto-send confirmation email
+                if (order.profiles?.email) {
+                    await fetch('/api/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'confirmed',
+                            data: {
+                                customerName: order.profiles.full_name || 'Khách hàng',
+                                customerEmail: order.profiles.email,
+                                orderCode: order.order_code,
+                                orderType: order.order_type,
+                                total: order.total,
+                                depositAmount: order.deposit_amount,
+                            },
+                        }),
+                    });
+                }
             } else {
                 const data = await res.json();
                 console.error('Update failed:', data.error);
@@ -227,10 +253,13 @@ export default function AdminOrderDetailPage() {
 
         // Save timestamp for each status
         const timestampMap: Record<string, string> = {
+            confirmed: 'confirmed_at',
             processing: 'processing_at',
             designing: 'designing_at',
             review: 'review_at',
+            revising: 'revising_at',
             approved: 'approved_at',
+            producing: 'producing_at',
             printing: 'printing_at',
             shipping: 'shipped_at',
             delivered: 'delivered_at',
@@ -254,6 +283,29 @@ export default function AdminOrderDetailPage() {
             if (res.ok) {
                 setOrder({ ...order, status: newStatus, ...updates } as Order);
                 setShowTrackingModal(false);
+
+                // Auto-send email for trigger statuses
+                if (emailTriggerStatuses.includes(newStatus) && order.profiles?.email) {
+                    const emailData: Record<string, unknown> = {
+                        customerName: order.profiles.full_name || 'Khách hàng',
+                        customerEmail: order.profiles.email,
+                        orderCode: order.order_code,
+                    };
+
+                    // Add specific data based on status
+                    if (newStatus === 'shipping') {
+                        emailData.shippingCode = trackingCode;
+                    }
+                    if (newStatus === 'approved') {
+                        emailData.estimatedDays = 5;
+                    }
+
+                    await fetch('/api/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: newStatus, data: emailData }),
+                    });
+                }
             } else {
                 const data = await res.json();
                 console.error('Update failed:', data.error);
@@ -287,17 +339,17 @@ export default function AdminOrderDetailPage() {
         const currentStatus = order.status;
 
         if (order.order_type === 'ready_made') {
-            const flow = ['pending', 'paid', 'processing', 'shipping', 'delivered'];
+            const flow = ['pending', 'confirmed', 'processing', 'shipping', 'delivered'];
             const idx = flow.indexOf(currentStatus);
             return flow.slice(idx + 1);
         }
         if (order.order_type === 'custom') {
-            const flow = ['pending', 'paid', 'designing', 'review', 'approved', 'printing', 'shipping', 'delivered'];
+            const flow = ['pending', 'confirmed', 'designing', 'review', 'approved', 'producing', 'shipping', 'delivered'];
             const idx = flow.indexOf(currentStatus);
             return flow.slice(idx + 1);
         }
         if (order.order_type === 'printing') {
-            const flow = ['pending', 'paid', 'printing', 'shipping', 'delivered'];
+            const flow = ['pending', 'confirmed', 'printing', 'shipping', 'delivered'];
             const idx = flow.indexOf(currentStatus);
             return flow.slice(idx + 1);
         }
@@ -390,26 +442,30 @@ export default function AdminOrderDetailPage() {
                             {/* Progress Steps */}
                             {(() => {
                                 const flows: Record<string, string[]> = {
-                                    ready_made: ['paid', 'processing', 'shipping', 'delivered'],
-                                    custom: ['paid', 'designing', 'review', 'approved', 'printing', 'shipping', 'delivered'],
-                                    printing: ['paid', 'printing', 'shipping', 'delivered'],
+                                    ready_made: ['confirmed', 'processing', 'shipping', 'delivered'],
+                                    custom: ['confirmed', 'designing', 'review', 'approved', 'producing', 'shipping', 'delivered'],
+                                    printing: ['confirmed', 'printing', 'shipping', 'delivered'],
                                 };
                                 const stepLabels: Record<string, string> = {
-                                    paid: 'Thanh toán',
+                                    confirmed: 'Thanh toán',
                                     processing: 'Xử lý',
                                     designing: 'Thiết kế',
                                     review: 'Chờ duyệt',
+                                    revising: 'Chỉnh sửa',
                                     approved: 'Đã duyệt',
+                                    producing: 'Sản xuất',
                                     printing: 'Đang in',
                                     shipping: 'Giao hàng',
                                     delivered: 'Hoàn thành',
                                 };
                                 const timestampFields: Record<string, string> = {
-                                    paid: 'paid_at',
+                                    confirmed: 'paid_at',
                                     processing: 'processing_at',
                                     designing: 'designing_at',
                                     review: 'review_at',
+                                    revising: 'revising_at',
                                     approved: 'approved_at',
+                                    producing: 'producing_at',
                                     printing: 'printing_at',
                                     shipping: 'shipped_at',
                                     delivered: 'delivered_at',
@@ -436,16 +492,18 @@ export default function AdminOrderDetailPage() {
                                     }
 
                                     const icons: Record<string, React.ReactNode> = {
-                                        paid: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>,
+                                        confirmed: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>,
                                         processing: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
                                         designing: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" /></svg>,
                                         review: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+                                        revising: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>,
                                         approved: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+                                        producing: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>,
                                         printing: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" /></svg>,
                                         shipping: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>,
                                         delivered: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>,
                                     };
-                                    return icons[step] || icons.paid;
+                                    return icons[step] || icons.confirmed;
                                 };
 
                                 return (

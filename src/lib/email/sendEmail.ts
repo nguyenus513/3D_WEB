@@ -42,6 +42,21 @@ interface CompletionEmailData {
     demoImageUrl?: string;
 }
 
+interface ReviewEmailData {
+    customerName: string;
+    customerEmail: string;
+    orderCode: string;
+    demoImageUrl?: string;
+    reviewLink?: string;
+}
+
+interface ApprovedEmailData {
+    customerName: string;
+    customerEmail: string;
+    orderCode: string;
+    estimatedDays?: number;
+}
+
 // =====================================================
 // Email Senders
 // =====================================================
@@ -388,6 +403,181 @@ p{margin:0 0 32px;color:#424245;font-size:16px;text-align:center}
     return sendEmailWithFallback({
         to: data.customerEmail,
         subject: `🚚 Đơn hàng đang giao - ${data.shippingCode}`,
+        html,
+    });
+}
+
+/**
+ * Email 4: Chờ xác nhận thiết kế (Review)
+ */
+export async function sendReviewEmail(data: ReviewEmailData): Promise<boolean> {
+    const reviewLink = data.reviewLink || '#';
+    const demoSection = data.demoImageUrl
+        ? `<div class="image-container"><img src="${data.demoImageUrl}" alt="Demo Design" class="product-image"></div>`
+        : '';
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f5f5f7;margin:0;padding:40px 0;line-height:1.5;color:#1d1d1f}
+.container{max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.04)}
+.header{background-color:#9c27b0;color:#ffffff;padding:40px;text-align:center}
+.logo{font-size:28px;font-weight:700;letter-spacing:-0.5px;margin:0}
+.content{padding:40px}
+.icon-box{width:80px;height:80px;background-color:#f3e5f5;border-radius:50%;margin:0 auto 24px;display:flex;align-items:center;justify-content:center}
+.emoji-icon{font-size:40px;line-height:1}
+h1{font-size:24px;font-weight:600;text-align:center;margin:0 0 12px;color:#1d1d1f}
+p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
+.image-container{margin:0 -40px 32px;text-align:center;background-color:#fafafa;padding:40px 0}
+.product-image{max-width:80%;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.1)}
+.box{background-color:#f5f5f7;border-radius:16px;padding:24px;margin:32px 0;text-align:center}
+.order-code{font-size:20px;font-weight:700;font-family:monospace;color:#1d1d1f}
+.cta-button{display:block;width:100%;background-color:#9c27b0;color:#ffffff;text-align:center;padding:16px;border-radius:12px;text-decoration:none;font-weight:600;font-size:17px;box-sizing:border-box;margin-top:24px}
+.note{background-color:#fff3e0;border:1px solid #ffe0b2;border-radius:12px;padding:16px;margin-top:24px}
+.note-text{color:#e65100;font-size:14px;margin:0;text-align:center}
+.footer{background-color:#f5f5f7;padding:32px;text-align:center;font-size:13px;color:#86868b}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">3D Print Shop</div>
+    </div>
+    <div class="content">
+        <div class="icon-box">
+            <span class="emoji-icon">👀</span>
+        </div>
+        <h1>Xem bản demo thiết kế</h1>
+        <p>Xin chào <strong>${data.customerName}</strong>,<br>Bản demo cho đơn hàng của bạn đã sẵn sàng để xem xét!</p>
+        
+        ${demoSection}
+        
+        <div class="box">
+            <div style="color:#86868b;font-size:13px;margin-bottom:8px">MÃ ĐƠN HÀNG</div>
+            <div class="order-code">${data.orderCode}</div>
+        </div>
+        
+        <a href="${reviewLink}" class="cta-button">Xem & Xác nhận thiết kế</a>
+        
+        <div class="note">
+            <p class="note-text">⚠️ Vui lòng xác nhận trong vòng 48 giờ để tiến hành sản xuất</p>
+        </div>
+    </div>
+    <div class="footer">
+        <p>© 2026 3D Print Shop. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>`;
+
+    return sendEmailWithFallback({
+        to: data.customerEmail,
+        subject: `👀 Xem demo đơn hàng ${data.orderCode} - Chờ xác nhận`,
+        html,
+    });
+}
+
+/**
+ * Email 5: Đã xác nhận, bắt đầu sản xuất
+ */
+export async function sendApprovedEmail(data: ApprovedEmailData): Promise<boolean> {
+    const estimatedDays = data.estimatedDays || 5;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f5f5f7;margin:0;padding:40px 0;line-height:1.5;color:#1d1d1f}
+.container{max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.04)}
+.header{background-color:#00bcd4;color:#ffffff;padding:40px;text-align:center}
+.logo{font-size:28px;font-weight:700;letter-spacing:-0.5px;margin:0}
+.content{padding:40px}
+.icon-box{width:80px;height:80px;background-color:#e0f7fa;border-radius:50%;margin:0 auto 24px;display:flex;align-items:center;justify-content:center}
+.emoji-icon{font-size:40px;line-height:1}
+h1{font-size:24px;font-weight:600;text-align:center;margin:0 0 12px;color:#1d1d1f}
+p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
+.box{background-color:#f5f5f7;border-radius:16px;padding:24px;margin:32px 0}
+.row{display:flex;justify-content:space-between;margin-bottom:12px;font-size:15px}
+.row:last-child{margin-bottom:0}
+.label{color:#86868b}
+.value{font-weight:600;color:#1d1d1f}
+.timeline{background:linear-gradient(135deg,#00bcd4,#4dd0e1);border-radius:16px;padding:24px;margin:32px 0;color:#fff}
+.timeline-title{font-weight:600;margin-bottom:16px;text-align:center}
+.timeline-steps{display:flex;justify-content:space-between}
+.step{text-align:center;flex:1}
+.step-icon{font-size:24px;margin-bottom:8px}
+.step-label{font-size:12px;opacity:0.9}
+.footer{background-color:#f5f5f7;padding:32px;text-align:center;font-size:13px;color:#86868b}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">3D Print Shop</div>
+    </div>
+    <div class="content">
+        <div class="icon-box">
+            <span class="emoji-icon">🎉</span>
+        </div>
+        <h1>Thiết kế đã được duyệt!</h1>
+        <p>Xin chào <strong>${data.customerName}</strong>,<br>Cảm ơn bạn đã xác nhận. Đơn hàng đang được chuyển sang sản xuất!</p>
+        
+        <div class="box">
+            <div class="row">
+                <span class="label">Mã đơn hàng</span>
+                <span class="value">${data.orderCode}</span>
+            </div>
+            <div class="row">
+                <span class="label">Trạng thái</span>
+                <span class="value" style="color:#00bcd4">Đang sản xuất</span>
+            </div>
+            <div class="row">
+                <span class="label">Thời gian dự kiến</span>
+                <span class="value">${estimatedDays}-${estimatedDays + 2} ngày</span>
+            </div>
+        </div>
+        
+        <div class="timeline">
+            <div class="timeline-title">Tiến trình đơn hàng</div>
+            <div class="timeline-steps">
+                <div class="step">
+                    <div class="step-icon">✅</div>
+                    <div class="step-label">Thanh toán</div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">✅</div>
+                    <div class="step-label">Thiết kế</div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">✅</div>
+                    <div class="step-label">Xác nhận</div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">🔄</div>
+                    <div class="step-label">Sản xuất</div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">⏳</div>
+                    <div class="step-label">Giao hàng</div>
+                </div>
+            </div>
+        </div>
+        
+        <p style="text-align:center;margin:0">Chúng tôi sẽ thông báo khi đơn hàng sẵn sàng giao!</p>
+    </div>
+    <div class="footer">
+        <p>© 2026 3D Print Shop. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>`;
+
+    return sendEmailWithFallback({
+        to: data.customerEmail,
+        subject: `🎉 Đã xác nhận - Đơn ${data.orderCode} đang sản xuất`,
         html,
     });
 }
