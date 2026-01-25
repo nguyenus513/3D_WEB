@@ -109,7 +109,7 @@ export async function PUT(request: NextRequest) {
                 phone,
                 customer_code: customerCode,
                 email_verified: true,
-                role: 'user',
+                role: 'customer', // Must be 'customer' or 'admin' per profiles_role_check constraint
                 instagram: instagram || null,
             };
             console.log('[API/PROFILE] Insert data:', insertData);
