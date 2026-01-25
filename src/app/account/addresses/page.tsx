@@ -57,6 +57,9 @@ export default function AccountAddressesPage() {
     const [wards, setWards] = useState<Ward[]>([]);
     const [loadingAddress, setLoadingAddress] = useState(false);
 
+    // Flag to prevent useEffects from resetting values during edit
+    const [isEditMode, setIsEditMode] = useState(false);
+
     // Load provinces on mount
     useEffect(() => {
         getProvinces().then(setProvinces);
@@ -64,7 +67,7 @@ export default function AccountAddressesPage() {
 
     // Load districts when province changes
     useEffect(() => {
-        if (formData.provinceCode) {
+        if (formData.provinceCode && !isEditMode) {
             setLoadingAddress(true);
             getDistricts(formData.provinceCode).then(data => {
                 setDistricts(data);
@@ -79,11 +82,15 @@ export default function AccountAddressesPage() {
             }));
             setWards([]);
         }
-    }, [formData.provinceCode]);
+        // Reset edit mode after first render
+        if (isEditMode) {
+            setIsEditMode(false);
+        }
+    }, [formData.provinceCode, isEditMode]);
 
     // Load wards when district changes
     useEffect(() => {
-        if (formData.districtCode) {
+        if (formData.districtCode && !isEditMode) {
             setLoadingAddress(true);
             getWards(formData.districtCode).then(data => {
                 setWards(data);
@@ -95,7 +102,7 @@ export default function AccountAddressesPage() {
                 wardName: '',
             }));
         }
-    }, [formData.districtCode]);
+    }, [formData.districtCode, isEditMode]);
 
     useEffect(() => {
         if (status === 'authenticated') {
@@ -192,6 +199,9 @@ export default function AccountAddressesPage() {
     };
 
     const openEditForm = async (address: Address) => {
+        // Set edit mode to prevent useEffects from resetting values
+        setIsEditMode(true);
+
         // Find province by name
         const province = provinces.find(p => p.name === address.province);
 
