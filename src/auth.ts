@@ -11,6 +11,7 @@
 import NextAuth from 'next-auth';
 import type { NextAuthConfig, User } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
@@ -167,6 +168,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     customerCode: user.customer_code,
                 };
             },
+        }),
+        // Google OAuth Provider
+        Google({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            allowDangerousEmailAccountLinking: true, // Allow linking Google account to existing email account
         }),
     ],
     callbacks: {
