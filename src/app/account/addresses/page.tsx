@@ -349,8 +349,11 @@ export default function AccountAddressesPage() {
                         {!address.is_default && (
                             <button
                                 onClick={() => setDefault(address.id)}
-                                className="mt-4 text-sm text-white/50 hover:text-white"
+                                className="mt-4 flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
                             >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
                                 Đặt làm mặc định
                             </button>
                         )}
