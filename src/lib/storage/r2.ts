@@ -57,7 +57,12 @@ export function isPermanentOnR2(uploadType: UploadType): boolean {
 }
 
 /**
- * Determine storage destination based on file type
+ * Determine storage destination based on file type and upload type
+ * 
+ * Strategy:
+ * - Product images: R2 (permanent, public via Worker later)
+ * - Customer uploads (custom/printing): Google Drive (has built-in public URLs)
+ * - 3D models: Google Drive
  */
 export function getStorageDestination(filename: string, uploadType: UploadType): 'r2' | 'drive' {
     const ext = filename.toLowerCase().split('.').pop() || '';
@@ -67,8 +72,14 @@ export function getStorageDestination(filename: string, uploadType: UploadType):
         return 'drive';
     }
 
-    // All images go to R2
-    return 'r2';
+    // Product images go to R2 (will be served via CDN Worker)
+    if (uploadType === 'product') {
+        return 'r2';
+    }
+
+    // Customer uploads go to Drive (has public thumbnail/view URLs)
+    // This includes: custom_main, custom_accessory, custom_preview, printing
+    return 'drive';
 }
 
 /**
