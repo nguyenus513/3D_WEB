@@ -177,11 +177,54 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }),
     ],
     callbacks: {
-        async jwt({ token, user }) {
+        async signIn({ user, account }) {
+            // Handle Google OAuth sign in
+            if (account?.provider === 'google' && user.email) {
+                try {
+                    // Check if user exists in profiles
+                    const { data: existingProfile } = await supabaseAdmin
+                        .from('profiles')
+                        .select('id, name, phone')
+                        .eq('email', user.email.toLowerCase())
+                        .single();
+
+                    if (!existingProfile) {
+                        // Create new profile for Google user
+                        const { generateId } = await import('@/lib/generateId');
+                        const customerCode = generateId.user();
+
+                        await supabaseAdmin
+                            .from('profiles')
+                            .insert({
+                                email: user.email.toLowerCase(),
+                                name: user.name || null,
+                                customer_code: customerCode,
+                                email_verified: true, // Google emails are verified
+                                role: 'user',
+                            });
+
+                        // Mark as new user for redirect
+                        (user as { isNewUser?: boolean }).isNewUser = true;
+                    } else {
+                        // Check if profile is incomplete (no phone)
+                        (user as { isNewUser?: boolean }).isNewUser = !existingProfile.phone;
+                    }
+                } catch (error) {
+                    console.error('[AUTH] Google signIn error:', error);
+                }
+            }
+            return true;
+        },
+        async jwt({ token, user, account }) {
             if (user) {
                 token.id = user.id;
                 token.role = (user as { role?: string }).role;
                 token.customerCode = (user as { customerCode?: string }).customerCode;
+
+                // Pass isNewUser flag for Google OAuth redirect
+                if (account?.provider === 'google') {
+                    token.isNewUser = (user as { isNewUser?: boolean }).isNewUser || false;
+                }
             }
             return token;
         },
@@ -190,6 +233,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 session.user.id = token.id as string;
                 (session.user as { role?: string }).role = token.role as string;
                 (session.user as { customerCode?: string }).customerCode = token.customerCode as string;
+                (session.user as { isNewUser?: boolean }).isNewUser = token.isNewUser as boolean;
             }
             return session;
         },
