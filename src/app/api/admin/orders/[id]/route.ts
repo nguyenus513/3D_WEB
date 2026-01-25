@@ -42,9 +42,9 @@ export async function PUT(
         // Allowed fields
         if (body.status) {
             const validStatuses = [
-                'pending', 'expired', 'paid', 'preparing',
-                'designing', 'review', 'approved',
-                'printing', 'completed', 'shipped',
+                'pending', 'expired', 'paid', 'confirmed', 'preparing', 'processing',
+                'designing', 'review', 'revising', 'approved', 'producing',
+                'printing', 'completed', 'shipped', 'shipping',
                 'delivered', 'cancelled', 'refunded'
             ];
             if (validStatuses.includes(body.status)) {
@@ -52,13 +52,15 @@ export async function PUT(
 
                 // Auto-set timestamps
                 const now = new Date().toISOString();
-                if (body.status === 'paid') updates.paid_at = now;
-                if (body.status === 'preparing') updates.processing_at = now;
+                if (body.status === 'paid' || body.status === 'confirmed') updates.paid_at = now;
+                if (body.status === 'preparing' || body.status === 'processing') updates.processing_at = now;
                 if (body.status === 'designing') updates.designing_at = now;
                 if (body.status === 'review') updates.review_at = now;
+                if (body.status === 'revising') updates.revising_at = now;
                 if (body.status === 'approved') updates.approved_at = now;
+                if (body.status === 'producing') updates.producing_at = now;
                 if (body.status === 'printing') updates.printing_at = now;
-                if (body.status === 'shipped') updates.shipped_at = now;
+                if (body.status === 'shipped' || body.status === 'shipping') updates.shipped_at = now;
                 if (body.status === 'delivered') updates.delivered_at = now;
             }
         }

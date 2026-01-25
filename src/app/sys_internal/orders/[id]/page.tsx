@@ -1046,7 +1046,7 @@ export default function AdminOrderDetailPage() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-white font-medium truncate">
-                                        {order.profiles?.full_name || order.shipping_address?.full_name || 'Khách vãng lai'}
+                                        {order.profiles?.full_name || order.shipping_address?.full_name || order.profiles?.email?.split('@')[0] || 'Khách hàng'}
                                     </p>
                                     <p className="text-white/50 text-sm">Khách hàng</p>
                                 </div>
