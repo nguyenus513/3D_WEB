@@ -65,44 +65,46 @@ export default function AccountAddressesPage() {
         getProvinces().then(setProvinces);
     }, []);
 
-    // Load districts when province changes
+    // Load districts when province changes (only reset when creating new, not editing)
     useEffect(() => {
-        if (formData.provinceCode && !isEditMode) {
+        if (formData.provinceCode) {
             setLoadingAddress(true);
             getDistricts(formData.provinceCode).then(data => {
                 setDistricts(data);
                 setLoadingAddress(false);
             });
-            setFormData(prev => ({
-                ...prev,
-                districtCode: null,
-                districtName: '',
-                wardCode: null,
-                wardName: '',
-            }));
-            setWards([]);
+            // Only reset if NOT editing an existing address
+            if (!editingId) {
+                setFormData(prev => ({
+                    ...prev,
+                    districtCode: null,
+                    districtName: '',
+                    wardCode: null,
+                    wardName: '',
+                }));
+                setWards([]);
+            }
         }
-        // Reset edit mode after first render
-        if (isEditMode) {
-            setIsEditMode(false);
-        }
-    }, [formData.provinceCode, isEditMode]);
+    }, [formData.provinceCode, editingId]);
 
-    // Load wards when district changes
+    // Load wards when district changes (only reset when creating new, not editing)
     useEffect(() => {
-        if (formData.districtCode && !isEditMode) {
+        if (formData.districtCode) {
             setLoadingAddress(true);
             getWards(formData.districtCode).then(data => {
                 setWards(data);
                 setLoadingAddress(false);
             });
-            setFormData(prev => ({
-                ...prev,
-                wardCode: null,
-                wardName: '',
-            }));
+            // Only reset if NOT editing an existing address
+            if (!editingId) {
+                setFormData(prev => ({
+                    ...prev,
+                    wardCode: null,
+                    wardName: '',
+                }));
+            }
         }
-    }, [formData.districtCode, isEditMode]);
+    }, [formData.districtCode, editingId]);
 
     useEffect(() => {
         if (status === 'authenticated') {
