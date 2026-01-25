@@ -204,26 +204,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         const { generateId } = await import('@/lib/generateId');
                         const customerCode = generateId.user();
 
-                        const { error: insertError } = await supabaseAdmin
+                        const { data: newProfile, error: insertError } = await supabaseAdmin
                             .from('profiles')
                             .insert({
                                 email: user.email.toLowerCase(),
                                 name: user.name || null,
                                 customer_code: customerCode,
                                 email_verified: true,
-                                role: 'user',
-                            });
+                                role: 'customer',
+                            })
+                            .select('id')
+                            .single();
 
                         if (insertError) {
                             console.error('[AUTH DEBUG] Insert error:', insertError);
                         } else {
-                            console.log('[AUTH DEBUG] Profile created successfully');
+                            console.log('[AUTH DEBUG] Profile created with ID:', newProfile?.id);
+                            // IMPORTANT: Set the database ID on user object
+                            if (newProfile?.id) {
+                                user.id = newProfile.id;
+                            }
                         }
 
                         // Mark as new user - needs to complete profile
                         (user as { isNewUser?: boolean }).isNewUser = true;
                     } else {
-                        // Profile exists - check if complete (has phone)
+                        // Profile exists - use database ID
+                        user.id = existingProfile.id;
+                        console.log('[AUTH DEBUG] Using existing profile ID:', existingProfile.id);
+
+                        // Check if complete (has phone)
                         const isProfileIncomplete = !existingProfile.phone;
                         (user as { isNewUser?: boolean }).isNewUser = isProfileIncomplete;
                         console.log('[AUTH DEBUG] Existing user, isNewUser:', isProfileIncomplete);
