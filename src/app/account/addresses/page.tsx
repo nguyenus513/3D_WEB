@@ -291,14 +291,13 @@ export default function AccountAddressesPage() {
                         <div className="flex items-start justify-between">
                             <div className="flex-1">
                                 {/* Header with badge */}
-                                <div className="flex items-center gap-3 mb-3">
-                                    <h3 className="text-white font-semibold text-lg">{address.label || 'Địa chỉ'}</h3>
-                                    {address.is_default && (
+                                {address.is_default && (
+                                    <div className="mb-3">
                                         <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium">
                                             Mặc định
                                         </span>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
 
                                 {/* Contact Info */}
                                 <div className="space-y-1.5">
