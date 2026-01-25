@@ -65,12 +65,12 @@ export function AccountSidebar() {
             const supabase = getSupabase();
             const { data, error } = await supabase
                 .from('profiles')
-                .select('name, full_name')
+                .select('full_name')
                 .eq('email', session.user.email)
                 .maybeSingle();
 
             if (!error && data) {
-                setUserName(data.name || data.full_name || '');
+                setUserName(data.full_name || '');
             }
         } catch (err) {
             // Ignore errors - username is optional

@@ -63,7 +63,7 @@ export default function AccountPage() {
         // Get user from email
         const { data: user } = await supabase
             .from('profiles')
-            .select('id, full_name, name')
+            .select('id, full_name')
             .eq('email', session.user.email)
             .single();
 
@@ -73,7 +73,7 @@ export default function AccountPage() {
         }
 
         // Set user name
-        setUserName(user.full_name || user.name || session.user.email?.split('@')[0] || 'Bạn');
+        setUserName(user.full_name || session.user.email?.split('@')[0] || 'Bạn');
 
         interface Order {
             id: string;
