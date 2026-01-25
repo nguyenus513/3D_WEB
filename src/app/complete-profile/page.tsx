@@ -19,8 +19,6 @@ interface FormData {
     wardCode: number | null;
     wardName: string;
     addressLine: string;
-    recipientName: string;
-    recipientPhone: string;
 }
 
 export default function CompleteProfilePage() {
@@ -28,7 +26,6 @@ export default function CompleteProfilePage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [currentStep, setCurrentStep] = useState<1 | 2>(1);
 
     const [formData, setFormData] = useState<FormData>({
         name: '',
@@ -40,8 +37,6 @@ export default function CompleteProfilePage() {
         wardCode: null,
         wardName: '',
         addressLine: '',
-        recipientName: '',
-        recipientPhone: '',
     });
 
     // Vietnam address data
@@ -56,7 +51,6 @@ export default function CompleteProfilePage() {
             setFormData(prev => ({
                 ...prev,
                 name: session.user?.name || '',
-                recipientName: session.user?.name || '',
             }));
         }
     }, [session]);
@@ -74,7 +68,6 @@ export default function CompleteProfilePage() {
                 setDistricts(data);
                 setLoadingAddress(false);
             });
-            // Reset district and ward
             setFormData(prev => ({
                 ...prev,
                 districtCode: null,
@@ -102,17 +95,6 @@ export default function CompleteProfilePage() {
         }
     }, [formData.districtCode]);
 
-    // Auto-fill recipient info
-    useEffect(() => {
-        if (currentStep === 2 && !formData.recipientName && !formData.recipientPhone) {
-            setFormData(prev => ({
-                ...prev,
-                recipientName: prev.name,
-                recipientPhone: prev.phone,
-            }));
-        }
-    }, [currentStep, formData.name, formData.phone, formData.recipientName, formData.recipientPhone]);
-
     // Redirect if not authenticated
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -120,55 +102,41 @@ export default function CompleteProfilePage() {
         }
     }, [status, router]);
 
-    const validateStep = (step: number): boolean => {
+    const validateForm = (): boolean => {
         setError('');
-        if (step === 1) {
-            if (!formData.name) {
-                setError('Vui lòng nhập họ và tên');
-                return false;
-            }
-            if (!formData.phone) {
-                setError('Vui lòng nhập số điện thoại');
-                return false;
-            }
-            if (!/^(0|\+84)[0-9]{9,10}$/.test(formData.phone.replace(/\s/g, ''))) {
-                setError('Số điện thoại không hợp lệ');
-                return false;
-            }
-            return true;
+        if (!formData.name) {
+            setError('Vui lòng nhập họ và tên');
+            return false;
         }
-        if (step === 2) {
-            if (!formData.provinceCode) {
-                setError('Vui lòng chọn Tỉnh/Thành phố');
-                return false;
-            }
-            if (!formData.districtCode) {
-                setError('Vui lòng chọn Quận/Huyện');
-                return false;
-            }
-            if (!formData.wardCode) {
-                setError('Vui lòng chọn Phường/Xã');
-                return false;
-            }
-            if (!formData.addressLine) {
-                setError('Vui lòng nhập địa chỉ chi tiết');
-                return false;
-            }
-            if (!formData.recipientName) {
-                setError('Vui lòng nhập tên người nhận');
-                return false;
-            }
-            if (!formData.recipientPhone) {
-                setError('Vui lòng nhập SĐT người nhận');
-                return false;
-            }
-            return true;
+        if (!formData.phone) {
+            setError('Vui lòng nhập số điện thoại');
+            return false;
+        }
+        if (!/^(0|\+84)[0-9]{9,10}$/.test(formData.phone.replace(/\s/g, ''))) {
+            setError('Số điện thoại không hợp lệ');
+            return false;
+        }
+        if (!formData.provinceCode) {
+            setError('Vui lòng chọn Tỉnh/Thành phố');
+            return false;
+        }
+        if (!formData.districtCode) {
+            setError('Vui lòng chọn Quận/Huyện');
+            return false;
+        }
+        if (!formData.wardCode) {
+            setError('Vui lòng chọn Phường/Xã');
+            return false;
+        }
+        if (!formData.addressLine) {
+            setError('Vui lòng nhập địa chỉ chi tiết');
+            return false;
         }
         return true;
     };
 
     const handleSubmit = async () => {
-        if (!validateStep(2)) return;
+        if (!validateForm()) return;
 
         setLoading(true);
         setError('');
@@ -195,8 +163,8 @@ export default function CompleteProfilePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     label: 'Nhà riêng',
-                    full_name: formData.recipientName,
-                    phone: formData.recipientPhone,
+                    full_name: formData.name,
+                    phone: formData.phone,
                     address_line: formData.addressLine,
                     ward: formData.wardName,
                     district: formData.districtName,
@@ -249,32 +217,12 @@ export default function CompleteProfilePage() {
                     <p className="text-white/60">Vui lòng điền thông tin để tiếp tục</p>
                 </div>
 
-                {/* Progress */}
-                <div className="flex justify-center gap-4 mb-8">
-                    <div className="flex items-center gap-2">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${currentStep >= 1 ? 'bg-cyan-500 text-white' : 'bg-white/10 text-white/40'}`}>
-                            {currentStep > 1 ? '✓' : '1'}
-                        </div>
-                        <span className={`text-sm ${currentStep === 1 ? 'text-white' : 'text-white/40'}`}>Thông tin</span>
-                    </div>
-                    <div className={`w-12 h-0.5 my-5 ${currentStep > 1 ? 'bg-cyan-500' : 'bg-white/10'}`} />
-                    <div className="flex items-center gap-2">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${currentStep === 2 ? 'bg-cyan-500 text-white' : 'bg-white/10 text-white/40'}`}>
-                            2
-                        </div>
-                        <span className={`text-sm ${currentStep === 2 ? 'text-white' : 'text-white/40'}`}>Địa chỉ</span>
-                    </div>
-                </div>
-
                 {/* Form */}
-                <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6">
-                    {/* Step 1: Personal Info */}
-                    {currentStep === 1 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="space-y-4"
-                        >
+                <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-6">
+                    {/* Personal Info */}
+                    <div className="space-y-4">
+                        <h3 className="text-white font-medium">Thông tin cá nhân</h3>
+                        <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-white/60 text-sm mb-2">Họ và tên *</label>
                                 <input
@@ -295,158 +243,113 @@ export default function CompleteProfilePage() {
                                     placeholder="0901234567"
                                 />
                             </div>
-                        </motion.div>
-                    )}
+                        </div>
+                    </div>
 
-                    {/* Step 2: Address */}
-                    {currentStep === 2 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="space-y-4"
-                        >
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2">
-                                    <label className="block text-white/60 text-sm mb-2">Tỉnh/Thành phố *</label>
-                                    <select
-                                        value={formData.provinceCode || ''}
-                                        onChange={e => {
-                                            const code = Number(e.target.value);
-                                            const province = provinces.find(p => p.code === code);
-                                            setFormData({
-                                                ...formData,
-                                                provinceCode: code,
-                                                provinceName: province?.name || '',
-                                            });
-                                        }}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer"
-                                    >
-                                        <option value="" className="bg-[#1D1D1F]">Chọn Tỉnh/Thành phố</option>
-                                        {provinces.map(p => (
-                                            <option key={p.code} value={p.code} className="bg-[#1D1D1F]">{p.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-white/60 text-sm mb-2">Quận/Huyện *</label>
-                                    <select
-                                        value={formData.districtCode || ''}
-                                        onChange={e => {
-                                            const code = Number(e.target.value);
-                                            const district = districts.find(d => d.code === code);
-                                            setFormData({
-                                                ...formData,
-                                                districtCode: code,
-                                                districtName: district?.name || '',
-                                            });
-                                        }}
-                                        disabled={!formData.provinceCode || loadingAddress}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
-                                    >
-                                        <option value="" className="bg-[#1D1D1F]">
-                                            {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
-                                        </option>
-                                        {districts.map(d => (
-                                            <option key={d.code} value={d.code} className="bg-[#1D1D1F]">{d.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-white/60 text-sm mb-2">Phường/Xã *</label>
-                                    <select
-                                        value={formData.wardCode || ''}
-                                        onChange={e => {
-                                            const code = Number(e.target.value);
-                                            const ward = wards.find(w => w.code === code);
-                                            setFormData({
-                                                ...formData,
-                                                wardCode: code,
-                                                wardName: ward?.name || '',
-                                            });
-                                        }}
-                                        disabled={!formData.districtCode || loadingAddress}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
-                                    >
-                                        <option value="" className="bg-[#1D1D1F]">
-                                            {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
-                                        </option>
-                                        {wards.map(w => (
-                                            <option key={w.code} value={w.code} className="bg-[#1D1D1F]">{w.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-white/60 text-sm mb-2">Địa chỉ chi tiết *</label>
-                                    <input
-                                        type="text"
-                                        value={formData.addressLine}
-                                        onChange={e => setFormData({ ...formData, addressLine: e.target.value })}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
-                                        placeholder="Số nhà, đường, ngõ..."
-                                    />
-                                </div>
-                            </div>
+                    {/* Divider */}
+                    <div className="border-t border-white/10" />
 
-                            <div className="border-t border-white/10 pt-4 mt-4">
-                                <p className="text-white/40 text-xs mb-3">Thông tin người nhận</p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-white/60 text-sm mb-2">Tên người nhận *</label>
-                                        <input
-                                            type="text"
-                                            value={formData.recipientName}
-                                            onChange={e => setFormData({ ...formData, recipientName: e.target.value })}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-white/60 text-sm mb-2">SĐT người nhận *</label>
-                                        <input
-                                            type="tel"
-                                            value={formData.recipientPhone}
-                                            onChange={e => setFormData({ ...formData, recipientPhone: e.target.value })}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
-                                        />
-                                    </div>
-                                </div>
+                    {/* Address */}
+                    <div className="space-y-4">
+                        <h3 className="text-white font-medium">Địa chỉ giao hàng</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2">
+                                <label className="block text-white/60 text-sm mb-2">Tỉnh/Thành phố *</label>
+                                <select
+                                    value={formData.provinceCode || ''}
+                                    onChange={e => {
+                                        const code = Number(e.target.value);
+                                        const province = provinces.find(p => p.code === code);
+                                        setFormData({
+                                            ...formData,
+                                            provinceCode: code,
+                                            provinceName: province?.name || '',
+                                        });
+                                    }}
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="" className="bg-[#1D1D1F]">Chọn Tỉnh/Thành phố</option>
+                                    {provinces.map(p => (
+                                        <option key={p.code} value={p.code} className="bg-[#1D1D1F]">{p.name}</option>
+                                    ))}
+                                </select>
                             </div>
-                        </motion.div>
-                    )}
+                            <div>
+                                <label className="block text-white/60 text-sm mb-2">Quận/Huyện *</label>
+                                <select
+                                    value={formData.districtCode || ''}
+                                    onChange={e => {
+                                        const code = Number(e.target.value);
+                                        const district = districts.find(d => d.code === code);
+                                        setFormData({
+                                            ...formData,
+                                            districtCode: code,
+                                            districtName: district?.name || '',
+                                        });
+                                    }}
+                                    disabled={!formData.provinceCode || loadingAddress}
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                >
+                                    <option value="" className="bg-[#1D1D1F]">
+                                        {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
+                                    </option>
+                                    {districts.map(d => (
+                                        <option key={d.code} value={d.code} className="bg-[#1D1D1F]">{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-white/60 text-sm mb-2">Phường/Xã *</label>
+                                <select
+                                    value={formData.wardCode || ''}
+                                    onChange={e => {
+                                        const code = Number(e.target.value);
+                                        const ward = wards.find(w => w.code === code);
+                                        setFormData({
+                                            ...formData,
+                                            wardCode: code,
+                                            wardName: ward?.name || '',
+                                        });
+                                    }}
+                                    disabled={!formData.districtCode || loadingAddress}
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                >
+                                    <option value="" className="bg-[#1D1D1F]">
+                                        {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
+                                    </option>
+                                    {wards.map(w => (
+                                        <option key={w.code} value={w.code} className="bg-[#1D1D1F]">{w.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-white/60 text-sm mb-2">Địa chỉ chi tiết *</label>
+                                <input
+                                    type="text"
+                                    value={formData.addressLine}
+                                    onChange={e => setFormData({ ...formData, addressLine: e.target.value })}
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                    placeholder="Số nhà, đường, ngõ..."
+                                />
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Error */}
                     {error && (
                         <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="text-red-400 text-sm mt-4"
+                            className="text-red-400 text-sm"
                         >
                             {error}
                         </motion.p>
                     )}
 
-                    {/* Buttons */}
-                    <div className="flex gap-3 mt-6">
-                        {currentStep === 2 && (
-                            <Button variant="secondary" onClick={() => setCurrentStep(1)} className="flex-1">
-                                Quay lại
-                            </Button>
-                        )}
-                        {currentStep === 1 && (
-                            <Button
-                                onClick={() => {
-                                    if (validateStep(1)) setCurrentStep(2);
-                                }}
-                                className="flex-1"
-                            >
-                                Tiếp tục
-                            </Button>
-                        )}
-                        {currentStep === 2 && (
-                            <Button onClick={handleSubmit} disabled={loading} className="flex-1">
-                                {loading ? 'Đang lưu...' : 'Hoàn tất'}
-                            </Button>
-                        )}
-                    </div>
+                    {/* Submit Button */}
+                    <Button onClick={handleSubmit} disabled={loading} className="w-full">
+                        {loading ? 'Đang lưu...' : 'Hoàn tất'}
+                    </Button>
                 </div>
             </motion.div>
         </div>
