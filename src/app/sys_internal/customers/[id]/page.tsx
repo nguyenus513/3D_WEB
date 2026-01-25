@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAdminPath } from '@/hooks/useAdminPath';
-import { getSupabase } from '@/lib/supabase/client';
 import type { Profile, Order } from '@/types/database';
 
 const statusColors: Record<string, string> = {
@@ -55,47 +54,26 @@ export default function AdminCustomerDetailPage() {
     }, [params.id]);
 
     const fetchCustomerData = async (id: string) => {
-        const supabase = getSupabase();
+        try {
+            // Use API route with service role to bypass RLS
+            const res = await fetch(`/api/admin/customers/${id}`);
+            const data = await res.json();
 
-        // Fetch customer profile
-        const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', id)
-            .single();
+            if (!res.ok) {
+                setError(data.error || 'Không tìm thấy khách hàng');
+                setLoading(false);
+                return;
+            }
 
-        if (profileError || !profileData) {
-            setError('Không tìm thấy khách hàng');
+            setCustomer(data.profile);
+            setAddresses(data.addresses || []);
+            setOrders(data.orders || []);
+        } catch (err) {
+            console.error('Fetch customer error:', err);
+            setError('Lỗi kết nối');
+        } finally {
             setLoading(false);
-            return;
         }
-
-        setCustomer(profileData);
-
-        // Fetch customer orders
-        const { data: ordersData } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('user_id', id)
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (ordersData) {
-            setOrders(ordersData);
-        }
-
-        // Fetch customer addresses
-        const { data: addressesData } = await supabase
-            .from('addresses')
-            .select('*')
-            .eq('user_id', id)
-            .order('is_default', { ascending: false });
-
-        if (addressesData) {
-            setAddresses(addressesData);
-        }
-
-        setLoading(false);
     };
 
     const totalSpent = orders.reduce((sum, order) => sum + order.total, 0);
