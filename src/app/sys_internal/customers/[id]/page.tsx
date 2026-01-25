@@ -36,6 +36,16 @@ export default function AdminCustomerDetailPage() {
     const [loading, setLoading] = useState(true);
     const [customer, setCustomer] = useState<Profile | null>(null);
     const [orders, setOrders] = useState<Order[]>([]);
+    const [addresses, setAddresses] = useState<Array<{
+        id: string;
+        full_name: string;
+        phone: string;
+        address_line: string;
+        ward: string;
+        district: string;
+        province: string;
+        is_default: boolean;
+    }>>([]);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -72,6 +82,17 @@ export default function AdminCustomerDetailPage() {
 
         if (ordersData) {
             setOrders(ordersData);
+        }
+
+        // Fetch customer addresses
+        const { data: addressesData } = await supabase
+            .from('addresses')
+            .select('*')
+            .eq('user_id', id)
+            .order('is_default', { ascending: false });
+
+        if (addressesData) {
+            setAddresses(addressesData);
         }
 
         setLoading(false);
@@ -112,7 +133,7 @@ export default function AdminCustomerDetailPage() {
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">{customer.full_name || 'Chưa có tên'}</h1>
+                        <h1 className="text-2xl font-bold text-white">{customer.full_name || customer.name || 'Chưa có tên'}</h1>
                         <p className="text-white/50 mt-1">Mã KH: {customer.customer_code}</p>
                     </div>
                 </div>
@@ -134,7 +155,7 @@ export default function AdminCustomerDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-white/50 text-sm block mb-1">Họ tên</label>
-                            <p className="text-white">{customer.full_name || '-'}</p>
+                            <p className="text-white">{customer.full_name || customer.name || '-'}</p>
                         </div>
                         <div>
                             <label className="text-white/50 text-sm block mb-1">Email</label>
@@ -179,16 +200,27 @@ export default function AdminCustomerDetailPage() {
                 >
                     <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6">
                         <h3 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h3>
-                        {orders.length > 0 && orders[0].shipping_address ? (
-                            <div className="space-y-2 text-sm">
-                                <p className="text-white">{(orders[0].shipping_address as { full_name?: string })?.full_name || '-'}</p>
-                                <p className="text-white/70">{(orders[0].shipping_address as { phone?: string })?.phone || '-'}</p>
-                                <p className="text-white/50">
-                                    {(orders[0].shipping_address as { address_line?: string })?.address_line || ''}
-                                    {(orders[0].shipping_address as { ward?: string })?.ward ? `, ${(orders[0].shipping_address as { ward?: string })?.ward}` : ''}
-                                    {(orders[0].shipping_address as { district?: string })?.district ? `, ${(orders[0].shipping_address as { district?: string })?.district}` : ''}
-                                    {(orders[0].shipping_address as { province?: string })?.province ? `, ${(orders[0].shipping_address as { province?: string })?.province}` : ''}
-                                </p>
+                        {addresses.length > 0 ? (
+                            <div className="space-y-4">
+                                {addresses.map((addr) => (
+                                    <div key={addr.id} className="space-y-2 text-sm p-3 bg-white/5 rounded-xl">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-white font-medium">{addr.full_name}</p>
+                                            {addr.is_default && (
+                                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs">
+                                                    Mặc định
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-white/70">{addr.phone}</p>
+                                        <p className="text-white/50">
+                                            {addr.address_line}
+                                            {addr.ward && `, ${addr.ward}`}
+                                            {addr.district && `, ${addr.district}`}
+                                            {addr.province && `, ${addr.province}`}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
                             <p className="text-white/50 text-sm">Chưa có địa chỉ</p>
