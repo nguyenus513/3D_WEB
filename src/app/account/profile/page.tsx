@@ -138,18 +138,13 @@ export default function AccountProfilePage() {
                 onSubmit={handleSubmit}
                 className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-6"
             >
-                {/* Avatar */}
-                <div className="flex items-center gap-5">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white">
-                        {formData.name?.charAt(0) || session.user.email?.charAt(0) || '?'}
+                {/* Customer code */}
+                {profile?.customer_code && (
+                    <div className="pb-2">
+                        <p className="text-white/50 text-sm mb-1">Mã khách hàng</p>
+                        <code className="text-white font-mono">{profile.customer_code}</code>
                     </div>
-                    {profile?.customer_code && (
-                        <div>
-                            <p className="text-white/50 text-sm">Mã khách hàng</p>
-                            <code className="text-white font-mono">{profile.customer_code}</code>
-                        </div>
-                    )}
-                </div>
+                )}
 
                 {/* Name */}
                 <div>
