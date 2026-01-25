@@ -28,6 +28,7 @@ interface FormData {
     districtName: string;
     wardCode: number | null;
     wardName: string;
+    is_default: boolean;
 }
 
 const initialFormData: FormData = {
@@ -40,6 +41,7 @@ const initialFormData: FormData = {
     districtName: '',
     wardCode: null,
     wardName: '',
+    is_default: false,
 };
 
 export default function AccountAddressesPage() {
@@ -128,19 +130,6 @@ export default function AccountAddressesPage() {
         }
     };
 
-    const setDefault = async (id: string) => {
-        try {
-            await fetch('/api/addresses', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, is_default: true }),
-            });
-            fetchAddresses();
-        } catch (error) {
-            console.error('Set default error:', error);
-        }
-    };
-
     const deleteAddress = async (id: string) => {
         if (!confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
 
@@ -165,6 +154,7 @@ export default function AccountAddressesPage() {
                 district: formData.districtName,
                 province: formData.provinceName,
                 label: 'Địa chỉ giao hàng',
+                is_default: formData.is_default,
             };
 
             if (editingId) {
@@ -184,7 +174,8 @@ export default function AccountAddressesPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...payload,
-                        is_default: addresses.length === 0,
+                        // First address is always default, otherwise use checkbox value
+                        is_default: addresses.length === 0 ? true : formData.is_default,
                     }),
                 });
 
@@ -242,6 +233,7 @@ export default function AccountAddressesPage() {
             districtName: address.district || '',
             wardCode,
             wardName: address.ward || '',
+            is_default: address.is_default || false,
         });
         setEditingId(address.id);
         setShowForm(true);
@@ -345,18 +337,6 @@ export default function AccountAddressesPage() {
                                 )}
                             </div>
                         </div>
-
-                        {!address.is_default && (
-                            <button
-                                onClick={() => setDefault(address.id)}
-                                className="mt-4 flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                Đặt làm mặc định
-                            </button>
-                        )}
                     </motion.div>
                 ))}
 
@@ -500,6 +480,20 @@ export default function AccountAddressesPage() {
                                     className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
                                     required
                                 />
+                            </div>
+
+                            {/* Đặt làm mặc định */}
+                            <div className="flex items-center gap-3 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="is_default"
+                                    checked={formData.is_default}
+                                    onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+                                    className="w-5 h-5 rounded border-white/20 bg-[#0a0a0a] text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                                />
+                                <label htmlFor="is_default" className="text-white/70 text-sm cursor-pointer">
+                                    Đặt làm địa chỉ mặc định
+                                </label>
                             </div>
 
                             {/* Buttons */}
