@@ -249,16 +249,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return true;
         },
         async jwt({ token, user, account }) {
-            if (user) {
+            // For Google OAuth, ALWAYS fetch profile ID from database
+            if (account?.provider === 'google' && user?.email) {
+                console.log('[AUTH DEBUG] JWT callback - fetching profile for Google user:', user.email);
+
+                const { data: profile } = await supabaseAdmin
+                    .from('profiles')
+                    .select('id, role, customer_code')
+                    .eq('email', (user.email as string).toLowerCase())
+                    .single();
+
+                if (profile) {
+                    console.log('[AUTH DEBUG] JWT - using database profile ID:', profile.id);
+                    token.id = profile.id;
+                    token.role = profile.role;
+                    token.customerCode = profile.customer_code;
+                } else {
+                    console.log('[AUTH DEBUG] JWT - no profile found, using user.id');
+                    token.id = user.id;
+                }
+
+                // Pass isNewUser flag for Google OAuth redirect
+                token.isNewUser = (user as { isNewUser?: boolean }).isNewUser || false;
+            } else if (user) {
+                // For credentials login, use user data directly
                 token.id = user.id;
                 token.role = (user as { role?: string }).role;
                 token.customerCode = (user as { customerCode?: string }).customerCode;
-
-                // Pass isNewUser flag for Google OAuth redirect
-                if (account?.provider === 'google') {
-                    token.isNewUser = (user as { isNewUser?: boolean }).isNewUser || false;
-                }
             }
+
             return token;
         },
         async session({ session, token }) {
