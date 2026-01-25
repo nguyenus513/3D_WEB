@@ -57,6 +57,7 @@ interface Order {
         analysis: { grams: number; hours: number; price: number };
         files: { url: string; name: string }[];
     };
+    demo_image_url?: string;
     order_items: OrderItem[];
 }
 
@@ -99,6 +100,32 @@ export default function AccountOrderDetailPage() {
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [submittingReview, setSubmittingReview] = useState(false);
+
+    // Handle customer review action (approve or reject)
+    const handleReview = async (action: 'approve' | 'reject') => {
+        if (!order) return;
+
+        setSubmittingReview(true);
+        try {
+            const res = await fetch(`/api/orders/${order.id}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            // Refresh order to show new status
+            await fetchOrder();
+            alert(action === 'approve' ? 'Đã duyệt thiết kế!' : 'Đã gửi yêu cầu chỉnh sửa!');
+        } catch (err) {
+            alert('Lỗi: ' + (err as Error).message);
+        } finally {
+            setSubmittingReview(false);
+        }
+    };
 
     useEffect(() => {
         if (status === 'authenticated' && session?.user?.email) {
@@ -364,6 +391,76 @@ export default function AccountOrderDetailPage() {
                                         ))}
                                     </div>
                                 </div>
+                            )}
+                        </motion.div>
+                    )}
+
+                    {/* Demo Image Review - For custom orders with demo image */}
+                    {order.order_type === 'custom' && order.demo_image_url && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.15 }}
+                            className="bg-gradient-to-br from-cyan-500/10 to-purple-500/10 rounded-2xl border border-cyan-500/30 p-6"
+                        >
+                            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                🎨 Thiết kế của bạn
+                                {order.status === 'review' && (
+                                    <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full">
+                                        Chờ duyệt
+                                    </span>
+                                )}
+                                {order.status === 'approved' && (
+                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
+                                        Đã duyệt
+                                    </span>
+                                )}
+                            </h2>
+
+                            {/* Demo Image */}
+                            <div className="mb-4">
+                                <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
+                                    <img
+                                        src={order.demo_image_url}
+                                        alt="Thiết kế demo"
+                                        className="w-full rounded-xl border border-white/20 hover:border-white/50 transition-all"
+                                    />
+                                </a>
+                            </div>
+
+                            {/* Review Actions - Only show when status is 'review' */}
+                            {order.status === 'review' && (
+                                <div className="space-y-3">
+                                    <p className="text-white/70 text-sm text-center">
+                                        Bạn có hài lòng với thiết kế này?
+                                    </p>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => handleReview('approve')}
+                                            disabled={submittingReview}
+                                            className="flex-1 py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                                        >
+                                            {submittingReview ? 'Đang xử lý...' : '✓ Duyệt thiết kế'}
+                                        </button>
+                                        <button
+                                            onClick={() => handleReview('reject')}
+                                            disabled={submittingReview}
+                                            className="flex-1 py-3 rounded-xl border border-amber-500/50 text-amber-400 font-medium hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                                        >
+                                            Yêu cầu chỉnh sửa
+                                        </button>
+                                    </div>
+                                    <p className="text-white/40 text-xs text-center">
+                                        * Khi duyệt, đơn hàng sẽ được chuyển sang sản xuất
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Already approved message */}
+                            {order.status === 'approved' && (
+                                <p className="text-green-400 text-sm text-center">
+                                    ✓ Bạn đã duyệt thiết kế này. Đơn hàng đang được sản xuất.
+                                </p>
                             )}
                         </motion.div>
                     )}

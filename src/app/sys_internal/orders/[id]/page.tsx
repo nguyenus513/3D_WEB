@@ -131,6 +131,7 @@ export default function AdminOrderDetailPage() {
     const [trackingCode, setTrackingCode] = useState('');
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [adminNote, setAdminNote] = useState('');
+    const [uploadingDemo, setUploadingDemo] = useState(false);
 
     useEffect(() => {
         fetchOrder();
@@ -326,6 +327,39 @@ export default function AdminOrderDetailPage() {
             });
         } catch (error) {
             console.error('Save note error:', error);
+        }
+    };
+
+    // Upload demo image for customer review
+    const handleUploadDemoImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!order || !e.target.files?.[0]) return;
+
+        setUploadingDemo(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', e.target.files[0]);
+
+            const res = await fetch(`/api/admin/orders/${order.id}/demo-image`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            // Refresh order to show new demo image and status
+            await fetchOrder();
+            alert('Upload thành công! Status đã chuyển sang "Chờ xác nhận"');
+        } catch (error) {
+            console.error('Demo upload error:', error);
+            alert('Upload thất bại: ' + (error as Error).message);
+        } finally {
+            setUploadingDemo(false);
+            // Reset input
+            e.target.value = '';
         }
     };
 
@@ -606,6 +640,57 @@ export default function AdminOrderDetailPage() {
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Demo Image Upload - For custom orders in designing status */}
+                            {order.order_type === 'custom' && ['designing', 'processing'].includes(order.status) && (
+                                <div className="mt-6 pt-6 border-t border-white/10">
+                                    <p className="text-white/50 text-sm mb-3">📷 Upload ảnh preview cho khách:</p>
+                                    <label className={`
+                                        flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
+                                        border-2 border-dashed border-cyan-500/30 hover:border-cyan-500/50 
+                                        bg-cyan-500/10 hover:bg-cyan-500/20 transition-all cursor-pointer
+                                        ${uploadingDemo ? 'opacity-50 cursor-wait' : ''}
+                                    `}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleUploadDemoImage}
+                                            disabled={uploadingDemo}
+                                            className="hidden"
+                                        />
+                                        {uploadingDemo ? (
+                                            <>
+                                                <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                                                <span className="text-cyan-400 text-sm">Đang upload...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                                <span className="text-cyan-400 text-sm font-medium">Chọn ảnh demo</span>
+                                            </>
+                                        )}
+                                    </label>
+                                    <p className="text-white/30 text-xs mt-2 text-center">
+                                        Ảnh sẽ được gửi cho khách duyệt
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Current Demo Image Preview */}
+                            {order.demo_image_url && (
+                                <div className="mt-6 pt-6 border-t border-white/10">
+                                    <p className="text-white/50 text-sm mb-3">🖼️ Ảnh demo hiện tại:</p>
+                                    <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                            src={order.demo_image_url}
+                                            alt="Demo preview"
+                                            className="w-full rounded-xl border border-white/10 hover:border-white/30 transition-all"
+                                        />
+                                    </a>
                                 </div>
                             )}
                         </motion.div>

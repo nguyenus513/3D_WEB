@@ -8,6 +8,7 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
 import { getSupabase } from '@/lib/supabase/client';
 import { generateId } from '@/lib/generateId';
+import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 
 type PrintType = 'fdm' | 'resin';
 
@@ -112,6 +113,7 @@ export default function PrintingPage() {
         notes: '',
     });
     const [dragActive, setDragActive] = useState(false);
+    const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
 
     // Calculate total price from all items
     const totalPrice = order.items.reduce((sum, item) => {
@@ -313,6 +315,12 @@ export default function PrintingPage() {
         const hasValidItem = order.items.some(item => item.analysis !== null);
         if (!user || !hasValidItem) return;
 
+        // Validate shipping address
+        if (!shippingAddress || !shippingAddress.full_name || !shippingAddress.phone || !shippingAddress.province) {
+            setError('Vui lòng nhập đầy đủ thông tin địa chỉ giao hàng');
+            return;
+        }
+
         setSubmitting(true);
         setError('');
 
@@ -345,6 +353,14 @@ export default function PrintingPage() {
                     total: grandTotal,
                     deposit_amount: grandTotal, // 100% for printing
                     customer_note: customerNote || null,
+                    shipping_address: {
+                        full_name: shippingAddress.full_name,
+                        phone: shippingAddress.phone,
+                        address_line: shippingAddress.address_line,
+                        ward: shippingAddress.ward || '',
+                        district: shippingAddress.district || '',
+                        province: shippingAddress.province,
+                    },
                 })
                 .select()
                 .single();
@@ -853,6 +869,17 @@ export default function PrintingPage() {
                                             </p>
                                         </div>
                                     )}
+                                </div>
+
+                                {/* Shipping Address */}
+                                <div className="border-t border-white/10 pt-4 mb-4">
+                                    <h3 className="text-white font-medium mb-3">📍 Địa chỉ giao hàng</h3>
+                                    <AddressSelector
+                                        userId={user?.id}
+                                        value={shippingAddress}
+                                        onChange={setShippingAddress}
+                                        disabled={submitting}
+                                    />
                                 </div>
 
                                 {/* Error */}
