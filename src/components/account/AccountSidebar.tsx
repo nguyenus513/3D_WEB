@@ -110,7 +110,12 @@ export function AccountSidebar() {
             </div>
 
             {/* Navigation */}
-            <nav className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+            <nav
+                className="relative backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden"
+                style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%)'
+                }}
+            >
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
 
@@ -121,7 +126,7 @@ export function AccountSidebar() {
                             className={`
                                 flex items-center gap-3 px-5 py-4 transition-colors border-b border-white/5 last:border-b-0
                                 ${isActive
-                                    ? 'bg-white/5 text-white'
+                                    ? 'bg-purple-500/10 text-white'
                                     : 'text-white/60 hover:text-white hover:bg-white/5'
                                 }
                             `}
@@ -129,7 +134,7 @@ export function AccountSidebar() {
                             {item.icon}
                             <span className="font-medium">{item.name}</span>
                             {isActive && (
-                                <svg className="w-4 h-4 ml-auto text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 ml-auto text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>
                             )}
@@ -141,7 +146,10 @@ export function AccountSidebar() {
             {/* Logout */}
             <button
                 onClick={handleLogout}
-                className="w-full mt-4 flex items-center justify-center gap-2 px-5 py-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                className="w-full mt-4 flex items-center justify-center gap-2 px-5 py-3 backdrop-blur-xl border border-white/10 rounded-2xl text-white/60 hover:text-white hover:bg-red-500/10 hover:border-red-500/30 transition-all"
+                style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(168, 85, 247, 0.04) 50%, rgba(255, 255, 255, 0.02) 100%)'
+                }}
             >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
