@@ -30,9 +30,13 @@ const tabs = [
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
-    paid: 'bg-blue-500/20 text-blue-400',
-    preparing: 'bg-purple-500/20 text-purple-400',
-    shipped: 'bg-cyan-500/20 text-cyan-400',
+    paid: 'bg-green-500/20 text-green-400',
+    processing: 'bg-blue-500/20 text-blue-400',
+    designing: 'bg-purple-500/20 text-purple-400',
+    review: 'bg-orange-500/20 text-orange-400',
+    approved: 'bg-cyan-500/20 text-cyan-400',
+    printing: 'bg-indigo-500/20 text-indigo-400',
+    shipping: 'bg-orange-500/20 text-orange-400',
     delivered: 'bg-green-500/20 text-green-400',
     cancelled: 'bg-red-500/20 text-red-400',
 };
@@ -40,9 +44,13 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
     paid: 'Đã thanh toán',
-    preparing: 'Đang chuẩn bị',
-    shipped: 'Đã gửi hàng',
-    delivered: 'Hoàn thành',
+    processing: 'Đang xử lý',
+    designing: 'Đang thiết kế',
+    review: 'Chờ xác nhận',
+    approved: 'Đã xác nhận',
+    printing: 'Đang in',
+    shipping: 'Đang giao hàng',
+    delivered: 'Đã giao',
     cancelled: 'Đã hủy',
 };
 
@@ -93,7 +101,7 @@ export default function AccountOrdersPage() {
     const filteredOrders = activeTab === 'all'
         ? orders
         : activeTab === 'processing'
-            ? orders.filter(o => ['paid', 'preparing', 'shipped'].includes(o.status))
+            ? orders.filter(o => ['paid', 'processing', 'designing', 'review', 'approved', 'printing', 'shipping'].includes(o.status))
             : activeTab === 'completed'
                 ? orders.filter(o => o.status === 'delivered')
                 : orders.filter(o => o.status === activeTab);
