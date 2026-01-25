@@ -140,72 +140,17 @@ export default function AccountOrderDetailPage() {
         if (!session?.user?.email) return;
 
         try {
-            const supabase = getSupabase();
+            // Use API route to bypass RLS (API verifies ownership server-side)
+            const res = await fetch(`/api/orders/${params.id}`);
+            const data = await res.json();
 
-            // Get user ID from email
-            const { data: user } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('email', session.user.email)
-                .single();
-
-            if (!user) {
-                setError('Không tìm thấy người dùng');
+            if (!res.ok) {
+                setError(data.error || 'Không tìm thấy đơn hàng');
                 setLoading(false);
                 return;
             }
 
-            // Fetch order with configs and files
-            const { data, error: fetchError } = await supabase
-                .from('orders')
-                .select(`
-                    *,
-                    order_items (*),
-                    order_configs (*),
-                    order_files (*)
-                `)
-                .eq('id', params.id)
-                .eq('user_id', user.id)
-                .single();
-
-            if (fetchError) {
-                setError('Không tìm thấy đơn hàng');
-                setLoading(false);
-                return;
-            }
-
-            // Transform order_configs to custom_config/printing_config format
-            const orderData = { ...data };
-
-            if (data.order_configs && data.order_configs.length > 0) {
-                const config = data.order_configs[0];
-
-                if (data.order_type === 'custom') {
-                    orderData.custom_config = {
-                        type: config.config_type,
-                        size: config.size,
-                        notes: config.notes,
-                        images: data.order_files?.filter((f: { file_type: string }) => f.file_type === 'reference').map((f: { url: string; thumbnail_url?: string }) => ({
-                            url: f.url,
-                            thumbnail: f.thumbnail_url || f.url
-                        })) || []
-                    };
-                } else if (data.order_type === 'printing') {
-                    orderData.printing_config = {
-                        type: config.config_type,
-                        color: config.color,
-                        quantity: config.quantity,
-                        analysis: config.analysis,
-                        files: data.order_files?.filter((f: { file_type: string }) => f.file_type === 'model').map((f: { url: string; name: string }) => ({
-                            url: f.url,
-                            name: f.name
-                        })) || [],
-                        notes: config.notes
-                    };
-                }
-            }
-
-            setOrder(orderData);
+            setOrder(data);
             setLoading(false);
         } catch (err) {
             setError((err as Error).message);
