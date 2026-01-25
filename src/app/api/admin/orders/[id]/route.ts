@@ -157,9 +157,9 @@ export async function GET(
 
         if (order.order_type === 'custom' && config) {
             custom_config = {
-                type: config.custom_type,
-                size: config.custom_size,
-                notes: order.customer_note,
+                type: config.custom_type || 'unknown',
+                size: config.custom_size || order.order_items?.[0]?.size || 'Chưa chọn',
+                notes: order.customer_note || '',
                 images: (order.order_files || [])
                     .filter((f: { file_type: string }) => f.file_type === 'photo')
                     .map((f: { file_id: string; file_name: string | null }) => ({
@@ -169,7 +169,9 @@ export async function GET(
                         thumbnail: `https://drive.google.com/thumbnail?id=${f.file_id}&sz=w400`,
                     })),
             };
-        } else if (order.order_type === 'custom' && !config && order.custom_config) {
+            console.log('[Order Debug] Built custom_config:', custom_config);
+        }
+        else if (order.order_type === 'custom' && !config && order.custom_config) {
             // Fallback to legacy JSONB for orders created before migration
             custom_config = order.custom_config;
         } else if (order.order_type === 'custom' && !config && !order.custom_config) {
