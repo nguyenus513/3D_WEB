@@ -148,6 +148,13 @@ export async function GET(
         let custom_config = null;
         let printing_config = null;
 
+        // Debug logging
+        console.log('[Order Debug] order_type:', order.order_type);
+        console.log('[Order Debug] order_configs:', order.order_configs);
+        console.log('[Order Debug] order_files:', order.order_files);
+        console.log('[Order Debug] config:', config);
+        console.log('[Order Debug] legacy custom_config:', order.custom_config);
+
         if (order.order_type === 'custom' && config) {
             custom_config = {
                 type: config.custom_type,
@@ -165,7 +172,17 @@ export async function GET(
         } else if (order.order_type === 'custom' && !config && order.custom_config) {
             // Fallback to legacy JSONB for orders created before migration
             custom_config = order.custom_config;
-        } else if (order.order_type === 'printing' && config) {
+        } else if (order.order_type === 'custom' && !config && !order.custom_config) {
+            // No config found anywhere - create placeholder to show section
+            custom_config = {
+                type: 'unknown',
+                size: 'Không có thông tin',
+                notes: order.customer_note || 'Không có ghi chú',
+                images: [],
+            };
+            console.log('[Order Debug] Created placeholder custom_config');
+        }
+        else if (order.order_type === 'printing' && config) {
             printing_config = {
                 type: config.print_tech,
                 color: config.color,
