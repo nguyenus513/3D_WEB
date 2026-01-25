@@ -20,6 +20,7 @@ export default function AccountAddressesPage() {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
         label: '',
@@ -78,31 +79,68 @@ export default function AccountAddressesPage() {
         }
     };
 
-    // Create via API
+    // Create or Update via API
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
 
         try {
-            const res = await fetch('/api/addresses', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...formData,
-                    is_default: addresses.length === 0,
-                }),
-            });
+            if (editingId) {
+                // Update existing address
+                const res = await fetch('/api/addresses', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: editingId,
+                        ...formData,
+                    }),
+                });
 
-            if (res.ok) {
-                setShowForm(false);
-                setFormData({ label: '', full_name: '', phone: '', address_line: '', province: '' });
-                fetchAddresses();
+                if (res.ok) {
+                    closeForm();
+                    fetchAddresses();
+                }
+            } else {
+                // Create new address
+                const res = await fetch('/api/addresses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...formData,
+                        is_default: addresses.length === 0,
+                    }),
+                });
+
+                if (res.ok) {
+                    closeForm();
+                    fetchAddresses();
+                }
             }
         } catch (error) {
             console.error('Submit error:', error);
         } finally {
             setSaving(false);
         }
+    };
+
+    // Open form for editing
+    const openEditForm = (address: Address) => {
+        setFormData({
+            label: address.label || '',
+            full_name: address.full_name || '',
+            phone: address.phone || '',
+            address_line: address.address_line || '',
+            province: address.province || '',
+        });
+        setEditingId(address.id);
+        setShowForm(true);
+    };
+
+    // Close form and reset state
+    const closeForm = () => {
+        setShowForm(false);
+        setEditingId(null);
+        setFormData({ label: '', full_name: '', phone: '', address_line: '', province: '' });
     };
 
     if (status === 'loading' || loading) {
@@ -161,10 +199,20 @@ export default function AccountAddressesPage() {
                                 {address.province && <p className="text-white/50">{address.province}</p>}
                             </div>
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => openEditForm(address)}
+                                    className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white"
+                                    title="Sửa địa chỉ"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </button>
                                 {!address.is_default && (
                                     <button
                                         onClick={() => deleteAddress(address.id)}
                                         className="p-2 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400"
+                                        title="Xóa địa chỉ"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -206,7 +254,9 @@ export default function AccountAddressesPage() {
                         animate={{ opacity: 1, scale: 1 }}
                         className="w-full max-w-md bg-[#1a1a1b] backdrop-blur-xl rounded-2xl border border-white/10 p-6"
                     >
-                        <h2 className="text-xl font-bold text-white mb-6">Thêm địa chỉ mới</h2>
+                        <h2 className="text-xl font-bold text-white mb-6">
+                            {editingId ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới'}
+                        </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="text-white/70 text-sm mb-2 block">Tên địa chỉ</label>
@@ -272,7 +322,7 @@ export default function AccountAddressesPage() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setShowForm(false)}
+                                    onClick={closeForm}
                                     className="px-6 py-3 rounded-xl border border-white/20 text-white/70 hover:text-white"
                                 >
                                     Hủy
