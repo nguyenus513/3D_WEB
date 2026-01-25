@@ -179,7 +179,7 @@ export default function AdminCustomerDetailPage() {
                     <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6">
                         <h3 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h3>
                         {addresses.length > 0 ? (
-                            <div className="space-y-4">
+                            <div className="space-y-4 max-h-[180px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                 {addresses.map((addr) => (
                                     <div key={addr.id} className="space-y-2 text-sm p-3 bg-white/5 rounded-xl">
                                         <div className="flex items-center gap-2">
