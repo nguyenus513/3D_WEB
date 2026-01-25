@@ -127,9 +127,17 @@ export async function uploadToR2(
 
     // Return URL using Worker domain if available
     // R2_PUBLIC_URL should be "https://cdn.yourdomain.com"
-    const url = R2_PUBLIC_URL
-        ? `${R2_PUBLIC_URL}/${key}`
-        : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+    let url: string;
+    if (R2_PUBLIC_URL) {
+        url = `${R2_PUBLIC_URL}/${key}`;
+    } else {
+        // No public URL - generate presigned URL for 7 days
+        const getCommand = new GetObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: key,
+        });
+        url = await getSignedUrl(client, getCommand, { expiresIn: 604800 }); // 7 days
+    }
 
     return { url, key };
 }
