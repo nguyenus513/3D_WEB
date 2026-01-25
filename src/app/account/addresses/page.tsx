@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
+import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
 
 interface Address {
     id: string;
@@ -17,6 +18,30 @@ interface Address {
     is_default: boolean;
 }
 
+interface FormData {
+    full_name: string;
+    phone: string;
+    address_line: string;
+    provinceCode: number | null;
+    provinceName: string;
+    districtCode: number | null;
+    districtName: string;
+    wardCode: number | null;
+    wardName: string;
+}
+
+const initialFormData: FormData = {
+    full_name: '',
+    phone: '',
+    address_line: '',
+    provinceCode: null,
+    provinceName: '',
+    districtCode: null,
+    districtName: '',
+    wardCode: null,
+    wardName: '',
+};
+
 export default function AccountAddressesPage() {
     const { data: session, status } = useSession();
     const [addresses, setAddresses] = useState<Address[]>([]);
@@ -24,13 +49,53 @@ export default function AccountAddressesPage() {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
-    const [formData, setFormData] = useState({
-        label: '',
-        full_name: '',
-        phone: '',
-        address_line: '',
-        province: '',
-    });
+    const [formData, setFormData] = useState<FormData>(initialFormData);
+
+    // Vietnam address data
+    const [provinces, setProvinces] = useState<Province[]>([]);
+    const [districts, setDistricts] = useState<District[]>([]);
+    const [wards, setWards] = useState<Ward[]>([]);
+    const [loadingAddress, setLoadingAddress] = useState(false);
+
+    // Load provinces on mount
+    useEffect(() => {
+        getProvinces().then(setProvinces);
+    }, []);
+
+    // Load districts when province changes
+    useEffect(() => {
+        if (formData.provinceCode) {
+            setLoadingAddress(true);
+            getDistricts(formData.provinceCode).then(data => {
+                setDistricts(data);
+                setLoadingAddress(false);
+            });
+            setFormData(prev => ({
+                ...prev,
+                districtCode: null,
+                districtName: '',
+                wardCode: null,
+                wardName: '',
+            }));
+            setWards([]);
+        }
+    }, [formData.provinceCode]);
+
+    // Load wards when district changes
+    useEffect(() => {
+        if (formData.districtCode) {
+            setLoadingAddress(true);
+            getWards(formData.districtCode).then(data => {
+                setWards(data);
+                setLoadingAddress(false);
+            });
+            setFormData(prev => ({
+                ...prev,
+                wardCode: null,
+                wardName: '',
+            }));
+        }
+    }, [formData.districtCode]);
 
     useEffect(() => {
         if (status === 'authenticated') {
@@ -40,7 +105,6 @@ export default function AccountAddressesPage() {
         }
     }, [status]);
 
-    // Fetch via secure API
     const fetchAddresses = async () => {
         try {
             const res = await fetch('/api/addresses');
@@ -55,7 +119,6 @@ export default function AccountAddressesPage() {
         }
     };
 
-    // Set default via API
     const setDefault = async (id: string) => {
         try {
             await fetch('/api/addresses', {
@@ -69,7 +132,6 @@ export default function AccountAddressesPage() {
         }
     };
 
-    // Delete via API
     const deleteAddress = async (id: string) => {
         if (!confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
 
@@ -81,21 +143,26 @@ export default function AccountAddressesPage() {
         }
     };
 
-    // Create or Update via API
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
 
         try {
+            const payload = {
+                full_name: formData.full_name,
+                phone: formData.phone,
+                address_line: formData.address_line,
+                ward: formData.wardName,
+                district: formData.districtName,
+                province: formData.provinceName,
+                label: 'Địa chỉ giao hàng',
+            };
+
             if (editingId) {
-                // Update existing address
                 const res = await fetch('/api/addresses', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: editingId,
-                        ...formData,
-                    }),
+                    body: JSON.stringify({ id: editingId, ...payload }),
                 });
 
                 if (res.ok) {
@@ -103,12 +170,11 @@ export default function AccountAddressesPage() {
                     fetchAddresses();
                 }
             } else {
-                // Create new address
                 const res = await fetch('/api/addresses', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        ...formData,
+                        ...payload,
                         is_default: addresses.length === 0,
                     }),
                 });
@@ -125,24 +191,31 @@ export default function AccountAddressesPage() {
         }
     };
 
-    // Open form for editing
-    const openEditForm = (address: Address) => {
+    const openEditForm = async (address: Address) => {
+        // Find province by name
+        const province = provinces.find(p => p.name === address.province);
+
         setFormData({
-            label: address.label || '',
             full_name: address.full_name || '',
             phone: address.phone || '',
             address_line: address.address_line || '',
-            province: address.province || '',
+            provinceCode: province?.code || null,
+            provinceName: address.province || '',
+            districtCode: null,
+            districtName: address.district || '',
+            wardCode: null,
+            wardName: address.ward || '',
         });
         setEditingId(address.id);
         setShowForm(true);
     };
 
-    // Close form and reset state
     const closeForm = () => {
         setShowForm(false);
         setEditingId(null);
-        setFormData({ label: '', full_name: '', phone: '', address_line: '', province: '' });
+        setFormData(initialFormData);
+        setDistricts([]);
+        setWards([]);
     };
 
     if (status === 'loading' || loading) {
@@ -187,7 +260,7 @@ export default function AccountAddressesPage() {
                     >
                         <div className="flex items-start justify-between">
                             <div className="flex-1">
-                                {/* Header with label and badge */}
+                                {/* Header with badge */}
                                 <div className="flex items-center gap-3 mb-3">
                                     <h3 className="text-white font-semibold text-lg">{address.label || 'Địa chỉ'}</h3>
                                     {address.is_default && (
@@ -259,31 +332,21 @@ export default function AccountAddressesPage() {
                 )}
             </div>
 
-            {/* Add address form modal */}
+            {/* Add/Edit address form modal */}
             {showForm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="w-full max-w-md bg-[#1a1a1b] backdrop-blur-xl rounded-2xl border border-white/10 p-6"
+                        className="w-full max-w-md bg-[#1a1a1b] backdrop-blur-xl rounded-2xl border border-white/10 p-6 max-h-[90vh] overflow-y-auto"
                     >
                         <h2 className="text-xl font-bold text-white mb-6">
                             {editingId ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới'}
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            {/* Người nhận */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Tên địa chỉ</label>
-                                <input
-                                    type="text"
-                                    value={formData.label}
-                                    onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                                    placeholder="VD: Nhà riêng, Văn phòng..."
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="text-white/70 text-sm mb-2 block">Người nhận</label>
+                                <label className="text-white/70 text-sm mb-2 block">Người nhận *</label>
                                 <input
                                     type="text"
                                     value={formData.full_name}
@@ -293,8 +356,10 @@ export default function AccountAddressesPage() {
                                     required
                                 />
                             </div>
+
+                            {/* Số điện thoại */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Số điện thoại</label>
+                                <label className="text-white/70 text-sm mb-2 block">Số điện thoại *</label>
                                 <input
                                     type="tel"
                                     value={formData.phone}
@@ -304,27 +369,99 @@ export default function AccountAddressesPage() {
                                     required
                                 />
                             </div>
+
+                            {/* Tỉnh/Thành phố */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Địa chỉ</label>
-                                <textarea
-                                    rows={2}
+                                <label className="text-white/70 text-sm mb-2 block">Tỉnh/Thành phố *</label>
+                                <select
+                                    value={formData.provinceCode || ''}
+                                    onChange={e => {
+                                        const code = Number(e.target.value);
+                                        const province = provinces.find(p => p.code === code);
+                                        setFormData({
+                                            ...formData,
+                                            provinceCode: code,
+                                            provinceName: province?.name || '',
+                                        });
+                                    }}
+                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="" className="bg-[#1D1D1F]">Chọn Tỉnh/Thành phố</option>
+                                    {provinces.map(p => (
+                                        <option key={p.code} value={p.code} className="bg-[#1D1D1F]">{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Quận/Huyện */}
+                            <div>
+                                <label className="text-white/70 text-sm mb-2 block">Quận/Huyện *</label>
+                                <select
+                                    value={formData.districtCode || ''}
+                                    onChange={e => {
+                                        const code = Number(e.target.value);
+                                        const district = districts.find(d => d.code === code);
+                                        setFormData({
+                                            ...formData,
+                                            districtCode: code,
+                                            districtName: district?.name || '',
+                                        });
+                                    }}
+                                    disabled={!formData.provinceCode || loadingAddress}
+                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white appearance-none cursor-pointer disabled:opacity-50"
+                                    required
+                                >
+                                    <option value="" className="bg-[#1D1D1F]">
+                                        {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
+                                    </option>
+                                    {districts.map(d => (
+                                        <option key={d.code} value={d.code} className="bg-[#1D1D1F]">{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Phường/Xã */}
+                            <div>
+                                <label className="text-white/70 text-sm mb-2 block">Phường/Xã *</label>
+                                <select
+                                    value={formData.wardCode || ''}
+                                    onChange={e => {
+                                        const code = Number(e.target.value);
+                                        const ward = wards.find(w => w.code === code);
+                                        setFormData({
+                                            ...formData,
+                                            wardCode: code,
+                                            wardName: ward?.name || '',
+                                        });
+                                    }}
+                                    disabled={!formData.districtCode || loadingAddress}
+                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white appearance-none cursor-pointer disabled:opacity-50"
+                                    required
+                                >
+                                    <option value="" className="bg-[#1D1D1F]">
+                                        {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
+                                    </option>
+                                    {wards.map(w => (
+                                        <option key={w.code} value={w.code} className="bg-[#1D1D1F]">{w.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Địa chỉ chi tiết */}
+                            <div>
+                                <label className="text-white/70 text-sm mb-2 block">Địa chỉ chi tiết *</label>
+                                <input
+                                    type="text"
                                     value={formData.address_line}
                                     onChange={(e) => setFormData({ ...formData, address_line: e.target.value })}
-                                    placeholder="Số nhà, đường, phường/xã"
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 resize-none"
+                                    placeholder="Số nhà, đường, ngõ..."
+                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
                                     required
                                 />
                             </div>
-                            <div>
-                                <label className="text-white/70 text-sm mb-2 block">Tỉnh/Thành phố</label>
-                                <input
-                                    type="text"
-                                    value={formData.province}
-                                    onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                                    placeholder="VD: TP.HCM"
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                />
-                            </div>
+
+                            {/* Buttons */}
                             <div className="flex gap-3 pt-4">
                                 <button
                                     type="submit"
