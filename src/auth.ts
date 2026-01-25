@@ -208,7 +208,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             .from('profiles')
                             .insert({
                                 email: user.email.toLowerCase(),
-                                name: user.name || null,
+                                // Extract name from Google profile or email
+                                full_name: user.name || user.email.split('@')[0]
+                                    .replace(/[._]/g, ' ')
+                                    .replace(/\d+/g, '')
+                                    .trim()
+                                    .split(' ')
+                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                    .join(' ') || 'Khách hàng',
                                 customer_code: customerCode,
                                 email_verified: true,
                                 role: 'customer',

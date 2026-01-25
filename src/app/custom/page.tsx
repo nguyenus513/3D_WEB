@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getSupabase } from '@/lib/supabase/client';
 import { generateId } from '@/lib/generateId';
+import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 
 type OrderType = 'single' | 'couple' | 'group';
 
@@ -92,6 +93,7 @@ export default function CustomPage() {
         notes: '',
     });
     const [dragActive, setDragActive] = useState(false);
+    const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
 
     const basePrice = orderTypes.find(t => t.id === orderData.type)?.price || 350000;
     const sizeMultiplier = sizes.find(s => s.id === orderData.size)?.multiplier || 1;
@@ -159,6 +161,12 @@ export default function CustomPage() {
     const handleSubmit = async () => {
         if (!user) return;
 
+        // Validate shipping address
+        if (!shippingAddress || !shippingAddress.full_name || !shippingAddress.phone || !shippingAddress.province) {
+            setError('Vui lòng nhập đầy đủ thông tin địa chỉ giao hàng');
+            return;
+        }
+
         setSubmitting(true);
         setError('');
 
@@ -169,7 +177,7 @@ export default function CustomPage() {
             // Upload images to Drive
             const images = await uploadImages(orderCode);
 
-            // Create order in Supabase (without custom_config JSONB)
+            // Create order in Supabase with shipping_address
             const { data: order, error: orderError } = await supabase
                 .from('orders')
                 .insert({
@@ -181,6 +189,14 @@ export default function CustomPage() {
                     shipping_fee: shippingFee,
                     total: totalPrice + shippingFee,
                     deposit_amount: depositAmount,
+                    shipping_address: {
+                        full_name: shippingAddress.full_name,
+                        phone: shippingAddress.phone,
+                        address_line: shippingAddress.address_line,
+                        ward: shippingAddress.ward || '',
+                        district: shippingAddress.district || '',
+                        province: shippingAddress.province,
+                    },
                 })
                 .select()
                 .single();
@@ -507,6 +523,17 @@ export default function CustomPage() {
                                                 <span className="font-bold">{depositAmount.toLocaleString('vi-VN')}đ</span>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    {/* Shipping Address */}
+                                    <div className="bg-[#2D2D2F] rounded-2xl p-6">
+                                        <h3 className="text-white font-medium mb-4">📍 Địa chỉ giao hàng</h3>
+                                        <AddressSelector
+                                            userId={user?.id}
+                                            value={shippingAddress}
+                                            onChange={setShippingAddress}
+                                            disabled={submitting}
+                                        />
                                     </div>
 
                                     {/* Error message */}

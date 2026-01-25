@@ -211,6 +211,31 @@ export default function RegisterPage() {
     const nextStep = () => {
         if (typeof currentStep === 'number' && validateStep(currentStep)) {
             if (currentStep < 4) {
+                // Auto-fill name from email when moving to step 2
+                if (currentStep === 1 && !formData.name && formData.email) {
+                    const extractedName = formData.email.split('@')[0]
+                        .replace(/[._]/g, ' ')  // Replace dots/underscores with spaces
+                        .replace(/\d+/g, '')    // Remove numbers
+                        .trim()
+                        .split(' ')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                        .join(' ');
+
+                    setFormData(prev => ({
+                        ...prev,
+                        name: extractedName || 'Khách hàng',
+                        recipientName: prev.recipientName || extractedName || 'Khách hàng',
+                        recipientPhone: prev.recipientPhone || prev.phone,
+                    }));
+                }
+                // Auto-fill recipient info from profile when moving to step 3
+                if (currentStep === 2 && !formData.recipientName) {
+                    setFormData(prev => ({
+                        ...prev,
+                        recipientName: prev.name,
+                        recipientPhone: prev.phone,
+                    }));
+                }
                 setCurrentStep((currentStep + 1) as StepType);
             }
         }
