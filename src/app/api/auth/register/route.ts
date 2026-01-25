@@ -3,6 +3,13 @@
  * 
  * POST /api/auth/register
  * 
+ * Security features:
+ * - Rate limiting (via middleware + in-route backup)
+ * - Input validation & sanitization
+ * - Password strength requirements
+ * - Email verification required
+ * - Security event logging
+ * 
  * 1. Create user with hashed password
  * 2. Generate OTP code
  * 3. Send verification email via sendEmailWithFallback
@@ -11,6 +18,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
+import { checkRateLimit } from '@/lib/security/redis-rate-limit';
+import { securityLog, getIpFromRequest, sanitizeObject } from '@/lib/security';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,9 +32,49 @@ function generateOTP(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Password strength validation
+function validatePassword(password: string): { valid: boolean; message?: string } {
+    if (password.length < 8) {
+        return { valid: false, message: 'Mật khẩu phải có ít nhất 8 ký tự' };
+    }
+    if (!/[A-Z]/.test(password)) {
+        return { valid: false, message: 'Mật khẩu phải có ít nhất 1 chữ in hoa' };
+    }
+    if (!/[a-z]/.test(password)) {
+        return { valid: false, message: 'Mật khẩu phải có ít nhất 1 chữ thường' };
+    }
+    if (!/[0-9]/.test(password)) {
+        return { valid: false, message: 'Mật khẩu phải có ít nhất 1 chữ số' };
+    }
+    return { valid: true };
+}
+
+// Email format validation
+function validateEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email) && email.length <= 254;
+}
+
 export async function POST(request: NextRequest) {
+    const ip = getIpFromRequest(request);
+    
     try {
-        const { name, email, phone, instagram, password, shipping_address } = await request.json();
+        // Secondary rate limiting (backup for middleware)
+        const { allowed, resetIn } = await checkRateLimit(`register:${ip}`, 'auth:register');
+        if (!allowed) {
+            securityLog.rateLimited(request, '/api/auth/register');
+            return NextResponse.json(
+                { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
+                { 
+                    status: 429,
+                    headers: { 'Retry-After': String(resetIn) }
+                }
+            );
+        }
+
+        // Parse and sanitize input
+        const rawBody = await request.json();
+        const { name, email, phone, instagram, password, shipping_address } = sanitizeObject(rawBody);
 
         // Validate input
         if (!email || !password) {
@@ -35,11 +84,19 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Instagram is optional now
-
-        if (password.length < 6) {
+        // Validate email format
+        if (!validateEmail(email)) {
             return NextResponse.json(
-                { error: 'Mật khẩu phải có ít nhất 6 ký tự' },
+                { error: 'Định dạng email không hợp lệ' },
+                { status: 400 }
+            );
+        }
+
+        // Validate password strength
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return NextResponse.json(
+                { error: passwordValidation.message },
                 { status: 400 }
             );
         }

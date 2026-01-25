@@ -69,3 +69,22 @@ export {
     requireAdmin,
     isAdmin,
 } from './admin-guard';
+
+// CSRF Protection
+export {
+    generateCsrfToken,
+    setCsrfCookie,
+    getCsrfToken,
+    validateCsrfToken,
+    requireCsrf,
+    getCsrfTokenForClient,
+    CSRF_CONFIG,
+} from './csrf';
+
+// Redis Rate Limiting
+export {
+    checkRateLimit,
+    resetRateLimit,
+    isRedisConfigured,
+    RATE_LIMITS,
+} from './redis-rate-limit';

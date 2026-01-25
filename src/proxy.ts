@@ -1,35 +1,64 @@
 /**
- * NextAuth Middleware with Rate Limiting
+ * NextAuth Middleware with Enhanced Rate Limiting
  * 
  * Security features:
- * - Rate limiting (100 req/min per IP)
+ * - Route-specific rate limiting
  * - Protected routes (login required)
  * - Admin access control (Phoenix Protocol)
+ * - CSRF validation (optional strict mode)
  */
 
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 
-// Simple in-memory rate limiter
+// Enhanced rate limiter with route-specific limits
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 100; // requests
-const RATE_WINDOW = 60 * 1000; // 1 minute
 
-function rateLimit(ip: string): boolean {
+// Route-specific rate limits
+const ROUTE_RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
+    '/api/auth/register': { limit: 5, windowMs: 3600 * 1000 }, // 5/hour
+    '/api/auth/login': { limit: 10, windowMs: 900 * 1000 }, // 10/15min
+    '/api/auth/forgot-password': { limit: 3, windowMs: 3600 * 1000 }, // 3/hour
+    '/api/auth/reset-password': { limit: 3, windowMs: 3600 * 1000 }, // 3/hour
+    '/api/upload': { limit: 5, windowMs: 60 * 1000 }, // 5/min
+    '/api/orders/create': { limit: 10, windowMs: 60 * 1000 }, // 10/min
+    '/api/send-email': { limit: 5, windowMs: 60 * 1000 }, // 5/min
+};
+
+// Default rate limit for other routes
+const DEFAULT_RATE_LIMIT = { limit: 100, windowMs: 60 * 1000 }; // 100/min
+
+function getRouteLimit(pathname: string): { limit: number; windowMs: number } {
+    // Check for exact match first
+    if (ROUTE_RATE_LIMITS[pathname]) {
+        return ROUTE_RATE_LIMITS[pathname];
+    }
+    // Check for prefix match
+    for (const [route, config] of Object.entries(ROUTE_RATE_LIMITS)) {
+        if (pathname.startsWith(route)) {
+            return config;
+        }
+    }
+    return DEFAULT_RATE_LIMIT;
+}
+
+function rateLimit(ip: string, pathname: string): { allowed: boolean; resetIn: number } {
     const now = Date.now();
-    const record = rateLimitMap.get(ip);
+    const routeConfig = getRouteLimit(pathname);
+    const key = `${ip}:${pathname}`;
+    const record = rateLimitMap.get(key);
 
     if (!record || now > record.resetTime) {
-        rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
-        return true;
+        rateLimitMap.set(key, { count: 1, resetTime: now + routeConfig.windowMs });
+        return { allowed: true, resetIn: Math.ceil(routeConfig.windowMs / 1000) };
     }
 
-    if (record.count >= RATE_LIMIT) {
-        return false; // Rate limited
+    if (record.count >= routeConfig.limit) {
+        return { allowed: false, resetIn: Math.ceil((record.resetTime - now) / 1000) };
     }
 
     record.count++;
-    return true;
+    return { allowed: true, resetIn: Math.ceil((record.resetTime - now) / 1000) };
 }
 
 // Cleanup old entries periodically
@@ -41,28 +70,30 @@ if (typeof setInterval !== 'undefined') {
                 rateLimitMap.delete(key);
             }
         });
-    }, RATE_WINDOW);
+    }, 60 * 1000); // Cleanup every minute
 }
 
 export const proxy = auth((req) => {
     const { nextUrl } = req;
+    const pathname = nextUrl.pathname;
 
     // Rate limiting - get IP
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ||
         req.headers.get('x-real-ip') ||
+        req.headers.get('cf-connecting-ip') ||
         'unknown';
 
-    if (!rateLimit(ip)) {
+    const { allowed, resetIn } = rateLimit(ip, pathname);
+    if (!allowed) {
         return new NextResponse('Too Many Requests', {
             status: 429,
-            headers: { 'Retry-After': '60' }
+            headers: { 'Retry-After': String(resetIn) }
         });
     }
 
     const isLoggedIn = !!req.auth?.user;
     const userRole = (req.auth?.user as { role?: string } | undefined)?.role;
     const isAdmin = userRole === 'admin';
-    const pathname = nextUrl.pathname;
 
     // Protected routes - require login
     const protectedRoutes = ['/account', '/checkout'];

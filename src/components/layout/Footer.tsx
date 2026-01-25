@@ -20,7 +20,12 @@ const footerLinks = {
 
 export function Footer() {
     return (
-        <footer className="bg-[#1D1D1F] border-t border-white/[0.08]">
+        <footer
+            className="relative backdrop-blur-xl border-t border-white/10"
+            style={{
+                background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.08) 0%, rgba(168, 85, 247, 0.04) 30%, rgba(10, 10, 10, 0.95) 100%)'
+            }}
+        >
             <div className="max-w-[1200px] mx-auto px-6 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     {/* Brand */}

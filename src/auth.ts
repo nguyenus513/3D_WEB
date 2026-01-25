@@ -1,17 +1,21 @@
 /**
  * NextAuth.js Configuration
- * 
+ *
  * This file configures authentication with:
  * - Credentials Provider (Email/Password)
  * - Custom email verification using our sendEmailWithFallback
  * - Supabase as database adapter
+ * - Brute force protection
  */
 
 import NextAuth from 'next-auth';
+import type { NextAuthConfig, User } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
+import { isLoginBlocked, recordFailedAttempt, clearFailedAttempts } from '@/lib/security/brute-force';
 
 // Supabase client with service role for auth operations
 const supabaseAdmin = createClient(
@@ -19,6 +23,34 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!, // Need to add this to .env.local
     { auth: { persistSession: false } }
 );
+
+/**
+ * Extract IP address from request headers
+ */
+async function getClientIp(): Promise<string> {
+    try {
+        const headersList = await headers();
+        // Check various headers for real IP (behind proxies)
+        const forwardedFor = headersList.get('x-forwarded-for');
+        if (forwardedFor) {
+            return forwardedFor.split(',')[0].trim();
+        }
+        
+        const realIp = headersList.get('x-real-ip');
+        if (realIp) {
+            return realIp;
+        }
+        
+        const cfConnectingIp = headersList.get('cf-connecting-ip');
+        if (cfConnectingIp) {
+            return cfConnectingIp;
+        }
+        
+        return '0.0.0.0'; // Fallback
+    } catch {
+        return '0.0.0.0';
+    }
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     adapter: SupabaseAdapter({
@@ -46,13 +78,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     throw new Error('Email và mật khẩu là bắt buộc');
                 }
 
+                const email = (credentials.email as string).toLowerCase().trim();
+                const ipAddress = await getClientIp();
+
+                // Brute force protection: Check if account/IP is blocked
+                try {
+                    const blockStatus = await isLoginBlocked(email, ipAddress);
+                    if (blockStatus.blocked) {
+                        const waitMinutes = blockStatus.blockedUntil
+                            ? Math.ceil((blockStatus.blockedUntil.getTime() - Date.now()) / 60000)
+                            : 30;
+                        throw new Error(`Tài khoản tạm khóa. Thử lại sau ${waitMinutes} phút.`);
+                    }
+                } catch (blockError) {
+                    // If error is from isLoginBlocked, re-throw it; otherwise log and continue
+                    if (blockError instanceof Error && blockError.message.includes('Tài khoản tạm khóa')) {
+                        throw blockError;
+                    }
+                    // Non-blocking: allow login if brute force check fails (table might not exist)
+                    console.warn('Brute force check failed:', blockError);
+                }
+
                 const { data: user, error } = await supabaseAdmin
                     .from('profiles')
                     .select('*')
-                    .eq('email', credentials.email)
+                    .eq('email', email)
                     .single();
 
                 if (error || !user) {
+                    // Record failed attempt (non-blocking)
+                    try {
+                        await recordFailedAttempt(email, ipAddress);
+                    } catch (e) {
+                        console.warn('Failed to record login attempt:', e);
+                    }
                     // Don't reveal if email exists or not (security best practice)
                     throw new Error('Thông tin đăng nhập không chính xác');
                 }
@@ -67,6 +126,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 );
 
                 if (!isValid) {
+                    // Record failed attempt (non-blocking)
+                    try {
+                        const result = await recordFailedAttempt(email, ipAddress);
+                        if (result.blocked) {
+                            throw new Error('Quá nhiều lần thử. Tài khoản tạm khóa 30 phút.');
+                        }
+                    } catch (e) {
+                        // If error is about blocking, re-throw; otherwise log
+                        if (e instanceof Error && e.message.includes('Tài khoản tạm khóa')) {
+                            throw e;
+                        }
+                        console.warn('Failed to record login attempt:', e);
+                    }
                     // Same generic message to prevent user enumeration
                     throw new Error('Thông tin đăng nhập không chính xác');
                 }
@@ -91,6 +163,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     throw new Error('Email chưa được xác thực. Vui lòng kiểm tra hộp thư.');
+                }
+
+                // Successful login: Clear failed attempts (non-blocking)
+                try {
+                    await clearFailedAttempts(email, ipAddress);
+                } catch (e) {
+                    console.warn('Failed to clear login attempts:', e);
                 }
 
                 return {
