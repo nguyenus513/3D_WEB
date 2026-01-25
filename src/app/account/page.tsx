@@ -154,16 +154,12 @@ export default function AccountPage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative backdrop-blur-xl rounded-2xl p-6 border border-white/10 overflow-hidden"
-                style={{
-                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.08) 50%, rgba(255, 255, 255, 0.05) 100%)'
-                }}
+                className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10"
             >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent pointer-events-none" />
-                <h1 className="relative text-2xl font-bold text-white mb-2">
+                <h1 className="text-2xl font-bold text-white mb-2">
                     Xin chào, {displayName}!
                 </h1>
-                <p className="relative text-white/50">
+                <p className="text-white/50">
                     Chào mừng bạn quay trở lại. Quản lý đơn hàng và thông tin cá nhân tại đây.
                 </p>
             </motion.div>
@@ -176,13 +172,10 @@ export default function AccountPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className="relative backdrop-blur-xl rounded-2xl p-5 border border-white/10 overflow-hidden"
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%)'
-                        }}
+                        className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-400">
+                            <div className="p-2.5 rounded-xl bg-white/10 text-white/70">
                                 {stat.icon}
                             </div>
                             <div>
@@ -199,10 +192,7 @@ export default function AccountPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="relative backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden"
-                style={{
-                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%)'
-                }}
+                className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden"
             >
                 <div className="p-5 border-b border-white/10 flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-white">Đơn hàng gần đây</h2>
@@ -254,13 +244,10 @@ export default function AccountPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Link
                     href="/products"
-                    className="flex items-center gap-4 p-5 backdrop-blur-xl rounded-2xl border border-white/10 hover:bg-purple-500/10 transition-all"
-                    style={{
-                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%)'
-                    }}
+                    className="flex items-center gap-4 p-5 bg-[#1D1D1F] rounded-2xl border border-white/10 hover:bg-white/5 transition-colors"
                 >
-                    <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                         </svg>
                     </div>
@@ -271,13 +258,10 @@ export default function AccountPage() {
                 </Link>
                 <Link
                     href="/custom"
-                    className="flex items-center gap-4 p-5 backdrop-blur-xl rounded-2xl border border-white/10 hover:bg-purple-500/10 transition-all"
-                    style={{
-                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%)'
-                    }}
+                    className="flex items-center gap-4 p-5 bg-[#1D1D1F] rounded-2xl border border-white/10 hover:bg-white/5 transition-colors"
                 >
-                    <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                     </div>
