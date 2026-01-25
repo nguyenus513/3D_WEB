@@ -36,7 +36,7 @@ export async function GET() {
     }
 }
 
-// PUT /api/profile - Update current user's profile
+// PUT /api/profile - Update or create current user's profile
 export async function PUT(request: NextRequest) {
     try {
         const session = await auth();
@@ -53,25 +53,63 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 });
         }
 
-        // Update profile
-        const updateData: Record<string, string | null> = {
-            name,
-            phone,
-        };
+        const email = session.user.email.toLowerCase();
 
-        if (instagram !== undefined) {
-            updateData.instagram = instagram;
+        // First try to get existing profile
+        const { data: existingProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('id, customer_code')
+            .eq('email', email)
+            .maybeSingle();
+
+        let profile;
+        let error;
+
+        if (existingProfile) {
+            // Update existing profile
+            const updateData: Record<string, string | null> = {
+                name,
+                phone,
+            };
+
+            if (instagram !== undefined) {
+                updateData.instagram = instagram;
+            }
+
+            const result = await supabaseAdmin
+                .from('profiles')
+                .update(updateData)
+                .eq('email', email)
+                .select()
+                .single();
+
+            profile = result.data;
+            error = result.error;
+        } else {
+            // Create new profile
+            const { generateId } = await import('@/lib/generateId');
+            const customerCode = generateId.user();
+
+            const result = await supabaseAdmin
+                .from('profiles')
+                .insert({
+                    email,
+                    name,
+                    phone,
+                    customer_code: customerCode,
+                    email_verified: true,
+                    role: 'user',
+                    instagram: instagram || null,
+                })
+                .select()
+                .single();
+
+            profile = result.data;
+            error = result.error;
         }
 
-        const { data: profile, error } = await supabaseAdmin
-            .from('profiles')
-            .update(updateData)
-            .eq('email', session.user.email.toLowerCase())
-            .select()
-            .single();
-
         if (error) {
-            console.error('[API/PROFILE] Update error:', error);
+            console.error('[API/PROFILE] Update/Insert error:', error);
             return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
         }
 
