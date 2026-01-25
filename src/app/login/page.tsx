@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signIn } from 'next-auth/react';
+import { signIn, getCsrfToken } from 'next-auth/react';
 import { Button } from '@/components/ui/Button';
 
 function LoginForm() {
@@ -19,6 +19,11 @@ function LoginForm() {
         password: '',
         remember: false,
     });
+
+    // Initialize CSRF token on mount to prevent MissingCSRF error
+    useEffect(() => {
+        getCsrfToken();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
