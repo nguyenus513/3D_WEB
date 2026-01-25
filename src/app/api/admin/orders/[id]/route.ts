@@ -162,6 +162,9 @@ export async function GET(
                         thumbnail: `https://drive.google.com/thumbnail?id=${f.file_id}&sz=w400`,
                     })),
             };
+        } else if (order.order_type === 'custom' && !config && order.custom_config) {
+            // Fallback to legacy JSONB for orders created before migration
+            custom_config = order.custom_config;
         } else if (order.order_type === 'printing' && config) {
             printing_config = {
                 type: config.print_tech,
@@ -180,6 +183,9 @@ export async function GET(
                         name: f.file_name || 'file.stl',
                     })),
             };
+        } else if (order.order_type === 'printing' && !config && order.printing_config) {
+            // Fallback to legacy JSONB
+            printing_config = order.printing_config;
         }
 
         // Map shipping_address from addresses table or fallback to JSONB
