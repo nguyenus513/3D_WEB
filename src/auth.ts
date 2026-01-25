@@ -54,10 +54,11 @@ async function getClientIp(): Promise<string> {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-    adapter: SupabaseAdapter({
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    }),
+    // Temporarily disable adapter to test Google OAuth
+    // adapter: SupabaseAdapter({
+    //     url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    //     secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    // }),
     session: {
         strategy: 'jwt', // Use JWT for session (stateless, faster)
     },
