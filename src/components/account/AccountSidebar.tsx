@@ -91,7 +91,7 @@ export function AccountSidebar() {
             {/* User info */}
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 mb-4">
                 <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
+                    <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white text-xl font-bold">
                         {initial}
                     </div>
                     <div className="min-w-0">
