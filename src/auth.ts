@@ -35,17 +35,17 @@ async function getClientIp(): Promise<string> {
         if (forwardedFor) {
             return forwardedFor.split(',')[0].trim();
         }
-        
+
         const realIp = headersList.get('x-real-ip');
         if (realIp) {
             return realIp;
         }
-        
+
         const cfConnectingIp = headersList.get('cf-connecting-ip');
         if (cfConnectingIp) {
             return cfConnectingIp;
         }
-        
+
         return '0.0.0.0'; // Fallback
     } catch {
         return '0.0.0.0';
@@ -79,9 +79,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
 
                 const email = (credentials.email as string).toLowerCase().trim();
+
+                // DEBUG: Simplified - temporarily skip brute force protection
+                console.log('[AUTH DEBUG] Login attempt for:', email);
+
+                /* TEMPORARILY DISABLED - Brute force protection
                 const ipAddress = await getClientIp();
 
-                // Brute force protection: Check if account/IP is blocked
                 try {
                     const blockStatus = await isLoginBlocked(email, ipAddress);
                     if (blockStatus.blocked) {
@@ -91,13 +95,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         throw new Error(`Tài khoản tạm khóa. Thử lại sau ${waitMinutes} phút.`);
                     }
                 } catch (blockError) {
-                    // If error is from isLoginBlocked, re-throw it; otherwise log and continue
                     if (blockError instanceof Error && blockError.message.includes('Tài khoản tạm khóa')) {
                         throw blockError;
                     }
-                    // Non-blocking: allow login if brute force check fails (table might not exist)
                     console.warn('Brute force check failed:', blockError);
                 }
+                */
 
                 const { data: user, error } = await supabaseAdmin
                     .from('profiles')
@@ -105,18 +108,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     .eq('email', email)
                     .single();
 
+                // DEBUG: Log query result (temporary - remove in production)
+                console.log('[AUTH DEBUG] Email lookup:', { email, found: !!user, error: error?.message });
+
                 if (error || !user) {
-                    // Record failed attempt (non-blocking)
-                    try {
-                        await recordFailedAttempt(email, ipAddress);
-                    } catch (e) {
-                        console.warn('Failed to record login attempt:', e);
-                    }
-                    // Don't reveal if email exists or not (security best practice)
+                    // Brute force recording disabled for debugging
+                    console.log('[AUTH DEBUG] User not found or error:', error?.message);
                     throw new Error('Thông tin đăng nhập không chính xác');
                 }
 
                 if (!user.password) {
+                    console.log('[AUTH DEBUG] User has no password field');
                     throw new Error('Tài khoản này không dùng mật khẩu');
                 }
 
@@ -126,20 +128,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 );
 
                 if (!isValid) {
-                    // Record failed attempt (non-blocking)
-                    try {
-                        const result = await recordFailedAttempt(email, ipAddress);
-                        if (result.blocked) {
-                            throw new Error('Quá nhiều lần thử. Tài khoản tạm khóa 30 phút.');
-                        }
-                    } catch (e) {
-                        // If error is about blocking, re-throw; otherwise log
-                        if (e instanceof Error && e.message.includes('Tài khoản tạm khóa')) {
-                            throw e;
-                        }
-                        console.warn('Failed to record login attempt:', e);
-                    }
-                    // Same generic message to prevent user enumeration
+                    // Brute force recording disabled for debugging
+                    console.log('[AUTH DEBUG] Password mismatch');
                     throw new Error('Thông tin đăng nhập không chính xác');
                 }
 
@@ -165,12 +155,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     throw new Error('Email chưa được xác thực. Vui lòng kiểm tra hộp thư.');
                 }
 
-                // Successful login: Clear failed attempts (non-blocking)
-                try {
-                    await clearFailedAttempts(email, ipAddress);
-                } catch (e) {
-                    console.warn('Failed to clear login attempts:', e);
-                }
+                // DEBUG: Skip clearing failed attempts
+                console.log('[AUTH DEBUG] Login successful for:', email);
 
                 return {
                     id: user.id,

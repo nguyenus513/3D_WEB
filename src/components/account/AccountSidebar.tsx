@@ -89,9 +89,17 @@ export function AccountSidebar() {
     return (
         <aside className="w-full lg:w-64 flex-shrink-0">
             {/* User info */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 mb-4">
-                <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
+            <div
+                className="relative backdrop-blur-xl rounded-2xl p-5 border border-white/10 mb-4 overflow-hidden"
+                style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.08) 50%, rgba(255, 255, 255, 0.05) 100%)'
+                }}
+            >
+                {/* Subtle glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent pointer-events-none" />
+
+                <div className="relative flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-purple-500/30">
                         {initial}
                     </div>
                     <div className="min-w-0">

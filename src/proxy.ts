@@ -14,19 +14,19 @@ import { NextResponse } from 'next/server';
 // Enhanced rate limiter with route-specific limits
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
-// Route-specific rate limits
+// TEMPORARILY DISABLED FOR DEBUGGING - increase limits significantly
 const ROUTE_RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
-    '/api/auth/register': { limit: 5, windowMs: 3600 * 1000 }, // 5/hour
-    '/api/auth/login': { limit: 10, windowMs: 900 * 1000 }, // 10/15min
-    '/api/auth/forgot-password': { limit: 3, windowMs: 3600 * 1000 }, // 3/hour
-    '/api/auth/reset-password': { limit: 3, windowMs: 3600 * 1000 }, // 3/hour
-    '/api/upload': { limit: 5, windowMs: 60 * 1000 }, // 5/min
-    '/api/orders/create': { limit: 10, windowMs: 60 * 1000 }, // 10/min
-    '/api/send-email': { limit: 5, windowMs: 60 * 1000 }, // 5/min
+    '/api/auth/register': { limit: 1000, windowMs: 60 * 1000 }, // Increased for debugging
+    '/api/auth/login': { limit: 1000, windowMs: 60 * 1000 }, // Increased for debugging
+    '/api/auth/forgot-password': { limit: 100, windowMs: 60 * 1000 }, // Increased
+    '/api/auth/reset-password': { limit: 100, windowMs: 60 * 1000 }, // Increased
+    '/api/upload': { limit: 100, windowMs: 60 * 1000 },
+    '/api/orders/create': { limit: 100, windowMs: 60 * 1000 },
+    '/api/send-email': { limit: 100, windowMs: 60 * 1000 },
 };
 
 // Default rate limit for other routes
-const DEFAULT_RATE_LIMIT = { limit: 100, windowMs: 60 * 1000 }; // 100/min
+const DEFAULT_RATE_LIMIT = { limit: 1000, windowMs: 60 * 1000 }; // Increased for debugging
 
 function getRouteLimit(pathname: string): { limit: number; windowMs: number } {
     // Check for exact match first
