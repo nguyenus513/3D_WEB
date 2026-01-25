@@ -195,20 +195,46 @@ export default function AccountAddressesPage() {
         // Find province by name
         const province = provinces.find(p => p.name === address.province);
 
+        let districtsList: District[] = [];
+        let wardsList: Ward[] = [];
+        let districtCode: number | null = null;
+        let wardCode: number | null = null;
+
+        // Load districts if province found
+        if (province?.code) {
+            districtsList = await getDistricts(province.code);
+            setDistricts(districtsList);
+
+            // Find district by name
+            const district = districtsList.find(d => d.name === address.district);
+            districtCode = district?.code || null;
+
+            // Load wards if district found
+            if (district?.code) {
+                wardsList = await getWards(district.code);
+                setWards(wardsList);
+
+                // Find ward by name
+                const ward = wardsList.find(w => w.name === address.ward);
+                wardCode = ward?.code || null;
+            }
+        }
+
         setFormData({
             full_name: address.full_name || '',
             phone: address.phone || '',
             address_line: address.address_line || '',
             provinceCode: province?.code || null,
             provinceName: address.province || '',
-            districtCode: null,
+            districtCode,
             districtName: address.district || '',
-            wardCode: null,
+            wardCode,
             wardName: address.ward || '',
         });
         setEditingId(address.id);
         setShowForm(true);
     };
+
 
     const closeForm = () => {
         setShowForm(false);
