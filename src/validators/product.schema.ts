@@ -1,0 +1,75 @@
+/**
+ * Product Validator Schemas
+ *
+ * Zod schemas for validating product-related API inputs.
+ */
+
+import { z } from 'zod';
+
+// =============================================================================
+// Product Status & Type Enums
+// =============================================================================
+
+export const ProductStatus = z.enum(['draft', 'active', 'archived']);
+export type ProductStatusType = z.infer<typeof ProductStatus>;
+
+export const ProductType = z.enum(['ready_made', 'custom', 'print_on_demand']);
+export type ProductTypeS = z.infer<typeof ProductType>;
+
+// =============================================================================
+// Create Product Schema
+// =============================================================================
+
+export const CreateProductSchema = z.object({
+    name: z.string().min(1).max(150),
+    sku: z.string().min(1).max(20),
+    slug: z.string().max(150).optional(),
+    category_id: z.string().uuid().optional().nullable(),
+    type: ProductType.default('ready_made'),
+    status: ProductStatus.default('draft'),
+    short_description: z.string().max(300).optional().nullable(),
+    description: z.string().optional().nullable(),
+    base_price: z.coerce.number().int().min(0),
+    sale_price: z.coerce.number().int().min(0).optional().nullable(),
+    cost_price: z.coerce.number().int().min(0).optional().nullable(),
+    stock: z.coerce.number().int().min(0).default(0),
+    low_stock_alert: z.coerce.number().int().min(0).default(5),
+    images: z.array(z.string().url()).optional().default([]),
+    sizes: z.array(z.string()).optional().default([]),
+    tags: z.array(z.string()).optional().default([]),
+    is_featured: z.boolean().default(false),
+});
+
+export type CreateProductInput = z.infer<typeof CreateProductSchema>;
+
+// =============================================================================
+// Update Product Schema
+// =============================================================================
+
+export const UpdateProductSchema = z.object({
+    id: z.string().uuid(),
+    name: z.string().min(1).max(150).optional(),
+    sku: z.string().min(1).max(20).optional(),
+    slug: z.string().max(150).optional(),
+    status: ProductStatus.optional(),
+    base_price: z.coerce.number().int().min(0).optional(),
+    sale_price: z.coerce.number().int().min(0).nullable().optional(),
+    stock: z.coerce.number().int().min(0).optional(),
+    is_featured: z.boolean().optional(),
+    images: z.array(z.string().url()).optional(),
+    description: z.string().nullable().optional(),
+});
+
+export type UpdateProductInput = z.infer<typeof UpdateProductSchema>;
+
+// =============================================================================
+// Query Params Schema
+// =============================================================================
+
+export const ProductQuerySchema = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    status: ProductStatus.optional(),
+});
+
+export type ProductQueryInput = z.infer<typeof ProductQuerySchema>;
