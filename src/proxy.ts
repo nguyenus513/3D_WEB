@@ -105,6 +105,22 @@ export const proxy = auth((req) => {
         return NextResponse.redirect(loginUrl);
     }
 
+    // ==========================================
+    // ADMIN/USER SEPARATION
+    // ==========================================
+
+    // Routes that ADMIN cannot access (user-only)
+    const userOnlyRoutes = ['/cart', '/checkout', '/custom', '/printing', '/account', '/complete-profile'];
+    const isUserOnlyRoute = userOnlyRoutes.some(route =>
+        pathname === route || pathname.startsWith(route + '/')
+    );
+
+    // Block ADMIN from user routes → redirect to admin launch
+    if (isAdmin && isUserOnlyRoute) {
+        console.log(`[Proxy] Admin blocked from user route: ${pathname}`);
+        return NextResponse.redirect(new URL('/api/admin/launch', nextUrl.origin));
+    }
+
     // Phoenix Protocol - Dynamic Admin Path
     const phoenixToken = req.cookies.get('admin_phoenix_token')?.value;
 
