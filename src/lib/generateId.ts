@@ -62,6 +62,12 @@ export const generateId = {
     sku: (): string => `PRD-${generator8()}`,
 
     /**
+     * Generate Master Order ID: ALL-XXXXXXXX
+     * @example ALL-A7K3M9B2
+     */
+    master: (): string => `ALL-${generator8()}`,
+
+    /**
      * Alias for user() - backward compatibility
      * @deprecated Use user() instead
      */

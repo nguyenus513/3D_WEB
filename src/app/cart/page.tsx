@@ -3,29 +3,181 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
-import { useCart } from '@/lib/store/cart';
+import { useCart, CartItem, CartItemType } from '@/lib/store/cart';
+
+// Icons
+const ProductIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+);
+
+const PrintIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+    </svg>
+);
+
+const CustomIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+);
+
+const TrashIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+);
+
+type TabType = 'all' | CartItemType;
+
+const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+    { id: 'all', label: 'Tất cả', icon: null },
+    { id: 'product', label: 'Sản phẩm', icon: <ProductIcon /> },
+    { id: 'print', label: 'In 3D', icon: <PrintIcon /> },
+    { id: 'custom', label: 'Custom', icon: <CustomIcon /> },
+];
+
+// Cart item component
+function CartItemRow({ item, onUpdate, onRemove }: {
+    item: CartItem;
+    onUpdate: (id: string, qty: number) => void;
+    onRemove: (id: string) => void;
+}) {
+    const getTypeLabel = () => {
+        switch (item.type) {
+            case 'product': return 'Sản phẩm';
+            case 'print': return 'In 3D';
+            case 'custom': return 'Custom';
+        }
+    };
+
+    const getTypeColor = () => {
+        switch (item.type) {
+            case 'product': return 'bg-blue-500/20 text-blue-400';
+            case 'print': return 'bg-purple-500/20 text-purple-400';
+            case 'custom': return 'bg-orange-500/20 text-orange-400';
+        }
+    };
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -100 }}
+            className="bg-[#1D1D1F] rounded-2xl p-6 flex items-start gap-6"
+        >
+            {/* Image/Icon */}
+            <div className="w-24 h-24 rounded-xl bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                {item.image ? (
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                ) : item.type === 'print' ? (
+                    <PrintIcon />
+                ) : item.type === 'custom' ? (
+                    <CustomIcon />
+                ) : (
+                    <ProductIcon />
+                )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-xs ${getTypeColor()}`}>
+                        {getTypeLabel()}
+                    </span>
+                </div>
+                <h3 className="text-white font-semibold text-lg truncate">{item.name}</h3>
+
+                {/* Type-specific details */}
+                {item.type === 'product' && item.size && (
+                    <p className="text-white/50 text-sm mt-1">Size: {item.size}</p>
+                )}
+                {item.type === 'print' && item.printOptions && (
+                    <p className="text-white/50 text-sm mt-1">
+                        {item.printOptions.type.toUpperCase()} • {item.printOptions.color} • {item.printOptions.infill}
+                    </p>
+                )}
+                {item.type === 'custom' && item.description && (
+                    <p className="text-white/50 text-sm mt-1 line-clamp-2">{item.description}</p>
+                )}
+
+                <p className="text-white font-medium mt-2">
+                    {item.price.toLocaleString('vi-VN')}đ
+                </p>
+            </div>
+
+            {/* Quantity */}
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={() => onUpdate(item.id, Math.max(1, item.quantity - 1))}
+                    className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                >
+                    -
+                </button>
+                <span className="text-white w-8 text-center">{item.quantity}</span>
+                <button
+                    onClick={() => onUpdate(item.id, item.quantity + 1)}
+                    className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                >
+                    +
+                </button>
+            </div>
+
+            {/* Subtotal */}
+            <div className="text-right min-w-[100px]">
+                <p className="text-white font-semibold">
+                    {(item.price * item.quantity).toLocaleString('vi-VN')}đ
+                </p>
+            </div>
+
+            {/* Remove */}
+            <button
+                onClick={() => onRemove(item.id)}
+                className="p-2 text-white/40 hover:text-red-400 transition-colors cursor-pointer"
+            >
+                <TrashIcon />
+            </button>
+        </motion.div>
+    );
+}
 
 export default function CartPage() {
     const router = useRouter();
     const { data: session, status } = useSession();
-    const { items, totalPrice, updateQuantity, removeItem, clearCart } = useCart();
+    const { items, totalPrice, updateQuantity, removeItem, clearCart, groupedTotals, productItems, printItems, customItems } = useCart();
+    const [activeTab, setActiveTab] = useState<TabType>('all');
 
     const handleCheckout = () => {
         if (status === 'loading') return;
 
         if (!session) {
-            // Redirect to login with return URL
             router.push('/login?redirect=/checkout');
             return;
         }
 
-        // User is authenticated, proceed to checkout
         router.push('/checkout');
     };
+
+    // Filter items based on active tab
+    const getFilteredItems = () => {
+        switch (activeTab) {
+            case 'product': return productItems;
+            case 'print': return printItems;
+            case 'custom': return customItems;
+            default: return items;
+        }
+    };
+
+    const filteredItems = getFilteredItems();
+    const shipping = 30000;
 
     if (items.length === 0) {
         return (
@@ -38,9 +190,14 @@ export default function CartPage() {
                     </div>
                     <h2 className="text-2xl font-bold text-white mb-4">Giỏ hàng trống</h2>
                     <p className="text-white/50 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
-                    <Link href="/products" className="px-8 py-4 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-colors">
-                        Xem sản phẩm
-                    </Link>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <Link href="/products" className="px-8 py-4 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-colors">
+                            Xem sản phẩm
+                        </Link>
+                        <Link href="/printing" className="px-8 py-4 bg-purple-500/20 text-purple-400 rounded-xl font-medium hover:bg-purple-500/30 transition-colors">
+                            In 3D
+                        </Link>
+                    </div>
                 </div>
             </div>
         );
@@ -50,75 +207,68 @@ export default function CartPage() {
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
             <div className="max-w-[1200px] mx-auto px-6">
                 {/* Header */}
-                <AnimatedSection className="mb-12">
+                <AnimatedSection className="mb-8">
                     <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
                         Giỏ Hàng
                     </h1>
                     <p className="text-white/50 mt-2">{items.length} sản phẩm</p>
                 </AnimatedSection>
 
+                {/* Tabs */}
+                <AnimatedSection delay={0.1} className="mb-6">
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                        {tabs.map((tab) => {
+                            const count = tab.id === 'all' ? items.length :
+                                tab.id === 'product' ? productItems.length :
+                                    tab.id === 'print' ? printItems.length : customItems.length;
+
+                            if (tab.id !== 'all' && count === 0) return null;
+
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${activeTab === tab.id
+                                            ? 'bg-white text-black'
+                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        }`}
+                                >
+                                    {tab.icon}
+                                    {tab.label}
+                                    <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-black/10' : 'bg-white/10'
+                                        }`}>
+                                        {count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </AnimatedSection>
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Items List */}
                     <div className="lg:col-span-2 space-y-4">
-                        {items.map((item, index) => (
-                            <motion.div
-                                key={item.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.05 }}
-                                className="bg-[#1D1D1F] rounded-2xl p-6 flex items-start gap-6"
-                            >
-                                {/* Image placeholder */}
-                                <div className="w-24 h-24 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                                    <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                    </svg>
-                                </div>
+                        <AnimatePresence mode="popLayout">
+                            {filteredItems.map((item) => (
+                                <CartItemRow
+                                    key={item.id}
+                                    item={item}
+                                    onUpdate={updateQuantity}
+                                    onRemove={removeItem}
+                                />
+                            ))}
+                        </AnimatePresence>
 
-                                {/* Info */}
-                                <div className="flex-1">
-                                    <h3 className="text-white font-semibold text-lg">{item.name}</h3>
-                                    <p className="text-white/50 text-sm mt-1">
-                                        {item.size && `Size: ${item.size}`}
-                                    </p>
-                                    <p className="text-white font-medium mt-2">
-                                        {item.price.toLocaleString('vi-VN')}đ
-                                    </p>
-                                </div>
-
-                                {/* Quantity */}
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                                        className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
-                                    >
-                                        -
-                                    </button>
-                                    <span className="text-white w-8 text-center">{item.quantity}</span>
-                                    <button
-                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                        className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-
-                                {/* Remove */}
-                                <button
-                                    onClick={() => removeItem(item.id)}
-                                    className="p-2 text-white/40 hover:text-red-400"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </motion.div>
-                        ))}
+                        {filteredItems.length === 0 && (
+                            <div className="text-center py-12 text-white/50">
+                                Không có sản phẩm nào trong danh mục này
+                            </div>
+                        )}
 
                         {/* Clear cart */}
                         <button
                             onClick={clearCart}
-                            className="text-red-400 text-sm hover:text-red-300"
+                            className="text-red-400 text-sm hover:text-red-300 cursor-pointer"
                         >
                             Xóa tất cả
                         </button>
@@ -130,14 +280,42 @@ export default function CartPage() {
                             <div className="bg-[#1D1D1F] rounded-2xl p-6 sticky top-28">
                                 <h2 className="text-xl font-semibold text-white mb-6">Tóm tắt đơn hàng</h2>
 
+                                {/* Grouped totals */}
                                 <div className="space-y-3 text-sm">
+                                    {groupedTotals.products.count > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-white/60 flex items-center gap-2">
+                                                <ProductIcon /> Sản phẩm ({groupedTotals.products.count})
+                                            </span>
+                                            <span className="text-white">{groupedTotals.products.total.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    )}
+                                    {groupedTotals.prints.count > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-white/60 flex items-center gap-2">
+                                                <PrintIcon /> In 3D ({groupedTotals.prints.count})
+                                            </span>
+                                            <span className="text-white">{groupedTotals.prints.total.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    )}
+                                    {groupedTotals.customs.count > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-white/60 flex items-center gap-2">
+                                                <CustomIcon /> Custom ({groupedTotals.customs.count})
+                                            </span>
+                                            <span className="text-white">{groupedTotals.customs.total.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    )}
+
+                                    <div className="border-t border-white/10 my-3" />
+
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Tạm tính ({items.length} sản phẩm)</span>
+                                        <span className="text-white/60">Tạm tính</span>
                                         <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-white/60">Phí vận chuyển</span>
-                                        <span className="text-white">30.000đ</span>
+                                        <span className="text-white">{shipping.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                 </div>
 
@@ -146,7 +324,7 @@ export default function CartPage() {
                                 <div className="flex justify-between mb-6">
                                     <span className="text-white font-medium">Tổng cộng</span>
                                     <span className="text-white text-xl font-bold">
-                                        {(totalPrice + 30000).toLocaleString('vi-VN')}đ
+                                        {(totalPrice + shipping).toLocaleString('vi-VN')}đ
                                     </span>
                                 </div>
 

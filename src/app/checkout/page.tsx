@@ -8,8 +8,7 @@ import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useCart } from '@/lib/store/cart';
-import { getSupabase } from '@/lib/supabase/client';
+import { useCart, CartItem } from '@/lib/store/cart';
 
 interface Address {
     id: string;
@@ -23,12 +22,63 @@ interface Address {
     is_default: boolean;
 }
 
+// Icons
+const ProductIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+);
+
+const PrintIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+    </svg>
+);
+
+const CustomIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+);
+
+// Item row in order summary
+function OrderItem({ item }: { item: CartItem }) {
+    const getTypeIcon = () => {
+        switch (item.type) {
+            case 'product': return <ProductIcon />;
+            case 'print': return <PrintIcon />;
+            case 'custom': return <CustomIcon />;
+        }
+    };
+
+    return (
+        <div className="flex justify-between items-start py-2">
+            <div className="flex items-start gap-2 flex-1">
+                <span className="text-white/40 mt-0.5">{getTypeIcon()}</span>
+                <div>
+                    <p className="text-white text-sm">{item.name}</p>
+                    <p className="text-white/50 text-xs">
+                        {item.type === 'product' && item.size && `Size: ${item.size} • `}
+                        {item.type === 'print' && item.printOptions && `${item.printOptions.type.toUpperCase()} • `}
+                        x{item.quantity}
+                    </p>
+                </div>
+            </div>
+            <p className="text-white text-sm">
+                {(item.price * item.quantity).toLocaleString('vi-VN')}đ
+            </p>
+        </div>
+    );
+}
+
 export default function CheckoutPage() {
     const router = useRouter();
-    const { items, totalPrice } = useCart();
+    const { items, totalPrice, groupedTotals, productItems, printItems, customItems, clearCart } = useCart();
     const { data: session, status } = useSession();
 
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [user, setUser] = useState<{ id: string; email: string } | null>(null);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -64,7 +114,6 @@ export default function CheckoutPage() {
     const loadUserAndAddresses = async () => {
         if (!session?.user?.email) return;
 
-        // Get user from API to avoid RLS 401
         let userId = '';
         try {
             const res = await fetch('/api/profile');
@@ -83,7 +132,6 @@ export default function CheckoutPage() {
 
         setUser({ id: userId, email: session.user.email });
 
-        // Load saved addresses via API
         try {
             const res = await fetch('/api/addresses');
             if (res.ok) {
@@ -91,7 +139,6 @@ export default function CheckoutPage() {
                 const addressList = data.addresses || [];
                 if (addressList.length > 0) {
                     setAddresses(addressList);
-                    // Select default or first address
                     const defaultAddr = addressList.find((a: Address) => a.is_default) || addressList[0];
                     setSelectedAddressId(defaultAddr.id);
                 } else {
@@ -136,32 +183,40 @@ export default function CheckoutPage() {
         setSaving(false);
     };
 
-    const handleCheckout = () => {
-        console.log('=== CHECKOUT START ===');
-        console.log('selectedAddressId:', selectedAddressId);
-        console.log('items:', items);
-        console.log('totalPrice:', totalPrice);
+    const handleCheckout = async () => {
+        if (!selectedAddressId || submitting) return;
 
-        if (!selectedAddressId) {
-            console.log('NO ADDRESS SELECTED - ABORT');
-            return;
+        setSubmitting(true);
+
+        try {
+            // Create master order via API
+            const res = await fetch('/api/orders/master', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    addressId: selectedAddressId,
+                    items: items,
+                    note: note,
+                    shipping: shipping,
+                }),
+            });
+
+            const result = await res.json();
+
+            if (res.ok && result.masterOrderNumber) {
+                // Clear cart and redirect to success page
+                clearCart();
+                router.push(`/checkout/success/${result.masterOrderNumber}`);
+            } else {
+                console.error('Failed to create order:', result.error);
+                alert('Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.');
+            }
+        } catch (err) {
+            console.error('Checkout error:', err);
+            alert('Có lỗi xảy ra. Vui lòng thử lại.');
         }
 
-        // Store selected address and note in sessionStorage for payment page
-        const selectedAddress = addresses.find(a => a.id === selectedAddressId);
-        sessionStorage.setItem('checkout_address', JSON.stringify(selectedAddress));
-        sessionStorage.setItem('checkout_note', note);
-
-        // Store cart items and total for payment page (fixes hydration issue)
-        sessionStorage.setItem('checkout_items', JSON.stringify(items));
-        sessionStorage.setItem('checkout_total', totalPrice.toString());
-
-        console.log('Saved to sessionStorage:');
-        console.log('- checkout_items:', sessionStorage.getItem('checkout_items'));
-        console.log('- checkout_total:', sessionStorage.getItem('checkout_total'));
-        console.log('Navigating to /checkout/payment...');
-
-        router.push('/checkout/payment');
+        setSubmitting(false);
     };
 
     if (loading) {
@@ -214,7 +269,7 @@ export default function CheckoutPage() {
                                     {addresses.length > 0 && !showAddNew && (
                                         <button
                                             onClick={() => setShowAddNew(true)}
-                                            className="text-sm text-blue-400 hover:text-blue-300"
+                                            className="text-sm text-blue-400 hover:text-blue-300 cursor-pointer"
                                         >
                                             + Thêm địa chỉ mới
                                         </button>
@@ -228,7 +283,7 @@ export default function CheckoutPage() {
                                             <button
                                                 key={addr.id}
                                                 onClick={() => setSelectedAddressId(addr.id)}
-                                                className={`w-full p-4 rounded-xl text-left transition-all ${selectedAddressId === addr.id
+                                                className={`w-full p-4 rounded-xl text-left transition-all cursor-pointer ${selectedAddressId === addr.id
                                                     ? 'bg-white/10 border-2 border-white/30'
                                                     : 'bg-[#2D2D2F] border-2 border-transparent hover:border-white/10'
                                                     }`}
@@ -341,19 +396,46 @@ export default function CheckoutPage() {
                                     Đơn Hàng
                                 </h2>
 
-                                {/* Items */}
-                                <div className="space-y-4 mb-6">
-                                    {items.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-start">
-                                            <div>
-                                                <p className="text-white text-sm">{item.name}</p>
-                                                <p className="text-white/50 text-xs">{item.size} x{item.quantity}</p>
+                                {/* Grouped Items */}
+                                <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto">
+                                    {/* Products */}
+                                    {productItems.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <ProductIcon />
+                                                <span className="text-white/70 text-sm font-medium">Sản phẩm</span>
                                             </div>
-                                            <p className="text-white text-sm">
-                                                {(item.price * item.quantity).toLocaleString('vi-VN')}đ
-                                            </p>
+                                            {productItems.map((item) => (
+                                                <OrderItem key={item.id} item={item} />
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
+
+                                    {/* 3D Prints */}
+                                    {printItems.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <PrintIcon />
+                                                <span className="text-white/70 text-sm font-medium">In 3D</span>
+                                            </div>
+                                            {printItems.map((item) => (
+                                                <OrderItem key={item.id} item={item} />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Custom */}
+                                    {customItems.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <CustomIcon />
+                                                <span className="text-white/70 text-sm font-medium">Custom</span>
+                                            </div>
+                                            {customItems.map((item) => (
+                                                <OrderItem key={item.id} item={item} />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Totals */}
@@ -390,9 +472,9 @@ export default function CheckoutPage() {
                                     size="lg"
                                     className="w-full mt-6"
                                     onClick={handleCheckout}
-                                    disabled={!selectedAddressId}
+                                    disabled={!selectedAddressId || submitting}
                                 >
-                                    Tiếp tục thanh toán
+                                    {submitting ? 'Đang xử lý...' : 'Xác nhận đặt hàng'}
                                 </Button>
 
                                 <p className="text-white/40 text-xs text-center mt-4">

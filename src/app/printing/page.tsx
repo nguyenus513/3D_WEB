@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { getSupabase } from '@/lib/supabase/client';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
+import { useCart } from '@/lib/store/cart';
 
 type PrintType = 'fdm' | 'resin';
 
@@ -98,6 +99,7 @@ const LAYER_TIME_MULT: Record<string, number> = {
 
 export default function PrintingPage() {
     const router = useRouter();
+    const { addItem, openCart } = useCart();
     const [user, setUser] = useState<{ id: string; email: string } | null>(null);
     const [customerCode, setCustomerCode] = useState('');
     const [loading, setLoading] = useState(true);
@@ -499,6 +501,41 @@ export default function PrintingPage() {
         }));
     };
 
+    // Add to cart instead of direct order
+    const handleAddToCart = () => {
+        const hasValidItem = order.items.some(item => item.analysis !== null);
+        if (!hasValidItem) return;
+
+        // Add each item with analysis to cart
+        order.items.forEach(item => {
+            if (item.analysis) {
+                addItem({
+                    type: 'print',
+                    name: item.file.name,
+                    price: item.analysis.price,
+                    quantity: item.quantity,
+                    printOptions: {
+                        type: order.type,
+                        color: order.color,
+                        infill: order.infill,
+                        layerHeight: order.layerHeight,
+                    },
+                    printFiles: [{
+                        id: item.id,
+                        name: item.file.name,
+                        analysis: item.analysis,
+                    }],
+                });
+            }
+        });
+
+        // Clear the order items
+        setOrder(prev => ({ ...prev, items: [] }));
+
+        // Open cart to show added items
+        openCart();
+    };
+
     // Loading state
     if (loading) {
         return (
@@ -895,26 +932,53 @@ export default function PrintingPage() {
                                     </div>
                                 )}
 
-                                <Button
-                                    variant="primary"
-                                    size="lg"
-                                    className="w-full"
-                                    disabled={order.items.length === 0 || !order.items.some(item => item.analysis) || submitting || isAnalyzing}
-                                    onClick={handleSubmit}
-                                >
-                                    {submitting ? (
-                                        <span className="flex items-center gap-2">
-                                            <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                                            Đang xử lý...
-                                        </span>
-                                    ) : order.items.length === 0 ? (
-                                        'Vui lòng upload file'
-                                    ) : isAnalyzing ? (
-                                        'Đang phân tích...'
-                                    ) : (
-                                        `Đặt in - ${grandTotal.toLocaleString('vi-VN')}đ`
-                                    )}
-                                </Button>
+                                <div className="space-y-3">
+                                    {/* Add to Cart button */}
+                                    <Button
+                                        variant="secondary"
+                                        size="lg"
+                                        className="w-full"
+                                        disabled={order.items.length === 0 || !order.items.some(item => item.analysis) || isAnalyzing}
+                                        onClick={handleAddToCart}
+                                    >
+                                        {order.items.length === 0 ? (
+                                            'Vui lòng upload file'
+                                        ) : isAnalyzing ? (
+                                            'Đang phân tích...'
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                </svg>
+                                                Thêm vào giỏ hàng
+                                            </>
+                                        )}
+                                    </Button>
+
+                                    {/* Direct order button */}
+                                    <Button
+                                        variant="primary"
+                                        size="lg"
+                                        className="w-full"
+                                        disabled={order.items.length === 0 || !order.items.some(item => item.analysis) || submitting || isAnalyzing || !shippingAddress}
+                                        onClick={handleSubmit}
+                                    >
+                                        {submitting ? (
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                                                Đang xử lý...
+                                            </span>
+                                        ) : order.items.length === 0 ? (
+                                            'Vui lòng upload file'
+                                        ) : isAnalyzing ? (
+                                            'Đang phân tích...'
+                                        ) : !shippingAddress ? (
+                                            'Chọn địa chỉ để đặt in ngay'
+                                        ) : (
+                                            `Đặt in ngay - ${grandTotal.toLocaleString('vi-VN')}đ`
+                                        )}
+                                    </Button>
+                                </div>
 
 
                             </div>
