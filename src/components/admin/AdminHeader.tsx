@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAdminPath } from '@/hooks/useAdminPath';
-import { getSupabase } from '@/lib/supabase/client';
 
 interface Notification {
     id: string;
@@ -29,8 +28,8 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     useEffect(() => {
         // Fetch on mount
         fetchNotifications();
-        // Refresh every 1 second
-        const interval = setInterval(fetchNotifications, 1000);
+        // Refresh every 5 seconds (reduced from 1s to avoid spam)
+        const interval = setInterval(fetchNotifications, 5000);
         return () => clearInterval(interval);
     }, []);
 
@@ -42,16 +41,14 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     }, [showNotifications]);
 
     const fetchNotifications = async () => {
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-            .from('orders')
-            .select('id, order_code, order_type, status, total, created_at')
-            .in('status', ['pending', 'paid'])
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (!error && data) {
-            setNotifications(data);
+        try {
+            const res = await fetch('/api/admin/notifications');
+            if (res.ok) {
+                const data = await res.json();
+                setNotifications(data.orders || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch notifications:', error);
         }
         setLoading(false);
     };
