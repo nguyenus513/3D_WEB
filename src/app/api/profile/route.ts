@@ -49,7 +49,7 @@ export async function PUT(request: NextRequest) {
 
         const body = await request.json();
         console.log('[API/PROFILE] Request body:', body);
-        const { name, phone, instagram } = body;
+        const { name, phone } = body;
 
         // Validate required fields
         if (!name || !phone) {
@@ -81,10 +81,6 @@ export async function PUT(request: NextRequest) {
                 phone,
             };
 
-            if (instagram !== undefined) {
-                updateData.instagram = instagram;
-            }
-
             const result = await supabaseAdmin
                 .from('profiles')
                 .update(updateData)
@@ -110,7 +106,6 @@ export async function PUT(request: NextRequest) {
                 customer_code: customerCode,
                 email_verified: true,
                 role: 'customer', // Must be 'customer' or 'admin' per profiles_role_check constraint
-                instagram: instagram || null,
             };
             console.log('[API/PROFILE] Insert data:', insertData);
 
