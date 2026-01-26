@@ -3,13 +3,15 @@
  * POST /api/admin/orders/[id]/demo-image - Upload demo/preview image for customer review
  * 
  * Storage: Cloudflare R2 (fast serving)
- * After order completes: Will be migrated to Google Drive via migrateOrderToArchive()
+ * After order completes: Will be migrated to Google Drive via archive API
+ * 
+ * File naming: {orderCode}-0.{index}.{ext}
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
-import { uploadToR2, generateR2Key, isR2Configured } from '@/lib/storage/r2';
+import { uploadToR2, generateReviewR2Key, isR2Configured } from '@/lib/storage/r2';
 
 export async function POST(
     request: NextRequest,
@@ -32,7 +34,7 @@ export async function POST(
 
         const supabase = getAdminSupabase();
 
-        // Get order info
+        // Get order info and count existing demo images
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .select('order_code, user_id, profiles:user_id(customer_code, email)')
@@ -42,6 +44,15 @@ export async function POST(
         if (orderError || !order) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
+
+        // Get count of existing demo files for this order to determine index
+        const { count: existingDemos } = await supabase
+            .from('order_files')
+            .select('*', { count: 'exact', head: true })
+            .eq('order_id', orderId)
+            .eq('file_type', 'demo');
+
+        const demoIndex = (existingDemos || 0) + 1;
 
         // Parse multipart form data
         const formData = await request.formData();
@@ -61,8 +72,11 @@ export async function POST(
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Generate R2 key and upload
-        const r2Key = generateR2Key('custom_preview', order.order_code, file.name);
+        // Get file extension
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+
+        // Generate R2 key using new review naming convention: {orderCode}-0.{index}.{ext}
+        const r2Key = generateReviewR2Key(order.order_code, demoIndex, ext);
         const { url: demoImageUrl } = await uploadToR2(buffer, r2Key, file.type, {
             orderId,
             orderCode: order.order_code,

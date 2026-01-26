@@ -89,19 +89,26 @@ export async function PUT(
             return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
         }
 
-        // AUTO-MIGRATION HOOK
-        // If order is completed/delivered, migrate R2 files to Google Drive (Archive)
+        // AUTO-ARCHIVE HOOK
+        // If order is completed/delivered, archive R2 files to Google Drive
         if (body.status === 'delivered' || body.status === 'completed') {
-            console.log(`[Hook] Order ${id} ${body.status} - triggering migration...`);
+            console.log(`[Archive] Order ${id} ${body.status} - triggering archive...`);
 
-            // Execute migration (non-blocking or blocking depending on preference)
-            // We await here to ensure it starts, but catch errors to not break response
+            // Call archive API (non-blocking)
             try {
-                const { migrateOrderToArchive } = await import('@/lib/storage');
-                const result = await migrateOrderToArchive(id);
-                console.log('[Hook] Migration result:', result);
-            } catch (migError) {
-                console.error('[Hook] Migration failed:', migError);
+                const archiveUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/admin/orders/${id}/archive`;
+                const archiveRes = await fetch(archiveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Forward auth cookie for admin verification
+                        'Cookie': request.headers.get('cookie') || '',
+                    },
+                });
+                const archiveResult = await archiveRes.json();
+                console.log('[Archive] Result:', archiveResult);
+            } catch (archiveError) {
+                console.error('[Archive] Failed:', archiveError);
                 // Don't fail the request, just log
             }
         }
