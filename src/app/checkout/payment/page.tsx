@@ -297,12 +297,14 @@ function PaymentContent() {
                 <div className="grid md:grid-cols-2 gap-8">
                     {/* QR Section */}
                     <PaymentQR
+                        orderId={orderId || ''}
                         orderCode={orderInfo.orderCode}
                         customerCode={orderInfo.customerCode}
                         amount={orderInfo.depositAmount}
                         bankId={bankConfig.bankId}
                         accountNo={bankConfig.accountNo}
                         accountName={bankConfig.accountName}
+                        onPaymentConfirmed={handlePaymentConfirmed}
                     />
 
                     {/* Info Section */}

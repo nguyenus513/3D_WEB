@@ -36,7 +36,7 @@ export {
     ALLOWED_MIME_TYPES
 } from './file-validation';
 
-// Security Logging
+// Security Logging (console)
 export {
     securityLog,
     logSecurityEvent,
@@ -44,6 +44,9 @@ export {
     getUserAgentFromRequest
 } from './logger';
 export type { SecurityEventType } from './logger';
+
+// Security Logging (database)
+export { SecurityLogger, getClientIP, getUserAgent } from './SecurityLogger';
 
 // Session Management
 export {

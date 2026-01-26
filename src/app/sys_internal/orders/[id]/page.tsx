@@ -93,6 +93,7 @@ interface Order {
 
 const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
+    pending_confirmation: 'Chờ Admin xác nhận TT',
     confirmed: 'Đã xác nhận TT',
     processing: 'Đang xử lý',
     designing: 'Đang thiết kế',
@@ -108,6 +109,7 @@ const statusLabels: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    pending_confirmation: 'bg-orange-500/20 text-orange-400',
     confirmed: 'bg-green-500/20 text-green-400',
     processing: 'bg-blue-500/20 text-blue-400',
     designing: 'bg-purple-500/20 text-purple-400',

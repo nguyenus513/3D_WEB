@@ -4,19 +4,33 @@ import { useState, useMemo } from 'react';
 import { BANK_INFO, type BankCode } from '@/lib/vietqr';
 
 interface PaymentQRProps {
+    orderId: string;
     orderCode: string;
     customerCode?: string;
     amount: number;
     bankId: BankCode;
     accountNo: string;
     accountName: string;
+    onPaymentConfirmed?: () => void;
 }
 
-export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, accountName }: PaymentQRProps) {
+export function PaymentQR({
+    orderId,
+    orderCode,
+    customerCode,
+    amount,
+    bankId,
+    accountNo,
+    accountName,
+    onPaymentConfirmed
+}: PaymentQRProps) {
     const [copied, setCopied] = useState<'account' | 'content' | null>(null);
     const [imgError, setImgError] = useState(false);
+    const [isConfirming, setIsConfirming] = useState(false);
+    const [confirmError, setConfirmError] = useState<string | null>(null);
+    const [isConfirmed, setIsConfirmed] = useState(false);
 
-    const transferContent = customerCode ? `${orderCode} ${customerCode}` : orderCode;
+    const transferContent = `MINWSUN_${orderCode}`;
 
     // Generate VietQR image URL directly - simple and reliable
     const qrUrl = useMemo(() => {
@@ -27,9 +41,6 @@ export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, 
         });
         return `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?${params.toString()}`;
     }, [amount, transferContent, accountName, bankId, accountNo]);
-
-    // Debug log
-    console.log('PaymentQR URL:', qrUrl);
 
     const handleCopy = async (text: string, type: 'account' | 'content') => {
         try {
@@ -46,6 +57,30 @@ export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, 
             style: 'currency',
             currency: 'VND',
         }).format(value);
+    };
+
+    const handleConfirmPayment = async () => {
+        setIsConfirming(true);
+        setConfirmError(null);
+
+        try {
+            const res = await fetch(`/api/orders/${orderId}/payment-confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Không thể xác nhận thanh toán');
+            }
+
+            setIsConfirmed(true);
+            onPaymentConfirmed?.();
+        } catch (err) {
+            setConfirmError((err as Error).message);
+        } finally {
+            setIsConfirming(false);
+        }
     };
 
     return (
@@ -148,13 +183,55 @@ export function PaymentQR({ orderCode, customerCode, amount, bankId, accountNo, 
                 </div>
             </div>
 
-            {/* Status */}
-            <div className="mt-6 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full">
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                    <span className="text-white/70 text-sm">Đang chờ xác nhận thanh toán...</span>
-                </div>
+            {/* Confirm Payment Button */}
+            <div className="mt-6">
+                {isConfirmed ? (
+                    <div className="flex items-center justify-center gap-2 py-3 px-6 bg-green-500/20 border border-green-500/30 rounded-xl">
+                        <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-green-400 font-medium">Đã gửi xác nhận - Chờ Admin kiểm tra</span>
+                    </div>
+                ) : (
+                    <button
+                        onClick={handleConfirmPayment}
+                        disabled={isConfirming}
+                        className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {isConfirming ? (
+                            <>
+                                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Đang xử lý...
+                            </>
+                        ) : (
+                            <>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Tôi đã chuyển khoản
+                            </>
+                        )}
+                    </button>
+                )}
+
+                {confirmError && (
+                    <p className="mt-2 text-center text-red-400 text-sm">{confirmError}</p>
+                )}
             </div>
+
+            {/* Status */}
+            {!isConfirmed && (
+                <div className="mt-4 text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full">
+                        <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                        <span className="text-white/70 text-sm">Đang chờ xác nhận thanh toán...</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+
