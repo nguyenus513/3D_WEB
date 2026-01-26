@@ -83,21 +83,23 @@ export default function CheckoutPage() {
 
         setUser({ id: userId, email: session.user.email });
 
-        const supabase = getSupabase();
-        // Load saved addresses
-        const { data: addressList } = await supabase
-            .from('addresses')
-            .select('*')
-            .eq('user_id', userId)
-            .order('is_default', { ascending: false });
-
-        if (addressList && addressList.length > 0) {
-            setAddresses(addressList);
-            // Select default or first address
-            const defaultAddr = addressList.find((a: Address) => a.is_default) || addressList[0];
-            setSelectedAddressId(defaultAddr.id);
-        } else {
-            setShowAddNew(true);
+        // Load saved addresses via API
+        try {
+            const res = await fetch('/api/addresses');
+            if (res.ok) {
+                const data = await res.json();
+                const addressList = data.addresses || [];
+                if (addressList.length > 0) {
+                    setAddresses(addressList);
+                    // Select default or first address
+                    const defaultAddr = addressList.find((a: Address) => a.is_default) || addressList[0];
+                    setSelectedAddressId(defaultAddr.id);
+                } else {
+                    setShowAddNew(true);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load addresses:', err);
         }
 
         setLoading(false);
@@ -109,23 +111,26 @@ export default function CheckoutPage() {
         }
 
         setSaving(true);
-        const supabase = getSupabase();
 
-        const { data, error } = await supabase
-            .from('addresses')
-            .insert({
-                user_id: user?.id,
-                ...newAddress,
-                is_default: addresses.length === 0,
-            })
-            .select()
-            .single();
+        try {
+            const res = await fetch('/api/addresses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...newAddress,
+                    is_default: addresses.length === 0,
+                }),
+            });
+            const result = await res.json();
 
-        if (!error && data) {
-            setAddresses(prev => [...prev, data]);
-            setSelectedAddressId(data.id);
-            setShowAddNew(false);
-            setNewAddress({ label: 'Nhà', full_name: '', phone: '', address_line: '', province: '' });
+            if (res.ok && result.address) {
+                setAddresses(prev => [...prev, result.address]);
+                setSelectedAddressId(result.address.id);
+                setShowAddNew(false);
+                setNewAddress({ label: 'Nhà', full_name: '', phone: '', address_line: '', province: '' });
+            }
+        } catch (err) {
+            console.error('Failed to add address:', err);
         }
 
         setSaving(false);
