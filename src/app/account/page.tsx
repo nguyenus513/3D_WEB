@@ -77,42 +77,31 @@ export default function AccountPage() {
         // Set user name
         setUserName(user.full_name || session.user.email?.split('@')[0] || 'Bạn');
 
-        interface Order {
-            id: string;
-            order_code: string;
-            created_at: string;
-            total: number;
-            status: string;
-            order_items: { count: number }[];
-        }
+        // Fetch orders via API to avoid RLS 401
+        try {
+            const ordersRes = await fetch('/api/orders');
+            if (ordersRes.ok) {
+                const orders = await ordersRes.json();
 
-        const supabase = getSupabase();
-        // Fetch orders for this user
-        // Note: This might still fail if RLS requires auth.uid(), but we'll try. 
-        // Ideally we should have /api/orders
-        const { data: orders } = await supabase
-            .from('orders')
-            .select('id, order_code, created_at, total, status, order_items(count)')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false }) as { data: Order[] | null };
+                // Calculate stats
+                const total = orders.length;
+                const processing = orders.filter((o: any) => ['paid', 'preparing', 'shipped'].includes(o.status)).length;
+                const completed = orders.filter((o: any) => o.status === 'delivered').length;
+                setStats({ total, processing, completed });
 
-        if (orders) {
-            // Calculate stats
-            const total = orders.length;
-            const processing = orders.filter((o: Order) => ['paid', 'preparing', 'shipped'].includes(o.status)).length;
-            const completed = orders.filter((o: Order) => o.status === 'delivered').length;
-            setStats({ total, processing, completed });
-
-            // Get recent orders (top 3)
-            const recent = orders.slice(0, 3).map((o: Order) => ({
-                id: o.id,
-                order_code: o.order_code,
-                created_at: o.created_at,
-                total: o.total,
-                status: o.status,
-                item_count: Array.isArray(o.order_items) ? o.order_items.length : 0,
-            }));
-            setRecentOrders(recent);
+                // Get recent orders (top 3)
+                const recent = orders.slice(0, 3).map((o: any) => ({
+                    id: o.id,
+                    order_code: o.order_code,
+                    created_at: o.created_at,
+                    total: o.total,
+                    status: o.status,
+                    item_count: Array.isArray(o.order_items) ? o.order_items.length : 0,
+                }));
+                setRecentOrders(recent);
+            }
+        } catch (e) {
+            console.error('Failed to fetch orders', e);
         }
 
         setLoading(false);
