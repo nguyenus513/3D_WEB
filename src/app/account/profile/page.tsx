@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { getSupabase } from '@/lib/supabase/client';
 
 interface UserProfile {
     id: string;
@@ -35,23 +34,23 @@ export default function AccountProfilePage() {
     }, [status, session]);
 
     const fetchProfile = async () => {
-        if (!session?.user?.email) return;
-
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('id, email, full_name, phone, customer_code')
-            .eq('email', session.user.email)
-            .single();
-
-        if (!error && data) {
-            setProfile(data);
-            setFormData({
-                name: data.full_name || '',
-                phone: data.phone || '',
-            });
+        try {
+            const response = await fetch('/api/profile');
+            if (response.ok) {
+                const data = await response.json();
+                setProfile(data);
+                setFormData({
+                    name: data.full_name || '',
+                    phone: data.phone || '',
+                });
+            } else {
+                console.error('Failed to fetch profile:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error fetching profile:', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -61,25 +60,38 @@ export default function AccountProfilePage() {
         setSaving(true);
         setMessage(null);
 
-        const supabase = getSupabase();
-        const { error } = await supabase
-            .from('profiles')
-            .update({
-                full_name: formData.name,
-                phone: formData.phone,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', profile.id);
+        try {
+            const response = await fetch('/api/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: formData.name,
+                    phone: formData.phone,
+                }),
+            });
 
-        if (error) {
-            setMessage({ type: 'error', text: 'Không thể lưu thay đổi. Vui lòng thử lại.' });
-        } else {
-            setProfile({ ...profile, ...formData });
-            setIsEditing(false);
-            setMessage({ type: 'success', text: 'Đã lưu thay đổi thành công!' });
-            setTimeout(() => setMessage(null), 3000);
+            if (response.ok) {
+                const updatedProfile = await response.json();
+                setProfile(updatedProfile);
+                setFormData({
+                    name: updatedProfile.full_name || '',
+                    phone: updatedProfile.phone || '',
+                });
+                setIsEditing(false);
+                setMessage({ type: 'success', text: 'Đã lưu thay đổi thành công!' });
+                setTimeout(() => setMessage(null), 3000);
+            } else {
+                const errorData = await response.json();
+                setMessage({ type: 'error', text: errorData.error || 'Không thể lưu thay đổi. Vui lòng thử lại.' });
+            }
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            setMessage({ type: 'error', text: 'Đã xảy ra lỗi. Vui lòng thử lại sau.' });
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
 
     if (status === 'loading' || loading) {
