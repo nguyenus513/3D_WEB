@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { generateId } from '@/lib/generateId';
-import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
 type PricingMode = 'original' | 'multi_size';
@@ -83,8 +82,6 @@ export default function AdminProductNewPage() {
         setError('');
 
         try {
-            const supabase = getSupabase();
-
             const productData = {
                 sku: formData.sku,
                 name: formData.name,
@@ -106,10 +103,16 @@ export default function AdminProductNewPage() {
                 category_id: selectedCategoryId || null,
             };
 
-            const { error: insertError } = await supabase.from('products').insert(productData);
+            // Use API endpoint instead of direct Supabase
+            const res = await fetch('/api/admin/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productData),
+            });
+            const data = await res.json();
 
-            if (insertError) {
-                setError('Không thể tạo sản phẩm: ' + insertError.message);
+            if (!res.ok) {
+                setError('Không thể tạo sản phẩm: ' + (data.error || 'Unknown error'));
                 return;
             }
 
