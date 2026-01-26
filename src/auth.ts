@@ -61,6 +61,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     // }),
     session: {
         strategy: 'jwt', // Use JWT for session (stateless, faster)
+        maxAge: 86400, // 24 hours (default is 30 days)
     },
     pages: {
         signIn: '/login',
