@@ -44,6 +44,10 @@ jobs:
         run: pnpm tsc --noEmit
         continue-on-error: false
 
+      - name: Run unit tests
+        run: pnpm test
+        continue-on-error: false
+
   # Job 2: Build Check
   build:
     name: Build
