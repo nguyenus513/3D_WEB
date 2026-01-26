@@ -64,27 +64,31 @@ export default function CheckoutPage() {
     const loadUserAndAddresses = async () => {
         if (!session?.user?.email) return;
 
-        const supabase = getSupabase();
+        // Get user from API to avoid RLS 401
+        let userId = '';
+        try {
+            const res = await fetch('/api/profile');
+            if (res.ok) {
+                const user = await res.json();
+                userId = user.id;
+            }
+        } catch (e) {
+            console.error('Failed to fetch profile', e);
+        }
 
-        // Get user ID from email
-        const { data: userData } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', session.user.email)
-            .single();
-
-        if (!userData) {
+        if (!userId) {
             setLoading(false);
             return;
         }
 
-        setUser({ id: userData.id, email: session.user.email });
+        setUser({ id: userId, email: session.user.email });
 
+        const supabase = getSupabase();
         // Load saved addresses
         const { data: addressList } = await supabase
             .from('addresses')
             .select('*')
-            .eq('user_id', userData.id)
+            .eq('user_id', userId)
             .order('is_default', { ascending: false });
 
         if (addressList && addressList.length > 0) {

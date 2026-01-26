@@ -82,12 +82,15 @@ function PaymentContent() {
             // Get customer code from user
             let customerCode = '';
             if (session?.user?.email) {
-                const { data: userData } = await supabase
-                    .from('profiles')
-                    .select('customer_code')
-                    .eq('email', session.user.email)
-                    .single();
-                customerCode = userData?.customer_code || '';
+                try {
+                    const res = await fetch('/api/profile');
+                    if (res.ok) {
+                        const userData = await res.json();
+                        customerCode = userData?.customer_code || '';
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch profile', e);
+                }
             }
 
             setOrderInfo({

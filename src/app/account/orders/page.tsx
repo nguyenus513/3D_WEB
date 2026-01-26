@@ -76,24 +76,28 @@ export default function AccountOrdersPage() {
     const fetchOrders = async () => {
         if (!session?.user?.email) return;
 
-        const supabase = getSupabase();
+        // Get user ID from API to avoid RLS 401
+        let userId = '';
+        try {
+            const res = await fetch('/api/profile');
+            if (res.ok) {
+                const user = await res.json();
+                userId = user.id;
+            }
+        } catch (e) {
+            console.error('Failed to fetch profile', e);
+        }
 
-        // Get user ID from email
-        const { data: user } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', session.user.email)
-            .single();
-
-        if (!user) {
+        if (!userId) {
             setLoading(false);
             return;
         }
 
+        const supabase = getSupabase();
         const { data, error } = await supabase
             .from('orders')
             .select('*, order_items(*)')
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
         if (!error && data) {

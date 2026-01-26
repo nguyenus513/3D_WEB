@@ -115,16 +115,15 @@ export default function CustomPage() {
         const fetchUserData = async () => {
             if (!session?.user?.email) return;
 
-            const supabase = getSupabase();
-            const { data: user } = await supabase
-                .from('profiles')
-                .select('id, customer_code')
-                .eq('email', session.user.email)
-                .single();
-
-            if (user) {
-                setUser({ id: user.id, email: session.user.email });
-                setCustomerCode(user.customer_code || generateId.user());
+            try {
+                const res = await fetch('/api/profile');
+                if (res.ok) {
+                    const user = await res.json();
+                    setUser({ id: user.id, email: session.user.email });
+                    setCustomerCode(user.customer_code || generateId.user());
+                }
+            } catch (e) {
+                console.error('Failed to fetch profile', e);
             }
             setLoading(false);
         };
