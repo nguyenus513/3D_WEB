@@ -9,6 +9,9 @@ import {
     isR2Configured,
     uploadToR2,
     generateR2Key,
+    generateCustomR2Key,
+    generatePrintingR2Key,
+    generateReviewR2Key,
     getStorageDestination,
     type UploadType,
 } from '@/lib/storage/r2';
@@ -32,6 +35,16 @@ import { trackFileUpload } from '@/lib/security/file-access';
  * - Product images → R2 (permanent, admin only)
  * - Customer/admin images → R2 (migrate to Drive on order complete)
  * - STL/OBJ files → Google Drive directly
+ * 
+ * New Naming Convention Parameters:
+ * - customType: 'single' | 'couple' | 'group' (for custom orders)
+ * - personCount: number (for group orders)
+ * - photoCategory: 'main' | 'accessory' (for custom orders)
+ * - tech: 'resin' | 'fdm' (for printing orders)
+ * - infill: number (15, 20, 30, 50 for FDM)
+ * - layerHeight: string ('0.2', '0.12', '0.08' for FDM)
+ * - color: 'white' | 'black' | 'transparent' (for FDM)
+ * - isReview: boolean (admin review/demo upload)
  */
 export async function POST(request: NextRequest) {
     try {
@@ -61,6 +74,16 @@ export async function POST(request: NextRequest) {
         const sku = formData.get('sku') as string;
         const customerCode = formData.get('customerCode') as string;
         const orderCode = formData.get('orderCode') as string;
+
+        // New naming parameters
+        const customType = formData.get('customType') as 'single' | 'couple' | 'group' | null;
+        const personCount = parseInt(formData.get('personCount') as string) || 1;
+        const photoCategory = (formData.get('photoCategory') as 'main' | 'accessory') || 'main';
+        const tech = formData.get('tech') as 'resin' | 'fdm' | null;
+        const infill = parseInt(formData.get('infill') as string) || 20;
+        const layerHeight = formData.get('layerHeight') as string || '0.2';
+        const color = (formData.get('color') as 'white' | 'black' | 'transparent') || 'white';
+        const isReview = formData.get('isReview') === 'true';
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -204,7 +227,28 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const key = generateR2Key(type, identifier, file.name, index);
+        // Get file extension
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+
+        // Generate key based on upload type with new naming convention
+        let key: string;
+        if (type === 'product') {
+            // Product uploads use legacy naming
+            key = generateR2Key(type, identifier, file.name, index);
+        } else if (isReview) {
+            // Admin review/demo images: {orderCode}-0.{index}.{ext}
+            key = generateReviewR2Key(orderCode, index, ext);
+        } else if (type === 'printing' && tech) {
+            // Printing orders with tech specified
+            key = generatePrintingR2Key(orderCode, tech, index, infill, layerHeight, color, ext);
+        } else if (type.startsWith('custom_') && customType) {
+            // Custom orders with customType specified
+            key = generateCustomR2Key(orderCode, customType, personCount, photoCategory, index, ext);
+        } else {
+            // Fallback to legacy naming
+            key = generateR2Key(type, identifier, file.name, index);
+        }
+
         await uploadToR2(buffer, key, file.type, {
             'upload-type': type,
             'original-name': file.name,

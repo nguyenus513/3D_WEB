@@ -131,7 +131,7 @@ export default function CustomPage() {
         fetchUserData();
     }, [status, session, router]);
 
-    // Upload images to Google Drive
+    // Upload images to Drive
     const uploadImages = async (orderCode: string): Promise<FileInfo[]> => {
         const uploadedImages: FileInfo[] = [];
 
@@ -142,6 +142,12 @@ export default function CustomPage() {
             formData.append('customerCode', customerCode);
             formData.append('orderCode', orderCode);
             formData.append('index', String(i + 1));
+            // New naming convention parameters
+            formData.append('customType', orderData.type);
+            // For group orders, use 3 as default (or could count from images.length)
+            const personCount = orderData.type === 'single' ? 1 : orderData.type === 'couple' ? 2 : 3;
+            formData.append('personCount', String(personCount));
+            formData.append('photoCategory', 'main');
 
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
             const data = await res.json();

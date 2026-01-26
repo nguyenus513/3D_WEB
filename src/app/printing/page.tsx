@@ -294,6 +294,13 @@ export default function PrintingPage() {
             formData.append('customerCode', customerCode);
             formData.append('orderCode', orderCode);
             formData.append('index', String(i + 1));
+            // New naming convention parameters for printing
+            formData.append('tech', order.type); // 'fdm' or 'resin'
+            if (order.type === 'fdm') {
+                formData.append('infill', order.infill.replace('%', '')); // '20%' -> '20'
+                formData.append('layerHeight', order.layerHeight); // '0.2', '0.12', '0.08'
+                formData.append('color', order.color); // 'white', 'black', 'transparent'
+            }
 
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
             const data = await res.json();

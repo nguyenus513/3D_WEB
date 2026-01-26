@@ -83,7 +83,7 @@ export function getStorageDestination(filename: string, uploadType: UploadType):
 }
 
 /**
- * Generate R2 key with proper folder structure
+ * Generate R2 key with proper folder structure (legacy)
  */
 export function generateR2Key(
     uploadType: UploadType,
@@ -111,6 +111,67 @@ export function generateR2Key(
     // Customer orders
     const typePrefix = uploadType.replace('custom_', '');
     return `orders/${identifier}/${typePrefix}_${timestamp}.${ext}`;
+}
+
+/**
+ * NEW: Generate structured R2 key for Custom orders
+ * Format: orders/{orderCode}/{orderCode}-{x}.{y}.{z}.{ext}
+ */
+export function generateCustomR2Key(
+    orderCode: string,
+    customType: 'single' | 'couple' | 'group',
+    personCount: number,
+    photoCategory: 'main' | 'accessory',
+    photoIndex: number,
+    extension: string
+): string {
+    const x = customType === 'single' ? 1 : customType === 'couple' ? 2 : Math.max(3, personCount);
+    const y = photoCategory === 'main' ? 1 : 2;
+    const ext = extension.startsWith('.') ? extension.slice(1) : extension;
+    const fileName = `${orderCode}-${x}.${y}.${photoIndex}.${ext}`;
+    return `orders/${orderCode}/${fileName}`;
+}
+
+/**
+ * NEW: Generate structured R2 key for Printing orders  
+ * Resin: orders/{orderCode}/{orderCode}-1.{n}.{ext}
+ * FDM: orders/{orderCode}/{orderCode}-2.{n}.{p}.{q}.{r}.{ext}
+ */
+export function generatePrintingR2Key(
+    orderCode: string,
+    tech: 'resin' | 'fdm',
+    fileIndex: number,
+    infill?: number,      // 15, 20, 30, 50
+    layerHeight?: string, // '0.2', '0.12', '0.08'
+    color?: 'white' | 'black' | 'transparent',
+    extension: string = 'stl'
+): string {
+    const ext = extension.startsWith('.') ? extension.slice(1) : extension;
+
+    if (tech === 'resin') {
+        const fileName = `${orderCode}-1.${fileIndex}.${ext}`;
+        return `orders/${orderCode}/${fileName}`;
+    } else {
+        const p = infill || 20;
+        const q = layerHeight === '0.12' ? '12' : layerHeight === '0.08' ? '08' : '20';
+        const r = color === 'black' ? 2 : color === 'transparent' ? 3 : 1;
+        const fileName = `${orderCode}-2.${fileIndex}.${p}.${q}.${r}.${ext}`;
+        return `orders/${orderCode}/${fileName}`;
+    }
+}
+
+/**
+ * NEW: Generate structured R2 key for Admin review/demo images
+ * Format: orders/{orderCode}/{orderCode}-0.{index}.{ext}
+ */
+export function generateReviewR2Key(
+    orderCode: string,
+    index: number,
+    extension: string
+): string {
+    const ext = extension.startsWith('.') ? extension.slice(1) : extension;
+    const fileName = `${orderCode}-0.${index}.${ext}`;
+    return `orders/${orderCode}/${fileName}`;
 }
 
 /**
