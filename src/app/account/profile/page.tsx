@@ -8,7 +8,7 @@ import { getSupabase } from '@/lib/supabase/client';
 interface UserProfile {
     id: string;
     email: string;
-    name: string | null;
+    full_name: string | null;
     phone: string | null;
     customer_code: string | null;
 }
@@ -40,14 +40,14 @@ export default function AccountProfilePage() {
         const supabase = getSupabase();
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, email, name, phone, customer_code')
+            .select('id, email, full_name, phone, customer_code')
             .eq('email', session.user.email)
             .single();
 
         if (!error && data) {
             setProfile(data);
             setFormData({
-                name: data.name || '',
+                name: data.full_name || '',
                 phone: data.phone || '',
             });
         }
@@ -65,7 +65,7 @@ export default function AccountProfilePage() {
         const { error } = await supabase
             .from('profiles')
             .update({
-                name: formData.name,
+                full_name: formData.name,
                 phone: formData.phone,
                 updated_at: new Date().toISOString(),
             })
@@ -215,7 +215,7 @@ export default function AccountProfilePage() {
                             onClick={() => {
                                 setIsEditing(false);
                                 setFormData({
-                                    name: profile?.name || '',
+                                    name: profile?.full_name || '',
                                     phone: profile?.phone || '',
                                 });
                             }}

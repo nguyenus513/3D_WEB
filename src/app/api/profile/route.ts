@@ -77,7 +77,7 @@ export async function PUT(request: NextRequest) {
             console.log('[API/PROFILE] Updating existing profile...');
             // Update existing profile
             const updateData: Record<string, string | null> = {
-                name,
+                full_name: name,
                 phone,
             };
 
@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest) {
             const insertData = {
                 id: crypto.randomUUID(), // Generate UUID for id column
                 email,
-                name,
+                full_name: name,
                 phone,
                 customer_code: customerCode,
                 email_verified: true,
