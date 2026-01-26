@@ -1,59 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Orders API Route
+ *
+ * Delegates all logic to OrderController.
+ * Route file should be minimal - just routing.
+ *
+ * @see backend-dev-guidelines.md - Rule #1: Routes Only Route
+ */
 
-// Supabase admin client with service role key (bypasses RLS)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { NextRequest } from 'next/server';
+import { orderController } from '@/controllers/OrderController';
 
+/**
+ * GET /api/orders
+ * List current user's orders
+ */
 export async function GET(request: NextRequest) {
-    try {
-        // Verify auth
-        const session = await auth();
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
+    return orderController.getOrders(request);
+}
 
-        // Get user ID from profiles table
-        const { data: profile, error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .select('id')
-            .eq('email', session.user.email)
-            .single();
-
-        if (profileError || !profile) {
-            return NextResponse.json(
-                { error: 'Profile not found' },
-                { status: 404 }
-            );
-        }
-
-        // Fetch orders for this user
-        const { data: orders, error: ordersError } = await supabaseAdmin
-            .from('orders')
-            .select('*, order_items(*)')
-            .eq('user_id', profile.id)
-            .order('created_at', { ascending: false });
-
-        if (ordersError) {
-            console.error('Orders fetch error:', ordersError);
-            return NextResponse.json(
-                { error: 'Failed to fetch orders' },
-                { status: 500 }
-            );
-        }
-
-        return NextResponse.json(orders || []);
-    } catch (error) {
-        console.error('Orders API error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
-    }
+/**
+ * POST /api/orders
+ * Create a new order
+ */
+export async function POST(request: NextRequest) {
+    return orderController.createOrder(request);
 }

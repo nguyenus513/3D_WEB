@@ -1,0 +1,215 @@
+/**
+ * Order Service
+ *
+ * Business logic layer for orders.
+ * Handles validation, authorization, and orchestrates repository calls.
+ *
+ * @see backend-dev-guidelines.md - Services handle business logic with DI
+ */
+
+import { OrderRepository, OrderWithItems, OrderQueryParams } from '@/repositories/OrderRepository';
+import { ProfileRepository } from '@/repositories/ProfileRepository';
+import { NotFoundError, ForbiddenError, BadRequestError } from '@/lib/core/BaseController';
+import {
+    CreateOrderInput,
+    UpdateOrderStatusInput,
+    OrderStatusType,
+} from '@/validators/order.schema';
+
+// =============================================================================
+// Order Service
+// =============================================================================
+
+export class OrderService {
+    constructor(
+        private readonly orderRepo: OrderRepository,
+        private readonly profileRepo: ProfileRepository
+    ) { }
+
+    /**
+     * Get orders for a user by email
+     */
+    async getUserOrders(
+        email: string,
+        params?: OrderQueryParams
+    ): Promise<{ orders: OrderWithItems[]; total: number }> {
+        // Find user profile
+        const profile = await this.profileRepo.findByEmail(email);
+        if (!profile) {
+            throw new NotFoundError('User profile not found');
+        }
+
+        // Get orders
+        return this.orderRepo.findByUserId(profile.id, params);
+    }
+
+    /**
+     * Get a single order by ID
+     * Verifies ownership unless user is admin
+     */
+    async getOrderById(
+        orderId: string,
+        userEmail: string,
+        isAdmin = false
+    ): Promise<OrderWithItems> {
+        const profile = await this.profileRepo.findByEmail(userEmail);
+        if (!profile) {
+            throw new NotFoundError('User profile not found');
+        }
+
+        let order: OrderWithItems | null;
+
+        if (isAdmin) {
+            // Admins can view any order
+            order = await this.orderRepo.findById(orderId);
+        } else {
+            // Regular users can only view their own orders
+            order = await this.orderRepo.findByIdAndUserId(orderId, profile.id);
+        }
+
+        if (!order) {
+            throw new NotFoundError('Order not found');
+        }
+
+        return order;
+    }
+
+    /**
+     * Create a new order
+     */
+    async createOrder(
+        email: string,
+        input: CreateOrderInput
+    ): Promise<OrderWithItems> {
+        // Find user profile
+        const profile = await this.profileRepo.findByEmail(email);
+        if (!profile) {
+            throw new NotFoundError('User profile not found');
+        }
+
+        // Calculate total amount
+        const totalAmount = input.items.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+        );
+
+        // Prepare shipping address
+        const shippingAddress = input.shipping_address || {};
+
+        // Create order
+        const order = await this.orderRepo.create(
+            profile.id,
+            {
+                totalAmount,
+                paymentMethod: input.payment_method,
+                shippingAddress,
+                notes: input.notes,
+            },
+            input.items.map((item) => ({
+                productId: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+                customization: item.customization,
+            }))
+        );
+
+        return order;
+    }
+
+    /**
+     * Update order status (Admin only)
+     */
+    async updateOrderStatus(
+        orderId: string,
+        input: UpdateOrderStatusInput,
+        adminEmail: string
+    ): Promise<OrderWithItems> {
+        // Verify admin
+        const admin = await this.profileRepo.findByEmail(adminEmail);
+        if (!admin || admin.role !== 'admin') {
+            throw new ForbiddenError('Only admins can update order status');
+        }
+
+        // Check order exists
+        const order = await this.orderRepo.findById(orderId);
+        if (!order) {
+            throw new NotFoundError('Order not found');
+        }
+
+        // Validate status transition
+        this.validateStatusTransition(order.status, input.status);
+
+        // Update status
+        await this.orderRepo.updateStatus(orderId, input.status, input.notes);
+
+        // Return updated order
+        const updatedOrder = await this.orderRepo.findById(orderId);
+        if (!updatedOrder) {
+            throw new NotFoundError('Order not found after update');
+        }
+
+        return updatedOrder;
+    }
+
+    /**
+     * Cancel an order
+     * Users can only cancel pending orders
+     */
+    async cancelOrder(
+        orderId: string,
+        userEmail: string,
+        reason?: string
+    ): Promise<OrderWithItems> {
+        const profile = await this.profileRepo.findByEmail(userEmail);
+        if (!profile) {
+            throw new NotFoundError('User profile not found');
+        }
+
+        const order = await this.orderRepo.findByIdAndUserId(orderId, profile.id);
+        if (!order) {
+            throw new NotFoundError('Order not found');
+        }
+
+        // Only pending orders can be cancelled by users
+        if (order.status !== 'pending' && order.status !== 'confirmed') {
+            throw new BadRequestError(
+                'Only pending or confirmed orders can be cancelled'
+            );
+        }
+
+        await this.orderRepo.cancel(orderId, reason);
+
+        const cancelledOrder = await this.orderRepo.findById(orderId);
+        if (!cancelledOrder) {
+            throw new NotFoundError('Order not found after cancellation');
+        }
+
+        return cancelledOrder;
+    }
+
+    /**
+     * Validate order status transitions
+     */
+    private validateStatusTransition(
+        currentStatus: OrderStatusType,
+        newStatus: OrderStatusType
+    ): void {
+        const validTransitions: Record<OrderStatusType, OrderStatusType[]> = {
+            pending: ['confirmed', 'cancelled'],
+            confirmed: ['processing', 'cancelled'],
+            processing: ['printing', 'cancelled'],
+            printing: ['shipped', 'cancelled'],
+            shipped: ['delivered'],
+            delivered: ['refunded'],
+            cancelled: [],
+            refunded: [],
+        };
+
+        const allowed = validTransitions[currentStatus] || [];
+        if (!allowed.includes(newStatus)) {
+            throw new BadRequestError(
+                `Cannot transition from "${currentStatus}" to "${newStatus}"`
+            );
+        }
+    }
+}
