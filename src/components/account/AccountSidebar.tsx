@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { getSupabase } from '@/lib/supabase/client';
 
 const navItems = [
     {
@@ -62,14 +61,9 @@ export function AccountSidebar() {
         if (!session?.user?.email) return;
 
         try {
-            const supabase = getSupabase();
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('email', session.user.email)
-                .maybeSingle();
-
-            if (!error && data) {
+            const response = await fetch('/api/profile');
+            if (response.ok) {
+                const data = await response.json();
                 setUserName(data.full_name || '');
             }
         } catch (err) {
