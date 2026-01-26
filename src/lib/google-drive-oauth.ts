@@ -488,5 +488,6 @@ export async function uploadWithNaming(
     return uploadToPath(file, fileName, mimeType, pathSegments);
 }
 
-
-
+// Aliases for backward compatibility
+export const uploadFile = uploadFileOAuth;
+export const ensureFolder = createOrGetSubfolder;

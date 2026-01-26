@@ -57,6 +57,7 @@ export default function ProductDetailPage() {
         const price = size?.price || product.sale_price || product.base_price;
 
         addItem({
+            type: 'product',
             productId: product.id,
             name: product.name,
             sku: product.sku,
@@ -181,8 +182,8 @@ export default function ProductDetailPage() {
                                                 key={size.name}
                                                 onClick={() => setSelectedSize(index)}
                                                 className={`px-4 py-3 rounded-xl border transition-all ${selectedSize === index
-                                                        ? 'bg-white text-black border-white'
-                                                        : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
+                                                    ? 'bg-white text-black border-white'
+                                                    : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
                                                     }`}
                                             >
                                                 <span className="block text-sm font-medium">{size.name}</span>
@@ -224,8 +225,8 @@ export default function ProductDetailPage() {
                                 <button
                                     onClick={handleAddToCart}
                                     className={`flex-1 py-4 rounded-xl font-semibold transition-all ${addedToCart
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-white text-black hover:bg-white/90'
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-white text-black hover:bg-white/90'
                                         }`}
                                 >
                                     {addedToCart ? '✓ Đã thêm vào giỏ' : 'Thêm vào giỏ hàng'}

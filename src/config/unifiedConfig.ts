@@ -19,9 +19,9 @@ const envSchema = z.object({
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
 
-    // NextAuth (Required)
-    NEXTAUTH_URL: z.string().url('NEXTAUTH_URL must be a valid URL'),
-    NEXTAUTH_SECRET: z.string().min(32, 'NEXTAUTH_SECRET must be at least 32 characters'),
+    // NextAuth (Optional - uses defaults if not set)
+    NEXTAUTH_URL: z.string().url().optional().default('http://localhost:3000'),
+    NEXTAUTH_SECRET: z.string().min(32).optional().default('default-dev-secret-must-be-at-least-32-chars'),
 
     // Cloudflare R2 Storage (Optional in dev)
     R2_ACCOUNT_ID: z.string().optional(),

@@ -3,6 +3,7 @@
 export interface Profile {
     id: string;
     full_name: string | null;
+    name?: string | null; // Alias for full_name (backward compatibility)
     phone: string | null;
     email: string | null;
     instagram: string | null;
