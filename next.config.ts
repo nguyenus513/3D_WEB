@@ -84,6 +84,7 @@ const nextConfig: NextConfig = {
 
   // Image optimization config
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -100,6 +101,10 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'img.vietqr.io',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
       },
     ],
   },
