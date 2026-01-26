@@ -57,7 +57,7 @@ const CreateMasterOrderSchema = z.object({
     addressId: z.string().uuid(),
     items: z.array(CartItemSchema).min(1),
     note: z.string().optional(),
-    shipping: z.number().default(30000),
+    shipping: z.number().default(0),
 });
 
 export async function POST(request: NextRequest) {

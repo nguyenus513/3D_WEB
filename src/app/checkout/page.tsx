@@ -72,9 +72,18 @@ export default function CheckoutPage() {
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
     const [note, setNote] = useState('');
 
-    const shippingFee = 30000;
-    const total = totalPrice + shippingFee;
-    const depositAmount = Math.round(total * 0.5);
+    // Calculate totals by type
+    const productTotal = productItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const printTotal = printItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const customTotal = customItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    // Products & 3D Print = 100% payment, Custom = 50% deposit
+    const fullPaymentAmount = productTotal + printTotal; // 100%
+    const customDepositAmount = Math.round(customTotal * 0.5); // 50% for custom
+    const payNowAmount = fullPaymentAmount + customDepositAmount;
+    const remainingAmount = customTotal - customDepositAmount; // Remaining for custom items
+
+    const hasCustomItems = customItems.length > 0;
 
     // Auth check on mount
     useEffect(() => {
@@ -139,7 +148,7 @@ export default function CheckoutPage() {
                     addressId,
                     items,
                     note,
-                    shipping: shippingFee,
+                    shipping: 0, // No shipping fee
                 }),
             });
 
@@ -199,12 +208,15 @@ export default function CheckoutPage() {
                             <div className="bg-[#2D2D2F] rounded-2xl p-6">
                                 <h3 className="text-white font-medium mb-4">🛒 Tóm tắt đơn hàng</h3>
                                 <div className="space-y-1">
-                                    {/* Products */}
+                                    {/* Products - 100% payment */}
                                     {productItems.length > 0 && (
                                         <div className="mb-4">
-                                            <div className="flex items-center gap-2 mb-2 text-blue-400">
-                                                <ProductIcon />
-                                                <span className="text-sm font-medium">Sản phẩm ({productItems.length})</span>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2 text-blue-400">
+                                                    <ProductIcon />
+                                                    <span className="text-sm font-medium">Sản phẩm ({productItems.length})</span>
+                                                </div>
+                                                <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">100%</span>
                                             </div>
                                             {productItems.map((item) => (
                                                 <OrderItem key={item.id} item={item} />
@@ -212,12 +224,15 @@ export default function CheckoutPage() {
                                         </div>
                                     )}
 
-                                    {/* 3D Prints */}
+                                    {/* 3D Prints - 100% payment */}
                                     {printItems.length > 0 && (
                                         <div className="mb-4">
-                                            <div className="flex items-center gap-2 mb-2 text-purple-400">
-                                                <PrintIcon />
-                                                <span className="text-sm font-medium">In 3D ({printItems.length})</span>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2 text-purple-400">
+                                                    <PrintIcon />
+                                                    <span className="text-sm font-medium">In 3D ({printItems.length})</span>
+                                                </div>
+                                                <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">100%</span>
                                             </div>
                                             {printItems.map((item) => (
                                                 <OrderItem key={item.id} item={item} />
@@ -225,12 +240,15 @@ export default function CheckoutPage() {
                                         </div>
                                     )}
 
-                                    {/* Custom */}
+                                    {/* Custom - 50% deposit */}
                                     {customItems.length > 0 && (
                                         <div className="mb-4">
-                                            <div className="flex items-center gap-2 mb-2 text-orange-400">
-                                                <CustomIcon />
-                                                <span className="text-sm font-medium">Custom ({customItems.length})</span>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2 text-orange-400">
+                                                    <CustomIcon />
+                                                    <span className="text-sm font-medium">Custom ({customItems.length})</span>
+                                                </div>
+                                                <span className="text-xs text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded">Cọc 50%</span>
                                             </div>
                                             {customItems.map((item) => (
                                                 <OrderItem key={item.id} item={item} />
@@ -241,23 +259,29 @@ export default function CheckoutPage() {
 
                                 {/* Price summary */}
                                 <div className="border-t border-white/10 pt-4 space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-white/60">Tạm tính</span>
-                                        <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-white/60">Phí ship</span>
-                                        <span className="text-white">{shippingFee.toLocaleString('vi-VN')}đ</span>
-                                    </div>
+                                    {(productItems.length > 0 || printItems.length > 0) && (
+                                        <div className="flex justify-between">
+                                            <span className="text-white/60">Sản phẩm + In 3D (100%)</span>
+                                            <span className="text-white">{fullPaymentAmount.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    )}
+                                    {customItems.length > 0 && (
+                                        <>
+                                            <div className="flex justify-between">
+                                                <span className="text-white/60">Custom (tổng giá)</span>
+                                                <span className="text-white">{customTotal.toLocaleString('vi-VN')}đ</span>
+                                            </div>
+                                            <div className="flex justify-between text-orange-400">
+                                                <span>└ Cọc 50%</span>
+                                                <span>{customDepositAmount.toLocaleString('vi-VN')}đ</span>
+                                            </div>
+                                        </>
+                                    )}
                                     <div className="border-t border-white/10 pt-2 flex justify-between">
-                                        <span className="text-white font-medium">Tổng cộng</span>
+                                        <span className="text-white font-medium">Tổng đơn hàng</span>
                                         <span className="text-white font-bold text-lg">
-                                            {total.toLocaleString('vi-VN')}đ
+                                            {totalPrice.toLocaleString('vi-VN')}đ
                                         </span>
-                                    </div>
-                                    <div className="flex justify-between text-green-400">
-                                        <span>Cọc 50%</span>
-                                        <span className="font-bold">{depositAmount.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                 </div>
                             </div>
@@ -298,30 +322,36 @@ export default function CheckoutPage() {
                                 <h3 className="text-white font-medium mb-4">💳 Thanh toán</h3>
 
                                 <div className="space-y-3 text-sm mb-6">
-                                    <div className="flex justify-between">
-                                        <span className="text-white/60">Tổng tiền hàng</span>
-                                        <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-white/60">Phí vận chuyển</span>
-                                        <span className="text-white">{shippingFee.toLocaleString('vi-VN')}đ</span>
-                                    </div>
+                                    {(productItems.length > 0 || printItems.length > 0) && (
+                                        <div className="flex justify-between">
+                                            <span className="text-white/60">Sản phẩm + In 3D</span>
+                                            <span className="text-white">{fullPaymentAmount.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    )}
+                                    {customItems.length > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-white/60">Cọc Custom (50%)</span>
+                                            <span className="text-white">{customDepositAmount.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    )}
                                     <div className="border-t border-white/10 pt-3 flex justify-between">
-                                        <span className="text-white font-medium">Tổng cộng</span>
-                                        <span className="text-xl font-bold text-white">{total.toLocaleString('vi-VN')}đ</span>
+                                        <span className="text-white font-medium">Tổng đơn</span>
+                                        <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                 </div>
 
-                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
+                                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6">
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-blue-400 text-sm">Thanh toán ngay (50%)</span>
-                                        <span className="text-xl font-bold text-blue-400">
-                                            {depositAmount.toLocaleString('vi-VN')}đ
+                                        <span className="text-green-400 text-sm">Thanh toán ngay</span>
+                                        <span className="text-xl font-bold text-green-400">
+                                            {payNowAmount.toLocaleString('vi-VN')}đ
                                         </span>
                                     </div>
-                                    <p className="text-white/40 text-xs mt-1">
-                                        Còn lại thanh toán khi nhận hàng
-                                    </p>
+                                    {hasCustomItems && remainingAmount > 0 && (
+                                        <p className="text-white/40 text-xs mt-1">
+                                            Còn lại {remainingAmount.toLocaleString('vi-VN')}đ khi nhận hàng Custom
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Error message */}
@@ -344,7 +374,7 @@ export default function CheckoutPage() {
                                             Đang xử lý...
                                         </span>
                                     ) : (
-                                        `Đặt hàng - ${depositAmount.toLocaleString('vi-VN')}đ`
+                                        `Đặt hàng - ${payNowAmount.toLocaleString('vi-VN')}đ`
                                     )}
                                 </Button>
 

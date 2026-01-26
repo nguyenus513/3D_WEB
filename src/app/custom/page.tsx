@@ -98,8 +98,7 @@ export default function CustomPage() {
     const basePrice = orderTypes.find(t => t.id === orderData.type)?.price || 350000;
     const sizeMultiplier = sizes.find(s => s.id === orderData.size)?.multiplier || 1;
     const totalPrice = Math.round(basePrice * sizeMultiplier);
-    const shippingFee = 30000;
-    const depositAmount = Math.round((totalPrice + shippingFee) * 0.5);
+    const depositAmount = Math.round(totalPrice * 0.5); // 50% deposit for custom
 
     const { data: session, status } = useSession();
 
@@ -191,8 +190,8 @@ export default function CustomPage() {
                     order_type: 'custom',
                     status: 'pending',
                     subtotal: totalPrice,
-                    shipping_fee: shippingFee,
-                    total: totalPrice + shippingFee,
+                    shipping_fee: 0,
+                    total: totalPrice,
                     deposit_amount: depositAmount,
                     shipping_address: {
                         full_name: shippingAddress.full_name,
@@ -510,23 +509,18 @@ export default function CustomPage() {
                                                 <span className="text-white">{orderData.images.length} ảnh</span>
                                             </div>
                                             <div className="border-t border-white/10 pt-3 flex justify-between">
-                                                <span className="text-white/60">Tạm tính</span>
-                                                <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-white/60">Phí ship</span>
-                                                <span className="text-white">{shippingFee.toLocaleString('vi-VN')}đ</span>
-                                            </div>
-                                            <div className="border-t border-white/10 pt-3 flex justify-between">
                                                 <span className="text-white font-medium">Tổng cộng</span>
                                                 <span className="text-white font-bold text-lg">
-                                                    {(totalPrice + shippingFee).toLocaleString('vi-VN')}đ
+                                                    {totalPrice.toLocaleString('vi-VN')}đ
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-green-400">
                                                 <span>Cọc 50%</span>
                                                 <span className="font-bold">{depositAmount.toLocaleString('vi-VN')}đ</span>
                                             </div>
+                                            <p className="text-white/40 text-xs mt-2">
+                                                Còn lại {(totalPrice - depositAmount).toLocaleString('vi-VN')}đ khi nhận hàng
+                                            </p>
                                         </div>
                                     </div>
 

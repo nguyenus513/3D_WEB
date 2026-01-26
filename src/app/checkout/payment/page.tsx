@@ -122,7 +122,7 @@ function PaymentContent() {
             return;
         }
 
-        const shippingFee = 30000;
+        const shippingFee = 0; // No shipping fee
         const total = cartTotal + shippingFee;
         const orderCode = generateId.order();
         const customerCode = generateId.user();

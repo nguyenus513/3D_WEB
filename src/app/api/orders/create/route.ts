@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Calculate amounts
-        const shippingFee = 30000;
+        const shippingFee = 0; // No shipping fee
         const total = totalPrice + shippingFee;
 
         // Create or get shipping address
