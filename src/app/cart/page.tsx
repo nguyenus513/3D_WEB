@@ -177,7 +177,6 @@ export default function CartPage() {
     };
 
     const filteredItems = getFilteredItems();
-    const shipping = 30000;
 
     if (items.length === 0) {
         return (
@@ -229,8 +228,8 @@ export default function CartPage() {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${activeTab === tab.id
-                                            ? 'bg-white text-black'
-                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        ? 'bg-white text-black'
+                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
                                         }`}
                                 >
                                     {tab.icon}
@@ -313,10 +312,6 @@ export default function CartPage() {
                                         <span className="text-white/60">Tạm tính</span>
                                         <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-white/60">Phí vận chuyển</span>
-                                        <span className="text-white">{shipping.toLocaleString('vi-VN')}đ</span>
-                                    </div>
                                 </div>
 
                                 <div className="border-t border-white/10 my-4" />
@@ -324,7 +319,7 @@ export default function CartPage() {
                                 <div className="flex justify-between mb-6">
                                     <span className="text-white font-medium">Tổng cộng</span>
                                     <span className="text-white text-xl font-bold">
-                                        {(totalPrice + shipping).toLocaleString('vi-VN')}đ
+                                        {totalPrice.toLocaleString('vi-VN')}đ
                                     </span>
                                 </div>
 

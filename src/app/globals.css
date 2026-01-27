@@ -1,6 +1,6 @@
-/* Fontshare - General Sans */
-@import url('https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap');
+/* Font loaded via HTML link in layout.tsx to avoid Tailwind V4 scanner issue */
 @import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 /* ============================================
    APPLE x LUSION PRO DESIGN SYSTEM

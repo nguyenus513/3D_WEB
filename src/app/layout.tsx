@@ -16,6 +16,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
+      <head>
+        {/* Font loaded via link to avoid Tailwind V4 scanner picking up f[]= pattern */}
+        <link
+          rel="stylesheet"
+          href="https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap"
+        />
+      </head>
       <body className="antialiased bg-[#0a0a0a] text-white">
         <AuthProvider>
           <LayoutWrapper>{children}</LayoutWrapper>

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
+import { getBankConfig, BANK_INFO, type BankCode } from '@/lib/vietqr';
 
 interface SubOrder {
     type: string;
@@ -222,16 +223,60 @@ export default function CheckoutSuccessPage() {
                     </AnimatedSection>
                 )}
 
-                {/* Payment Notice */}
+                {/* QR Payment Section */}
                 <AnimatedSection delay={0.3}>
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-3xl p-8 mb-8">
-                        <h3 className="text-lg font-semibold text-white mb-2">Thông tin thanh toán</h3>
-                        <p className="text-white/70 text-sm">
-                            Vui lòng thanh toán 50% giá trị đơn hàng để xác nhận. Phần còn lại sẽ thanh toán khi nhận hàng.
-                        </p>
-                        <p className="text-blue-400 font-medium mt-4">
-                            Số tiền cọc: {order ? Math.round(order.total * 0.5).toLocaleString('vi-VN') : 0}đ
-                        </p>
+                    <div className="bg-[#1D1D1F] rounded-3xl p-8 mb-8">
+                        <h3 className="text-lg font-semibold text-white mb-4 text-center">💳 Thanh toán chuyển khoản</h3>
+
+                        {order && (() => {
+                            const depositAmount = Math.round(order.total * 0.5);
+                            const bankConfig = getBankConfig('ready_made');
+                            const transferContent = `MINWSUN_${orderId}`;
+                            const qrUrl = `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
+
+                            return (
+                                <div className="space-y-6">
+                                    {/* QR Code */}
+                                    <div className="bg-white rounded-2xl p-4 max-w-xs mx-auto">
+                                        <img
+                                            src={qrUrl}
+                                            alt="VietQR Payment"
+                                            className="w-full aspect-square object-contain"
+                                        />
+                                        <p className="text-center text-xs text-gray-500 mt-2">Quét mã để thanh toán</p>
+                                    </div>
+
+                                    {/* Bank Info */}
+                                    <div className="text-sm space-y-2">
+                                        <div className="flex justify-between py-2 border-b border-white/10">
+                                            <span className="text-white/50">Ngân hàng</span>
+                                            <span className="text-white font-medium">{BANK_INFO[bankConfig.bankId as BankCode].shortName}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-white/10">
+                                            <span className="text-white/50">Số tài khoản</span>
+                                            <span className="text-white font-mono">{bankConfig.accountNo}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-white/10">
+                                            <span className="text-white/50">Chủ TK</span>
+                                            <span className="text-white">{bankConfig.accountName}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-white/10">
+                                            <span className="text-white/50">Nội dung CK</span>
+                                            <span className="text-white font-mono text-sm bg-white/5 px-2 py-1 rounded">{transferContent}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2">
+                                            <span className="text-white/50">Số tiền cọc (50%)</span>
+                                            <span className="text-green-400 font-bold text-lg">{depositAmount.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Note */}
+                                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-sm">
+                                        <p className="text-yellow-400">⚠️ Ghi đúng nội dung CK để đơn hàng được xác nhận nhanh nhất</p>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </AnimatedSection>
 

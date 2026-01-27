@@ -83,8 +83,9 @@ function LoginForm() {
                 }
 
                 // Regular users go to callback URL or account page
-                router.push(callbackUrl);
-                router.refresh();
+                // Use window.location for hard redirect to ensure session is synced
+                console.log('[LOGIN DEBUG] Redirecting to:', callbackUrl);
+                window.location.href = callbackUrl;
             }
         } catch {
             setError('Đã có lỗi xảy ra. Vui lòng thử lại.');

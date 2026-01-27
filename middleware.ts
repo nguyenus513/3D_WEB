@@ -3,14 +3,14 @@
  *
  * Protects routes at the Edge before they reach the application:
  * - /admin/* and /sys_internal/* - Admin only
- * - /account/* - Authenticated users only
- * - Auto-refreshes Supabase sessions
+ * - /account/* and /checkout/* - Authenticated users only
+ * - Uses NextAuth JWT token for session verification
  *
  * @see DEVELOPMENT_GUIDE.md - Security Layer
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { getToken } from 'next-auth/jwt';
 
 // =============================================================================
 // Route Patterns
@@ -36,34 +36,16 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    // Create Supabase client for Edge
-    let response = NextResponse.next({
-        request: { headers: request.headers },
+    // Get NextAuth JWT token
+    const token = await getToken({
+        req: request,
+        secret: process.env.NEXTAUTH_SECRET
     });
 
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() {
-                    return request.cookies.getAll();
-                },
-                setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) => {
-                        request.cookies.set(name, value);
-                        response = NextResponse.next({
-                            request: { headers: request.headers },
-                        });
-                        response.cookies.set({ name, value, ...options });
-                    });
-                },
-            },
-        }
-    );
-
-    // Refresh session (important for keeping sessions alive)
-    const { data: { user } } = await supabase.auth.getUser();
+    // Debug logging (remove in production)
+    console.log('[MIDDLEWARE DEBUG] Path:', pathname);
+    console.log('[MIDDLEWARE DEBUG] Token exists:', !!token);
+    console.log('[MIDDLEWARE DEBUG] Token role:', token?.role);
 
     // ==========================================================================
     // Route Protection Logic
@@ -72,21 +54,16 @@ export async function middleware(request: NextRequest) {
     // Check if route requires admin
     const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
     if (isAdminRoute) {
-        if (!user) {
+        if (!token) {
+            console.log('[MIDDLEWARE DEBUG] No token, redirecting to login');
             const loginUrl = new URL('/login', request.url);
-            loginUrl.searchParams.set('redirect', pathname);
+            loginUrl.searchParams.set('callbackUrl', pathname);
             return NextResponse.redirect(loginUrl);
         }
 
-        // Check admin role from profiles table (via session metadata)
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-        if (!profile || profile.role !== 'admin') {
-            // Not an admin -> redirect to home with error
+        // Check admin role from token
+        if (token.role !== 'admin') {
+            console.log('[MIDDLEWARE DEBUG] Not admin, redirecting to home');
             const homeUrl = new URL('/', request.url);
             homeUrl.searchParams.set('error', 'unauthorized');
             return NextResponse.redirect(homeUrl);
@@ -95,18 +72,20 @@ export async function middleware(request: NextRequest) {
 
     // Check if route requires authentication
     const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
-    if (isProtectedRoute && !user) {
+    if (isProtectedRoute && !token) {
+        console.log('[MIDDLEWARE DEBUG] Protected route without token, redirecting to login');
         const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
+        loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
     }
 
     // Redirect logged-in users away from auth pages
-    if (user && (pathname === '/login' || pathname === '/register')) {
+    if (token && (pathname === '/login' || pathname === '/register')) {
+        console.log('[MIDDLEWARE DEBUG] Logged in user on auth page, redirecting to account');
         return NextResponse.redirect(new URL('/account', request.url));
     }
 
-    return response;
+    return NextResponse.next();
 }
 
 // =============================================================================
