@@ -139,7 +139,11 @@ export default function CustomPage() {
         for (let i = 0; i < orderData.images.length; i++) {
             const formData = new FormData();
             formData.append('file', orderData.images[i]);
-            formData.append('type', 'custom_main');
+            // Use correct upload type based on custom order type
+            const uploadType = orderData.type === 'single' ? 'custom_single'
+                : orderData.type === 'couple' ? 'custom_couple'
+                    : 'custom_group';
+            formData.append('type', uploadType);
             formData.append('customerCode', customerCode);
             formData.append('orderCode', orderCode);
             formData.append('index', String(i + 1));
