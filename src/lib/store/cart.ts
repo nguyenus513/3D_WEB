@@ -187,7 +187,24 @@ export const useCartStore = create<CartStore>()(
         {
             name: '3d-print-cart',
             onRehydrateStorage: () => (state) => {
-                state?.setHydrated();
+                if (state) {
+                    // Migrate legacy cart item types
+                    const migratedItems = state.items.map(item => {
+                        let type = item.type;
+                        // Normalize legacy types to current schema
+                        if (type === 'printing' as string) type = 'print';
+                        if (type === 'ready_made' as string) type = 'product';
+                        return { ...item, type };
+                    });
+
+                    // Only update if there were changes
+                    const hasChanges = migratedItems.some((item, i) => item.type !== state.items[i].type);
+                    if (hasChanges) {
+                        state.items = migratedItems as typeof state.items;
+                    }
+
+                    state.setHydrated();
+                }
             },
         }
     )

@@ -75,11 +75,26 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Parse and validate request body
+        // Parse request body
         const body = await request.json();
+
+        // Defensive: normalize item types before validation
+        // This handles legacy cart items with incorrect types
+        if (body.items && Array.isArray(body.items)) {
+            body.items = body.items.map((item: Record<string, unknown>) => {
+                let type = item.type as string;
+                // Normalize legacy types
+                if (type === 'printing') type = 'print';
+                if (type === 'ready_made') type = 'product';
+                return { ...item, type };
+            });
+        }
+
+        // Validate with normalized data
         const validation = CreateMasterOrderSchema.safeParse(body);
 
         if (!validation.success) {
+            console.error('Master order validation failed:', validation.error.issues);
             return NextResponse.json(
                 { error: 'Invalid request', details: validation.error.issues },
                 { status: 400 }
