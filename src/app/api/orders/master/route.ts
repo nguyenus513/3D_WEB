@@ -11,7 +11,7 @@ const supabaseAdmin = createClient(
     { auth: { persistSession: false } }
 );
 
-// Cart item schema for validation
+// Cart item schema for validation - relaxed to handle various cart item formats
 const CartItemSchema = z.object({
     id: z.string(),
     type: z.enum(['product', 'custom', 'print']),
@@ -19,45 +19,52 @@ const CartItemSchema = z.object({
     price: z.number(),
     quantity: z.number().int().positive(),
 
-    // Product fields
-    productId: z.string().optional(),
-    sku: z.string().optional(),
-    size: z.string().optional(),
-    image: z.string().optional(),
+    // Product fields - all optional
+    productId: z.string().nullish(),
+    sku: z.string().nullish(),
+    size: z.string().nullish(),
+    image: z.string().nullish(),
+    originalPrice: z.number().nullish(),
 
-    // Print fields
+    // Print fields - more flexible
     printOptions: z.object({
         type: z.enum(['fdm', 'resin']),
         color: z.string(),
-        infill: z.string(),
-        layerHeight: z.string(),
-    }).optional(),
+        infill: z.union([z.string(), z.number()]).optional(),
+        layerHeight: z.union([z.string(), z.number()]).optional(),
+    }).nullish(),
     printFiles: z.array(z.object({
         id: z.string(),
         name: z.string(),
-        url: z.string().optional(),
-        thumbnail: z.string().optional(),
+        url: z.string().nullish(),
+        thumbnail: z.string().nullish(),
         analysis: z.object({
             volume: z.number(),
             grams: z.number(),
             hours: z.number(),
             price: z.number(),
-        }).optional(),
-    })).optional(),
+            boundingBox: z.object({
+                x: z.number(),
+                y: z.number(),
+                z: z.number(),
+            }).optional(),
+        }).nullish(),
+    })).nullish(),
 
-    // Custom fields
-    description: z.string().optional(),
+    // Custom fields - all optional
+    description: z.string().nullish(),
     customFiles: z.array(z.object({
         name: z.string(),
         url: z.string(),
-    })).optional(),
-});
+    })).nullish(),
+}).passthrough(); // Allow extra fields
 
 const CreateMasterOrderSchema = z.object({
     addressId: z.string().uuid(),
     items: z.array(CartItemSchema).min(1),
-    note: z.string().optional(),
+    note: z.string().nullish(),
     shipping: z.number().default(0),
+
 });
 
 export async function POST(request: NextRequest) {
