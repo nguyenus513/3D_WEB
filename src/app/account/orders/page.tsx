@@ -79,8 +79,10 @@ export default function AccountOrdersPage() {
         try {
             const res = await fetch('/api/orders');
             if (res.ok) {
-                const data = await res.json();
-                setOrders(data);
+                const response = await res.json();
+                // API returns { success: true, data: [...], meta: {...} }
+                const ordersData = Array.isArray(response.data) ? response.data : [];
+                setOrders(ordersData);
             } else {
                 console.error('Failed to fetch orders:', res.statusText);
             }

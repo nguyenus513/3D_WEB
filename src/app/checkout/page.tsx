@@ -103,7 +103,9 @@ export default function CheckoutPage() {
         try {
             const res = await fetch('/api/profile');
             if (res.ok) {
-                const userData = await res.json();
+                const response = await res.json();
+                // API returns { success: true, data: profile }
+                const userData = response.data || response;
                 setUser({ id: userData.id, email: session.user.email });
             }
         } catch (e) {

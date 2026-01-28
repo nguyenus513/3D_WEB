@@ -1,21 +1,17 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-    content: {
-        files: [
-            './src/**/*.{js,ts,jsx,tsx,mdx}',
-        ],
-    },
+    content: [
+        './src/**/*.{js,ts,jsx,tsx,mdx}',
+    ],
     theme: {
-        extend: {},
+        extend: {
+            fontFamily: {
+                sans: ['General Sans', 'system-ui', 'sans-serif'],
+            },
+        },
     },
     plugins: [],
-    // Blocklist invalid utilities that cause CSS parsing errors
-    blocklist: [
-        '[-:|]',
-        '[-:]',
-        '[:|]',
-    ],
 }
 
 export default config

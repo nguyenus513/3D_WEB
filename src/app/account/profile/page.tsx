@@ -37,7 +37,9 @@ export default function AccountProfilePage() {
         try {
             const response = await fetch('/api/profile');
             if (response.ok) {
-                const data = await response.json();
+                const result = await response.json();
+                // API returns { success: true, data: profile }
+                const data = result.data || result;
                 setProfile(data);
                 setFormData({
                     name: data.full_name || '',
@@ -73,7 +75,9 @@ export default function AccountProfilePage() {
             });
 
             if (response.ok) {
-                const updatedProfile = await response.json();
+                const result = await response.json();
+                // API returns { success: true, data: profile }
+                const updatedProfile = result.data || result;
                 setProfile(updatedProfile);
                 setFormData({
                     name: updatedProfile.full_name || '',
@@ -84,7 +88,7 @@ export default function AccountProfilePage() {
                 setTimeout(() => setMessage(null), 3000);
             } else {
                 const errorData = await response.json();
-                setMessage({ type: 'error', text: errorData.error || 'Không thể lưu thay đổi. Vui lòng thử lại.' });
+                setMessage({ type: 'error', text: errorData.error?.message || errorData.error || 'Không thể lưu thay đổi. Vui lòng thử lại.' });
             }
         } catch (error) {
             console.error('Error updating profile:', error);

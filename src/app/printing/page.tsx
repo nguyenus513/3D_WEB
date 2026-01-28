@@ -143,9 +143,11 @@ export default function PrintingPage() {
             try {
                 const res = await fetch('/api/profile');
                 if (res.ok) {
-                    const user = await res.json();
-                    setUser({ id: user.id, email: session.user.email } as any);
-                    setCustomerCode(user.customer_code || generateId.user());
+                    const response = await res.json();
+                    // API returns { success: true, data: profile }
+                    const userData = response.data || response;
+                    setUser({ id: userData.id, email: session.user.email } as any);
+                    setCustomerCode(userData.customer_code || generateId.user());
                 }
             } catch (e) {
                 console.error('Failed to fetch profile', e);

@@ -142,15 +142,17 @@ export default function AccountOrderDetailPage() {
         try {
             // Use API route to bypass RLS (API verifies ownership server-side)
             const res = await fetch(`/api/orders/${params.id}`);
-            const data = await res.json();
+            const response = await res.json();
 
             if (!res.ok) {
-                setError(data.error || 'Không tìm thấy đơn hàng');
+                setError(response.error?.message || response.error || 'Không tìm thấy đơn hàng');
                 setLoading(false);
                 return;
             }
 
-            setOrder(data);
+            // API returns { success: true, data: order }
+            const orderData = response.data || response;
+            setOrder(orderData);
             setLoading(false);
         } catch (err) {
             setError((err as Error).message);

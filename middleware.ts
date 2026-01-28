@@ -37,9 +37,17 @@ export async function middleware(request: NextRequest) {
     }
 
     // Get NextAuth JWT token
+    // Note: Edge Runtime needs explicit secret - AUTH_SECRET is the v5 standard
+    const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+
+    if (!secret) {
+        console.error('[MIDDLEWARE ERROR] No AUTH_SECRET or NEXTAUTH_SECRET found');
+        return NextResponse.next();
+    }
+
     const token = await getToken({
         req: request,
-        secret: process.env.NEXTAUTH_SECRET
+        secret: secret
     });
 
     // Debug logging (remove in production)

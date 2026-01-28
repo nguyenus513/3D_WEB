@@ -63,7 +63,9 @@ export default function AccountPage() {
         try {
             const res = await fetch('/api/profile');
             if (res.ok) {
-                user = await res.json();
+                const response = await res.json();
+                // API returns { success: true, data: profile }
+                user = response.data || response;
             }
         } catch (e) {
             console.error('Failed to fetch profile', e);
@@ -81,7 +83,9 @@ export default function AccountPage() {
         try {
             const ordersRes = await fetch('/api/orders');
             if (ordersRes.ok) {
-                const orders = await ordersRes.json();
+                const response = await ordersRes.json();
+                // API returns { success: true, data: [...], meta: {...} }
+                const orders = Array.isArray(response.data) ? response.data : [];
 
                 // Calculate stats
                 const total = orders.length;

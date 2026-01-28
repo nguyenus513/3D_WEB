@@ -100,12 +100,12 @@ export default function AdminCatchAllPage() {
 
     // /orders/products
     if (path === 'orders/products') {
-        return <OrderList orderType="product" title="Đơn hàng sản phẩm" />;
+        return <OrderList orderType="ready_made" title="Đơn hàng sản phẩm" />;
     }
 
     // /orders/printing
     if (path === 'orders/printing') {
-        return <OrderList orderType="print" title="Đơn hàng in 3D" />;
+        return <OrderList orderType="printing" title="Đơn hàng in 3D" />;
     }
 
     // /orders/custom
@@ -115,7 +115,8 @@ export default function AdminCatchAllPage() {
 
     // /orders/[id]
     if (pathSegments[0] === 'orders' && pathSegments[1] && !['products', 'printing', 'custom'].includes(pathSegments[1])) {
-        return <AdminOrderDetailPage params={Promise.resolve({ id: pathSegments[1] })} />;
+        // Component uses useParams() internally
+        return <AdminOrderDetailPage />;
     }
 
     // /customers
@@ -125,7 +126,8 @@ export default function AdminCatchAllPage() {
 
     // /customers/[id]
     if (pathSegments[0] === 'customers' && pathSegments[1]) {
-        return <AdminCustomerDetailPage params={Promise.resolve({ id: pathSegments[1] })} />;
+        // Component uses useParams() internally
+        return <AdminCustomerDetailPage />;
     }
 
     // /products
@@ -140,7 +142,8 @@ export default function AdminCatchAllPage() {
 
     // /products/[id]
     if (pathSegments[0] === 'products' && pathSegments[1] && pathSegments[1] !== 'new') {
-        return <AdminProductDetailPage params={Promise.resolve({ id: pathSegments[1] })} />;
+        // Component uses useParams() internally
+        return <AdminProductDetailPage />;
     }
 
     // /categories
@@ -170,7 +173,8 @@ export default function AdminCatchAllPage() {
 
     // /printing/[id]
     if (pathSegments[0] === 'printing' && pathSegments[1]) {
-        return <AdminPrintingDetailPage params={Promise.resolve({ id: pathSegments[1] })} />;
+        // Component uses useParams() internally
+        return <AdminPrintingDetailPage />;
     }
 
     // /custom
@@ -180,7 +184,8 @@ export default function AdminCatchAllPage() {
 
     // /custom/[id]
     if (pathSegments[0] === 'custom' && pathSegments[1]) {
-        return <AdminCustomDetailPage params={Promise.resolve({ id: pathSegments[1] })} />;
+        // Component uses useParams() internally
+        return <AdminCustomDetailPage />;
     }
 
     // Not found
