@@ -82,10 +82,30 @@ export async function POST(request: NextRequest) {
         // This handles legacy cart items with incorrect types
         if (body.items && Array.isArray(body.items)) {
             body.items = body.items.map((item: Record<string, unknown>) => {
-                let type = item.type as string;
-                // Normalize legacy types
-                if (type === 'printing') type = 'print';
-                if (type === 'ready_made') type = 'product';
+                const originalType = item.type as string;
+                let type = originalType;
+
+                // Normalize ALL possible legacy types to schema-valid types
+                const typeMap: Record<string, string> = {
+                    'printing': 'print',
+                    'ready_made': 'product',
+                    'custom_single': 'custom',
+                    'custom_couple': 'custom',
+                    'custom_group': 'custom',
+                    'custom_main': 'custom',
+                    'custom_accessory': 'custom',
+                    'custom_preview': 'custom',
+                };
+
+                if (typeMap[type]) {
+                    type = typeMap[type];
+                }
+
+                // Log if type was changed for debugging
+                if (originalType !== type) {
+                    console.log(`[Master Order] Normalized item type: ${originalType} -> ${type}`);
+                }
+
                 return { ...item, type };
             });
         }
@@ -94,7 +114,11 @@ export async function POST(request: NextRequest) {
         const validation = CreateMasterOrderSchema.safeParse(body);
 
         if (!validation.success) {
-            console.error('Master order validation failed:', validation.error.issues);
+            // Log the actual items for debugging
+            console.error('Master order validation failed:', JSON.stringify({
+                issues: validation.error.issues,
+                itemTypes: body.items?.map((i: { type?: string; name?: string }) => ({ type: i.type, name: i.name }))
+            }, null, 2));
             return NextResponse.json(
                 { error: 'Invalid request', details: validation.error.issues },
                 { status: 400 }

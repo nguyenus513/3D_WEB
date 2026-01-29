@@ -188,13 +188,24 @@ export const useCartStore = create<CartStore>()(
             name: '3d-print-cart',
             onRehydrateStorage: () => (state) => {
                 if (state) {
-                    // Migrate legacy cart item types
+                    // Migrate legacy cart item types to current schema
+                    const typeMap: Record<string, 'product' | 'custom' | 'print'> = {
+                        'printing': 'print',
+                        'ready_made': 'product',
+                        'custom_single': 'custom',
+                        'custom_couple': 'custom',
+                        'custom_group': 'custom',
+                        'custom_main': 'custom',
+                        'custom_accessory': 'custom',
+                        'custom_preview': 'custom',
+                    };
+
                     const migratedItems = state.items.map(item => {
-                        let type = item.type;
-                        // Normalize legacy types to current schema
-                        if (type === 'printing' as string) type = 'print';
-                        if (type === 'ready_made' as string) type = 'product';
-                        return { ...item, type };
+                        const mappedType = typeMap[item.type as string];
+                        if (mappedType) {
+                            return { ...item, type: mappedType };
+                        }
+                        return item;
                     });
 
                     // Only update if there were changes
