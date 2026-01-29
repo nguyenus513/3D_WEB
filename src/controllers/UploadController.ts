@@ -53,8 +53,8 @@ export class UploadController extends BaseController {
                 throw new Error('No file provided');
             }
 
-            // Parse and validate upload params
-            const params = UploadRequestSchema.parse({
+            // Build params object for logging
+            const rawParams = {
                 type: formData.get('type'),
                 index: formData.get('index'),
                 sku: formData.get('sku'),
@@ -68,7 +68,13 @@ export class UploadController extends BaseController {
                 layerHeight: formData.get('layerHeight'),
                 color: formData.get('color'),
                 isReview: formData.get('isReview'),
-            });
+            };
+
+            // Debug log to see what's being sent
+            console.log('[Upload] Raw params received:', JSON.stringify(rawParams, null, 2));
+
+            // Parse and validate upload params
+            const params = UploadRequestSchema.parse(rawParams);
 
             // Convert File to Buffer
             const arrayBuffer = await file.arrayBuffer();
