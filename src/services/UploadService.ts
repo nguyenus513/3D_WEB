@@ -124,10 +124,10 @@ export class UploadService {
 
         const options = {
             type: params.type as UploadType,
-            index: params.index,
-            sku: params.sku,
-            customerCode: params.customerCode,
-            orderCode: params.orderCode,
+            index: params.index ?? 1,
+            sku: params.sku ?? undefined,
+            customerCode: params.customerCode ?? undefined,
+            orderCode: params.orderCode ?? undefined,
         };
 
         const result = await uploadWithNaming(

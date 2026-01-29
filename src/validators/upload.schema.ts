@@ -7,7 +7,7 @@
 import { z } from 'zod';
 
 // =============================================================================
-// Upload Type Enum
+// Upload Type Enum - Extended to handle all possible types
 // =============================================================================
 
 export const UploadTypeSchema = z.enum([
@@ -16,6 +16,8 @@ export const UploadTypeSchema = z.enum([
     'custom_single',
     'custom_couple',
     'custom_group',
+    // Legacy types that might still be sent
+    'custom',
 ]);
 
 export type UploadType = z.infer<typeof UploadTypeSchema>;
@@ -49,34 +51,36 @@ export const FdmColorSchema = z.enum(['white', 'black', 'transparent']);
 export type FdmColor = z.infer<typeof FdmColorSchema>;
 
 // =============================================================================
-// Upload Request Schema
+// Upload Request Schema - Flexible to handle all upload types
 // =============================================================================
 
 export const UploadRequestSchema = z.object({
-    // From FormData - validated in controller
+    // Required - type of upload
     type: UploadTypeSchema,
-    index: z.coerce.number().int().min(1).default(1),
 
-    // Product uploads
-    sku: z.string().max(20).optional(),
+    // Index - optional with default
+    index: z.coerce.number().int().min(1).optional().default(1),
 
-    // Order uploads
-    customerCode: z.string().optional(),
-    orderCode: z.string().optional(),
+    // Product uploads - optional
+    sku: z.string().max(20).nullish(),
 
-    // Custom order naming
-    customType: CustomTypeSchema.optional(),
-    personCount: z.coerce.number().int().min(1).default(1),
-    photoCategory: PhotoCategorySchema.default('main'),
+    // Order uploads - optional
+    customerCode: z.string().nullish(),
+    orderCode: z.string().nullish(),
 
-    // Printing order naming
-    tech: TechSchema.optional(),
-    infill: z.coerce.number().int().min(0).max(100).default(20),
-    layerHeight: z.string().default('0.2'),
-    color: FdmColorSchema.default('white'),
+    // Custom order naming - optional
+    customType: CustomTypeSchema.nullish(),
+    personCount: z.coerce.number().int().min(1).optional().default(1),
+    photoCategory: PhotoCategorySchema.optional().default('main'),
 
-    // Admin review
-    isReview: z.coerce.boolean().default(false),
+    // Printing order naming - all optional
+    tech: TechSchema.nullish(),
+    infill: z.coerce.number().int().min(0).max(100).optional(),
+    layerHeight: z.string().optional(),
+    color: FdmColorSchema.optional(),
+
+    // Admin review - optional
+    isReview: z.coerce.boolean().optional().default(false),
 });
 
 export type UploadRequestInput = z.infer<typeof UploadRequestSchema>;
