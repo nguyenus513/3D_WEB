@@ -11,60 +11,21 @@ const supabaseAdmin = createClient(
     { auth: { persistSession: false } }
 );
 
-// Cart item schema for validation - relaxed to handle various cart item formats
+// Cart item schema for validation - extremely flexible to handle all cart item formats
 const CartItemSchema = z.object({
     id: z.string(),
     type: z.enum(['product', 'custom', 'print']),
     name: z.string(),
     price: z.number(),
     quantity: z.number().int().positive(),
-
-    // Product fields - all optional
-    productId: z.string().nullish(),
-    sku: z.string().nullish(),
-    size: z.string().nullish(),
-    image: z.string().nullish(),
-    originalPrice: z.number().nullish(),
-
-    // Print fields - more flexible
-    printOptions: z.object({
-        type: z.enum(['fdm', 'resin']),
-        color: z.string(),
-        infill: z.union([z.string(), z.number()]).optional(),
-        layerHeight: z.union([z.string(), z.number()]).optional(),
-    }).nullish(),
-    printFiles: z.array(z.object({
-        id: z.string(),
-        name: z.string(),
-        url: z.string().nullish(),
-        thumbnail: z.string().nullish(),
-        analysis: z.object({
-            volume: z.number(),
-            grams: z.number(),
-            hours: z.number(),
-            price: z.number(),
-            boundingBox: z.object({
-                x: z.number(),
-                y: z.number(),
-                z: z.number(),
-            }).optional(),
-        }).nullish(),
-    })).nullish(),
-
-    // Custom fields - all optional
-    description: z.string().nullish(),
-    customFiles: z.array(z.object({
-        name: z.string(),
-        url: z.string(),
-    })).nullish(),
-}).passthrough(); // Allow extra fields
+    // All other fields are optional and accept any value
+}).passthrough(); // Accept any additional fields
 
 const CreateMasterOrderSchema = z.object({
     addressId: z.string().uuid(),
     items: z.array(CartItemSchema).min(1),
     note: z.string().nullish(),
     shipping: z.number().default(0),
-
 });
 
 export async function POST(request: NextRequest) {
@@ -233,6 +194,9 @@ export async function POST(request: NextRequest) {
         if (printItems.length > 0) {
             for (const item of printItems) {
                 const printOrderNumber = generateId.printing();
+                // Use type assertions for optional fields from flexible schema
+                const itemAny = item as Record<string, unknown>;
+                const printOptions = itemAny.printOptions as Record<string, unknown> | undefined;
 
                 const { error: printError } = await supabaseAdmin
                     .from('print_orders')
@@ -240,11 +204,11 @@ export async function POST(request: NextRequest) {
                         order_number: printOrderNumber,
                         master_order_id: masterOrder.id,
                         user_id: user.id,
-                        print_type: item.printOptions?.type || 'fdm',
-                        color: item.printOptions?.color,
-                        infill: item.printOptions?.infill,
-                        layer_height: item.printOptions?.layerHeight,
-                        files: item.printFiles || [],
+                        print_type: printOptions?.type || 'fdm',
+                        color: printOptions?.color,
+                        infill: printOptions?.infill,
+                        layer_height: printOptions?.layerHeight,
+                        files: itemAny.printFiles || [],
                         total_price: item.price * item.quantity,
                         quantity: item.quantity,
                         status: 'pending',
