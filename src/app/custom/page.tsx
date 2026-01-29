@@ -157,11 +157,18 @@ export default function CustomPage() {
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
             const data = await res.json();
 
-            if (!res.ok) {
-                throw new Error(data.error || 'Upload failed');
+            if (!res.ok || data.success === false) {
+                // Handle API envelope error format
+                const errorMsg = data.error?.message || data.error || 'Upload failed';
+                throw new Error(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
             }
 
-            uploadedImages.push(data.file);
+            // API returns { success: true, data: { file: {...} } }
+            const fileData = data.data?.file || data.file;
+            if (!fileData) {
+                throw new Error('Invalid upload response');
+            }
+            uploadedImages.push(fileData);
         }
 
         return uploadedImages;
@@ -242,8 +249,8 @@ export default function CustomPage() {
             sessionStorage.setItem('checkout_order_type', 'custom');
             sessionStorage.setItem('checkout_order_id', order.id);
 
-            // Redirect to payment
-            router.push('/checkout/payment?orderId=' + order.id);
+            // Redirect to success page instead of deleted payment page
+            router.push('/checkout/success/' + orderCode);
         } catch (err) {
             setError((err as Error).message);
             setSubmitting(false);

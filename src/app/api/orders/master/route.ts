@@ -322,24 +322,44 @@ export async function GET() {
         }
 
         // Get master orders with related sub-orders
-        const { data: masterOrders, error } = await supabaseAdmin
-            .from('master_orders')
-            .select(`
-                *,
-                address:addresses(*),
-                orders(id, order_number, status, total),
-                print_orders(id, order_number, status, total_price),
-                custom_orders(id, order_number, status, estimated_price)
-            `)
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+        // Use try-catch for relation queries that might fail if tables don't exist
+        let masterOrders = null;
+        let fetchError = null;
 
-        if (error) {
-            console.error('Failed to fetch master orders:', error);
-            return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
+        try {
+            const result = await supabaseAdmin
+                .from('master_orders')
+                .select(`
+                    *,
+                    address:addresses(*),
+                    orders(id, order_number, status, total),
+                    print_orders(id, order_number, status, total_price),
+                    custom_orders(id, order_number, status, estimated_price)
+                `)
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            masterOrders = result.data;
+            fetchError = result.error;
+        } catch (e) {
+            console.error('Master orders query exception:', e);
+            // Try simpler query without relations
+            const simpleResult = await supabaseAdmin
+                .from('master_orders')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            masterOrders = simpleResult.data;
+            fetchError = simpleResult.error;
         }
 
-        return NextResponse.json({ orders: masterOrders });
+        if (fetchError) {
+            console.error('Failed to fetch master orders:', fetchError);
+            return NextResponse.json({ error: 'Failed to fetch orders', details: fetchError.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ orders: masterOrders || [] });
 
     } catch (error) {
         console.error('Get master orders error:', error);
