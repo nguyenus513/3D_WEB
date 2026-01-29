@@ -73,11 +73,11 @@ export const UploadRequestSchema = z.object({
     personCount: z.coerce.number().int().min(1).optional().default(1),
     photoCategory: PhotoCategorySchema.optional().default('main'),
 
-    // Printing order naming - all optional
+    // Printing order naming - all optional and nullable
     tech: TechSchema.nullish(),
-    infill: z.coerce.number().int().min(0).max(100).optional(),
-    layerHeight: z.string().optional(),
-    color: FdmColorSchema.optional(),
+    infill: z.coerce.number().int().min(0).max(100).nullish(),
+    layerHeight: z.string().nullish(),
+    color: FdmColorSchema.nullish(),
 
     // Admin review - optional
     isReview: z.coerce.boolean().optional().default(false),

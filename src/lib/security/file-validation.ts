@@ -14,6 +14,10 @@ const MAGIC_SIGNATURES: Record<string, number[][]> = {
     'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF header, need additional check
     'image/bmp': [[0x42, 0x4D]],
     'image/svg+xml': [[0x3C, 0x73, 0x76, 0x67], [0x3C, 0x3F, 0x78, 0x6D, 0x6C]], // <svg or <?xml
+    // iOS HEIC/HEIF - ftyp-based formats (check at offset 4)
+    'image/heic': [], // Validated separately via ftyp check
+    'image/heif': [], // Validated separately via ftyp check
+    'image/avif': [], // Validated separately via ftyp check
 
     // 3D files
     'model/stl': [[0x73, 0x6F, 0x6C, 0x69, 0x64]], // "solid" for ASCII STL
@@ -31,6 +35,10 @@ export const ALLOWED_MIME_TYPES = {
         'image/gif',
         'image/webp',
         'image/bmp',
+        // iOS HEIC/HEIF formats
+        'image/heic',
+        'image/heif',
+        'image/avif',
     ],
     model: [
         'application/octet-stream', // STL binary
@@ -77,6 +85,27 @@ export function validateFileMagicBytes(buffer: Buffer, declaredMimeType: string)
 export function detectFileType(buffer: Buffer): string | null {
     if (!buffer || buffer.length < 8) {
         return null;
+    }
+
+    // Check for HEIC/HEIF/AVIF (ftyp-based formats)
+    // ftyp box starts at offset 4 with "ftyp" magic
+    if (buffer.length >= 12) {
+        const ftypMagic = buffer.slice(4, 8).toString('ascii');
+        if (ftypMagic === 'ftyp') {
+            const brand = buffer.slice(8, 12).toString('ascii');
+            // HEIC brands: heic, heix, mif1
+            if (['heic', 'heix', 'mif1'].includes(brand)) {
+                return 'image/heic';
+            }
+            // HEIF brands: heif
+            if (brand === 'heif') {
+                return 'image/heif';
+            }
+            // AVIF brands: avif, avis
+            if (['avif', 'avis'].includes(brand)) {
+                return 'image/avif';
+            }
+        }
     }
 
     // Check each known signature

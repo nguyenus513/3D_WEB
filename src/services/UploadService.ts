@@ -122,8 +122,20 @@ export class UploadService {
             throw new BadRequestError('Google Drive chưa được kết nối. Vui lòng vào Admin Settings để kết nối.');
         }
 
+        // Map upload types to Drive folder types
+        // uploadWithNaming only accepts: product, printing, custom_main, custom_accessory, custom_preview
+        const driveTypeMap: Record<string, 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview'> = {
+            'product': 'product',
+            'printing': 'printing',
+            'custom': 'custom_main',
+            'custom_single': 'custom_main',
+            'custom_couple': 'custom_main',
+            'custom_group': 'custom_main',
+        };
+        const driveType = driveTypeMap[params.type] || 'custom_main';
+
         const options = {
-            type: params.type as UploadType,
+            type: driveType,
             index: params.index ?? 1,
             sku: params.sku ?? undefined,
             customerCode: params.customerCode ?? undefined,
@@ -243,7 +255,7 @@ export class UploadService {
         }
 
         if (type === 'printing' && tech && orderCode) {
-            return generatePrintingR2Key(orderCode, tech, index, infill, layerHeight, color, ext);
+            return generatePrintingR2Key(orderCode, tech, index, infill ?? undefined, layerHeight ?? undefined, color ?? undefined, ext);
         }
 
         if (type.startsWith('custom_') && customType && orderCode) {
