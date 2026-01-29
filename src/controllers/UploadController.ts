@@ -73,8 +73,16 @@ export class UploadController extends BaseController {
             // Debug log to see what's being sent
             console.log('[Upload] Raw params received:', JSON.stringify(rawParams, null, 2));
 
-            // Parse and validate upload params
-            const params = UploadRequestSchema.parse(rawParams);
+            // Parse and validate upload params with safeParse for better error handling
+            const parseResult = UploadRequestSchema.safeParse(rawParams);
+
+            if (!parseResult.success) {
+                console.error('[Upload] Validation failed:', parseResult.error.issues);
+                // Return validation errors to client for debugging
+                throw new Error(`Validation failed: ${JSON.stringify(parseResult.error.issues)}`);
+            }
+
+            const params = parseResult.data;
 
             // Convert File to Buffer
             const arrayBuffer = await file.arrayBuffer();
