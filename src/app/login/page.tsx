@@ -23,8 +23,7 @@ function LoginForm() {
     // Initialize CSRF token on mount to prevent MissingCSRF error
     useEffect(() => {
         const initCsrf = async () => {
-            const token = await getCsrfToken();
-            console.log('[LOGIN DEBUG] CSRF token initialized:', !!token);
+            await getCsrfToken();
         };
         initCsrf();
     }, []);
@@ -34,26 +33,26 @@ function LoginForm() {
         setLoading(true);
         setError('');
 
-        console.log('[LOGIN DEBUG] Starting login for:', formData.email);
+
 
         try {
             // Ensure CSRF token is fresh before signIn
             const csrfToken = await getCsrfToken();
-            console.log('[LOGIN DEBUG] CSRF token before signIn:', csrfToken ? 'present' : 'missing');
+
 
             if (!csrfToken) {
                 setError('Lỗi bảo mật (CSRF). Vui lòng tải lại trang.');
                 return;
             }
 
-            console.log('[LOGIN DEBUG] Calling signIn...');
+
             const result = await signIn('credentials', {
                 email: formData.email,
                 password: formData.password,
                 redirect: false,
             });
 
-            console.log('[LOGIN DEBUG] signIn result:', JSON.stringify(result, null, 2));
+
 
             if (result?.error) {
                 // Map NextAuth errors to Vietnamese messages
@@ -64,13 +63,13 @@ function LoginForm() {
                     'Email chưa được xác thực. Vui lòng kiểm tra hộp thư.': 'Email chưa được xác thực. Vui lòng kiểm tra hộp thư.',
                     'CredentialsSignin': 'Email hoặc mật khẩu không đúng',
                 };
-                console.log('[LOGIN DEBUG] Error:', result.error);
+
                 setError(errorMessages[result.error] || 'Đăng nhập thất bại. Vui lòng thử lại.');
                 return;
             }
 
             if (result?.ok) {
-                console.log('[LOGIN DEBUG] Login successful, fetching session...');
+
                 // Fetch user session to check role
                 const sessionRes = await fetch('/api/auth/session');
                 const session = await sessionRes.json();
@@ -84,7 +83,7 @@ function LoginForm() {
 
                 // Regular users go to callback URL or account page
                 // Use window.location for hard redirect to ensure session is synced
-                console.log('[LOGIN DEBUG] Redirecting to:', callbackUrl);
+
                 window.location.href = callbackUrl;
             }
         } catch {

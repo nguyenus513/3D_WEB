@@ -32,6 +32,5 @@ export async function GET(request: NextRequest) {
         path: '/',
     });
 
-    console.log(`[Phoenix Protocol] Admin session launched. Path: /${sessionToken.substring(0, 10)}...`);
     return response;
 }

@@ -338,7 +338,9 @@ export function isR2Url(url: string): boolean {
         try {
             const workerHost = new URL(R2_PUBLIC_URL).host;
             r2Indicators.push(workerHost);
-        } catch { }
+        } catch {
+            // Invalid R2_PUBLIC_URL format - ignore
+        }
     }
     return r2Indicators.some(indicator => url.includes(indicator));
 }
