@@ -1,6 +1,7 @@
 /**
  * Customer Order Detail API
  * Returns order details for authenticated customer
+ * Supports both order_child (new) and orders (legacy) tables
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,25 +15,51 @@ export async function GET(
     try {
         // Verify session
         const session = await auth();
-        if (!session?.user?.email) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { id } = await params;
         const supabase = getAdminSupabase();
+        const userId = session.user.id;
 
-        // Get user ID from email
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', session.user.email)
+        // Try order_child first (new system)
+        const { data: childOrder, error: childError } = await supabase
+            .from('order_child')
+            .select('*')
+            .eq('id', id)
+            .eq('user_id', userId)
             .single();
 
-        if (!profile) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        if (childOrder && !childError) {
+            // Return order_child format
+            return NextResponse.json({
+                id: childOrder.id,
+                order_code: childOrder.code_child,
+                order_type: childOrder.product_type,
+                product_name: childOrder.product_name,
+                quantity: childOrder.quantity,
+                unit_price: childOrder.unit_price,
+                total: childOrder.total_price,
+                subtotal: childOrder.total_price,
+                status: childOrder.status,
+                payment_qr_url: childOrder.payment_qr_url,
+                metadata: childOrder.metadata,
+                created_at: childOrder.created_at,
+                updated_at: childOrder.updated_at,
+                source: 'order_child',
+                // For display
+                order_items: [{
+                    id: childOrder.id,
+                    name: childOrder.product_name,
+                    quantity: childOrder.quantity,
+                    price: childOrder.unit_price,
+                    total_price: childOrder.total_price,
+                }],
+            });
         }
 
-        // Fetch order with all related data
+        // Fallback to legacy orders table
         const { data: order, error } = await supabase
             .from('orders')
             .select(`
@@ -42,7 +69,7 @@ export async function GET(
                 order_files (*)
             `)
             .eq('id', id)
-            .eq('user_id', profile.id)  // Ensure user owns this order
+            .eq('user_id', userId)
             .single();
 
         if (error || !order) {
@@ -69,7 +96,6 @@ export async function GET(
                     })),
             };
         } else if (order.order_type === 'custom' && !config && order.custom_config) {
-            // Fallback to legacy JSONB
             custom_config = order.custom_config;
         }
 
@@ -92,7 +118,6 @@ export async function GET(
                     })),
             };
         } else if (order.order_type === 'printing' && !config && order.printing_config) {
-            // Fallback to legacy JSONB
             printing_config = order.printing_config;
         }
 
@@ -100,6 +125,7 @@ export async function GET(
             ...order,
             custom_config,
             printing_config,
+            source: 'orders',
         });
     } catch (error) {
         console.error('Customer order API error:', error);

@@ -89,13 +89,14 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
         try {
             // Use admin API to bypass RLS and get profiles
             const response = await fetch(`/api/admin/orders?type=${orderType}`);
-            const data = await response.json();
+            const json = await response.json();
 
-            if (data.error) {
-                console.error('Error fetching orders:', data.error);
+            // API returns { success: true, data: { orders, total, ... } }
+            if (!json.success || json.error) {
+                console.error('Error fetching orders:', json.error || 'Unknown error');
                 setOrders([]);
             } else {
-                setOrders(data.orders || []);
+                setOrders(json.data?.orders || []);
             }
         } catch (error) {
             console.error('Error fetching orders:', error);
@@ -107,43 +108,47 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
 
     const handleConfirmPayment = async (orderId: string) => {
         setConfirming(orderId);
-        const supabase = getSupabase();
+        try {
+            const res = await fetch(`/api/admin/orders/${orderId}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'paid' }),
+            });
+            const json = await res.json();
 
-        const { error } = await supabase
-            .from('orders')
-            .update({
-                status: 'paid',
-                deposit_paid: true,
-                paid_at: new Date().toISOString(),
-            })
-            .eq('id', orderId);
-
-        if (!error) {
-            setOrders(orders.map(o =>
-                o.id === orderId
-                    ? { ...o, status: 'paid' as const, deposit_paid: true }
-                    : o
-            ));
+            if (json.success) {
+                setOrders(orders.map(o =>
+                    o.id === orderId
+                        ? { ...o, status: 'paid' as const, deposit_paid: true }
+                        : o
+                ));
+            } else {
+                console.error('Error confirming payment:', json.error);
+            }
+        } catch (error) {
+            console.error('Error confirming payment:', error);
         }
         setConfirming(null);
     };
 
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-        const supabase = getSupabase();
+        try {
+            const res = await fetch(`/api/admin/orders/${orderId}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+            });
+            const json = await res.json();
 
-        const updateData: Record<string, unknown> = { status: newStatus };
-        if (newStatus === 'shipped') updateData.shipped_at = new Date().toISOString();
-        if (newStatus === 'delivered') updateData.delivered_at = new Date().toISOString();
-
-        const { error } = await supabase
-            .from('orders')
-            .update(updateData)
-            .eq('id', orderId);
-
-        if (!error) {
-            setOrders(orders.map(o =>
-                o.id === orderId ? { ...o, status: newStatus as Order['status'] } : o
-            ));
+            if (json.success) {
+                setOrders(orders.map(o =>
+                    o.id === orderId ? { ...o, status: newStatus as Order['status'] } : o
+                ));
+            } else {
+                console.error('Error updating status:', json.error);
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
         }
     };
 
@@ -152,6 +157,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
         const matchesStatus = activeStatus === 'all' || order.status === activeStatus;
         const profile = order.profiles as { full_name?: string; email?: string } | null;
         const matchesSearch = order.order_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.code_formatted?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             profile?.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -315,7 +321,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                     >
                                         <td className="px-5 py-4">
                                             <Link href={`${adminRoot}/orders/${order.id}`} className="text-white font-medium hover:underline">
-                                                {order.order_code}
+                                                {order.code_formatted || order.order_code}
                                             </Link>
                                         </td>
                                         <td className="px-5 py-4">

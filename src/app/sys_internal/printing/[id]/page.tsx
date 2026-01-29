@@ -87,106 +87,92 @@ export default function AdminPrintingDetailPage() {
     }, [params.id]);
 
     const fetchOrder = async () => {
-        const supabase = getSupabase();
+        try {
+            // Use admin API to bypass RLS - it returns order + profile
+            const res = await fetch(`/api/admin/orders/${params.id}`);
+            const data = await res.json();
 
-        // Fetch order with related data (normalized tables)
-        const { data, error } = await supabase
-            .from('orders')
-            .select(`
-                *,
-                order_configs (*),
-                order_files (*)
-            `)
-            .eq('id', params.id)
-            .eq('order_type', 'printing')
-            .single();
+            if (!res.ok || data.error) {
+                setError('Không tìm thấy đơn hàng');
+                setLoading(false);
+                return;
+            }
 
-        if (error) {
-            setError('Không tìm thấy đơn hàng');
+            const orderData = data.order;
+            const profileData = data.profile;
+
+            // Verify this is a printing order
+            if (orderData.order_type !== 'printing') {
+                setError('Đơn hàng này không phải đơn In 3D');
+                setLoading(false);
+                return;
+            }
+
+            setOrder({
+                ...orderData,
+                profiles: profileData,
+                printing_config: orderData.printing_config
+            });
+            setAdminNote(orderData.admin_note || '');
+            setShippingCode(orderData.shipping_code || '');
             setLoading(false);
-            return;
+        } catch (err) {
+            console.error('Fetch error:', err);
+            setError('Không thể tải đơn hàng');
+            setLoading(false);
         }
-
-        // Fetch profile separately if user_id exists
-        let profileData = null;
-        if (data.user_id) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('full_name, email, phone, customer_code')
-                .eq('id', data.user_id)
-                .single();
-            profileData = profile;
-        }
-
-        // Map normalized data to legacy format for backward compatibility
-        const config = data.order_configs?.[0] || null;
-        const printingConfig = config ? {
-            type: config.print_tech || data.printing_config?.type,
-            color: config.color || data.printing_config?.color,
-            quantity: config.quantity || data.printing_config?.quantity,
-            analysis: {
-                grams: config.print_weight || data.printing_config?.analysis?.grams,
-                hours: config.print_time || data.printing_config?.analysis?.hours,
-                price: data.subtotal || data.printing_config?.analysis?.price,
-            },
-            notes: data.customer_note || data.printing_config?.notes,
-            files: (data.order_files || [])
-                .filter((f: { file_type: string }) => f.file_type === 'stl')
-                .map((f: { file_id: string; file_name: string | null }) => ({
-                    url: `https://drive.google.com/file/d/${f.file_id}/view`,
-                    name: f.file_name || 'file.stl',
-                })),
-        } : data.printing_config || null;
-
-        // Fallback to legacy files if order_files is empty
-        if (printingConfig && (!printingConfig.files || printingConfig.files.length === 0)) {
-            printingConfig.files = data.printing_config?.files || [];
-        }
-
-        setOrder({ ...data, profiles: profileData, printing_config: printingConfig });
-        setAdminNote(data.admin_note || '');
-        setShippingCode(data.shipping_code || '');
-        setLoading(false);
     };
 
     const handleUpdateStatus = async (newStatus: string) => {
         if (!order) return;
         setSaving(true);
 
-        const supabase = getSupabase();
-        const updates: Record<string, unknown> = { status: newStatus };
+        try {
+            const updates: Record<string, unknown> = { status: newStatus };
+            if (newStatus === 'shipping' && shippingCode) {
+                updates.shipping_code = shippingCode;
+            }
 
-        if (newStatus === 'shipping' && shippingCode) {
-            updates.shipping_code = shippingCode;
-            updates.shipped_at = new Date().toISOString();
+            await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+            });
+            await fetchOrder();
+        } catch (error) {
+            console.error('Error updating status:', error);
         }
-        if (newStatus === 'delivered') {
-            updates.delivered_at = new Date().toISOString();
-        }
-
-        await supabase.from('orders').update(updates).eq('id', order.id);
-        await fetchOrder();
         setSaving(false);
     };
 
     const handleSaveNote = async () => {
         if (!order) return;
         setSaving(true);
-        const supabase = getSupabase();
-        await supabase.from('orders').update({ admin_note: adminNote }).eq('id', order.id);
+        try {
+            await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admin_note: adminNote }),
+            });
+        } catch (error) {
+            console.error('Error saving note:', error);
+        }
         setSaving(false);
     };
 
     const handleConfirmPayment = async () => {
         if (!order) return;
         setSaving(true);
-        const supabase = getSupabase();
-        await supabase.from('orders').update({
-            deposit_paid: true,
-            status: 'paid',
-            paid_at: new Date().toISOString()
-        }).eq('id', order.id);
-        await fetchOrder();
+        try {
+            await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'paid' }),
+            });
+            await fetchOrder();
+        } catch (error) {
+            console.error('Error confirming payment:', error);
+        }
         setSaving(false);
     };
 

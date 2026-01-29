@@ -551,20 +551,24 @@ export default function AccountOrderDetailPage() {
                         <div className="space-y-3">
                             <div className="flex justify-between">
                                 <span className="text-white/70">Tạm tính</span>
-                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white">{(order.subtotal || order.total || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-white/70">Phí ship</span>
-                                <span className="text-white">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
-                            </div>
+                            {(order.shipping_fee || 0) > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-white/70">Phí ship</span>
+                                    <span className="text-white">{(order.shipping_fee || 0).toLocaleString('vi-VN')}đ</span>
+                                </div>
+                            )}
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white font-medium">Tổng cộng</span>
-                                <span className="text-white font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white font-bold">{(order.total || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="flex justify-between text-green-400">
-                                <span>{order.order_type === 'printing' ? 'Đã thanh toán' : 'Đã cọc'}</span>
-                                <span>{order.deposit_amount.toLocaleString('vi-VN')}đ</span>
-                            </div>
+                            {order.deposit_amount !== undefined && order.deposit_amount > 0 && (
+                                <div className="flex justify-between text-green-400">
+                                    <span>{order.order_type === 'printing' ? 'Đã thanh toán' : 'Đã cọc'}</span>
+                                    <span>{(order.deposit_amount || 0).toLocaleString('vi-VN')}đ</span>
+                                </div>
+                            )}
                             {remaining > 0 && order.order_type !== 'printing' && (
                                 <div className="flex justify-between text-yellow-400">
                                     <span>Còn lại</span>

@@ -1,5 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+
+// Service role client for bypassing RLS
+const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(request: Request) {
     const requestUrl = new URL(request.url);
@@ -11,8 +18,8 @@ export async function GET(request: Request) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error && data.user) {
-            // Check/create profile
-            const { data: existingProfile } = await supabase
+            // Use admin client to bypass RLS
+            const { data: existingProfile } = await supabaseAdmin
                 .from('profiles')
                 .select('role')
                 .eq('id', data.user.id)
@@ -20,7 +27,7 @@ export async function GET(request: Request) {
 
             if (!existingProfile) {
                 // Create profile for OAuth user
-                await supabase.from('profiles').upsert({
+                await supabaseAdmin.from('profiles').upsert({
                     id: data.user.id,
                     email: data.user.email,
                     full_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,

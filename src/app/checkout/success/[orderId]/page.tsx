@@ -16,7 +16,7 @@ interface SubOrder {
 
 interface MasterOrder {
     id: string;
-    order_number: string;
+    order_code: string;
     subtotal: number;
     shipping: number;
     total: number;
@@ -29,7 +29,7 @@ interface MasterOrder {
         address_line: string;
         province: string;
     };
-    orders?: { order_number: string; status: string; total: number }[];
+    orders?: { order_code: string; status: string; total: number }[];
     print_orders?: { order_number: string; status: string; total_price: number }[];
     custom_orders?: { order_number: string; status: string; estimated_price: number }[];
 }
@@ -100,13 +100,13 @@ export default function CheckoutSuccessPage() {
                 const res = await fetch('/api/orders/master');
                 if (res.ok) {
                     const data = await res.json();
-                    const found = data.orders?.find((o: MasterOrder) => o.order_number === orderId);
+                    const found = data.orders?.find((o: MasterOrder) => o.order_code === orderId);
                     if (found) {
                         setOrder(found);
 
                         // Build sub-orders list
                         const subs: SubOrder[] = [];
-                        found.orders?.forEach((o: any) => subs.push({ type: 'product', orderNumber: o.order_number, status: o.status }));
+                        found.orders?.forEach((o: any) => subs.push({ type: 'product', orderNumber: o.order_code, status: o.status }));
                         found.print_orders?.forEach((o: any) => subs.push({ type: 'print', orderNumber: o.order_number, status: o.status }));
                         found.custom_orders?.forEach((o: any) => subs.push({ type: 'custom', orderNumber: o.order_number, status: o.status }));
                         setSubOrders(subs);
@@ -231,8 +231,14 @@ export default function CheckoutSuccessPage() {
                         {order && (() => {
                             const depositAmount = Math.round(order.total * 0.5);
                             const bankConfig = getBankConfig('ready_made');
-                            const transferContent = `MINWSUN_${orderId}`;
-                            const qrUrl = `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
+                            // Use stored transfer_content from order metadata if available
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const orderAny = order as any;
+                            const storedContent = orderAny?.metadata?.transfer_content;
+                            const transferContent = storedContent || `MINWSUN_${orderId}`;
+                            // Use stored qr_url if available
+                            const storedQrUrl = orderAny?.payment_qr_url;
+                            const qrUrl = storedQrUrl || `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
 
                             return (
                                 <div className="space-y-6">

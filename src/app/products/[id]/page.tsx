@@ -19,8 +19,73 @@ export default function ProductDetailPage() {
     const [selectedSize, setSelectedSize] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [addedToCart, setAddedToCart] = useState(false);
+    const [payingNow, setPayingNow] = useState(false);
 
     const addItem = useCartStore(state => state.addItem);
+
+    // Handle direct payment (Pay Now) with retry logic
+    const handlePayNow = async () => {
+        if (!product || payingNow) return;
+
+        setPayingNow(true);
+        const idempotencyKey = crypto.randomUUID();
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        try {
+            const size = product.sizes?.[selectedSize];
+            const price = size?.price || product.sale_price || product.base_price;
+
+            const attemptPayment = async (): Promise<{ success: boolean; data?: any; error?: any }> => {
+                const res = await fetch('/api/payments/direct', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': idempotencyKey,
+                    },
+                    body: JSON.stringify({
+                        productId: product.id,
+                        productName: product.name,
+                        productType: 'product',
+                        quantity,
+                        unitPrice: price,
+                        metadata: {
+                            size: size?.name || 'Default',
+                            sku: product.sku,
+                            image: product.images?.[0]?.url,
+                        },
+                    }),
+                });
+
+                return res.json();
+            };
+
+            // Retry logic with exponential backoff
+            let result = await attemptPayment();
+
+            while (!result.success && retryCount < maxRetries) {
+                retryCount++;
+                const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
+                console.log(`Payment retry ${retryCount}/${maxRetries} in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                result = await attemptPayment();
+            }
+
+            if (!result.success) {
+                const errorMsg = result.error?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại sau.';
+                alert(`${errorMsg}\n\nMã lỗi: ${result.error?.details?.correlationId || 'N/A'}`);
+                return;
+            }
+
+            // Navigate to QR page with the child code
+            router.push(`/qr/child/${result.data.codeChild}`);
+        } catch (error) {
+            console.error('PayNow error:', error);
+            alert('Có lỗi xảy ra, vui lòng thử lại');
+        } finally {
+            setPayingNow(false);
+        }
+    };
 
     useEffect(() => {
         fetchProduct();
@@ -219,24 +284,41 @@ export default function ProductDetailPage() {
                             </div>
                         </AnimatedSection>
 
-                        {/* Add to Cart */}
+                        {/* Action Buttons */}
                         <AnimatedSection delay={0.5}>
-                            <div className="flex gap-4">
+                            <div className="flex flex-col gap-3">
+                                {/* Primary: Add to Cart */}
                                 <button
                                     onClick={handleAddToCart}
-                                    className={`flex-1 py-4 rounded-xl font-semibold transition-all ${addedToCart
+                                    className={`w-full py-4 rounded-xl font-semibold transition-all cursor-pointer ${addedToCart
                                         ? 'bg-green-500 text-white'
                                         : 'bg-white text-black hover:bg-white/90'
                                         }`}
                                 >
                                     {addedToCart ? '✓ Đã thêm vào giỏ' : 'Thêm vào giỏ hàng'}
                                 </button>
-                                <Link
-                                    href="/cart"
-                                    className="px-6 py-4 rounded-xl border border-white/20 text-white hover:bg-white/10"
-                                >
-                                    Xem giỏ
-                                </Link>
+
+                                {/* Secondary row: Pay Now + View Cart */}
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={handlePayNow}
+                                        disabled={payingNow}
+                                        className="flex-1 py-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer disabled:opacity-50"
+                                    >
+                                        {payingNow ? (
+                                            <span className="flex items-center justify-center gap-2">
+                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Đang xử lý...
+                                            </span>
+                                        ) : 'Thanh toán ngay'}
+                                    </button>
+                                    <Link
+                                        href="/cart"
+                                        className="px-6 py-4 rounded-xl border border-white/20 text-white hover:bg-white/10 flex items-center justify-center"
+                                    >
+                                        Xem giỏ
+                                    </Link>
+                                </div>
                             </div>
                         </AnimatedSection>
 

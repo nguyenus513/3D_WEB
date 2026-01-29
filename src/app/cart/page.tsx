@@ -155,15 +155,18 @@ export default function CartPage() {
     const { items, totalPrice, updateQuantity, removeItem, clearCart, groupedTotals, productItems, printItems, customItems } = useCart();
     const [activeTab, setActiveTab] = useState<TabType>('all');
 
-    const handleCheckout = () => {
-        if (status === 'loading') return;
+    const [checkingOut, setCheckingOut] = useState(false);
+
+    const handleCheckout = async () => {
+        if (status === 'loading' || checkingOut) return;
 
         if (!session) {
             router.push('/login?redirect=/checkout');
             return;
         }
 
-        router.push('/checkout');
+        // Go to checkout page which handles address + QR display
+        router.push('/checkout?mode=cart');
     };
 
     // Filter items based on active tab

@@ -56,10 +56,10 @@ export const generateId = {
     admin: (): string => `ADM-${generator8()}`,
 
     /**
-     * Generate Product SKU: PRD-XXXXXXXX
-     * @example PRD-A7K3M9B2
+     * Generate Product SKU: 8 Hex Chars (Random)
+     * @example A7B3C9D1
      */
-    sku: (): string => `PRD-${generator8()}`,
+    sku: (): string => customAlphabet('0123456789ABCDEF', 8)(),
 
     /**
      * Generate Master Order ID: ALL-XXXXXXXX
@@ -95,7 +95,8 @@ export const validateId = {
     printing: (id: string): boolean => /^3DP-[0-9A-HJ-NP-Z]{8}$/.test(id),
     user: (id: string): boolean => /^USR-[0-9A-HJ-NP-Z]{8}$/.test(id),
     admin: (id: string): boolean => /^ADM-[0-9A-HJ-NP-Z]{8}$/.test(id),
-    sku: (id: string): boolean => /^PRD-[0-9A-HJ-NP-Z]{8}$/.test(id),
+    // Validate SKU: 8 Hex Chars
+    sku: (id: string): boolean => /^[0-9A-F]{8}$/.test(id),
     // Generic validation for any valid ID format
     any: (id: string): boolean => /^[A-Z0-9]{3}-[0-9A-HJ-NP-Z]{8}$/.test(id),
 };

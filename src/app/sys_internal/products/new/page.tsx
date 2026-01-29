@@ -13,6 +13,8 @@ interface SizeVariant {
     name: string;
     price: string;
     stock: string;
+    image_url?: string;
+    uploading?: boolean;
 }
 
 interface FormImage {
@@ -97,6 +99,7 @@ export default function AdminProductNewPage() {
                     price: parseInt(s.price) || 0,
                     stock: parseInt(s.stock) || 0,
                     enabled: true,
+                    image_url: s.image_url || null,
                 })) : [],
                 tags: [],
                 is_featured: false,
@@ -147,13 +150,13 @@ export default function AdminProductNewPage() {
                 });
                 const result = await res.json();
 
-                if (result.success) {
+                if (result.success && result.data?.file?.url) {
                     setFormData(prev => ({
                         ...prev,
-                        images: [...prev.images, { url: result.file.url }]
+                        images: [...prev.images, { url: result.data.file.url }]
                     }));
                 } else {
-                    setError('Upload thất bại: ' + result.error);
+                    setError('Upload thất bại: ' + (result.error?.message || result.data?.error || 'Không có URL'));
                 }
             } catch (err) {
                 setError('Lỗi upload: ' + (err as Error).message);
@@ -185,14 +188,16 @@ export default function AdminProductNewPage() {
     const addSize = () => {
         setFormData(prev => ({
             ...prev,
-            sizes: [...prev.sizes, { name: '', price: '', stock: '0' }]
+            sizes: [...prev.sizes, { name: '', price: '', stock: '0', image_url: undefined, uploading: false }]
         }));
     };
 
-    const updateSize = (index: number, field: keyof SizeVariant, value: string) => {
-        const newSizes = [...formData.sizes];
-        newSizes[index][field] = value;
-        setFormData({ ...formData, sizes: newSizes });
+    const updateSize = (index: number, field: keyof SizeVariant, value: string | boolean | undefined) => {
+        setFormData(prev => {
+            const newSizes = [...prev.sizes];
+            newSizes[index] = { ...newSizes[index], [field]: value };
+            return { ...prev, sizes: newSizes };
+        });
     };
 
     const removeSize = (index: number) => {
@@ -200,6 +205,35 @@ export default function AdminProductNewPage() {
             ...prev,
             sizes: prev.sizes.filter((_, i) => i !== index)
         }));
+    };
+
+    // Upload image for a specific size
+    const uploadSizeImage = async (index: number, file: File) => {
+        updateSize(index, 'uploading', true);
+
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('type', 'product');
+        formDataUpload.append('sku', formData.sku || 'PROD-TEMP');
+        formDataUpload.append('index', String(formData.images.length + index + 1));
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formDataUpload,
+            });
+            const result = await res.json();
+
+            if (result.success && result.data?.file?.url) {
+                updateSize(index, 'image_url', result.data.file.url);
+            } else {
+                setError('Upload ảnh size thất bại');
+            }
+        } catch (err) {
+            setError('Lỗi upload: ' + (err as Error).message);
+        } finally {
+            updateSize(index, 'uploading', false);
+        }
     };
 
     return (
@@ -383,45 +417,120 @@ export default function AdminProductNewPage() {
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
-                                    {formData.sizes.map((size, index) => (
-                                        <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-                                            <input
-                                                type="text"
-                                                value={size.name}
-                                                onChange={(e) => updateSize(index, 'name', e.target.value)}
-                                                placeholder="Tên size (S, M, L...)"
-                                                className="flex-1 px-4 py-2 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                            />
-                                            <input
-                                                type="number"
-                                                value={size.price}
-                                                onChange={(e) => updateSize(index, 'price', e.target.value)}
-                                                placeholder="Giá"
-                                                className="w-32 px-4 py-2 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                            />
-                                            <input
-                                                type="number"
-                                                value={size.stock}
-                                                onChange={(e) => updateSize(index, 'stock', e.target.value)}
-                                                placeholder="SL"
-                                                className="w-20 px-4 py-2 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                            />
+                                <div className="space-y-4">
+                                    {/* Table Header */}
+                                    {formData.sizes.length > 0 && (
+                                        <div className="grid grid-cols-[80px_1fr_120px_100px_40px] gap-4 px-4 text-sm text-white/50 font-medium">
+                                            <div>Hình ảnh</div>
+                                            <div>Tên size</div>
+                                            <div>Giá (VNĐ)</div>
+                                            <div>Kho</div>
+                                            <div></div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        {formData.sizes.map((size, index) => (
+                                            <div key={index} className="grid grid-cols-[80px_1fr_120px_100px_40px] gap-4 items-start p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                                                {/* Size Image */}
+                                                <div className="relative aspect-square">
+                                                    {size.image_url ? (
+                                                        <div className="w-full h-full rounded-lg overflow-hidden relative group">
+                                                            <img
+                                                                src={size.image_url}
+                                                                alt={size.name || 'Size'}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updateSize(index, 'image_url', undefined)}
+                                                                className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                                                            >
+                                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <label className="w-full h-full rounded-lg border-2 border-dashed border-white/20 hover:border-white/40 flex flex-col items-center justify-center cursor-pointer transition-colors bg-white/5 hover:bg-white/10">
+                                                            {size.uploading ? (
+                                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            ) : (
+                                                                <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                </svg>
+                                                            )}
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (file) uploadSizeImage(index, file);
+                                                                }}
+                                                            />
+                                                        </label>
+                                                    )}
+                                                </div>
+
+                                                <input
+                                                    type="text"
+                                                    value={size.name}
+                                                    onChange={(e) => updateSize(index, 'name', e.target.value)}
+                                                    placeholder="Tên size (VD: S, XL...)"
+                                                    className="w-full px-4 py-2.5 bg-[#0a0a0a] border border-white/20 rounded-lg text-white placeholder:text-white/30 focus:border-white/40 focus:outline-none"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={size.price}
+                                                    onChange={(e) => updateSize(index, 'price', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full px-4 py-2.5 bg-[#0a0a0a] border border-white/20 rounded-lg text-white placeholder:text-white/30 focus:border-white/40 focus:outline-none text-right"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={size.stock}
+                                                    onChange={(e) => updateSize(index, 'stock', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full px-4 py-2.5 bg-[#0a0a0a] border border-white/20 rounded-lg text-white placeholder:text-white/30 focus:border-white/40 focus:outline-none text-center"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeSize(index)}
+                                                    className="w-full h-[42px] flex items-center justify-center text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Xóa size"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        {formData.sizes.length === 0 ? (
+                                            <div className="text-center py-8 bg-white/5 rounded-xl border border-dashed border-white/10">
+                                                <p className="text-white/40 mb-3 block">Chưa có size nào</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={addSize}
+                                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-medium transition-colors"
+                                                >
+                                                    + Thêm size đầu tiên
+                                                </button>
+                                            </div>
+                                        ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => removeSize(index)}
-                                                className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"
+                                                onClick={addSize}
+                                                className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl border border-dashed border-white/20 text-white/60 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
                                             >
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                                 </svg>
+                                                Thêm size khác
                                             </button>
-                                        </div>
-                                    ))}
-
-                                    {formData.sizes.length === 0 && (
-                                        <p className="text-white/40 text-center py-4">Chưa có size. Click &quot;Thêm size&quot; để thêm.</p>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}

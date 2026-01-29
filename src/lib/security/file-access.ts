@@ -166,19 +166,24 @@ export async function trackFileUpload(
         fileType?: string;
     }
 ): Promise<void> {
-    const supabase = getAdminSupabase();
+    try {
+        const supabase = getAdminSupabase();
 
-    await supabase
-        .from('order_files')
-        .insert({
-            file_key: fileKey,
-            order_id: orderId || null,
-            owner_id: ownerId,
-            is_public: options?.isPublic || false,
-            allowed_user_ids: options?.allowedUserIds || [],
-            file_name: options?.fileName || null,
-            file_type: options?.fileType || null,
-        });
+        await supabase
+            .from('order_files')
+            .insert({
+                file_key: fileKey,
+                order_id: orderId || null,
+                owner_id: ownerId,
+                is_public: options?.isPublic || false,
+                allowed_user_ids: options?.allowedUserIds || [],
+                file_name: options?.fileName || null,
+                file_type: options?.fileType || null,
+            });
+    } catch (error) {
+        // Don't fail upload if tracking fails (table might not exist)
+        console.warn('[FileAccess] Failed to track file upload:', error);
+    }
 }
 
 /**

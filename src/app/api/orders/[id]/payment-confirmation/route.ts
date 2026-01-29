@@ -3,6 +3,8 @@
  *
  * Called when customer clicks "Tôi đã chuyển khoản".
  * Updates order status to pending_confirmation and notifies admin.
+ * 
+ * Supports both legacy orders table and new order_child table.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -34,14 +36,39 @@ export async function POST(
             return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
         }
 
-        // Get order
-        const { data: order, error: orderError } = await supabaseAdmin
-            .from('orders')
-            .select('id, user_id, order_code, status, total')
+        // Try order_child first (new system)
+        let order = null;
+        let orderTable = 'order_child';
+
+        const { data: childOrder } = await supabaseAdmin
+            .from('order_child')
+            .select('id, user_id, code_child, status, total_price')
             .eq('id', orderId)
             .single();
 
-        if (orderError || !order) {
+        if (childOrder) {
+            order = {
+                id: childOrder.id,
+                user_id: childOrder.user_id,
+                order_code: childOrder.code_child,
+                status: childOrder.status,
+                total: childOrder.total_price,
+            };
+        } else {
+            // Fallback to legacy orders table
+            const { data: legacyOrder } = await supabaseAdmin
+                .from('orders')
+                .select('id, user_id, order_code, status, total')
+                .eq('id', orderId)
+                .single();
+
+            if (legacyOrder) {
+                order = legacyOrder;
+                orderTable = 'orders';
+            }
+        }
+
+        if (!order) {
             return NextResponse.json({ error: 'Đơn hàng không tồn tại' }, { status: 404 });
         }
 
@@ -57,19 +84,34 @@ export async function POST(
             }, { status: 400 });
         }
 
-        // Update order status
-        const { error: updateError } = await supabaseAdmin
-            .from('orders')
-            .update({
-                status: 'pending_confirmation',
-                payment_confirmed_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', orderId);
+        // Update order status based on table type
+        if (orderTable === 'order_child') {
+            const { error: updateError } = await supabaseAdmin
+                .from('order_child')
+                .update({
+                    status: 'pending_confirmation',
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', orderId);
 
-        if (updateError) {
-            console.error('[PaymentConfirmation] Update error:', updateError);
-            return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
+            if (updateError) {
+                console.error('[PaymentConfirmation] Update error:', updateError);
+                return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
+            }
+        } else {
+            const { error: updateError } = await supabaseAdmin
+                .from('orders')
+                .update({
+                    status: 'pending_confirmation',
+                    payment_confirmed_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', orderId);
+
+            if (updateError) {
+                console.error('[PaymentConfirmation] Update error:', updateError);
+                return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
+            }
         }
 
         // Log security event
@@ -83,11 +125,9 @@ export async function POST(
                 orderId,
                 orderCode: order.order_code,
                 total: order.total,
+                orderTable,
             },
         });
-
-        // TODO: Send email notification to admin
-        // Can be done via Resend or nodemailer
 
         return NextResponse.json({
             success: true,

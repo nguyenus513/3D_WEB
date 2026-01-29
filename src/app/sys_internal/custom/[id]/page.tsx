@@ -84,100 +84,86 @@ export default function AdminCustomDetailPage() {
     }, [params.id]);
 
     const fetchOrder = async () => {
-        const supabase = getSupabase();
+        try {
+            // Use admin API to bypass RLS - it returns order + profile
+            const res = await fetch(`/api/admin/orders/${params.id}`);
+            const data = await res.json();
 
-        // Fetch order with related data (normalized tables)
-        const { data, error } = await supabase
-            .from('orders')
-            .select(`
-                *,
-                order_configs (*),
-                order_files (*)
-            `)
-            .eq('id', params.id)
-            .eq('order_type', 'custom')
-            .single();
+            if (!res.ok || data.error) {
+                setError('Không tìm thấy đơn hàng');
+                setLoading(false);
+                return;
+            }
 
-        if (error) {
-            setError('Không tìm thấy đơn hàng');
+            const orderData = data.order;
+            const profileData = data.profile;
+
+            // Verify this is a custom order
+            if (orderData.order_type !== 'custom') {
+                setError('Đơn hàng này không phải đơn Custom');
+                setLoading(false);
+                return;
+            }
+
+            setOrder({
+                ...orderData,
+                profiles: profileData,
+                custom_config: orderData.custom_config
+            });
+            setAdminNote(orderData.admin_note || '');
             setLoading(false);
-            return;
+        } catch (err) {
+            console.error('Fetch error:', err);
+            setError('Không thể tải đơn hàng');
+            setLoading(false);
         }
-
-        // Fetch profile separately if user_id exists
-        let profileData = null;
-        if (data.user_id) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('full_name, email, phone, customer_code')
-                .eq('id', data.user_id)
-                .single();
-            profileData = profile;
-        }
-
-        // Map normalized data to legacy format for backward compatibility
-        const config = data.order_configs?.[0] || null;
-        const customConfig = config ? {
-            type: config.custom_type || data.custom_config?.type,
-            size: config.custom_size || data.custom_config?.size,
-            notes: data.customer_note || data.custom_config?.notes,
-            images: (data.order_files || [])
-                .filter((f: { file_type: string }) => f.file_type === 'photo')
-                .map((f: { file_id: string; file_name: string | null }) => ({
-                    id: f.file_id,
-                    name: f.file_name || '',
-                    url: `https://drive.google.com/file/d/${f.file_id}/view`,
-                    thumbnail: `https://drive.google.com/thumbnail?id=${f.file_id}&sz=w400`,
-                })),
-        } : data.custom_config || null;
-
-        // Fallback to legacy images if order_files is empty
-        if (customConfig && (!customConfig.images || customConfig.images.length === 0)) {
-            customConfig.images = data.custom_config?.images || [];
-        }
-
-        setOrder({ ...data, profiles: profileData, custom_config: customConfig });
-        setAdminNote(data.admin_note || '');
-        setLoading(false);
     };
 
     const handleUpdateStatus = async (newStatus: string) => {
         if (!order) return;
         setSaving(true);
 
-        const supabase = getSupabase();
-        const updates: Record<string, unknown> = { status: newStatus };
-
-        if (newStatus === 'shipping') {
-            updates.shipped_at = new Date().toISOString();
+        try {
+            await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+            });
+            await fetchOrder();
+        } catch (error) {
+            console.error('Error updating status:', error);
         }
-        if (newStatus === 'delivered') {
-            updates.delivered_at = new Date().toISOString();
-        }
-
-        await supabase.from('orders').update(updates).eq('id', order.id);
-        await fetchOrder();
         setSaving(false);
     };
 
     const handleSaveNote = async () => {
         if (!order) return;
         setSaving(true);
-        const supabase = getSupabase();
-        await supabase.from('orders').update({ admin_note: adminNote }).eq('id', order.id);
+        try {
+            await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admin_note: adminNote }),
+            });
+        } catch (error) {
+            console.error('Error saving note:', error);
+        }
         setSaving(false);
     };
 
     const handleConfirmPayment = async () => {
         if (!order) return;
         setSaving(true);
-        const supabase = getSupabase();
-        await supabase.from('orders').update({
-            deposit_paid: true,
-            status: 'paid',
-            paid_at: new Date().toISOString()
-        }).eq('id', order.id);
-        await fetchOrder();
+        try {
+            await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'paid' }),
+            });
+            await fetchOrder();
+        } catch (error) {
+            console.error('Error confirming payment:', error);
+        }
         setSaving(false);
     };
 

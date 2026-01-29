@@ -112,6 +112,7 @@ export interface ShippingAddress {
 export interface Order {
     id: string;
     order_code: string;
+    code_formatted?: string; // New formatted code: CART-YYYYMMDD-XXXX-...
     user_id: string;
     order_type: OrderType;
     status: OrderStatus;

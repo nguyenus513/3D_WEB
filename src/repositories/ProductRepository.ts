@@ -10,6 +10,19 @@ import { SupabaseClient } from '@supabase/supabase-js';
 // Types
 // =============================================================================
 
+export interface ProductImage {
+    url: string;
+    is_main?: boolean;
+}
+
+export interface ProductSize {
+    name: string;
+    price: number;
+    stock: number;
+    enabled?: boolean;
+    image_url?: string | null;
+}
+
 export interface Product {
     id: string;
     sku: string;
@@ -25,8 +38,8 @@ export interface Product {
     cost_price?: number | null;
     stock: number;
     low_stock_alert: number;
-    images: string[];
-    sizes: string[];
+    images: ProductImage[] | string[];
+    sizes: ProductSize[] | string[];
     tags: string[];
     is_featured: boolean;
     created_at: string;

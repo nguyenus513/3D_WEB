@@ -57,9 +57,16 @@ export default function AdminCustomPage() {
     };
 
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-        const supabase = getSupabase();
-        await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-        fetchOrders();
+        try {
+            await fetch(`/api/admin/orders/${orderId}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+            });
+            fetchOrders();
+        } catch (error) {
+            console.error('Error updating status:', error);
+        }
     };
 
     return (

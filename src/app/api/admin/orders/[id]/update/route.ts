@@ -17,16 +17,43 @@ export async function PUT(
 
         const { id } = await params;
         const body = await request.json();
-
         const supabase = getAdminSupabase();
 
-        // Update order with service role (bypass RLS)
-        const { data: order, error } = await supabase
+        // Try order_child table first
+        const { data: childOrder } = await supabase
+            .from('order_child')
+            .select('id')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (childOrder) {
+            // Update order_child table
+            const childUpdates = {
+                ...body,
+                updated_at: new Date().toISOString()
+            };
+
+            const { error } = await supabase
+                .from('order_child')
+                .update(childUpdates)
+                .eq('id', id);
+
+            if (error) {
+                console.error('Order child update error:', error);
+                return NextResponse.json(
+                    { error: 'Không thể cập nhật đơn hàng: ' + error.message },
+                    { status: 500 }
+                );
+            }
+
+            return NextResponse.json({ success: true });
+        }
+
+        // Fallback to orders table
+        const { error } = await supabase
             .from('orders')
             .update(body)
-            .eq('id', id)
-            .select()
-            .single();
+            .eq('id', id);
 
         if (error) {
             console.error('Order update error:', error);
@@ -36,7 +63,7 @@ export async function PUT(
             );
         }
 
-        return NextResponse.json({ success: true, order });
+        return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Admin order update error:', error);
         return NextResponse.json(

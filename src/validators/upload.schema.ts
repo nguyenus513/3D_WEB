@@ -62,16 +62,22 @@ export const UploadRequestSchema = z.object({
     index: z.coerce.number().int().min(1).optional().default(1),
 
     // Product uploads - optional
-    sku: z.string().max(20).nullish(),
+    sku: z.string().max(50).nullish(),
 
     // Order uploads - optional
     customerCode: z.string().nullish(),
     orderCode: z.string().nullish(),
 
-    // Custom order naming - optional
+    // Custom order naming - all optional/nullable for non-custom uploads
     customType: CustomTypeSchema.nullish(),
-    personCount: z.coerce.number().int().min(1).optional().default(1),
-    photoCategory: PhotoCategorySchema.optional().default('main'),
+    personCount: z.preprocess(
+        (val) => (val === null || val === '' || val === undefined) ? undefined : val,
+        z.coerce.number().int().min(1).optional()
+    ),
+    photoCategory: z.preprocess(
+        (val) => (val === null || val === '' || val === undefined) ? undefined : val,
+        PhotoCategorySchema.optional()
+    ),
 
     // Printing order naming - all optional and nullable
     tech: TechSchema.nullish(),

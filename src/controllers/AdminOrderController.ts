@@ -67,7 +67,63 @@ export class AdminOrderController extends BaseController {
             const { authorized } = await requireAdmin(request);
             if (!authorized) throw new UnauthorizedError('Admin access required');
 
-            // Get order with all related data
+            // First try order_child table (new direct orders)
+            const { data: childOrder, error: childError } = await supabaseAdmin
+                .from('order_child')
+                .select('*')
+                .eq('id', orderId)
+                .single();
+
+            if (childOrder && !childError) {
+                // Get profile for child order
+                let profile = null;
+                if (childOrder.user_id) {
+                    const { data: profileData } = await supabaseAdmin
+                        .from('profiles')
+                        .select('id, full_name, email, phone, customer_code')
+                        .eq('id', childOrder.user_id)
+                        .single();
+                    profile = profileData;
+                }
+
+                // Transform to unified format
+                return this.handleSuccess({
+                    order: {
+                        id: childOrder.id,
+                        order_code: childOrder.code_child,
+                        order_type: childOrder.product_type || 'product',
+                        status: childOrder.status,
+                        subtotal: childOrder.total_price,
+                        shipping_fee: 0,
+                        total: childOrder.total_price,
+                        deposit_amount: 0,
+                        deposit_paid: false,
+                        customer_note: '',
+                        admin_note: '',
+                        shipping_code: '',
+                        created_at: childOrder.created_at,
+                        updated_at: childOrder.updated_at,
+                        payment_qr_url: childOrder.payment_qr_url,
+                        metadata: childOrder.metadata,
+                        source: 'order_child',
+                        // Simulated order items from child order
+                        order_items: [{
+                            id: childOrder.id,
+                            product_id: childOrder.product_id,
+                            product_name: childOrder.product_name,
+                            product_sku: childOrder.product_sku,
+                            product_image: null,
+                            size: '',
+                            quantity: childOrder.quantity,
+                            unit_price: childOrder.unit_price,
+                            total_price: childOrder.total_price,
+                        }],
+                    },
+                    profile,
+                });
+            }
+
+            // Fallback to legacy orders table
             const { data: order, error } = await supabaseAdmin
                 .from('orders')
                 .select(`
@@ -129,7 +185,7 @@ export class AdminOrderController extends BaseController {
             const shippingAddress = order.addresses || order.shipping_address || null;
 
             return this.handleSuccess({
-                order: { ...order, custom_config, printing_config, shipping_address: shippingAddress },
+                order: { ...order, custom_config, printing_config, shipping_address: shippingAddress, source: 'orders' },
                 profile: order.profiles,
             });
         }, 'AdminOrderController.getOrder');
@@ -144,16 +200,38 @@ export class AdminOrderController extends BaseController {
             const { authorized } = await requireAdmin(request);
             if (!authorized) throw new UnauthorizedError('Admin access required');
 
-            // Verify order exists
+            const body = await request.json();
+
+            // Try order_child table first
+            const { data: childOrder } = await supabaseAdmin
+                .from('order_child')
+                .select('id, status')
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (childOrder) {
+                // Update order_child table
+                const childUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+                if (body.status) childUpdates.status = body.status;
+
+                const { error } = await supabaseAdmin
+                    .from('order_child')
+                    .update(childUpdates)
+                    .eq('id', orderId);
+
+                if (error) throw error;
+                return this.handleSuccess({ success: true });
+            }
+
+            // Fallback to orders table
             const { data: existingOrder } = await supabaseAdmin
                 .from('orders')
                 .select('id, status')
                 .eq('id', orderId)
-                .single();
+                .maybeSingle();
 
             if (!existingOrder) throw new NotFoundError('Order not found');
 
-            const body = await request.json();
             const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
             // Handle status with timestamps
@@ -212,25 +290,67 @@ export class AdminOrderController extends BaseController {
     // ==========================================================================
 
     private async getOrdersWithProfiles(orderType: string, page: number, limit: number) {
-        let query = supabaseAdmin
+        // Query from order_child table (new direct orders)
+        const { data: childOrders, error: childError } = await supabaseAdmin
+            .from('order_child')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (childError) {
+            console.error('[AdminOrders] Failed to fetch order_child:', childError);
+        }
+
+        // Query from legacy orders table
+        let legacyQuery = supabaseAdmin
             .from('orders')
-            .select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range((page - 1) * limit, page * limit - 1);
+            .select('*')
+            .order('created_at', { ascending: false });
 
         if (orderType !== 'all') {
-            query = query.eq('order_type', orderType);
+            legacyQuery = legacyQuery.eq('order_type', orderType);
         }
 
-        const { data: orders, count, error } = await query;
+        const { data: legacyOrders, error: legacyError } = await legacyQuery;
 
-        if (error) throw error;
-        if (!orders || orders.length === 0) {
-            return { orders: [], total: 0, page, limit };
+        if (legacyError) {
+            console.error('[AdminOrders] Failed to fetch orders:', legacyError);
         }
 
-        // Get profiles
-        const userIds = [...new Set(orders.map(o => o.user_id).filter(Boolean))] as string[];
+        // Transform child orders to unified format
+        const transformedChildOrders = (childOrders || []).map(order => ({
+            id: order.id,
+            order_code: order.code_child,
+            order_type: order.product_type || 'product',
+            user_id: order.user_id,
+            status: order.status,
+            subtotal: order.total_price,
+            total: order.total_price,
+            product_name: order.product_name,
+            quantity: order.quantity,
+            unit_price: order.unit_price,
+            payment_qr_url: order.payment_qr_url,
+            metadata: order.metadata,
+            created_at: order.created_at,
+            updated_at: order.updated_at,
+            source: 'order_child' as const,
+        }));
+
+        // Transform legacy orders
+        const transformedLegacyOrders = (legacyOrders || []).map(order => ({
+            ...order,
+            source: 'orders' as const,
+        }));
+
+        // Merge and sort by created_at
+        const allOrders = [...transformedChildOrders, ...transformedLegacyOrders]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        // Apply pagination manually after merge
+        const total = allOrders.length;
+        const paginatedOrders = allOrders.slice((page - 1) * limit, page * limit);
+
+        // Get profiles for all orders
+        const userIds = [...new Set(paginatedOrders.map(o => o.user_id).filter(Boolean))] as string[];
         let profileMap: Record<string, unknown> = {};
 
         if (userIds.length > 0) {
@@ -244,12 +364,12 @@ export class AdminOrderController extends BaseController {
             }
         }
 
-        const ordersWithProfiles = orders.map(order => ({
+        const ordersWithProfiles = paginatedOrders.map(order => ({
             ...order,
             profiles: order.user_id && profileMap[order.user_id] ? profileMap[order.user_id] : null,
         }));
 
-        return { orders: ordersWithProfiles, total: count || 0, page, limit };
+        return { orders: ordersWithProfiles, total, page, limit };
     }
 }
 

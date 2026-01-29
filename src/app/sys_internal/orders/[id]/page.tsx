@@ -137,25 +137,71 @@ export default function AdminOrderDetailPage() {
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [adminNote, setAdminNote] = useState('');
     const [uploadingDemo, setUploadingDemo] = useState(false);
+    const [archiving, setArchiving] = useState(false);
+    const [archiveError, setArchiveError] = useState('');
 
+    // Archive order files (R2 → Google Drive)
+    const handleArchiveFiles = async () => {
+        if (!order) return;
+        setArchiving(true);
+        setArchiveError('');
+
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/archive`, {
+                method: 'POST',
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error?.message || data.error || 'Archive failed');
+            }
+
+            alert(`✅ Đã lưu trữ ${data.archived} file sang Google Drive`);
+            fetchOrder(); // Refresh to show updated admin_note
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Archive failed';
+            setArchiveError(msg);
+            console.error('Archive error:', msg);
+        }
+        setArchiving(false);
+    };
     useEffect(() => {
-        fetchOrder();
+        if (params.id && typeof params.id === 'string') {
+            fetchOrder();
+        }
     }, [params.id]);
 
     const fetchOrder = async () => {
+        // Guard against undefined orderId
+        const orderId = params.id;
+        if (!orderId || typeof orderId !== 'string') {
+            console.error('Invalid order ID:', orderId);
+            setLoading(false);
+            return;
+        }
+
         try {
             // Use admin API to bypass RLS
-            const res = await fetch(`/api/admin/orders/${params.id}`);
-            const data = await res.json();
+            const res = await fetch(`/api/admin/orders/${orderId}`);
+            const json = await res.json();
 
-            if (data.error) {
-                console.error('Error fetching order:', data.error);
+            // Handle both error formats
+            if (!json.success || json.error) {
+                console.error('Error fetching order:', json.error || 'Unknown error');
                 setLoading(false);
                 return;
             }
 
-            const orderData = data.order;
-            const profileData = data.profile;
+            // API wraps in { success: true, data: { order, profile } }
+            const orderData = json.data?.order;
+            const profileData = json.data?.profile;
+
+            // Guard against undefined orderData
+            if (!orderData) {
+                console.error('Order data is undefined. API response:', json);
+                setLoading(false);
+                return;
+            }
 
             // Map order items with proper structure
             const items = (orderData.order_items || []).map((item: {
@@ -536,6 +582,41 @@ export default function AdminOrderDetailPage() {
                                         />
                                     </a>
                                 </div>
+                            )}
+                        </motion.div>
+                    )}
+
+                    {/* Archive Files Section - Show when order is delivered */}
+                    {order.status === 'delivered' && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-white font-semibold flex items-center gap-2">
+                                        📦 Lưu trữ file
+                                    </h3>
+                                    <p className="text-white/50 text-sm mt-1">
+                                        Chuyển file từ R2 sang Google Drive để lưu trữ lâu dài
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleArchiveFiles}
+                                    disabled={archiving}
+                                    className="px-6 py-2.5 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
+                                >
+                                    {archiving ? (
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Đang lưu trữ...
+                                        </span>
+                                    ) : 'Archive to Drive'}
+                                </button>
+                            </div>
+                            {archiveError && (
+                                <p className="text-red-400 text-sm mt-3">❌ {archiveError}</p>
                             )}
                         </motion.div>
                     )}

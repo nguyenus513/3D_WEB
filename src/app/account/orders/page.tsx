@@ -77,7 +77,8 @@ export default function AccountOrdersPage() {
         if (!session?.user?.email) return;
 
         try {
-            const res = await fetch('/api/orders');
+            // Call unified API that fetches from both order_child and orders tables
+            const res = await fetch('/api/orders/my-orders');
             if (res.ok) {
                 const response = await res.json();
                 // API returns { success: true, data: [...], meta: {...} }

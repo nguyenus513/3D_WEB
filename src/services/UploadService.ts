@@ -99,14 +99,13 @@ export class UploadService {
         }
 
         // Determine storage destination
-        const destination = getStorageDestination(safeFilename, params.type as UploadType);
+        // Determine storage destination
+        // HYBRID STORAGE STRATEGY (Hot vs Cold):
+        // All new uploads go to R2 (Hot Storage) for reliability and speed.
+        // Google Drive is used ONLY for archival (Cold Storage) via separate process.
+        // This prevents checkout failures due to Drive token expiration.
 
-        // Route to appropriate storage
-        if (destination === 'drive') {
-            return this.uploadToDrive(buffer, file, params);
-        } else {
-            return this.uploadToR2Storage(buffer, file, params, userId);
-        }
+        return this.uploadToR2Storage(buffer, file, params, userId);
     }
 
     /**
@@ -173,8 +172,9 @@ export class UploadService {
         userId: string
     ): Promise<UploadResult> {
         if (!isR2Configured()) {
-            // Fallback to Drive if R2 not configured
-            console.warn('[Upload] R2 not configured, falling back to Drive');
+            // Log detailed error for debugging
+            console.error('[Upload] R2 not configured! Missing env vars: CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY');
+            console.warn('[Upload] Falling back to Google Drive...');
             return this.uploadToDrive(buffer, file, params);
         }
 
@@ -227,10 +227,13 @@ export class UploadService {
             success: true,
             storage: 'r2',
             file: {
-                key,
+                key, // R2 key
+                id: key, // Map key to id for compatibility
                 name: file.name,
                 url: secureUrl,
                 thumbnail: secureUrl,
+                viewUrl: secureUrl, // Map to viewUrl for compatibility
+                downloadUrl: secureUrl,
             },
         };
     }
@@ -259,7 +262,7 @@ export class UploadService {
         }
 
         if (type.startsWith('custom_') && customType && orderCode) {
-            return generateCustomR2Key(orderCode, customType, personCount, photoCategory, index, ext);
+            return generateCustomR2Key(orderCode, customType, personCount || 1, photoCategory || 'main', index, ext);
         }
 
         // Fallback to legacy naming

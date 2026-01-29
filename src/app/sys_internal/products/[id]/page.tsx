@@ -95,49 +95,10 @@ export default function AdminProductEditPage() {
         setLoading(false);
     };
 
-    const fetchBuyers = async (productId: string) => {
-        const supabase = getSupabase();
-
-        // Get order items for this product
-        const { data: orderItems } = await supabase
-            .from('order_items')
-            .select('quantity, order_id')
-            .eq('product_id', productId);
-
-        if (!orderItems || orderItems.length === 0) return;
-
-        // Get order details with customer info
-        const orderIds = [...new Set(orderItems.map((item: { order_id: string }) => item.order_id))];
-        const { data: orders } = await supabase
-            .from('orders')
-            .select('id, order_code, created_at, shipping_address, user_id')
-            .in('id', orderIds)
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (!orders) return;
-
-        // Map to buyer info
-        interface OrderData {
-            id: string;
-            order_code: string;
-            created_at: string;
-            shipping_address: { full_name?: string; phone?: string } | null;
-            user_id: string;
-        }
-        const buyersList: Buyer[] = orders.map((order: OrderData) => {
-            const orderItem = orderItems.find((item: { order_id: string; quantity: number }) => item.order_id === order.id);
-            return {
-                name: order.shipping_address?.full_name || 'Khách',
-                email: '',
-                phone: order.shipping_address?.phone || '',
-                order_code: order.order_code,
-                quantity: orderItem?.quantity || 0,
-                purchased_at: order.created_at,
-            };
-        });
-
-        setBuyers(buyersList);
+    const fetchBuyers = async (_productId: string) => {
+        // Note: order_items query removed due to RLS restrictions
+        // TODO: Create admin API endpoint for buyer stats if needed
+        setBuyers([]);
     };
 
     // When pricing mode changes, clear the other mode's values

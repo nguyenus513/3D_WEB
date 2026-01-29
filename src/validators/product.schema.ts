@@ -17,12 +17,29 @@ export const ProductType = z.enum(['ready_made', 'custom', 'print_on_demand']);
 export type ProductTypeS = z.infer<typeof ProductType>;
 
 // =============================================================================
+// Image & Size Schemas
+// =============================================================================
+
+export const ProductImageSchema = z.object({
+    url: z.string().min(1), // Can be relative path like /api/files/...
+    is_main: z.boolean().optional().default(false),
+});
+
+export const ProductSizeSchema = z.object({
+    name: z.string().min(1),
+    price: z.coerce.number().int().min(0),
+    stock: z.coerce.number().int().min(0).default(0),
+    enabled: z.boolean().default(true),
+    image_url: z.string().optional().nullable(), // Image per size
+});
+
+// =============================================================================
 // Create Product Schema
 // =============================================================================
 
 export const CreateProductSchema = z.object({
     name: z.string().min(1).max(150),
-    sku: z.string().min(1).max(20),
+    sku: z.string().min(1).max(50),
     slug: z.string().max(150).optional(),
     category_id: z.string().uuid().optional().nullable(),
     type: ProductType.default('ready_made'),
@@ -34,13 +51,15 @@ export const CreateProductSchema = z.object({
     cost_price: z.coerce.number().int().min(0).optional().nullable(),
     stock: z.coerce.number().int().min(0).default(0),
     low_stock_alert: z.coerce.number().int().min(0).default(5),
-    images: z.array(z.string().url()).optional().default([]),
-    sizes: z.array(z.string()).optional().default([]),
+    images: z.array(ProductImageSchema).optional().default([]),
+    sizes: z.array(ProductSizeSchema).optional().default([]),
     tags: z.array(z.string()).optional().default([]),
     is_featured: z.boolean().default(false),
 });
 
 export type CreateProductInput = z.infer<typeof CreateProductSchema>;
+export type ProductImageInput = z.infer<typeof ProductImageSchema>;
+export type ProductSizeInput = z.infer<typeof ProductSizeSchema>;
 
 // =============================================================================
 // Update Product Schema
