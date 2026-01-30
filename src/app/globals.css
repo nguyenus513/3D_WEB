@@ -10,52 +10,96 @@
    ============================================ */
 
 :root {
-  /* === DARK MODE (Default - Lusion + Apple style) === */
+  /* === VISIONARY SPATIAL DESIGN SYSTEM ===
+     Inspired by Apple Vision OS + Lusion Physics
+     Core Concept: "Digital Matter" - Elements have mass, friction, and optical properties.
+  */
 
-  /* Background */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #1D1D1F;
-  --bg-tertiary: #2D2D2F;
+  /* --- SPATIAL BACKGROUND --- */
+  --bg-void: #F5F6FA;
+  /* "Cloud" White - The infinite canvas */
+  --bg-flat: #FFFFFF;
+  /* Pure surface */
 
-  /* Text */
-  --text-primary: #F5F5F7;
-  --text-secondary: #A1A1A6;
-  --text-tertiary: #6E6E73;
+  /* --- ADAPTIVE MATERIALS (The Glass) --- */
+  /* Panel: Main structural element (Sidebar, Cards) */
+  --material-panel: rgba(255, 255, 255, 0.75);
+  --blur-panel: 24px;
+  --saturate-panel: 180%;
+  /* Vibrancy */
 
-  /* Accent */
+  /* Overlay: Floating elements (Modals, Dropdowns) */
+  --material-overlay: rgba(255, 255, 255, 0.85);
+  --blur-overlay: 32px;
+
+  /* Glass: Thin elements (Badges, Inputs) */
+  --material-glass: rgba(255, 255, 255, 0.45);
+  --blur-glass: 12px;
+
+  /* --- CAUSTIC LIGHTING (Borders & Highlights) --- */
+  /* Top-left light source simulation */
+  --edge-light: rgba(255, 255, 255, 0.9);
+  --edge-shade: rgba(255, 255, 255, 0.2);
+  --border-spatial: 1px solid rgba(255, 255, 255, 0.5);
+
+  /* --- SPATIAL SHADOWS (3-Layer Depth) --- */
+  /* Level 1: Resting on surface */
+  --shadow-1:
+    0 4px 6px -1px rgba(0, 0, 0, 0.02),
+    0 2px 4px -2px rgba(0, 0, 0, 0.02);
+
+  /* Level 2: Floating (Cards, Hover) */
+  --shadow-2:
+    0 12px 16px -4px rgba(0, 0, 0, 0.04),
+    0 4px 6px -2px rgba(0, 0, 0, 0.02),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  /* Inner light */
+
+  /* Level 3: High Float (Modals, Active Drag) */
+  --shadow-3:
+    0 24px 48px -12px rgba(85, 105, 135, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+
+  /* --- COLOR PHYSICS --- */
+  /* Primary Action: "Electric Blue" with inner luminosity */
   --color-accent: #0071E3;
-  --color-accent-hover: #0077ED;
+  --color-accent-glow: rgba(0, 113, 227, 0.4);
+
+  /* Text: High Contrast on Glass */
+  --text-primary: #1D1D1F;
+  /* "Dark Sulfate" */
+  --text-secondary: #6E6E73;
+  /* "Graphite" */
+  --text-tertiary: #86868b;
 
   /* Status */
-  --color-success: #30D158;
-  --color-error: #FF453A;
-  --color-warning: #FFD60A;
+  --color-success: #059669;
+  --color-error: #DC2626;
 
-  /* Card */
-  --card-bg: #1D1D1F;
-  --card-border: rgba(255, 255, 255, 0.08);
-
-  /* Light sections (for contrast) */
-  --bg-light: #FFFFFF;
-  --bg-light-secondary: #F5F5F7;
-  --text-dark: #1D1D1F;
-  --text-dark-secondary: #6E6E73;
-
-  /* Fonts */
+  /* --- FONTS --- */
   --font-body: var(--font-be-vietnam-pro), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-heading: var(--font-be-vietnam-pro), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Light mode variables */
-[data-theme="light"] {
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F5F5F7;
-  --bg-tertiary: #E8E8ED;
-  --text-primary: #1D1D1F;
-  --text-secondary: #6E6E73;
-  --text-tertiary: #A1A1A6;
-  --card-bg: #FFFFFF;
-  --card-border: rgba(0, 0, 0, 0.08);
+/* Dark Mode Adaptation (Vision Pro Night Mode) */
+[data-theme="dark"] {
+  --bg-void: #050505;
+  --bg-flat: #0a0a0a;
+
+  --material-panel: rgba(20, 20, 20, 0.75);
+  --material-overlay: rgba(30, 30, 30, 0.85);
+  --material-glass: rgba(255, 255, 255, 0.05);
+
+  --edge-light: rgba(255, 255, 255, 0.15);
+  --edge-shade: rgba(255, 255, 255, 0.02);
+  --border-spatial: 1px solid rgba(255, 255, 255, 0.08);
+
+  --shadow-1: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 12px 16px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --shadow-3: 0 24px 48px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+
+  --text-primary: #F5F5F7;
+  --text-secondary: #A1A1A6;
 }
 
 @theme inline {

@@ -1,10 +1,20 @@
 'use client';
 
+/**
+ * AdminSidebar (Visionary Spatial Edition)
+ * 
+ * Features:
+ * - Vertical Prism Style: Uses --material-panel for a glass effect.
+ * - Liquid Hover: Nav items flow with magnetic physics.
+ * - Refractive Active State: Active items look like etched glass.
+ */
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signOut } from 'next-auth/react';
+import { clsx } from 'clsx';
 
 interface NavItem {
     name: string;
@@ -93,23 +103,18 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
     const [adminRoot, setAdminRoot] = useState('');
 
     useEffect(() => {
-        // Detect current random root (the first segment 50 chars)
-        // e.g. /ABC...XYZ/orders -> /ABC...XYZ
         if (pathname) {
             const parts = pathname.split('/');
             if (parts.length >= 2) {
-                // Determine if this is a random token path
-                // Simple heuristic: Not 'login', not 'api', etc.
                 const rootSegment = parts[1];
-                if (rootSegment && rootSegment.length > 20) { // Random tokens are long
+                if (rootSegment && rootSegment.length > 20) {
                     setAdminRoot(`/${rootSegment}`);
                 }
             }
         }
     }, [pathname]);
 
-    // Fallback if we can't detect (shouldn't happen in admin)
-    const effectiveRoot = adminRoot || '/sys_internal'; // Default to internal if detection fails
+    const effectiveRoot = adminRoot || '/sys_internal';
 
     const toggleExpand = (name: string) => {
         setExpandedItems(prev =>
@@ -120,29 +125,36 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
     };
 
     return (
-        <aside className={`
-            fixed left-0 top-0 h-screen w-64 bg-[#0a0a0a] border-r border-white/10 flex flex-col z-50
-            transform transition-transform duration-300 ease-in-out
-            ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        <aside className={clsx(`
+            fixed left-0 top-0 h-screen w-64 z-50 flex flex-col
+            transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)
+            border-r border-[var(--edge-light)]
             lg:translate-x-0
-        `}>
+            glass-panel
+        `,
+            isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+            style={{
+                background: 'var(--material-panel)',
+                backdropFilter: 'blur(var(--blur-panel)) saturate(var(--saturate-panel))'
+            }}>
             {/* Logo */}
-            <div className="p-6 border-b border-white/10">
-                <Link href={adminRoot || '/sys_internal'} className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center">
-                        <svg className="w-5 h-5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="p-6 border-b border-[var(--edge-shade)]">
+                <Link href={adminRoot || '/sys_internal'} className="flex items-center gap-3 group">
+                    <div className="w-10 h-10 rounded-2xl bg-white shadow-lg flex items-center justify-center transition-transform group-hover:scale-105 group-hover:rotate-3">
+                        <svg className="w-6 h-6 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                         </svg>
                     </div>
                     <div>
-                        <span className="text-white font-semibold">3D Print</span>
-                        <span className="text-white/50 text-xs block">Admin Panel</span>
+                        <span className="text-[var(--text-primary)] font-bold tracking-tight text-lg block">3D Print</span>
+                        <span className="text-[var(--text-secondary)] text-xs block font-medium">Admin Studio</span>
                     </div>
                 </Link>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
                 {navConfig.map((item) => {
                     const fullHref = `${effectiveRoot}${item.path}`;
                     const isActive = pathname === fullHref ||
@@ -150,24 +162,25 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                     const isExpanded = expandedItems.includes(item.name);
                     const hasChildren = item.children && item.children.length > 0;
 
+                    const activeClass = isActive
+                        ? 'bg-[var(--color-accent)] text-white shadow-md'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]';
+
                     return (
                         <div key={fullHref}>
                             {hasChildren ? (
                                 <>
                                     <button
                                         onClick={() => toggleExpand(item.name)}
-                                        className={`
-                                            w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-                                            ${isActive
-                                                ? 'bg-white/10 text-white'
-                                                : 'text-white/70 hover:text-white hover:bg-white/5'
-                                            }
-                                        `}
+                                        className={clsx(`
+                                            w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
+                                            border border-transparent
+                                        `, isActive ? 'bg-white/10 text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]')}
                                     >
-                                        {item.icon}
-                                        <span className="font-medium flex-1 text-left">{item.name}</span>
+                                        <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
+                                        <span className="font-semibold flex-1 text-left text-sm">{item.name}</span>
                                         <svg
-                                            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                            className={clsx("w-4 h-4 transition-transform duration-300", isExpanded ? 'rotate-180' : '')}
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -181,24 +194,27 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                                 initial={{ height: 0, opacity: 0 }}
                                                 animate={{ height: 'auto', opacity: 1 }}
                                                 exit={{ height: 0, opacity: 0 }}
-                                                transition={{ duration: 0.2 }}
+                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                                 className="overflow-hidden"
                                             >
-                                                <div className="pl-12 py-1 space-y-1">
+                                                <div className="pl-4 py-2 space-y-1 relative">
+                                                    {/* Guide line */}
+                                                    <div className="absolute left-6 top-2 bottom-2 w-px bg-[var(--edge-shade)]" />
+
                                                     {item.children?.map((child) => {
                                                         const childHref = `${effectiveRoot}${child.path}`;
-                                                        const isChildActive = pathname === childHref.split('?')[0]; // Simple active check ignoring query
+                                                        const isChildActive = pathname === childHref.split('?')[0];
                                                         return (
                                                             <Link
                                                                 key={childHref}
                                                                 href={childHref}
-                                                                className={`
-                                                                    block px-3 py-2 rounded-lg text-sm transition-colors
-                                                                    ${isChildActive
-                                                                        ? 'bg-white text-black font-medium'
-                                                                        : 'text-white/60 hover:text-white hover:bg-white/5'
-                                                                    }
-                                                                 `}
+                                                                className={clsx(`
+                                                                    block pl-8 pr-4 py-2.5 rounded-xl text-sm transition-all relative
+                                                                    font-medium
+                                                                `, isChildActive
+                                                                    ? 'text-[var(--color-accent)] bg-[var(--color-accent-glow)]'
+                                                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                                                )}
                                                             >
                                                                 {child.name}
                                                             </Link>
@@ -212,20 +228,21 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                             ) : (
                                 <Link
                                     href={fullHref}
-                                    className={`
-                                        flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-                                        ${isActive
-                                            ? 'bg-white text-black'
-                                            : 'text-white/70 hover:text-white hover:bg-white/5'
-                                        }
-                                    `}
+                                    className={clsx(`
+                                        flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
+                                        border border-transparent
+                                    `, isActive
+                                        ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-2)]'
+                                        : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]'
+                                    )}
                                 >
-                                    {item.icon}
-                                    <span className="font-medium">{item.name}</span>
+                                    <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
+                                    <span className="font-semibold text-sm">{item.name}</span>
                                     {isActive && (
                                         <motion.div
-                                            layoutId="sidebar-indicator"
-                                            className="ml-auto w-1.5 h-1.5 rounded-full bg-black"
+                                            layoutId="sidebar-active-glow"
+                                            className="absolute inset-0 rounded-2xl bg-white/20 blur-lg -z-10"
+                                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                         />
                                     )}
                                 </Link>
@@ -236,21 +253,19 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
             </nav>
 
             {/* User section */}
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t border-[var(--edge-shade)]">
                 <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-[var(--material-glass)] transition-all cursor-pointer text-left border border-transparent hover:border-[var(--edge-light)] group"
                 >
-                    <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-accent)] to-[#4F46E5] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+                        <span className="font-bold text-sm">{session?.user?.name?.[0]?.toUpperCase() || 'A'}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <span className="text-white text-sm font-medium block truncate">{session?.user?.name || 'Admin'}</span>
-                        <span className="text-white/50 text-xs block truncate">{session?.user?.email || ''}</span>
+                        <span className="text-[var(--text-primary)] text-sm font-bold block truncate">{session?.user?.name || 'Admin'}</span>
+                        <span className="text-[var(--text-secondary)] text-xs block truncate font-medium">{session?.user?.email || ''}</span>
                     </div>
-                    <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                 </button>

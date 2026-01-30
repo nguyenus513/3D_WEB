@@ -1,18 +1,21 @@
 'use client';
 
 /**
- * GlassCard Component
+ * GlassCard Component (Legacy Wrapper -> Upgraded to Spatial)
  * 
- * Modern glassmorphism card with hover effects and glow.
- * Follows ui-ux-pro-max glassmorphism guidelines.
+ * This component now wraps the high-fidelity SpatialCard to ensure
+ * immediate system-wide upgrade without refactoring every import.
+ * 
+ * It maps the old 'variant' props to new Spatial 'depth' and 'variant' settings.
  */
 
-import { type ReactNode, type HTMLAttributes } from 'react';
-import { motion, type HTMLMotionProps } from 'framer-motion';
+import { type ReactNode } from 'react';
+import { type HTMLMotionProps } from 'framer-motion';
 import { clsx } from 'clsx';
+import { SpatialCard } from './SpatialCard';
 
 // =============================================================================
-// Types
+// Types (Kept for compatibility)
 // =============================================================================
 
 type GlassVariant = 'default' | 'subtle' | 'dark' | 'light' | 'glow';
@@ -28,53 +31,30 @@ interface GlassCardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
 }
 
 // =============================================================================
-// Variant Config
+// Adapter Logic
 // =============================================================================
 
-const variantConfig = {
-    default: {
-        bg: 'bg-[rgba(29,29,31,0.9)]',
-        backdrop: 'backdrop-blur-xl',
-        border: 'border-white/10',
-    },
-    subtle: {
-        bg: 'bg-[rgba(255,255,255,0.03)]',
-        backdrop: 'backdrop-blur-md',
-        border: 'border-white/5',
-    },
-    dark: {
-        bg: 'bg-[rgba(10,10,10,0.95)]',
-        backdrop: 'backdrop-blur-xl',
-        border: 'border-white/8',
-    },
-    light: {
-        bg: 'bg-[rgba(255,255,255,0.85)]',
-        backdrop: 'backdrop-blur-xl',
-        border: 'border-black/5',
-    },
-    glow: {
-        bg: 'bg-[rgba(29,29,31,0.8)]',
-        backdrop: 'backdrop-blur-xl',
-        border: 'border-[#0071E3]/30',
-    },
+const sizeStyles = {
+    sm: 'p-4',
+    md: 'p-6',
+    lg: 'p-8',
+    xl: 'p-10',
 };
 
-const sizeConfig = {
-    sm: 'p-4 rounded-xl',
-    md: 'p-6 rounded-2xl',
-    lg: 'p-8 rounded-2xl',
-    xl: 'p-10 rounded-3xl',
-};
-
-const glowConfig = {
-    primary: 'shadow-[0_0_30px_rgba(0,113,227,0.15)]',
-    accent: 'shadow-[0_0_30px_rgba(139,92,246,0.15)]',
-    white: 'shadow-[0_0_30px_rgba(255,255,255,0.05)]',
-    none: '',
-};
+// Map legacy variants to new Spatial props
+function getSpatialProps(variant: GlassVariant): { variant: 'panel' | 'glass' | 'overlay', depth: 'level-1' | 'level-2' | 'level-3' } {
+    switch (variant) {
+        case 'default': return { variant: 'panel', depth: 'level-1' };
+        case 'subtle': return { variant: 'glass', depth: 'level-1' };
+        case 'dark': return { variant: 'panel', depth: 'level-2' }; // Dark/Heavy -> Panel L2
+        case 'light': return { variant: 'overlay', depth: 'level-2' }; // Light/Floaty -> Overlay L2
+        case 'glow': return { variant: 'glass', depth: 'level-3' }; // Glow -> High float
+        default: return { variant: 'panel', depth: 'level-1' };
+    }
+}
 
 // =============================================================================
-// GlassCard Component
+// Component
 // =============================================================================
 
 export function GlassCard({
@@ -82,146 +62,75 @@ export function GlassCard({
     variant = 'default',
     size = 'md',
     hoverable = true,
-    glowColor = 'none',
+    glowColor = 'none', // Deprecated in Spatial but kept for type safety
     className,
     ...props
 }: GlassCardProps) {
-    const vConfig = variantConfig[variant];
+    const { variant: spatialVariant, depth } = getSpatialProps(variant);
 
     return (
-        <motion.div
-            whileHover={hoverable ? { scale: 1.02, y: -4 } : undefined}
-            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-            className={clsx(
-                'relative overflow-hidden border transition-shadow duration-300',
-                vConfig.bg,
-                vConfig.backdrop,
-                vConfig.border,
-                sizeConfig[size],
-                glowConfig[glowColor],
-                hoverable && 'hover:shadow-lg hover:border-white/20',
-                className
-            )}
+        <SpatialCard
+            variant={spatialVariant}
+            depth={depth}
+            hoverable={hoverable}
+            className={clsx(sizeStyles[size], className)}
             {...props}
         >
-            {/* Gradient overlay on hover */}
-            {hoverable && (
-                <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
-            )}
-
-            {/* Content */}
-            <div className="relative z-10">{children}</div>
-        </motion.div>
+            {children}
+        </SpatialCard>
     );
 }
 
 // =============================================================================
-// Glass Card Parts
+// Parts (Composed)
 // =============================================================================
 
-export function GlassCardHeader({
-    children,
-    className,
-}: {
-    children: ReactNode;
-    className?: string;
-}) {
-    return (
-        <div className={clsx('mb-4', className)}>
-            {children}
-        </div>
-    );
+export function GlassCardHeader({ children, className }: { children: ReactNode; className?: string }) {
+    return <div className={clsx('mb-4', className)}>{children}</div>;
 }
 
-export function GlassCardTitle({
-    children,
-    className,
-}: {
-    children: ReactNode;
-    className?: string;
-}) {
-    return (
-        <h3 className={clsx('text-xl font-semibold text-white', className)}>
-            {children}
-        </h3>
-    );
+export function GlassCardTitle({ children, className }: { children: ReactNode; className?: string }) {
+    return <h3 className={clsx('text-xl font-bold text-[var(--text-primary)]', className)}>{children}</h3>;
 }
 
-export function GlassCardDescription({
-    children,
-    className,
-}: {
-    children: ReactNode;
-    className?: string;
-}) {
-    return (
-        <p className={clsx('mt-1 text-sm text-white/60', className)}>
-            {children}
-        </p>
-    );
+export function GlassCardDescription({ children, className }: { children: ReactNode; className?: string }) {
+    return <p className={clsx('mt-1 text-sm text-[var(--text-secondary)]', className)}>{children}</p>;
 }
 
-export function GlassCardContent({
-    children,
-    className,
-}: {
-    children: ReactNode;
-    className?: string;
-}) {
-    return <div className={clsx('', className)}>{children}</div>;
+export function GlassCardContent({ children, className }: { children: ReactNode; className?: string }) {
+    return <div className={className}>{children}</div>;
 }
 
-export function GlassCardFooter({
-    children,
-    className,
-}: {
-    children: ReactNode;
-    className?: string;
-}) {
-    return (
-        <div className={clsx('mt-6 flex items-center justify-between', className)}>
-            {children}
-        </div>
-    );
+export function GlassCardFooter({ children, className }: { children: ReactNode; className?: string }) {
+    return <div className={clsx('mt-6 flex items-center justify-between', className)}>{children}</div>;
 }
 
 // =============================================================================
-// Stat Card - Common pattern for dashboards
+// Stat Card Adapter
 // =============================================================================
 
 interface StatCardProps {
     title: string;
     value: string | number;
-    change?: {
-        value: number;
-        type: 'increase' | 'decrease' | 'neutral';
-    };
+    change?: { value: number; type: 'increase' | 'decrease' | 'neutral' };
     icon?: ReactNode;
     className?: string;
 }
 
-export function StatCard({
-    title,
-    value,
-    change,
-    icon,
-    className,
-}: StatCardProps) {
+export function StatCard({ title, value, change, icon, className }: StatCardProps) {
     return (
-        <GlassCard size="md" glowColor="none" className={className}>
+        <GlassCard size="md" className={className}>
             <div className="flex items-start justify-between">
                 <div>
-                    <p className="text-sm text-white/60">{title}</p>
-                    <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+                    <p className="text-sm font-medium text-[var(--text-secondary)]">{title}</p>
+                    <p className="mt-2 text-3xl font-bold text-[var(--text-primary)] tracking-tight">{value}</p>
                     {change && (
-                        <p
-                            className={clsx(
-                                'mt-2 text-sm font-medium flex items-center gap-1',
-                                change.type === 'increase' && 'text-green-500',
-                                change.type === 'decrease' && 'text-red-500',
-                                change.type === 'neutral' && 'text-white/40'
-                            )}
-                        >
+                        <p className={clsx(
+                            'mt-2 text-sm font-semibold flex items-center gap-1',
+                            change.type === 'increase' && 'text-[var(--color-success)]',
+                            change.type === 'decrease' && 'text-[var(--color-error)]',
+                            change.type === 'neutral' && 'text-[var(--text-tertiary)]'
+                        )}>
                             {change.type === 'increase' && '↑'}
                             {change.type === 'decrease' && '↓'}
                             {change.value}%
@@ -229,7 +138,7 @@ export function StatCard({
                     )}
                 </div>
                 {icon && (
-                    <div className="p-3 rounded-xl bg-white/5">
+                    <div className="p-3 rounded-2xl bg-[var(--material-glass)] text-[var(--color-accent)] shadow-sm border border-white/20">
                         {icon}
                     </div>
                 )}
