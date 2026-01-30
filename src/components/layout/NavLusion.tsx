@@ -11,7 +11,6 @@ const navLinks = [
     {
         name: 'HOME',
         href: '/',
-        active: true,
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -151,78 +150,80 @@ export function NavLusion() {
             <AnimatePresence>
                 {isOpen && (
                     <>
-                        {/* Backdrop */}
+                        {/* Backdrop - Darker & Faster */}
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="fixed inset-0 z-[90]"
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"
                             onClick={() => setIsOpen(false)}
                         />
 
-                        {/* Menu Panel */}
+                        {/* Menu Panel - Spring Physics */}
                         <motion.div
-                            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                            initial={{ opacity: 0, y: -20, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                            className="fixed top-24 left-4 md:left-6 z-[95] w-[calc(100%-2rem)] md:w-[360px] space-y-4"
+                            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 400,
+                                damping: 25,
+                                mass: 1
+                            }}
+                            className="fixed top-24 left-4 md:left-6 z-[95] w-[calc(100%-2rem)] md:w-[360px] space-y-4 origin-top"
                         >
                             {/* Navigation Card */}
-                            <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-white/20">
+                            <div className="bg-[#1D1D1F]/90 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl border border-white/10 overflow-hidden">
                                 <nav className="space-y-1">
-                                    {navLinks.map((link, index) => (
-                                        <motion.div
-                                            key={link.name}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: index * 0.05 }}
-                                        >
+                                    {navLinks.map((link) => {
+                                        // Calculate active state dynamically
+                                        const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+
+                                        return (
                                             <Link
+                                                key={link.name}
                                                 href={link.href}
                                                 onClick={() => setIsOpen(false)}
-                                                className="flex items-center gap-4 py-3 px-4 rounded-xl text-white font-medium text-lg hover:bg-white/10 transition-colors group"
+                                                className={`flex items-center gap-4 py-3 px-4 rounded-xl text-white font-medium text-lg hover:bg-white/10 transition-colors group relative ${isActive ? 'bg-white/5' : ''}`}
                                             >
-                                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/70 group-hover:text-white group-hover:bg-white/20 transition-all">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border ${isActive ? 'bg-white/20 text-white border-white/20' : 'bg-white/5 text-white/70 group-hover:text-white group-hover:bg-white/20 border-white/5'}`}>
                                                     {link.icon}
                                                 </div>
                                                 <div className="flex-1 flex items-center justify-between">
                                                     {link.name}
-                                                    {link.active && (
-                                                        <span className="w-2 h-2 rounded-full bg-white" />
+                                                    {/* Active Indicator Dot */}
+                                                    {isActive && (
+                                                        <motion.span
+                                                            layoutId="nav-dot"
+                                                            className="w-2 h-2 rounded-full bg-[#0071E3] shadow-[0_0_8px_#0071E3]"
+                                                        />
                                                     )}
                                                 </div>
                                             </Link>
-                                        </motion.div>
-                                    ))}
+                                        );
+                                    })}
                                 </nav>
                             </div>
 
-                            {/* Order Now Button */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.3 }}
+                            {/* Order Now Button - Instant appearance */}
+                            <Link
+                                href="/custom"
+                                onClick={() => setIsOpen(false)}
+                                className="flex items-center justify-between bg-[#0071E3] text-white rounded-full px-6 py-4 hover:bg-[#0077ED] transition-all group shadow-[0_8px_20px_-5px_rgba(0,113,227,0.4)]"
                             >
-                                <Link
-                                    href="/custom"
-                                    onClick={() => setIsOpen(false)}
-                                    className="flex items-center justify-between bg-white/10 backdrop-blur-xl border border-white/20 rounded-full px-6 py-4 hover:bg-white/20 transition-all group shadow-lg"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                                            </svg>
-                                        </div>
-                                        <span className="text-white font-medium">ĐẶT HÀNG NGAY</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
                                     </div>
-                                    <svg className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                    </svg>
-                                </Link>
-                            </motion.div>
+                                    <span className="font-bold tracking-wide">ĐẶT HÀNG NGAY</span>
+                                </div>
+                                <svg className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                </svg>
+                            </Link>
                         </motion.div>
                     </>
                 )}
@@ -230,4 +231,3 @@ export function NavLusion() {
         </>
     );
 }
-

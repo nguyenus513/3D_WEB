@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
+import { clsx } from 'clsx';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { Button } from '@/components/ui/Button';
+import { Button, buttonVariants, buttonBaseStyles, buttonSizes } from '@/components/ui/Button';
 import { useCart, CartItem, CartItemType } from '@/lib/store/cart';
 
 // Icons
@@ -193,10 +194,10 @@ export default function CartPage() {
                     <h2 className="text-2xl font-bold text-white mb-4">Giỏ hàng trống</h2>
                     <p className="text-white/50 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link href="/products" className="px-8 py-4 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-colors">
+                        <Link href="/products" className={clsx(buttonBaseStyles, buttonVariants.primary, buttonSizes.lg, "w-full sm:w-auto")}>
                             Xem sản phẩm
                         </Link>
-                        <Link href="/printing" className="px-8 py-4 bg-purple-500/20 text-purple-400 rounded-xl font-medium hover:bg-purple-500/30 transition-colors">
+                        <Link href="/printing" className={clsx(buttonBaseStyles, buttonVariants.secondary, buttonSizes.lg, "w-full sm:w-auto text-purple-400 border-purple-500/30 hover:bg-purple-500/10")}>
                             In 3D
                         </Link>
                     </div>
