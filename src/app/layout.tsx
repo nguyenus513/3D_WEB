@@ -13,9 +13,15 @@ const beVietnamPro = Be_Vietnam_Pro({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-  title: "3D Print | Sản Phẩm 3D Độc Đáo - Custom & In 3D Theo Yêu Cầu",
-  description: "Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu. Sản phẩm có sẵn, custom theo ảnh, dịch vụ in 3D chuyên nghiệp.",
+  title: {
+    default: 'Miniver 3D Lab - In 3D & Thiết kế Custom',
+    template: '%s | Miniver 3D Lab',
+  },
+  description: 'Dịch vụ in 3D chuyên nghiệp, thiết kế mô hình theo yêu cầu, và sản phẩm độc đáo.',
   keywords: ["3D print", "mô hình 3D", "custom", "in 3D", "tượng 3D", "figure"],
+  icons: {
+    icon: '/globe.svg',
+  },
 };
 
 export default function RootLayout({

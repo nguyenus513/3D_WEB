@@ -31,7 +31,7 @@ export function Footer() {
                     {/* Brand */}
                     <div className="space-y-4">
                         <Link href="/" className="text-xl font-semibold text-white">
-                            3D Print
+                            Miniver 3D Lab
                         </Link>
                         <p className="text-sm text-[#A1A1A6]">
                             Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu.
@@ -85,7 +85,7 @@ export function Footer() {
                 <div className="mt-12 pt-8 border-t border-white/[0.08]">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                         <p className="text-xs text-[#6E6E73]">
-                            Copyright © 2026 3D Print. All rights reserved.
+                            Copyright © 2026 Miniver 3D Lab. All rights reserved.
                         </p>
                         <div className="flex items-center gap-6">
                             <Link href="/privacy" className="text-xs text-[#6E6E73] hover:text-white transition-colors">

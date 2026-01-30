@@ -9,10 +9,19 @@
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { BaseController } from '@/lib/core/BaseController';
+import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { CartService } from '@/services/CartService';
 import { CartRepository } from '@/repositories/CartRepository';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
+import { auth } from '@/auth';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { config } from '@/config/unifiedConfig';
+
+// Admin client for cart operations
+const supabaseAdmin = createAdminClient(
+    config.supabase.url,
+    config.supabase.serviceRoleKey
+);
 
 // =============================================================================
 // Validation Schemas
@@ -71,96 +80,123 @@ const syncCartSchema = z.object({
 // =============================================================================
 
 export class CartController extends BaseController {
-    private service: CartService | null = null;
+    private readonly cartService: CartService;
 
-    private async getService(): Promise<CartService> {
-        if (!this.service) {
-            const supabase = await createServerSupabaseClient();
-            const repo = new CartRepository(supabase);
-            this.service = new CartService(repo);
-        }
-        return this.service;
+    constructor() {
+        super();
+        const repo = new CartRepository(supabaseAdmin);
+        this.cartService = new CartService(repo);
     }
 
     /**
      * GET /api/cart - Get user's cart
      */
     async getCart(req: NextRequest) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            const cart = await service.getCart(userId);
-
-            if (!cart) {
-                return this.success({ items: [] });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
             }
 
-            const items = service.toClientFormat(cart);
-            return this.success({ items });
-        });
+            const cart = await this.cartService.getCart(session.user.id);
+
+            if (!cart) {
+                return this.handleSuccess({ items: [] });
+            }
+
+            const items = this.cartService.toClientFormat(cart);
+            return this.handleSuccess({ items });
+        }, 'CartController.getCart');
     }
 
     /**
      * POST /api/cart/items - Add item to cart
      */
     async addItem(req: NextRequest) {
-        return this.handleRequest(req, async (userId) => {
-            const body = await req.json();
-            const validated = this.validate(addItemSchema, body);
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
 
-            const service = await this.getService();
-            const item = await service.addItem(userId, validated);
-            return this.success(item, 201);
-        });
+            const body = await req.json();
+            const validated = addItemSchema.parse(body);
+
+            const item = await this.cartService.addItem(session.user.id, validated);
+            return this.handleSuccess(item, { status: 201 });
+        }, 'CartController.addItem');
     }
 
     /**
      * PATCH /api/cart/items/[id] - Update item quantity
      */
     async updateItem(req: NextRequest, itemId: string) {
-        return this.handleRequest(req, async (userId) => {
-            const body = await req.json();
-            const { quantity } = this.validate(updateQuantitySchema, body);
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
 
-            const service = await this.getService();
-            const item = await service.updateQuantity(userId, itemId, quantity);
-            return this.success(item || { deleted: true });
-        });
+            const body = await req.json();
+            const { quantity } = updateQuantitySchema.parse(body);
+
+            const item = await this.cartService.updateQuantity(session.user.id, itemId, quantity);
+            return this.handleSuccess(item || { deleted: true });
+        }, 'CartController.updateItem');
     }
 
     /**
      * DELETE /api/cart/items/[id] - Remove item from cart
      */
     async removeItem(req: NextRequest, itemId: string) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            await service.removeItem(userId, itemId);
-            return this.success({ deleted: true });
-        });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
+
+            await this.cartService.removeItem(session.user.id, itemId);
+            return this.handleSuccess({ deleted: true });
+        }, 'CartController.removeItem');
     }
 
     /**
      * DELETE /api/cart - Clear entire cart
      */
     async clearCart(req: NextRequest) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            await service.clearCart(userId);
-            return this.success({ cleared: true });
-        });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
+
+            await this.cartService.clearCart(session.user.id);
+            return this.handleSuccess({ cleared: true });
+        }, 'CartController.clearCart');
     }
 
     /**
      * POST /api/cart/sync - Sync client cart to server
      */
     async syncCart(req: NextRequest) {
-        return this.handleRequest(req, async (userId) => {
-            const body = await req.json();
-            const { items } = this.validate(syncCartSchema, body);
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
 
-            const service = await this.getService();
-            const cart = await service.syncFromClient(userId, items);
-            const clientItems = service.toClientFormat(cart);
-            return this.success({ items: clientItems });
-        });
+            const body = await req.json();
+            const { items } = syncCartSchema.parse(body);
+
+            const cart = await this.cartService.syncFromClient(session.user.id, items);
+            const clientItems = this.cartService.toClientFormat(cart);
+            return this.handleSuccess({ items: clientItems });
+        }, 'CartController.syncCart');
     }
 }
+
+// =============================================================================
+// Export Singleton Instance
+// =============================================================================
+
+export const cartController = new CartController();

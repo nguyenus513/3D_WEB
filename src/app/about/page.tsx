@@ -9,7 +9,7 @@ import Link from 'next/link';
 const contactInfo = [
     { icon: '📍', label: 'Địa chỉ', value: 'Quận 1, TP. Hồ Chí Minh' },
     { icon: '📞', label: 'Hotline', value: '0123 456 789' },
-    { icon: '✉️', label: 'Email', value: 'hello@3dprint.vn' },
+    { icon: '✉️', label: 'Email', value: 'hello@miniver.lab' },
     { icon: '⏰', label: 'Giờ làm việc', value: '9:00 - 18:00, T2 - T7' },
 ];
 
@@ -30,7 +30,7 @@ export default function AboutPage() {
                         Về Chúng Tôi
                     </span>
                     <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight mb-6">
-                        3D Print Studio
+                        Miniver 3D Lab
                     </h1>
                     <p className="text-xl text-white/50 max-w-2xl mx-auto">
                         Chuyên tạo mô hình 3D độc đáo, cá nhân hóa hoàn toàn theo yêu cầu của bạn
@@ -46,7 +46,7 @@ export default function AboutPage() {
                             </h2>
                             <div className="space-y-4 text-white/60 leading-relaxed">
                                 <p>
-                                    3D Print Studio được thành lập với niềm đam mê công nghệ in 3D và mong muốn
+                                    Miniver 3D Lab được thành lập với niềm đam mê công nghệ in 3D và mong muốn
                                     mang đến những sản phẩm độc đáo, cá nhân hóa cho mọi người.
                                 </p>
                                 <p>

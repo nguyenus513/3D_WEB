@@ -52,7 +52,7 @@ export class PaymentService {
             }
 
             this.stripe = new Stripe(secretKey, {
-                apiVersion: '2025-01-27.acacia',
+                apiVersion: '2025-02-24.acacia',
             });
         }
         return this.stripe;

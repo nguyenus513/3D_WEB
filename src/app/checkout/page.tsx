@@ -97,41 +97,34 @@ function CheckoutContent() {
 
     // QR Code Logic - 18 Char Hex Format [10 cust][8 parent]
     const qrTransferContent = useMemo(() => {
-        if (mode === 'single' && singleOrder) {
-            // For existing order, strip non-hex chars to be safe, or just return as is if trusted
-            // User requested "max ddown khoong cos USR-"
-            const rawCode = singleOrder.order_code || singleOrder.id;
-            return rawCode.toString().replace(/[^a-fA-F0-9]/g, '').toUpperCase();
-        }
-
-        // For Cart: Construct 18-char hex string
-        // 1. Get Customer Code (10 hex) or generate fallback
+        // 1. Get Customer Code (10 hex) or use placeholder
         let custCode = paymentConfig?.customer_code;
 
-        // Strip "USR-" or any non-hex prefix if it exists
+        // Clean and validate Customer Code
         if (custCode) {
             custCode = custCode.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
-            // If it becomes too short or empty, fallback?
-            // Assuming DB has correct 10-char hex from previous migration
-            // If it's 8 chars (from old generateId), pad it?
-            if (custCode.length < 10) {
-                custCode = custCode.padEnd(10, '0');
-            } else if (custCode.length > 10) {
-                custCode = custCode.substring(0, 10);
-            }
+            if (custCode.length < 10) custCode = custCode.padEnd(10, '0');
+            else if (custCode.length > 10) custCode = custCode.substring(0, 10);
+        } else {
+            // Default placeholder if not logged in or config not loaded yet
+            custCode = '0000000000';
         }
 
-        if (!custCode) {
-            // Fallback for guest: 10 random hex chars
-            // In reality, this should match the user's DB code once logged in
-            custCode = '0000000000'; // Default placeholder if waiting
+        // 2. Get Parent Code (8 hex)
+        let parentCode = '';
+
+        if (mode === 'single' && singleOrder) {
+            // Existing Order: Extract parent code from order_code
+            const rawCode = singleOrder.order_code || singleOrder.id;
+            const cleanCode = rawCode.toString().replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+            // If child code (16), take first 8. If parent (8), take 8.
+            parentCode = cleanCode.substring(0, 8).padEnd(8, '0');
+        } else {
+            // Cart: Generate new random 8 hex
+            parentCode = Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0');
         }
 
-        // 2. Generate Random 8 Hex for "Parent Order" (Cart Session)
-        // We memoize this so it doesn't change on every render
-        const random8Hex = Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0');
-
-        return `${custCode}${random8Hex}`;
+        return `${custCode}${parentCode}`;
     }, [mode, singleOrder, paymentConfig]);
 
     // Fetch Payment Config
@@ -216,9 +209,85 @@ function CheckoutContent() {
     };
 
     // Handle Payment Confirmation (Cart Mode)
+    // Handle Payment Confirmation (Cart Mode)
     const handleCartPayment = async () => {
-        // ... (existing comments)
-        console.log("Cart Payment logic would go here if PaymentQR allows custom handler");
+        if (!shippingAddress || !isAddressValid) {
+            alert('Vui lòng chọn địa chỉ giao hàng hợp lệ');
+            return;
+        }
+
+        // Validate address length strictly to match backend schema
+        if ((shippingAddress.address_line || '').length < 5) {
+            alert('Địa chỉ giao hàng quá ngắn. Vui lòng nhập chi tiết hơn (tối thiểu 5 ký tự).');
+            return;
+        }
+
+        try {
+            // 1. Create Order
+            const createRes = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: items.map(item => ({
+                        // Use productId (UUID) from DB, fallback to item.id if missing (though item.id is likely not UUID)
+                        // If productId is missing for custom items, Backend validation might fail if it requires valid UUID product_id.
+                        product_id: item.productId || item.id,
+                        quantity: item.quantity,
+                        price: item.price,
+                        customization: (item as any).customization || {}
+                    })),
+                    // Map to CreateOrderSchema: { name, phone, address, city }
+                    shipping_address: {
+                        name: shippingAddress.full_name,
+                        phone: shippingAddress.phone,
+                        address: shippingAddress.address_line || '',
+                        city: shippingAddress.province || ''
+                    },
+                    payment_method: 'bank_transfer', // Schema requires 'bank_transfer', not 'QR_TRANSFER'
+                    notes: ''
+                })
+            });
+
+            if (!createRes.ok) {
+                const errData = await createRes.json();
+                console.error('API Error Response:', JSON.stringify(errData, null, 2));
+                const errMsg = typeof errData.error === 'object'
+                    ? JSON.stringify(errData.error)
+                    : (errData.error || 'Không thể tạo đơn hàng');
+                throw new Error(errMsg);
+            }
+
+            const { data: newOrder } = await createRes.json();
+
+            // 2. Confirm Payment immediately (since user clicked "I Paid")
+            const confirmRes = await fetch(`/api/orders/${newOrder.id}/payment-confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!confirmRes.ok) {
+                // If confirmation fails but order created, we still proceed but warn?
+                console.error('Payment confirmation failed for new order:', newOrder.id);
+            }
+
+            // 3. Success
+            clearCart();
+            // Redirect to order history or success page
+            router.push('/account/orders');
+        } catch (error) {
+            console.error('Checkout failed details:', error);
+            // Display clean error message to user
+            let userMsg = (error as Error).message;
+            if (userMsg.includes('[')) { // Determine if it's stringified JSON
+                try {
+                    const parsed = JSON.parse(userMsg);
+                    // If Zod error array, show first message
+                    if (Array.isArray(parsed)) userMsg = parsed[0]?.message || 'Dữ liệu không hợp lệ';
+                } catch { }
+            }
+            alert(`Lỗi: ${userMsg}`);
+            throw error; // Re-throw to let PaymentQR know it failed (if it handled state)
+        }
     };
 
     if (loading) return (
@@ -309,11 +378,7 @@ function CheckoutContent() {
                                         bankId={paymentConfig?.bank_code || 'MB'}
                                         accountNo={paymentConfig?.account_no || '0336668386'}
                                         accountName={paymentConfig?.account_name || 'NGUYEN MINH NHAT'}
-                                        onPaymentConfirmed={() => {
-                                            if (mode === 'cart') clearCart();
-                                            // Optional: Redirect to success
-                                            // router.push('/checkout/success/...')
-                                        }}
+                                        onPaymentConfirmed={mode === 'cart' ? handleCartPayment : undefined}
                                     />
                                 </motion.div>
                             ) : (

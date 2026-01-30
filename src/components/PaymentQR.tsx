@@ -29,7 +29,7 @@ interface PaymentQRProps {
             province?: string;
         };
     };
-    onPaymentConfirmed?: () => void;
+    onPaymentConfirmed?: () => Promise<void> | void;
 }
 
 export function PaymentQR({
@@ -79,24 +79,45 @@ export function PaymentQR({
         }).format(value);
     };
 
+    // Debug logging
+    // console.log('PaymentQR Props:', { orderId, hasHandler: !!onPaymentConfirmed });
+
     const handleConfirmPayment = async () => {
         setIsConfirming(true);
         setConfirmError(null);
 
         try {
-            const res = await fetch(`/api/orders/${orderId}/payment-confirmation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || 'Không thể xác nhận thanh toán');
+            // Safety check: specific ID 'cart-placeholder' MUST have a handler
+            if (orderId === 'cart-placeholder' && !onPaymentConfirmed) {
+                console.error('Critical: Cart placeholder ID but no handler provided!');
+                throw new Error('Lỗi hệ thống: Không tìm thấy trình xử lý thanh toán giỏ hàng');
             }
 
-            setIsConfirmed(true);
-            onPaymentConfirmed?.();
+            if (onPaymentConfirmed) {
+                // If custom handler provided, use it (e.g. for Cart checkout)
+                await onPaymentConfirmed();
+                setIsConfirmed(true);
+            } else {
+                // Default handler for existing orders
+                // Extra safety: Prevent fetching if ID looks like a placeholder
+                if (orderId.includes('placeholder')) {
+                    throw new Error('Invalid Order ID for payment confirmation');
+                }
+
+                const res = await fetch(`/api/orders/${orderId}/payment-confirmation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'Không thể xác nhận thanh toán');
+                }
+
+                setIsConfirmed(true);
+            }
         } catch (err) {
+            console.error('Confirm Payment Error:', err);
             setConfirmError((err as Error).message);
         } finally {
             setIsConfirming(false);

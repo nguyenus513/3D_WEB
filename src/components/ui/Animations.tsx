@@ -83,7 +83,7 @@ export function TextReveal({ text, className = '', delay = 0 }: TextRevealProps)
     return (
         <span ref={ref} className={className}>
             {words.map((word, wordIndex) => (
-                <span key={wordIndex} className="inline-block overflow-hidden mr-[0.25em]">
+                <span key={wordIndex} className="inline-block overflow-hidden mr-[0.25em] pb-2 -mb-2">
                     <motion.span
                         className="inline-block"
                         initial={{ y: '100%' }}

@@ -185,11 +185,11 @@ export function HeroJelly() {
                         transition={{ duration: 0.8, delay: 0.3 }}
                         className="text-sm md:text-base text-white/50 font-medium tracking-widest uppercase mb-6"
                     >
-                        Premium 3D Print Studio
+                        Miniver 3D Lab
                     </motion.p>
 
                     {/* Main Title */}
-                    <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1] tracking-[-0.04em] text-white mb-8 whitespace-nowrap">
+                    <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1.2] tracking-[-0.04em] text-white mb-8 whitespace-nowrap">
                         <TextReveal text="Sản Phẩm " delay={0.4} />
                         <span className="text-white/70">
                             <TextReveal text="Độc Đáo" delay={0.7} />

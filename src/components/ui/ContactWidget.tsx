@@ -6,10 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Contact info
 const CONTACTS = {
     zalo: 'https://zalo.me/0123456789',
-    instagram: 'https://instagram.com/3dprintshop',
+    instagram: 'https://instagram.com/miniver.3d',
     phone: 'tel:0123456789',
     hotline: '0123 456 789',
-    email: 'hello@3dprint.vn',
+    email: 'hello@miniver.lab',
 };
 
 // Flat SVG Icons

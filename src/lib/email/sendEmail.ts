@@ -80,7 +80,7 @@ async function sendViaGmail(options: EmailOptions): Promise<{ success: boolean; 
 
     try {
         await transporter.sendMail({
-            from: `"3D Print Shop" <${user}>`,
+            from: `"Miniver 3D Lab" <${user}>`,
             to: options.to,
             subject: options.subject,
             html: options.html,
@@ -120,7 +120,7 @@ async function sendViaBrevo(options: EmailOptions): Promise<{ success: boolean; 
                 'content-type': 'application/json',
             },
             body: JSON.stringify({
-                sender: { name: '3D Print Shop', email: process.env.GMAIL_USER || 'noreply@3dprint.vn' },
+                sender: { name: 'Miniver 3D Lab', email: process.env.GMAIL_USER || 'noreply@miniver.lab' },
                 to: [{ email: options.to }],
                 subject: options.subject,
                 htmlContent: options.html,
@@ -214,7 +214,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <div class="logo">Miniver 3D Lab</div>
     </div>
     <div class="content">
         <div class="icon-box">
@@ -253,7 +253,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
             <a href="#" class="footer-link">Tra cứu đơn hàng</a> • 
             <a href="#" class="footer-link">Liên hệ hỗ trợ</a>
         </div>
-        <p>© 2026 3D Print Shop. All rights reserved.</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.</p>
     </div>
 </div>
 </body>
@@ -299,7 +299,7 @@ p{margin:0 0 32px;color:#424245;font-size:17px;text-align:center;line-height:1.6
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <div class="logo">Miniver 3D Lab</div>
     </div>
     <div class="content">
         <div style="text-align: center;">
@@ -318,7 +318,7 @@ p{margin:0 0 32px;color:#424245;font-size:17px;text-align:center;line-height:1.6
         <a href="#" class="cta-button">Xem chi tiết đơn hàng</a>
     </div>
     <div class="footer">
-        <p>© 2026 3D Print Shop. All rights reserved.</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.</p>
     </div>
 </div>
 </body>
@@ -365,7 +365,7 @@ p{margin:0 0 32px;color:#424245;font-size:16px;text-align:center}
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <div class="logo">Miniver 3D Lab</div>
     </div>
     <div class="content">
         <div class="truck-icon">🚚</div>
@@ -394,7 +394,7 @@ p{margin:0 0 32px;color:#424245;font-size:16px;text-align:center}
         </div>
     </div>
     <div class="footer">
-        <p>© 2026 3D Print Shop. All rights reserved.</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.</p>
     </div>
 </div>
 </body>
@@ -443,7 +443,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <div class="logo">Miniver 3D Lab</div>
     </div>
     <div class="content">
         <div class="icon-box">
@@ -466,7 +466,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
         </div>
     </div>
     <div class="footer">
-        <p>© 2026 3D Print Shop. All rights reserved.</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.</p>
     </div>
 </div>
 </body>
@@ -516,7 +516,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <div class="logo">Miniver 3D Lab</div>
     </div>
     <div class="content">
         <div class="icon-box">
@@ -569,7 +569,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
         <p style="text-align:center;margin:0">Chúng tôi sẽ thông báo khi đơn hàng sẵn sàng giao!</p>
     </div>
     <div class="footer">
-        <p>© 2026 3D Print Shop. All rights reserved.</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.</p>
     </div>
 </div>
 </body>

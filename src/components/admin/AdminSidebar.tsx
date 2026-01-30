@@ -147,8 +147,8 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                         </svg>
                     </div>
                     <div>
-                        <span className="text-[var(--text-primary)] font-bold tracking-tight text-lg block">3D Print</span>
-                        <span className="text-[var(--text-secondary)] text-xs block font-medium">Admin Studio</span>
+                        <span className="text-[var(--text-primary)] font-bold tracking-tight text-lg block">Miniver</span>
+                        <span className="text-[var(--text-secondary)] text-xs block font-medium">3D Lab Admin</span>
                     </div>
                 </Link>
             </div>

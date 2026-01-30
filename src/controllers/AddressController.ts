@@ -9,10 +9,18 @@
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { BaseController } from '@/lib/core/BaseController';
+import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { AddressService } from '@/services/AddressService';
 import { AddressRepository } from '@/repositories/AddressRepository';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { auth } from '@/auth';
+import { createClient } from '@supabase/supabase-js';
+import { config } from '@/config/unifiedConfig';
+
+// Admin client for address operations
+const supabaseAdmin = createClient(
+    config.supabase.url,
+    config.supabase.serviceRoleKey
+);
 
 // =============================================================================
 // Validation Schemas
@@ -45,97 +53,128 @@ const updateAddressSchema = z.object({
 // =============================================================================
 
 export class AddressController extends BaseController {
-    private service: AddressService | null = null;
+    private readonly addressService: AddressService;
 
-    private async getService(): Promise<AddressService> {
-        if (!this.service) {
-            const supabase = await createServerSupabaseClient();
-            const repo = new AddressRepository(supabase);
-            this.service = new AddressService(repo);
-        }
-        return this.service;
+    constructor() {
+        super();
+        const repo = new AddressRepository(supabaseAdmin);
+        this.addressService = new AddressService(repo);
     }
 
     /**
      * GET /api/addresses - Get all user addresses
      */
     async listAddresses(req: NextRequest) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            const addresses = await service.getAddresses(userId);
-            return this.success(addresses);
-        });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
+
+            const addresses = await this.addressService.getAddresses(session.user.id);
+            return this.handleSuccess({ addresses });
+        }, 'AddressController.listAddresses');
     }
 
     /**
      * GET /api/addresses/[id] - Get single address
      */
     async getAddress(req: NextRequest, addressId: string) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            const address = await service.getAddress(addressId, userId);
-            return this.success(address);
-        });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
+
+            const address = await this.addressService.getAddress(addressId, session.user.id);
+            return this.handleSuccess(address);
+        }, 'AddressController.getAddress');
     }
 
     /**
      * GET /api/addresses/default - Get user's default address
      */
     async getDefaultAddress(req: NextRequest) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            const address = await service.getDefaultAddress(userId);
-            return this.success(address);
-        });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
+
+            const address = await this.addressService.getDefaultAddress(session.user.id);
+            return this.handleSuccess(address);
+        }, 'AddressController.getDefaultAddress');
     }
 
     /**
      * POST /api/addresses - Create new address
      */
     async createAddress(req: NextRequest) {
-        return this.handleRequest(req, async (userId) => {
-            const body = await req.json();
-            const validated = this.validate(createAddressSchema, body);
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
 
-            const service = await this.getService();
-            const address = await service.createAddress(userId, validated);
-            return this.success(address, 201);
-        });
+            const body = await req.json();
+            const validated = createAddressSchema.parse(body);
+
+            const address = await this.addressService.createAddress(session.user.id, validated);
+            return this.handleSuccess(address, { status: 201 });
+        }, 'AddressController.createAddress');
     }
 
     /**
      * PUT /api/addresses/[id] - Update address
      */
     async updateAddress(req: NextRequest, addressId: string) {
-        return this.handleRequest(req, async (userId) => {
-            const body = await req.json();
-            const validated = this.validate(updateAddressSchema, body);
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
 
-            const service = await this.getService();
-            const address = await service.updateAddress(addressId, userId, validated);
-            return this.success(address);
-        });
+            const body = await req.json();
+            const validated = updateAddressSchema.parse(body);
+
+            const address = await this.addressService.updateAddress(addressId, session.user.id, validated);
+            return this.handleSuccess(address);
+        }, 'AddressController.updateAddress');
     }
 
     /**
      * DELETE /api/addresses/[id] - Delete address
      */
     async deleteAddress(req: NextRequest, addressId: string) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            await service.deleteAddress(addressId, userId);
-            return this.success({ deleted: true });
-        });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
+
+            await this.addressService.deleteAddress(addressId, session.user.id);
+            return this.handleSuccess({ deleted: true });
+        }, 'AddressController.deleteAddress');
     }
 
     /**
      * PATCH /api/addresses/[id]/default - Set as default
      */
     async setDefaultAddress(req: NextRequest, addressId: string) {
-        return this.handleRequest(req, async (userId) => {
-            const service = await this.getService();
-            const address = await service.setDefaultAddress(addressId, userId);
-            return this.success(address);
-        });
+        return this.wrapHandler(async () => {
+            const session = await auth();
+            if (!session?.user?.id) {
+                throw new UnauthorizedError();
+            }
+
+            const address = await this.addressService.setDefaultAddress(addressId, session.user.id);
+            return this.handleSuccess(address);
+        }, 'AddressController.setDefaultAddress');
     }
 }
+
+// =============================================================================
+// Export Singleton Instance
+// =============================================================================
+
+export const addressController = new AddressController();
