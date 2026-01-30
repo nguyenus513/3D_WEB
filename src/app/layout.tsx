@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
+import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+
+const beVietnamPro = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-be-vietnam-pro",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -17,14 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <head>
-        {/* Font loaded via link to avoid Tailwind V4 scanner picking up f[]= pattern */}
-        <link
-          rel="stylesheet"
-          href="https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap"
-        />
-      </head>
-      <body className="antialiased bg-[#0a0a0a] text-white">
+      <body className={`${beVietnamPro.variable} antialiased bg-[#0a0a0a] text-white font-sans`}>
         <AuthProvider>
           <LayoutWrapper>{children}</LayoutWrapper>
         </AuthProvider>

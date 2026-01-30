@@ -42,8 +42,8 @@
   --text-dark-secondary: #6E6E73;
 
   /* Fonts */
-  --font-body: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: var(--font-be-vietnam-pro), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: var(--font-be-vietnam-pro), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Light mode variables */

@@ -7,7 +7,7 @@ const config: Config = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['General Sans', 'system-ui', 'sans-serif'],
+                sans: ['var(--font-be-vietnam-pro)', 'system-ui', 'sans-serif'],
             },
         },
     },
