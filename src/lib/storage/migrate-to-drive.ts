@@ -2,19 +2,21 @@
  * Migrate to Drive Service
  * 
  * Migrates files from R2 to Google Drive when order is completed.
+ * Uses unified storage keys for consistent naming across R2 and Drive.
  * 
  * Flow:
  * 1. Order status → COMPLETED
  * 2. Find R2 files for this order
  * 3. Download from R2
- * 4. Upload to Google Drive (archived folder)
+ * 4. Upload to Google Drive (using same folder structure)
  * 5. Update database URLs
- * 6. Delete from R2
+ * 6. Delete from R2 (keep customer folder empty)
  */
 
 import { downloadFromR2, deleteFromR2, isR2Configured, isR2Url, extractR2KeyFromUrl } from './r2';
 import { getAdminSupabase } from '../supabase/admin';
-import { uploadWithNaming, isDriveConnected, getDirectUrl } from '../google-drive-oauth';
+import { uploadToPath, isDriveConnected, getDirectUrl, buildFolderPath } from '../google-drive-oauth';
+import { parseUnifiedKey, isProductKey } from './unified-keys';
 
 export interface MigrationResult {
     success: boolean;

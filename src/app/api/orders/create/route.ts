@@ -157,16 +157,90 @@ export async function POST(request: NextRequest) {
         }
 
         // Create order items
-        const orderItems = items.map(item => ({
-            order_id: order.id,
-            product_id: item.productId || null,
-            product_sku: item.sku || null,
-            product_name: item.name,
-            quantity: item.quantity,
-            unit_price: item.price,
-            total_price: item.price * item.quantity,
-            size: item.size || null,
-        }));
+        // Fetch all products involved in the order
+        const productIds = items
+            .map(item => item.productId)
+            .filter((id): id is string => !!id);
+
+        const { data: products, error: productsError } = await supabaseAdmin
+            .from('products')
+            .select('*')
+            .in('id', productIds);
+
+        if (productsError) {
+            console.error('Error fetching products:', productsError);
+            return NextResponse.json(
+                { error: 'Không thể kiểm tra thông tin sản phẩm' },
+                { status: 500 }
+            );
+        }
+
+        const productMap = new Map((products || []).map(p => [p.id, p]));
+
+        // Calculate order items with server-side pricing
+        const orderItems = items.map(item => {
+            let unitPrice = item.price; // Fallback (should be overridden below for ready_made)
+            let productName = item.name;
+
+            if (orderType === 'ready_made' && item.productId) {
+                const product = productMap.get(item.productId);
+                if (product) {
+                    productName = product.name; // Use authoritative name
+
+                    // Determine price
+                    // Check for size-specific price first
+                    let sizePrice: number | null = null;
+                    if (item.size && Array.isArray(product.sizes)) {
+                        const sizeObj = product.sizes.find((s: any) =>
+                            typeof s === 'object' && s.name === item.size
+                        );
+                        if (sizeObj && typeof sizeObj.price === 'number') {
+                            sizePrice = sizeObj.price;
+                        }
+                    }
+
+                    if (sizePrice !== null) {
+                        unitPrice = sizePrice;
+                    } else {
+                        // Use product sale price or base price
+                        unitPrice = (typeof product.sale_price === 'number')
+                            ? product.sale_price
+                            : product.base_price;
+                    }
+                }
+            }
+
+            // For custom/printing orders, logic might differ (usually quoted), 
+            // but for now we trust the input OR you should implement a Quote lookup here.
+            // TODO: specific logic for custom/printing if needed.
+
+            return {
+                order_id: order.id,
+                product_id: item.productId || null,
+                product_sku: item.sku || null,
+                product_name: productName,
+                quantity: item.quantity,
+                unit_price: unitPrice,
+                total_price: unitPrice * item.quantity,
+                size: item.size || null,
+            };
+        });
+
+        // Recalculate total from secure items
+        const calculatedSubtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+        const calculatedTotal = calculatedSubtotal + shippingFee;
+
+        // Verify total match (optional: strictly enforce or just warn/update)
+        // We will strictly enforce the server-calculated total
+
+        // Update the order with calculated totals
+        await supabaseAdmin
+            .from('orders')
+            .update({
+                subtotal: calculatedSubtotal,
+                total: calculatedTotal
+            })
+            .eq('id', order.id);
 
         const { error: itemsError } = await supabaseAdmin
             .from('order_items')

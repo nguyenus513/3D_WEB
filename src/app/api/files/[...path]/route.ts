@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { downloadFromR2, existsInR2 } from '@/lib/storage/r2';
+import { downloadFromR2, existsInR2, streamFromR2 } from '@/lib/storage/r2';
 import { canAccessFile, logFileAccess } from '@/lib/security/file-access';
 
 // MIME types for common files
@@ -77,12 +77,21 @@ export async function GET(
             );
         }
 
-        // Download file from R2
-        const buffer = await downloadFromR2(fileKey);
+        // Download file from R2 (Streaming)
+        // const buffer = await downloadFromR2(fileKey); // OLD memory intensive way
+        const r2Response = await streamFromR2(fileKey);
+
+        if (!r2Response.Body) {
+            return NextResponse.json(
+                { error: 'File body empty' },
+                { status: 500 }
+            );
+        }
 
         // Determine content type
         const ext = fileKey.split('.').pop()?.toLowerCase() || '';
-        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+        const contentType = r2Response.ContentType || MIME_TYPES[ext] || 'application/octet-stream';
+        const contentLength = r2Response.ContentLength;
 
         // Log successful access
         await logFileAccess({
@@ -100,12 +109,18 @@ export async function GET(
             ? 'public, max-age=31536000' // 1 year for public files
             : 'private, max-age=3600';    // 1 hour for private files
 
-        console.log(`[Files] Served ${fileKey} to ${userId || 'anonymous'} in ${Date.now() - startTime}ms`);
+        console.log(`[Files] Streaming ${fileKey} to ${userId || 'anonymous'}`);
 
-        return new NextResponse(new Uint8Array(buffer), {
+        // Convert Node stream to Web Stream for NextResponse
+        // @ts-ignore - S3 Body is compatible with Web Stream in simpler cases or requires transformation
+        const stream = r2Response.Body.transformToWebStream
+            ? r2Response.Body.transformToWebStream()
+            : r2Response.Body as any;
+
+        return new NextResponse(stream, {
             headers: {
                 'Content-Type': contentType,
-                'Content-Length': buffer.length.toString(),
+                ...(contentLength && { 'Content-Length': contentLength.toString() }),
                 'Cache-Control': cacheControl,
                 'X-Content-Type-Options': 'nosniff',
             },

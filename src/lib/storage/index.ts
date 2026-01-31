@@ -26,3 +26,23 @@ export {
     migrateOrderToArchive,
     type MigrationResult,
 } from './migrate-to-drive';
+
+// Unified Keys (new naming convention)
+export {
+    generateUnifiedKey,
+    generateProductKey,
+    parseUnifiedKey,
+    getFolderPath,
+    getProductFolderPath,
+    getTodayTimestamp,
+    getFileExtension,
+    generateFileName,
+    getCustomerPrefix,
+    isProductKey,
+    isReviewKey,
+    type StorageKeyParams,
+    type ProductKeyParams,
+    type ParsedKey,
+    type FileType,
+} from './unified-keys';
+

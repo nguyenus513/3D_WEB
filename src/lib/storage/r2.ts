@@ -283,6 +283,20 @@ export async function downloadFromR2(key: string): Promise<Buffer> {
 }
 
 /**
+ * Stream file from R2 (for proxying)
+ */
+export async function streamFromR2(key: string) {
+    const client = getR2Client();
+
+    const command = new GetObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: key,
+    });
+
+    return await client.send(command);
+}
+
+/**
  * Delete file from R2
  */
 export async function deleteFromR2(key: string): Promise<void> {

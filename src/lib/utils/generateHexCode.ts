@@ -12,12 +12,3 @@ export function generateHexCode(length: number = 12): string {
         .toUpperCase();
 }
 
-/**
- * Generate order code with prefix
- * @param prefix - Order type prefix (e.g., 'P' for parent, 'C' for child)
- * @returns Formatted order code
- */
-export function generateOrderCode(prefix: 'P' | 'C' = 'C'): string {
-    const hex = generateHexCode(10); // 10 chars + 1 prefix + 1 check = 12
-    return `${prefix}${hex.slice(0, 11)}`;
-}

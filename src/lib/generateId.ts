@@ -1,114 +1,113 @@
-import { customAlphabet } from 'nanoid';
+import { generateHexCode } from './utils/generateHexCode';
 
 /**
- * ID Format Specification
+ * ID Format Specification (NEW - Hex Only)
  * 
- * | Entity           | Prefix | Format        | Example      |
- * |------------------|--------|---------------|--------------|
- * | Custom Order     | CUS    | CUS-XXXXXXXX  | CUS-A7K3M9B2 |
- * | Product Order    | PDC    | PDC-XXXXXXXX  | PDC-B2N8P4K5 |
- * | 3D Printing      | 3DP    | 3DP-XXXXXXXX  | 3DP-M4R7S2N9 |
- * | User Code        | USR    | USR-XXXXXXXX  | USR-K5J2H8M4 |
- * | Admin Code       | ADM    | ADM-XXXXXXXX  | ADM-N9L3K6A7 |
- * | Product SKU      | PRD    | PRD-XXXXXXXX  | PRD-A7K3M9B2 |
+ * | Entity           | Format        | Example      | Length |
+ * |------------------|---------------|--------------|--------|
+ * | Custom Order     | Hex String    | 9CF293891B   | 10     |
+ * | Product Order    | Hex String    | B2N8P4K5...  | 10     |
+ * | 3D Printing      | Hex String    | M4R7S2N9...  | 10     |
+ * | User Code        | Hex String    | K5J2H8M4...  | 10     |
+ * | Master Order     | Hex String    | A1B2C3D4E5F6 | 12     |
+ * | Product SKU      | Hex String    | A7B3C9D1     | 8      |
  * 
- * Format: 3-char prefix + hyphen + 8-char alphanumeric (total 12 chars)
- * Alphabet excludes I, O to avoid confusion with 1, 0
+ * Format: Uppercase Hex string (0-9, A-F)
  */
-
-const ALPHABET = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-
-// 8-character generator for all IDs
-const generator8 = customAlphabet(ALPHABET, 8);
 
 /**
  * Generate unique IDs for different entities
  */
 export const generateId = {
     /**
-     * Generate Custom Order ID: CUS-XXXXXXXX
-     * @example CUS-A7K3M9B2
+     * Generate Custom Order ID: 10 chars Hex
+     * @example 9CF293891B
      */
-    custom: (): string => `CUS-${generator8()}`,
+    custom: (): string => generateHexCode(10),
 
     /**
-     * Generate Product Order ID: PDC-XXXXXXXX
-     * @example PDC-B2N8P4K5
+     * Generate Product Order ID: 10 chars Hex
+     * @example B2N8P4K5AB
      */
-    product: (): string => `PDC-${generator8()}`,
+    product: (): string => generateHexCode(10),
 
     /**
-     * Generate 3D Printing Order ID: 3DP-XXXXXXXX
-     * @example 3DP-M4R7S2N9
+     * Generate 3D Printing Order ID: 10 chars Hex
+     * @example M4R7S2N9CD
      */
-    printing: (): string => `3DP-${generator8()}`,
+    printing: (): string => generateHexCode(10),
 
     /**
-     * Generate User Code: USR-XXXXXXXX
-     * @example USR-K5J2H8M4
+     * Generate User Code: 10 chars Hex
+     * @example K5J2H8M4EF
      */
-    user: (): string => `USR-${generator8()}`,
+    user: (): string => generateHexCode(10),
 
     /**
-     * Generate Admin Code: ADM-XXXXXXXX
-     * @example ADM-N9L3K6A7
+     * Generate Admin Code: 10 chars Hex
+     * @example N9L3K6A7GH
      */
-    admin: (): string => `ADM-${generator8()}`,
+    admin: (): string => generateHexCode(10),
 
     /**
-     * Generate Product SKU: 8 Hex Chars (Random)
+     * Generate Product SKU: 8 chars Hex
      * @example A7B3C9D1
      */
-    sku: (): string => customAlphabet('0123456789ABCDEF', 8)(),
+    sku: (): string => generateHexCode(8),
 
     /**
-     * Generate Master Order ID: ALL-XXXXXXXX
-     * @example ALL-A7K3M9B2
+     * Generate Master Order ID: 12 chars Hex
+     * @example A1B2C3D4E5F6
      */
-    master: (): string => `ALL-${generator8()}`,
+    master: (): string => generateHexCode(12),
 
     /**
      * Alias for user() - backward compatibility
-     * @deprecated Use user() instead
      */
-    customer: (): string => `USR-${generator8()}`,
+    customer: (): string => generateHexCode(10),
 
     /**
      * Alias for product() - for cart/checkout flow
-     * Used when ordering from product catalog
      */
-    order: (): string => `PDC-${generator8()}`,
+    order: (): string => generateHexCode(10),
 
     /**
-     * Generate raw code without prefix
-     * @example A7K3M9B2
+     * Generate raw code
      */
-    raw: (): string => generator8(),
+    raw: (length = 10): string => generateHexCode(length),
 };
 
 /**
- * Validate ID format (8-char codes)
+ * Validate ID format (Hex codes)
  */
 export const validateId = {
-    custom: (id: string): boolean => /^CUS-[0-9A-HJ-NP-Z]{8}$/.test(id),
-    product: (id: string): boolean => /^PDC-[0-9A-HJ-NP-Z]{8}$/.test(id),
-    printing: (id: string): boolean => /^3DP-[0-9A-HJ-NP-Z]{8}$/.test(id),
-    user: (id: string): boolean => /^USR-[0-9A-HJ-NP-Z]{8}$/.test(id),
-    admin: (id: string): boolean => /^ADM-[0-9A-HJ-NP-Z]{8}$/.test(id),
-    // Validate SKU: 8 Hex Chars
+    // 10 chars Hex
+    custom: (id: string): boolean => /^[0-9A-F]{10}$/.test(id),
+    product: (id: string): boolean => /^[0-9A-F]{10}$/.test(id),
+    printing: (id: string): boolean => /^[0-9A-F]{10}$/.test(id),
+    user: (id: string): boolean => /^[0-9A-F]{10}$/.test(id),
+    admin: (id: string): boolean => /^[0-9A-F]{10}$/.test(id),
+
+    // 8 chars Hex
     sku: (id: string): boolean => /^[0-9A-F]{8}$/.test(id),
-    // Generic validation for any valid ID format
-    any: (id: string): boolean => /^[A-Z0-9]{3}-[0-9A-HJ-NP-Z]{8}$/.test(id),
+
+    // 12 chars Hex
+    master: (id: string): boolean => /^[0-9A-F]{12}$/.test(id),
+
+    // Generic
+    any: (id: string): boolean => /^[0-9A-F]+$/.test(id),
 };
 
 /**
- * Extract order type from ID prefix
+ * Extract order type from ID - DEPRECATED
+ * With pure hex IDs, we cannot determine type solely from ID string.
+ * This function checks length as a best-effort heuristic.
  */
-export const getOrderTypeFromId = (id: string): 'custom' | 'product' | 'printing' | 'unknown' => {
-    if (id.startsWith('CUS-')) return 'custom';
-    if (id.startsWith('PDC-')) return 'product';
-    if (id.startsWith('3DP-')) return 'printing';
+export const getOrderTypeFromId = (id: string): 'custom' | 'product' | 'printing' | 'master' | 'unknown' => {
+    if (/^[0-9A-F]{12}$/.test(id)) return 'master';
+    // 10 char IDs are ambiguous between custom, product, printing
     return 'unknown';
 };
 
 export default generateId;
+

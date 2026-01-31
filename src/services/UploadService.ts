@@ -14,13 +14,12 @@ import {
 import {
     isR2Configured,
     uploadToR2,
-    generateR2Key,
-    generateCustomR2Key,
-    generatePrintingR2Key,
-    generateReviewR2Key,
-    getStorageDestination,
-    type UploadType,
 } from '@/lib/storage/r2';
+import {
+    generateUnifiedKey,
+    generateProductKey,
+    type FileType
+} from '@/lib/storage/unified-keys';
 import { validateUploadedFile, sanitizeFilename } from '@/lib/security/file-validation';
 import { trackFileUpload } from '@/lib/security/file-access';
 import { BadRequestError, ForbiddenError } from '@/lib/core/BaseController';
@@ -171,75 +170,79 @@ export class UploadService {
         params: UploadRequestInput,
         userId: string
     ): Promise<UploadResult> {
-        if (!isR2Configured()) {
-            // Log detailed error for debugging
-            console.error('[Upload] R2 not configured! Missing env vars: CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY');
+        try {
+            if (!isR2Configured()) {
+                throw new Error('R2 not configured');
+            }
+
+            const identifier = params.type === 'product' ? params.sku : params.orderCode;
+            if (!identifier) {
+                throw new BadRequestError(
+                    params.type === 'product'
+                        ? 'SKU is required for product uploads'
+                        : 'Order code is required for order uploads'
+                );
+            }
+
+            // Get file extension
+            const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+
+            // Generate key based on upload type
+            const key = this.generateR2Key(params, identifier, ext, file.name);
+
+            // Build metadata object
+            const metadata: Record<string, string> = {
+                'upload-type': params.type,
+                'original-name': file.name,
+            };
+            if (params.type === 'product' && params.sku) {
+                metadata.sku = params.sku;
+            } else {
+                if (params.orderCode) metadata.orderCode = params.orderCode;
+                if (params.customerCode) metadata.customerCode = params.customerCode;
+            }
+
+            // Upload to R2
+            await uploadToR2(buffer, key, file.type, metadata);
+
+            // Track file ownership
+            await trackFileUpload(
+                key,
+                userId,
+                params.orderCode || undefined,
+                {
+                    isPublic: params.type === 'product',
+                    fileName: file.name,
+                    fileType: file.type,
+                }
+            );
+
+            // Return secure proxy URL
+            const secureUrl = `/api/files/${key}`;
+
+            return {
+                success: true,
+                storage: 'r2',
+                file: {
+                    key, // R2 key
+                    id: key, // Map key to id for compatibility
+                    name: file.name,
+                    url: secureUrl,
+                    thumbnail: secureUrl,
+                    viewUrl: secureUrl, // Map to viewUrl for compatibility
+                    downloadUrl: secureUrl,
+                },
+            };
+        } catch (error) {
+            console.error('[Upload] R2 Upload Failed:', error);
             console.warn('[Upload] Falling back to Google Drive...');
             return this.uploadToDrive(buffer, file, params);
         }
-
-        const identifier = params.type === 'product' ? params.sku : params.orderCode;
-        if (!identifier) {
-            throw new BadRequestError(
-                params.type === 'product'
-                    ? 'SKU is required for product uploads'
-                    : 'Order code is required for order uploads'
-            );
-        }
-
-        // Get file extension
-        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-
-        // Generate key based on upload type
-        const key = this.generateR2Key(params, identifier, ext, file.name);
-
-        // Build metadata object
-        const metadata: Record<string, string> = {
-            'upload-type': params.type,
-            'original-name': file.name,
-        };
-        if (params.type === 'product' && params.sku) {
-            metadata.sku = params.sku;
-        } else {
-            if (params.orderCode) metadata.orderCode = params.orderCode;
-            if (params.customerCode) metadata.customerCode = params.customerCode;
-        }
-
-        // Upload to R2
-        await uploadToR2(buffer, key, file.type, metadata);
-
-        // Track file ownership
-        await trackFileUpload(
-            key,
-            userId,
-            params.orderCode || undefined,
-            {
-                isPublic: params.type === 'product',
-                fileName: file.name,
-                fileType: file.type,
-            }
-        );
-
-        // Return secure proxy URL
-        const secureUrl = `/api/files/${key}`;
-
-        return {
-            success: true,
-            storage: 'r2',
-            file: {
-                key, // R2 key
-                id: key, // Map key to id for compatibility
-                name: file.name,
-                url: secureUrl,
-                thumbnail: secureUrl,
-                viewUrl: secureUrl, // Map to viewUrl for compatibility
-                downloadUrl: secureUrl,
-            },
-        };
     }
 
     /**
      * Generate R2 key based on upload type and naming convention
+     * Uses Unified Keys (Hex ID compatible)
      */
     private generateR2Key(
         params: UploadRequestInput,
@@ -247,25 +250,47 @@ export class UploadService {
         ext: string,
         filename: string
     ): string {
-        const { type, index, isReview, tech, customType, personCount, photoCategory, infill, layerHeight, color, orderCode } = params;
+        const { type, index, isReview, orderCode, customerCode, sku } = params;
 
-        if (type === 'product') {
-            return generateR2Key(type as UploadType, identifier, filename, index);
+        // 1. Product Uploads
+        if (type === 'product' && sku) {
+            return generateProductKey({
+                sku: sku,
+                index: index,
+                ext: ext
+            });
         }
 
-        if (isReview && orderCode) {
-            return generateReviewR2Key(orderCode, index, ext);
+        // 2. Order Uploads
+        // Note: During upload, we might not have the Master Order Code (parentOrderCode).
+        // Unified Keys allow omitting parentOrderCode (defaults to childOrderCode).
+        // The file will be migrated to the correct Master Order folder later by migrate-to-drive.ts.
+
+        let fileType: FileType = 'main';
+
+        // Map upload type to FileType
+        if (type === 'printing') {
+            fileType = params.tech === 'resin' ? 'resin' : 'fdm';
+        } else if (type.startsWith('custom_')) {
+            // Check photo category for custom orders
+            fileType = params.photoCategory === 'accessory' ? 'acc' : 'main';
         }
 
-        if (type === 'printing' && tech && orderCode) {
-            return generatePrintingR2Key(orderCode, tech, index, infill ?? undefined, layerHeight ?? undefined, color ?? undefined, ext);
+        // Override if review flag is set
+        if (isReview) {
+            fileType = 'review';
         }
 
-        if (type.startsWith('custom_') && customType && orderCode) {
-            return generateCustomR2Key(orderCode, customType, personCount || 1, photoCategory || 'main', index, ext);
-        }
-
-        // Fallback to legacy naming
-        return generateR2Key(type as UploadType, identifier, filename, index);
+        // Construct unified key params
+        // Use orderCode (Child Code) as identifier
+        return generateUnifiedKey({
+            customerCode: customerCode || 'GUEST',
+            // timestamp automatically generated
+            // parentOrderCode omitted -> will use childOrderCode as parent folder temporarily
+            childOrderCode: orderCode || identifier,
+            fileType: fileType,
+            index: index,
+            ext: ext
+        });
     }
 }
