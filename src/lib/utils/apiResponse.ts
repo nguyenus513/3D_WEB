@@ -7,6 +7,7 @@ export type ErrorCode =
     | 'UNAUTHORIZED'
     | 'ORDER_CREATE_FAILED'
     | 'PAYMENT_FAILED'
+    | 'PAYMENT_CONFIG_MISSING'
     | 'DUPLICATE_REQUEST'
     | 'INSUFFICIENT_STOCK'
     | 'NOT_FOUND'
@@ -61,8 +62,10 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     UNAUTHORIZED: 'Vui lòng đăng nhập để tiếp tục',
     ORDER_CREATE_FAILED: 'Không thể tạo đơn hàng. Vui lòng thử lại sau.',
     PAYMENT_FAILED: 'Thanh toán thất bại. Vui lòng thử lại.',
+    PAYMENT_CONFIG_MISSING: 'Cấu hình thanh toán không tồn tại. Vui lòng liên hệ admin.',
     DUPLICATE_REQUEST: 'Yêu cầu đã được xử lý trước đó.',
     INSUFFICIENT_STOCK: 'Sản phẩm không đủ số lượng trong kho.',
     NOT_FOUND: 'Không tìm thấy dữ liệu.',
     INTERNAL_ERROR: 'Đã xảy ra lỗi. Vui lòng thử lại sau.',
 };
+

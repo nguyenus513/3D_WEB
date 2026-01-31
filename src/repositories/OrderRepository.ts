@@ -1,51 +1,59 @@
 /**
- * Order Repository
+ * Order Repository - Schema v3
  *
- * Data access layer for orders table.
+ * Data access layer for orders and order_items tables.
  * Handles all database operations related to orders.
  *
  * @see backend-dev-guidelines.md - Rule #6: Use Repository Pattern for Data Access
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { OrderStatusType } from '@/validators/order.schema';
+import {
+    Order,
+    OrderItem,
+    OrderStatus,
+    PaymentStatus,
+    ShippingAddressSnapshot,
+    OrderItemConfiguration,
+} from '@/types/database';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface Order {
-    id: string;
-    user_id: string;
-    status: OrderStatusType;
-    total_amount: number;
-    payment_method: string;
-    payment_status: string;
-    shipping_address: Record<string, unknown>;
-    notes?: string;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface OrderItem {
-    id: string;
-    order_id: string;
-    product_id: string;
-    quantity: number;
-    price: number;
-    customization?: Record<string, unknown>;
-}
-
 export interface OrderWithItems extends Order {
-    order_items: OrderItem[];
+    items: OrderItem[];
 }
 
 export interface OrderQueryParams {
     page?: number;
     limit?: number;
-    status?: OrderStatusType;
+    status?: OrderStatus;
     fromDate?: Date;
     toDate?: Date;
+}
+
+export interface CreateOrderParams {
+    userId: string;
+    orderCode: string;
+    addressId?: string;
+    subtotal: number;
+    shippingFee: number;
+    discount: number;
+    totalAmount: number;
+    depositAmount?: number;
+    shippingAddressSnapshot?: ShippingAddressSnapshot;
+    notes?: string;
+}
+
+export interface CreateOrderItemParams {
+    productId?: string;
+    name: string;
+    sku?: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    configuration?: OrderItemConfiguration;
 }
 
 // =============================================================================
@@ -67,7 +75,7 @@ export class OrderRepository {
 
         let query = this.db
             .from('orders')
-            .select('*, order_items(*)', { count: 'exact' })
+            .select('*, items:order_items(*)', { count: 'exact' })
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
@@ -102,13 +110,33 @@ export class OrderRepository {
     async findById(orderId: string): Promise<OrderWithItems | null> {
         const { data, error } = await this.db
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, items:order_items(*)')
             .eq('id', orderId)
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return null; // Not found
+                return null;
+            }
+            throw error;
+        }
+
+        return data as OrderWithItems;
+    }
+
+    /**
+     * Find order by order_code
+     */
+    async findByCode(orderCode: string): Promise<OrderWithItems | null> {
+        const { data, error } = await this.db
+            .from('orders')
+            .select('*, items:order_items(*)')
+            .eq('order_code', orderCode)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return null;
             }
             throw error;
         }
@@ -122,7 +150,7 @@ export class OrderRepository {
     async findByIdAndUserId(orderId: string, userId: string): Promise<OrderWithItems | null> {
         const { data, error } = await this.db
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, items:order_items(*)')
             .eq('id', orderId)
             .eq('user_id', userId)
             .single();
@@ -141,31 +169,25 @@ export class OrderRepository {
      * Create a new order with items
      */
     async create(
-        userId: string,
-        orderData: {
-            totalAmount: number;
-            paymentMethod: string;
-            shippingAddress: Record<string, unknown>;
-            notes?: string;
-        },
-        items: Array<{
-            productId: string;
-            quantity: number;
-            price: number;
-            customization?: Record<string, unknown>;
-        }>
+        orderData: CreateOrderParams,
+        items: CreateOrderItemParams[]
     ): Promise<OrderWithItems> {
-        // Start transaction
+        // Insert order
         const { data: order, error: orderError } = await this.db
             .from('orders')
             .insert({
-                user_id: userId,
-                status: 'pending',
+                order_code: orderData.orderCode,
+                user_id: orderData.userId,
+                address_id: orderData.addressId || null,
+                subtotal: orderData.subtotal,
+                shipping_fee: orderData.shippingFee,
+                discount: orderData.discount,
                 total_amount: orderData.totalAmount,
-                payment_method: orderData.paymentMethod,
-                payment_status: 'pending',
-                shipping_address: orderData.shippingAddress,
-                notes: orderData.notes,
+                deposit_amount: orderData.depositAmount || 0,
+                status: 'pending' as OrderStatus,
+                payment_status: 'pending' as PaymentStatus,
+                shipping_address_snapshot: orderData.shippingAddressSnapshot || null,
+                notes: orderData.notes || null,
             })
             .select()
             .single();
@@ -177,10 +199,13 @@ export class OrderRepository {
         // Insert order items
         const orderItems = items.map((item) => ({
             order_id: order.id,
-            product_id: item.productId,
+            product_id: item.productId || null,
+            name: item.name,
+            sku: item.sku || null,
             quantity: item.quantity,
-            price: item.price,
-            customization: item.customization,
+            unit_price: item.unitPrice,
+            total_price: item.totalPrice,
+            configuration: item.configuration || {},
         }));
 
         const { data: insertedItems, error: itemsError } = await this.db
@@ -196,7 +221,7 @@ export class OrderRepository {
 
         return {
             ...order,
-            order_items: insertedItems,
+            items: insertedItems,
         } as OrderWithItems;
     }
 
@@ -205,16 +230,56 @@ export class OrderRepository {
      */
     async updateStatus(
         orderId: string,
-        status: OrderStatusType,
-        notes?: string
+        status: OrderStatus,
+        adminNotes?: string
     ): Promise<Order> {
         const updateData: Record<string, unknown> = {
             status,
             updated_at: new Date().toISOString(),
         };
 
-        if (notes) {
-            updateData.notes = notes;
+        if (adminNotes) {
+            updateData.admin_notes = adminNotes;
+        }
+
+        // Set timestamp based on status
+        if (status === 'confirmed') {
+            updateData.confirmed_at = new Date().toISOString();
+        } else if (status === 'paid') {
+            updateData.paid_at = new Date().toISOString();
+            updateData.payment_status = 'paid';
+        } else if (status === 'completed') {
+            updateData.completed_at = new Date().toISOString();
+        }
+
+        const { data, error } = await this.db
+            .from('orders')
+            .update(updateData)
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        return data as Order;
+    }
+
+    /**
+     * Update payment status
+     */
+    async updatePaymentStatus(
+        orderId: string,
+        paymentStatus: PaymentStatus
+    ): Promise<Order> {
+        const updateData: Record<string, unknown> = {
+            payment_status: paymentStatus,
+            updated_at: new Date().toISOString(),
+        };
+
+        if (paymentStatus === 'paid') {
+            updateData.paid_at = new Date().toISOString();
         }
 
         const { data, error } = await this.db
@@ -236,5 +301,42 @@ export class OrderRepository {
      */
     async cancel(orderId: string, reason?: string): Promise<Order> {
         return this.updateStatus(orderId, 'cancelled', reason);
+    }
+
+    /**
+     * Get all orders (admin)
+     */
+    async findAll(params: OrderQueryParams = {}): Promise<{ orders: OrderWithItems[]; total: number }> {
+        const { page = 1, limit = 50, status, fromDate, toDate } = params;
+        const offset = (page - 1) * limit;
+
+        let query = this.db
+            .from('orders')
+            .select('*, items:order_items(*), user:profiles(*)', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (status) {
+            query = query.eq('status', status);
+        }
+
+        if (fromDate) {
+            query = query.gte('created_at', fromDate.toISOString());
+        }
+
+        if (toDate) {
+            query = query.lte('created_at', toDate.toISOString());
+        }
+
+        const { data, error, count } = await query;
+
+        if (error) {
+            throw error;
+        }
+
+        return {
+            orders: (data as OrderWithItems[]) || [],
+            total: count || 0,
+        };
     }
 }

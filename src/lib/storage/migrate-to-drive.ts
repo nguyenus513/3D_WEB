@@ -15,7 +15,7 @@
 
 import { downloadFromR2, deleteFromR2, isR2Configured, isR2Url, extractR2KeyFromUrl } from './r2';
 import { getAdminSupabase } from '../supabase/admin';
-import { uploadToPath, isDriveConnected, getDirectUrl, buildFolderPath } from '../google-drive-oauth';
+import { uploadToPath, isDriveConnected, getDirectUrl, buildFolderPath, uploadWithNaming } from '../google-drive-oauth';
 import { parseUnifiedKey, isProductKey } from './unified-keys';
 
 export interface MigrationResult {

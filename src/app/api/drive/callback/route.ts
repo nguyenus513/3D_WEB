@@ -28,21 +28,21 @@ export async function GET(request: NextRequest) {
     // SECURITY: Validate state parameter (CSRF protection)
     if (!state || !await validateOAuthState(state)) {
         return NextResponse.redirect(
-            new URL('/admin/settings?drive_error=invalid_state', request.url)
+            new URL('/sys_internal/settings?drive_error=invalid_state', request.url)
         );
     }
 
     // Handle errors from Google
     if (error) {
         return NextResponse.redirect(
-            new URL('/admin/settings?drive_error=' + encodeURIComponent(error), request.url)
+            new URL('/sys_internal/settings?drive_error=' + encodeURIComponent(error), request.url)
         );
     }
 
     // No code received
     if (!code) {
         return NextResponse.redirect(
-            new URL('/admin/settings?drive_error=no_code', request.url)
+            new URL('/sys_internal/settings?drive_error=no_code', request.url)
         );
     }
 
@@ -59,12 +59,12 @@ export async function GET(request: NextRequest) {
 
         // Redirect to admin settings with success message
         return NextResponse.redirect(
-            new URL('/admin/settings?drive_connected=true', request.url)
+            new URL('/sys_internal/settings?drive_connected=true', request.url)
         );
     } catch (err) {
         console.error('OAuth callback error:', err);
         return NextResponse.redirect(
-            new URL('/admin/settings?drive_error=token_exchange_failed', request.url)
+            new URL('/sys_internal/settings?drive_error=token_exchange_failed', request.url)
         );
     }
 }

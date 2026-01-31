@@ -26,7 +26,16 @@ export async function GET() {
         // Fetch pending/paid orders using admin client
         const { data, error } = await supabaseAdmin
             .from('orders')
-            .select('id, order_code, order_type, status, total, created_at')
+            .select(`
+                id,
+                status,
+                total: total_amount,
+                created_at,
+                profiles:user_id (
+                    full_name,
+                    email
+                )
+            `)
             .in('status', ['pending', 'paid'])
             .order('created_at', { ascending: false })
             .limit(10);

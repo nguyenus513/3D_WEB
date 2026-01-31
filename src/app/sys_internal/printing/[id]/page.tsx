@@ -381,8 +381,8 @@ export default function AdminPrintingDetailPage() {
                                 <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-white/50">Phí ship</span>
-                                <span className="text-white">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white/50">Tạm tính</span>
+                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white font-medium">Tổng cộng</span>

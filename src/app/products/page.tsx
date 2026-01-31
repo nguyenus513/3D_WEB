@@ -45,7 +45,7 @@ export default function ProductsPage() {
         const { data, error } = await supabase
             .from('products')
             .select('*')
-            .eq('status', 'active')
+            .eq('is_active', true)
             .order('created_at', { ascending: false });
 
         if (!error && data) {
@@ -258,9 +258,9 @@ export default function ProductsPage() {
                                                 />
 
                                                 {/* Product Image or Emoji */}
-                                                {product.images?.[0]?.url ? (
+                                                {product.images?.[0] ? (
                                                     <motion.img
-                                                        src={product.images[0].url}
+                                                        src={product.images[0]}
                                                         alt={product.name}
                                                         className="w-full h-full object-cover relative z-10"
                                                         animate={{

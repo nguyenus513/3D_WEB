@@ -62,36 +62,49 @@ export async function getPaymentConfig(orderType: PaymentOrderType): Promise<Pay
 
 /**
  * Get default fallback config if DB lookup fails
+ * Returns null - callers must handle missing config
+ * SECURITY: No hardcoded bank info in code
  */
-export function getDefaultPaymentConfig(): PaymentConfig {
-    return {
-        id: 'default',
-        order_type: 'ready_made',
-        bank_code: 'MB',
-        account_no: config.payment?.bank?.accountNumber || '0336668386',
-        account_name: config.payment?.bank?.accountName || 'NGUYEN MINH NHAT',
-        is_active: true,
-        notes: null,
-    };
+export function getDefaultPaymentConfig(): PaymentConfig | null {
+    console.warn('[PaymentConfig] DB config not found. Please ensure payment_configs table has active entries.');
+    return null;
 }
 
 /**
  * Fetch customer_code from profiles table
  * Format: KH-XXXXXXXX or USR-XXXXXXXX
+ * Supports email fallback for corrupted session IDs
  */
-export async function getCustomerCode(userId: string): Promise<string | null> {
+export async function getCustomerCode(userId: string, email?: string | null): Promise<string | null> {
+    // First try by userId
     const { data, error } = await supabaseAdmin
         .from('profiles')
         .select('customer_code')
         .eq('id', userId)
         .single();
 
-    if (error || !data) {
-        console.error(`[PaymentConfig] Failed to fetch customer_code for user ${userId}:`, error);
-        return null;
+    if (data?.customer_code) {
+        return data.customer_code;
     }
 
-    return data.customer_code;
+    // Fallback to email lookup if userId not found
+    if (email) {
+        const { data: emailData } = await supabaseAdmin
+            .from('profiles')
+            .select('customer_code')
+            .eq('email', email.toLowerCase())
+            .single();
+
+        if (emailData?.customer_code) {
+            console.log('[PaymentConfig] Using email fallback for customer_code lookup');
+            return emailData.customer_code;
+        }
+    }
+
+    if (error) {
+        console.error(`[PaymentConfig] Failed to fetch customer_code for user ${userId}:`, error);
+    }
+    return null;
 }
 
 /**
@@ -138,19 +151,25 @@ export async function getPaymentSetup(
     userId: string,
     productType: string,
     orderCode: string,
-    amount: number
+    amount: number,
+    email?: string | null  // Added for email fallback
 ): Promise<{
     customerCode: string;
     transferContent: string;
     qrUrl: string;
     bankInfo: PaymentConfig;
 }> {
-    // Get customer code from profiles
-    const customerCode = await getCustomerCode(userId) || generateFallbackCustomerCode(userId);
+    // Get customer code from profiles (with email fallback)
+    const customerCode = await getCustomerCode(userId, email) || generateFallbackCustomerCode(userId);
 
     // Get payment config from payment_configs table
     const orderType = getOrderTypeForProduct(productType);
-    const bankInfo = await getPaymentConfig(orderType) || getDefaultPaymentConfig();
+    const bankInfo = await getPaymentConfig(orderType);
+
+    // SECURITY: Fail if no config found - don't use hardcoded fallback
+    if (!bankInfo) {
+        throw new Error(`Payment config không tồn tại cho loại đơn hàng: ${orderType}. Vui lòng liên hệ admin.`);
+    }
 
     // Generate transfer content: {customer_code}-{order_code}
     const transferContent = generateTransferContent(customerCode, orderCode);
@@ -171,3 +190,4 @@ export async function getPaymentSetup(
         bankInfo,
     };
 }
+

@@ -15,5 +15,11 @@ export async function GET() {
         redirect('/complete-profile');
     }
 
+    // Redirect admins to internal system
+    const role = (session.user as { role?: string }).role;
+    if (role === 'admin') {
+        redirect('/sys_internal');
+    }
+
     redirect('/account');
 }

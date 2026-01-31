@@ -1,214 +1,240 @@
-// Database Types - Auto-generated from schema
+// Database Types - Schema v3 Optimized
 
+// ==================== ENUMS ====================
+export type UserRole = 'customer' | 'admin' | 'staff';
+
+export type OrderStatus =
+    | 'pending'
+    | 'confirmed'
+    | 'paid'
+    | 'processing'
+    | 'designing'
+    | 'producing'
+    | 'shipping'
+    | 'delivered'
+    | 'completed'
+    | 'cancelled'
+    | 'refunded';
+
+export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'refunded' | 'failed';
+
+export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'printing';
+
+export type PrintTech = 'fdm' | 'resin' | 'sla';
+
+// ==================== PROFILES ====================
 export interface Profile {
     id: string;
+    email: string;
     full_name: string | null;
-    name?: string | null; // Alias for full_name (backward compatibility)
     phone: string | null;
-    email: string | null;
-    instagram: string | null;
-    role: 'customer' | 'admin';
-    customer_code: string;
+    role: UserRole;
+    customer_code: string | null;
+    avatar_url: string | null;
+    is_verified: boolean;
     created_at: string;
     updated_at: string;
+    deleted_at: string | null;
 }
 
+// ==================== ADDRESSES ====================
 export interface Address {
     id: string;
     user_id: string;
     label: string;
     full_name: string;
     phone: string;
-    address_line: string;
-    ward: string | null;
-    district: string | null;
     province: string;
+    district: string;
+    ward: string | null;
+    address_line: string;
     is_default: boolean;
     created_at: string;
 }
 
+// ==================== CATEGORIES ====================
 export interface Category {
     id: string;
     name: string;
     slug: string;
-    description: string | null;
     parent_id: string | null;
     sort_order: number;
+    is_active: boolean;
     created_at: string;
 }
 
-export interface ProductImage {
-    url: string;
-    alt?: string;
-    is_main?: boolean;
-}
-
-export interface ProductSize {
-    name: string;
-    price: number;
-    stock: number;
-    enabled: boolean;
+// ==================== PRODUCTS ====================
+export interface ProductSpecs {
+    sizes?: { name: string; price: number; stock: number }[];
+    colors?: string[];
+    materials?: string[];
+    dimensions?: { width: number; height: number; depth: number };
+    weight?: number;
+    [key: string]: unknown;
 }
 
 export interface Product {
     id: string;
-    sku: string;
+    category_id: string | null;
+    sku: string | null;
     name: string;
     slug: string;
-    category_id: string | null;
-    type: 'ready_made' | 'custom_template' | 'service';
-    status: 'draft' | 'active' | 'archived';
-    short_description: string | null;
-    description: string | null;
+    type: ProductType;
     base_price: number;
     sale_price: number | null;
-    cost_price: number | null;
     stock: number;
-    low_stock_alert: number;
-    images: ProductImage[];
-    video_url: string | null;
-    sizes: ProductSize[];
-    seo_title: string | null;
-    seo_description: string | null;
-    tags: string[];
+    images: string[]; // Array of URLs
+    specs: ProductSpecs;
+    is_active: boolean; // Computed or legacy? v3 has status.
+    status: 'draft' | 'active' | 'archived'; // Added for v3
+    // Restored fields (Patch v3)
+    description: string | null;
+    short_description: string | null;
     is_featured: boolean;
+    tags: string[];
+
     view_count: number;
     sold_count: number;
     created_at: string;
     updated_at: string;
     // Relations
     category?: Category;
+    // Computed/Frontend Helpers (optional)
+    sizes?: { name: string; price: number; stock: number; enabled: boolean }[];
 }
 
-export type OrderType = 'ready_made' | 'custom' | 'printing';
-
-export type OrderStatus =
-    | 'pending'
-    | 'expired'
-    | 'paid'
-    | 'preparing'
-    | 'designing'
-    | 'review'
-    | 'pending_demo_approval'
-    | 'contact_requested'
-    | 'approved'
-    | 'printing'
-    | 'completed'
-    | 'shipped'
-    | 'delivered'
-    | 'refund_requested'
-    | 'refunded'
-    | 'cancelled';
-
-export interface ShippingAddress {
+// ==================== ORDERS ====================
+export interface ShippingAddressSnapshot {
     full_name: string;
     phone: string;
-    address_line: string;
-    ward?: string;
-    district?: string;
     province: string;
+    district: string;
+    ward?: string;
+    address_line: string;
 }
 
 export interface Order {
     id: string;
     order_code: string;
-    code_formatted?: string; // New formatted code: CART-YYYYMMDD-XXXX-...
-    user_id: string;
-    order_type: OrderType;
-    status: OrderStatus;
+    user_id: string | null;
+    address_id: string | null;
     subtotal: number;
     shipping_fee: number;
     discount: number;
-    total: number;
+    total_amount: number;
     deposit_amount: number;
-    deposit_paid: boolean;
-    shipping_address: ShippingAddress | null;
-    shipping_code: string | null;
-    shipping_status: string | null;
-    customer_note: string | null;
-    admin_note: string | null;
-    paid_at: string | null;
-    processing_at: string | null;
-    designing_at: string | null;
-    review_at: string | null;
-    approved_at: string | null;
-    printing_at: string | null;
-    shipped_at: string | null;
-    delivered_at: string | null;
+    status: OrderStatus;
+    payment_status: PaymentStatus;
+    shipping_address_snapshot: ShippingAddressSnapshot | null;
+    notes: string | null;
+    admin_notes: string | null;
     created_at: string;
     updated_at: string;
+    confirmed_at: string | null;
+    paid_at: string | null;
+    completed_at: string | null;
     // Relations
     items?: OrderItem[];
     payments?: Payment[];
     user?: Profile;
+    address?: Address;
 }
 
-export interface CustomConfig {
-    type: 'single' | 'couple' | 'group';
-    photos: { drive_file_id: string; file_name: string; web_view_link: string }[];
-    style?: string;
-    size?: string;
-    demo_photo?: { drive_file_id: string; file_name: string };
-    customer_approved?: boolean;
-    approved_at?: string;
-}
-
-export interface PrintingConfig {
-    stl_file: { drive_file_id: string; file_name: string; web_view_link: string };
-    print_type: 'FDM' | 'Resin';
-    material: string;
-    color: string;
-    infill?: number;
+// ==================== ORDER ITEMS ====================
+export interface OrderItemConfiguration {
+    // For 3D Printing
     layer_height?: number;
-    calculated_price: number;
-    _internal?: {
-        print_time_hours: number;
-        weight_grams: number;
-    };
+    infill?: string;
+    color?: string;
+    material?: string;
+    file_url?: string;
+    file_name?: string;
+    print_tech?: PrintTech;
+    // For Custom
+    photos?: { url: string; name: string }[];
+    style?: string;
+    // General
+    size?: string;
+    [key: string]: unknown;
 }
 
 export interface OrderItem {
     id: string;
     order_id: string;
     product_id: string | null;
-    sku: string;
     name: string;
+    sku: string | null;
     quantity: number;
     unit_price: number;
     total_price: number;
-    configuration: CustomConfig | PrintingConfig | Record<string, unknown>;
+    configuration: OrderItemConfiguration;
     created_at: string;
+    // Relations
+    product?: Product;
+    order?: Order;
+}
+
+// ==================== PAYMENTS ====================
+export interface Payment {
+    id: string;
+    order_id: string;
+    transaction_code: string | null;
+    amount: number;
+    method: string;
+    status: PaymentStatus;
+    gateway_response: Record<string, unknown> | null;
+    created_at: string;
+    // Relations
+    order?: Order;
+}
+
+// ==================== CARTS ====================
+export interface Cart {
+    id: string;
+    user_id: string;
+    created_at: string;
+    updated_at: string;
+    // Relations
+    items?: CartItem[];
+}
+
+export interface CartItem {
+    id: string;
+    cart_id: string;
+    product_id: string;
+    quantity: number;
+    configuration: OrderItemConfiguration;
+    created_at: string;
+    updated_at: string;
     // Relations
     product?: Product;
 }
 
-export type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
-export type PaymentType = 'deposit' | 'full' | 'remaining';
-
-export interface Payment {
+// ==================== SECURITY ====================
+export interface SecurityLog {
     id: string;
-    order_id: string;
-    amount: number;
-    payment_method: string | null;
-    payment_type: PaymentType;
-    status: PaymentStatus;
-    transaction_id: string | null;
-    payment_url: string | null;
-    metadata: Record<string, unknown>;
-    paid_at: string | null;
+    user_id: string | null;
+    event_type: string;
+    ip_address: string | null;
+    user_agent: string | null;
+    details: Record<string, unknown> | null;
     created_at: string;
 }
 
-export interface FAQ {
+export interface RefreshToken {
     id: string;
-    question: string;
-    answer: string;
-    category: string | null;
-    sort_order: number;
-    is_active: boolean;
+    user_id: string;
+    token: string;
+    expires_at: string;
+    revoked: boolean;
     created_at: string;
 }
 
+// ==================== LEGACY COMPATIBILITY ====================
+// These types can be removed after full migration
+export type OrderType = 'ready_made' | 'custom' | 'printing';
+
+// ==================== SETTINGS (Not in DB, for app use) ====================
 export interface StoreSettings {
     name: string;
     phone: string;
@@ -228,4 +254,15 @@ export interface CustomPricingSettings {
     single_base: number;
     couple_base: number;
     group_base: number;
+}
+
+export interface FAQ {
+    id: string;
+    question: string;
+    answer: string;
+    category: string;
+    is_active: boolean;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
 }

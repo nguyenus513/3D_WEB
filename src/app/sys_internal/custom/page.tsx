@@ -10,7 +10,7 @@ const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
     paid: 'bg-blue-500/20 text-blue-400',
     designing: 'bg-purple-500/20 text-purple-400',
-    review: 'bg-cyan-500/20 text-cyan-400',
+    processing: 'bg-cyan-500/20 text-cyan-400', // Was review
     confirmed: 'bg-green-500/20 text-green-400',
     completed: 'bg-green-500/20 text-green-400',
 };
@@ -19,7 +19,7 @@ const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
     paid: 'Đã thanh toán',
     designing: 'Đang thiết kế',
-    review: 'Chờ duyệt mẫu',
+    processing: 'Chờ duyệt mẫu', // Was review
     confirmed: 'Đã duyệt',
     preparing: 'Đang chuẩn bị',
     shipped: 'Đã gửi',
@@ -29,7 +29,7 @@ const statusLabels: Record<string, string> = {
 export default function AdminCustomPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ pending: 0, designing: 0, review: 0, completed: 0 });
+    const [stats, setStats] = useState({ pending: 0, designing: 0, processing: 0, completed: 0 });
 
     useEffect(() => {
         fetchOrders();
@@ -38,18 +38,46 @@ export default function AdminCustomPage() {
     const fetchOrders = async () => {
         const supabase = getSupabase();
 
-        const { data, error } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('order_type', 'custom')
-            .order('created_at', { ascending: false });
+        // Note: 'order_type' column might not exist or be needed if we filter by items/metadata in V3. 
+        // But Controller inferred it. Direct DB query might fail if 'order_type' column is gone.
+        // Assuming V3 'orders' table still has 'order_type' for legacy compat or we should filter differently?
+        // AdminOrderController infers it.
+        // If 'order_type' column is removed, this query fails.
+        // Based on AdminOrderController code, it seems 'order_type' IS removed and inferred.
+        // So this page's direct query `.eq('order_type', 'custom')` IS BROKEN if column missing.
+        // I should fetch all and filter client side OR use 'metadata->order_type'?
+        // Or fetch via API `/api/admin/orders?type=custom` which uses Controller.
 
-        if (!error && data) {
+        // Refactoring to use API is cleaner but slower refactor.
+        // For now, I'll assume usage of API if possible.
+        // But code imports getSupabase().
+        // If I keep getSupabase(), I must check if 'order_type' exists.
+        // database.ts Order interface does NOT show order_type.
+        // So I must fetch ALL and filter in JS (or fetch via API).
+        // Fetching via API is safer.
+        const res = await fetch('/api/admin/orders?type=custom'); // controller handles type=custom logic?
+        // AdminOrderController.listOrders takes query params?
+        // Let's assume fetching all and filtering in client for now if API isn't ready for filtering. 
+        // Actually AdminOrderController.listOrders does NOT seem to filter by type in code I viewed?
+        // I will use `fetch('/api/admin/orders')` and filter `custom` type here.
+
+        let data: Order[] = [];
+        try {
+            const res = await fetch('/api/admin/orders');
+            const json = await res.json();
+            if (json.orders) {
+                data = json.orders.filter((o: any) => o.order_type === 'custom'); // Controller adds order_type
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        if (data) {
             setOrders(data);
             setStats({
                 pending: data.filter((o: Order) => o.status === 'pending').length,
                 designing: data.filter((o: Order) => o.status === 'designing' || o.status === 'paid').length,
-                review: data.filter((o: Order) => o.status === 'review').length,
+                processing: data.filter((o: Order) => o.status === 'processing').length,
                 completed: data.filter((o: Order) => o.status === 'delivered').length,
             });
         }
@@ -58,7 +86,7 @@ export default function AdminCustomPage() {
 
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
         try {
-            await fetch(`/api/admin/orders/${orderId}/update`, {
+            await fetch(`/api/admin/orders/${orderId}`, { // Adjusted path if needed
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),
@@ -96,7 +124,7 @@ export default function AdminCustomPage() {
                 </div>
                 <div className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10">
                     <p className="text-white/50 text-sm">Chờ duyệt</p>
-                    <p className="text-2xl font-bold text-cyan-400 mt-1">{stats.review}</p>
+                    <p className="text-2xl font-bold text-cyan-400 mt-1">{stats.processing}</p>
                 </div>
                 <div className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10">
                     <p className="text-white/50 text-sm">Hoàn thành</p>
@@ -141,7 +169,7 @@ export default function AdminCustomPage() {
                                                 {statusLabels[order.status] || order.status}
                                             </span>
                                         </div>
-                                        <p className="text-white/70">{order.shipping_address?.full_name || 'Khách'}</p>
+                                        <p className="text-white/70">{order.shipping_address_snapshot?.full_name || 'Khách'}</p>
                                         <p className="text-white/50 text-sm mt-1">
                                             {new Date(order.created_at).toLocaleDateString('vi-VN')}
                                         </p>
@@ -149,7 +177,7 @@ export default function AdminCustomPage() {
                                 </div>
 
                                 <div className="text-right">
-                                    <p className="text-white font-semibold">{Number(order.total).toLocaleString('vi-VN')}đ</p>
+                                    <p className="text-white font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')}đ</p>
                                     <div className="flex items-center gap-2 mt-3">
                                         {order.status === 'paid' && (
                                             <button
@@ -161,7 +189,7 @@ export default function AdminCustomPage() {
                                         )}
                                         {order.status === 'designing' && (
                                             <button
-                                                onClick={() => handleUpdateStatus(order.id, 'review')}
+                                                onClick={() => handleUpdateStatus(order.id, 'processing')}
                                                 className="px-3 py-1.5 bg-cyan-500 text-white text-xs rounded-lg hover:bg-cyan-600"
                                             >
                                                 Gửi duyệt

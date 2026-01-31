@@ -128,16 +128,11 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
         <aside className={clsx(`
             fixed left-0 top-0 h-screen w-64 z-50 flex flex-col
             transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)
-            border-r border-[var(--edge-light)]
+            border-r border-white/10 bg-[#1D1D1F]
             lg:translate-x-0
-            glass-panel
         `,
             isOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-            style={{
-                background: 'var(--material-panel)',
-                backdropFilter: 'blur(var(--blur-panel)) saturate(var(--saturate-panel))'
-            }}>
+        )}>
             {/* Logo */}
             <div className="p-6 border-b border-[var(--edge-shade)]">
                 <Link href={adminRoot || '/sys_internal'} className="flex items-center gap-3 group">

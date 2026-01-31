@@ -14,11 +14,14 @@ import { z } from 'zod';
 
 export const OrderStatus = z.enum([
     'pending',
+    'paid',
     'confirmed',
     'processing',
-    'printing',
-    'shipped',
+    'designing',
+    'producing',
+    'shipping',
     'delivered',
+    'completed',
     'cancelled',
     'refunded',
 ]);

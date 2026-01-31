@@ -57,6 +57,7 @@ export default function AdminProductsPage() {
         const productsWithStats = (productsData || []).map((product: any) => ({
             ...product,
             sizes: product.sizes || [], // Use the JSON column directly
+            status: (product as any).status || ((product as any).is_active ? 'active' : 'draft'),
             sold_count: 0,
             buyer_count: 0,
         }));
@@ -144,7 +145,7 @@ export default function AdminProductsPage() {
 
     const filteredProducts = products.filter(product => {
         const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+            (product.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
 
         let matchesCategory = true;
         if (activeTab === 'other') {
@@ -315,18 +316,22 @@ export default function AdminProductsPage() {
                                                 <td className="px-5 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
-                                                            {product.images?.[0]?.url ? (
-                                                                <img
-                                                                    src={product.images[0].url}
-                                                                    alt={product.name}
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        (e.target as HTMLImageElement).src = '/placeholder.svg';
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-2xl">📦</span>
-                                                            )}
+                                                            {(() => {
+                                                                const mainImg = product.images?.[0];
+                                                                const imgUrl = typeof mainImg === 'string' ? mainImg : (mainImg as any)?.url;
+                                                                return imgUrl ? (
+                                                                    <img
+                                                                        src={imgUrl}
+                                                                        alt={product.name}
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span className="text-2xl">📦</span>
+                                                                );
+                                                            })()}
                                                         </div>
                                                         <div>
                                                             <span className="text-white font-medium block">{product.name}</span>

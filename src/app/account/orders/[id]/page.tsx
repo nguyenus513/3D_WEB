@@ -553,12 +553,6 @@ export default function AccountOrderDetailPage() {
                                 <span className="text-white/70">Tạm tính</span>
                                 <span className="text-white">{(order.subtotal || order.total || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
-                            {(order.shipping_fee || 0) > 0 && (
-                                <div className="flex justify-between">
-                                    <span className="text-white/70">Phí ship</span>
-                                    <span className="text-white">{(order.shipping_fee || 0).toLocaleString('vi-VN')}đ</span>
-                                </div>
-                            )}
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white font-medium">Tổng cộng</span>
                                 <span className="text-white font-bold">{(order.total || 0).toLocaleString('vi-VN')}đ</span>

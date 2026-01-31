@@ -7,13 +7,14 @@ import type { Product } from '@/types/database';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
 interface FeaturedProduct extends Product {
-    images: { url: string; alt?: string }[];
+    // Extend if needed, but respect base types.
+    // If strict match is needed for images:
 }
 
 export default function AdminFeaturedPage() {
     const { adminRoot } = useAdminPath();
-    const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
-    const [allProducts, setAllProducts] = useState<FeaturedProduct[]>([]);
+    const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,13 +33,13 @@ export default function AdminFeaturedPage() {
             .from('products')
             .select('*')
             .eq('is_featured', true)
-            .eq('status', 'active')
+            .eq('is_active', true)
             .order('updated_at', { ascending: false });
 
         if (error) {
             console.error('Error fetching featured products:', error);
         } else {
-            setFeaturedProducts(data || []);
+            setFeaturedProducts((data as any[]) || []);
         }
         setLoading(false);
     };
@@ -49,13 +50,13 @@ export default function AdminFeaturedPage() {
         const { data, error } = await supabase
             .from('products')
             .select('*')
-            .eq('status', 'active')
+            .eq('is_active', true)
             .order('name', { ascending: true });
 
         if (error) {
             console.error('Error fetching all products:', error);
         } else {
-            setAllProducts(data || []);
+            setAllProducts((data as any[]) || []);
         }
     };
 
@@ -98,9 +99,10 @@ export default function AdminFeaturedPage() {
         setUpdating(null);
     };
 
-    const getProductImage = (product: FeaturedProduct) => {
-        if (product.images && product.images.length > 0) {
-            return product.images[0].url;
+    const getProductImage = (product: Product) => {
+        if (Array.isArray(product.images) && product.images.length > 0) {
+            const img = product.images[0];
+            return typeof img === 'string' ? img : (img as any).url;
         }
         return null;
     };

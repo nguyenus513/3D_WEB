@@ -16,10 +16,32 @@ export async function GET() {
         }
 
         const supabase = getAdminSupabase();
+
+        // SMART PROFILE LOOKUP: Try by ID first, then email fallback
+        let profileId: string = session.user.id;
+
+        const { data: profileById } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', session.user.id)
+            .single();
+
+        if (!profileById && session.user.email) {
+            const { data: profileByEmail } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', session.user.email.toLowerCase())
+                .single();
+
+            if (profileByEmail) {
+                profileId = profileByEmail.id;
+            }
+        }
+
         const { data, error } = await supabase
             .from('addresses')
             .select('*')
-            .eq('user_id', session.user.id)
+            .eq('user_id', profileId)
             .order('is_default', { ascending: false });
 
         if (error) {
@@ -44,11 +66,20 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
 
-        // Validate required fields
-        const { full_name, phone, address_line, province, is_default } = body;
+        // Validate required fields (district is NOT NULL in schema v4)
+        const { full_name, phone, address_line, province, district, is_default } = body;
 
-        if (!full_name || !phone || !address_line || !province) {
-            return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 });
+        if (!full_name || !phone || !address_line || !province || !district) {
+            return NextResponse.json({
+                error: 'Thiếu thông tin bắt buộc',
+                details: {
+                    full_name: !full_name ? 'required' : 'ok',
+                    phone: !phone ? 'required' : 'ok',
+                    address_line: !address_line ? 'required' : 'ok',
+                    province: !province ? 'required' : 'ok',
+                    district: !district ? 'required' : 'ok',
+                }
+            }, { status: 400 });
         }
 
         // Validate phone format
@@ -58,23 +89,63 @@ export async function POST(request: NextRequest) {
 
         const supabase = getAdminSupabase();
 
+        // SMART PROFILE LOOKUP: Try by ID first, then email fallback
+        let profileId: string = session.user.id;
+
+        const { data: profileById } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', session.user.id)
+            .single();
+
+        if (!profileById) {
+            console.log('[POST /api/addresses] Profile not found by ID, trying email lookup');
+
+            if (session.user.email) {
+                const { data: profileByEmail } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('email', session.user.email.toLowerCase())
+                    .single();
+
+                if (profileByEmail) {
+                    // Found by email - use that ID instead of corrupted session ID
+                    console.log('[POST /api/addresses] Using profile ID from email lookup:', profileByEmail.id);
+                    profileId = profileByEmail.id;
+                } else {
+                    // Neither found - profile truly doesn't exist
+                    console.error('[POST /api/addresses] Profile not found by ID or email:', session.user.id, session.user.email);
+                    return NextResponse.json({
+                        error: 'Hồ sơ không tìm thấy. Vui lòng đăng xuất và đăng nhập lại để tạo hồ sơ mới.',
+                        code: 'PROFILE_NOT_FOUND'
+                    }, { status: 400 });
+                }
+            } else {
+                // No email in session - can't lookup
+                return NextResponse.json({
+                    error: 'Phiên đăng nhập không hợp lệ. Vui lòng đăng xuất và đăng nhập lại.',
+                    code: 'INVALID_SESSION'
+                }, { status: 401 });
+            }
+        }
+
         // If setting as default, unset other defaults first
         if (is_default) {
             await supabase
                 .from('addresses')
                 .update({ is_default: false })
-                .eq('user_id', session.user.id);
+                .eq('user_id', profileId);
         }
 
         const { data, error } = await supabase
             .from('addresses')
             .insert({
-                user_id: session.user.id,
+                user_id: profileId,
                 full_name: full_name.trim().slice(0, 100),
                 phone: phone.trim().slice(0, 15),
                 address_line: address_line.trim().slice(0, 255),
                 ward: body.ward?.trim().slice(0, 50) || null,
-                district: body.district?.trim().slice(0, 50) || null,
+                district: district.trim().slice(0, 50), // Required field
                 province: province.trim().slice(0, 50),
                 label: body.label?.trim().slice(0, 20) || 'Nhà',
                 is_default: is_default || false,
@@ -83,13 +154,26 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (error) {
-            console.error('Insert address error:', error);
-            return NextResponse.json({ error: 'Không thể thêm địa chỉ' }, { status: 500 });
+            console.error('[POST /api/addresses] DB Error:', error);
+
+            // Handle Foreign Key Violation (User profile missing)
+            if (error.code === '23503') {
+                return NextResponse.json({
+                    error: 'Hồ sơ người dùng không tồn tại. Vui lòng đăng xuất và đăng nhập lại.',
+                    code: error.code
+                }, { status: 400 });
+            }
+
+            return NextResponse.json({
+                error: 'Không thể thêm địa chỉ',
+                code: error.code,
+                details: error.message
+            }, { status: 500 });
         }
 
         return NextResponse.json({ address: data, success: true });
     } catch (error) {
-        console.error('Create address error:', error);
+        console.error('[POST /api/addresses] Exception:', error);
         return NextResponse.json({ error: 'Đã có lỗi xảy ra' }, { status: 500 });
     }
 }

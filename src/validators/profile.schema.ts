@@ -19,7 +19,7 @@ export type ProfileRoleType = z.infer<typeof ProfileRole>;
 
 export const UpdateProfileSchema = z.object({
     name: z.string().min(1, 'Tên không được để trống').max(100),
-    phone: z.string().min(10, 'Số điện thoại phải có ít nhất 10 số').max(15),
+    phone: z.string().max(15).optional().or(z.literal('')),
     instagram: z.string().max(100).optional(),
 });
 

@@ -130,13 +130,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const shippingFee = 30000;
+        const shippingFee = 0;
         const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
         const totalAmount = subtotal + shippingFee;
 
         // 1. Get or Generate Customer Code (10 hex)
         // Try to get from profile first
-        const rawCustomerCode = await getCustomerCode(session.user.id);
+        const rawCustomerCode = await getCustomerCode(session.user.id, session.user.email);
         let customerCode: string;
 
         // Validate if existing code is 10-hex

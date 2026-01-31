@@ -1,13 +1,14 @@
 /**
- * User Child Orders API
+ * User Orders API - Schema v3
  * GET /api/orders/my-orders
  * 
- * Returns all order_child records for the current user
+ * Returns all orders for the current user from unified orders table
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
+import { getProfileId } from '@/lib/utils/getProfileId';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -23,76 +24,52 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = session.user.id;
-
-        // Fetch from order_child table
-        const { data: childOrders, error: childError } = await supabaseAdmin
-            .from('order_child')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-
-        if (childError) {
-            console.error('[MyOrders] Failed to fetch order_child:', childError);
+        // Smart profile ID lookup with email fallback
+        const userId = await getProfileId(session.user, supabaseAdmin);
+        if (!userId) {
+            return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
         }
 
-        // Fetch from legacy orders table
-        const { data: legacyOrders, error: legacyError } = await supabaseAdmin
+        // Fetch from unified orders table with items
+        const { data: orders, error, count } = await supabaseAdmin
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, items:order_items(*)', { count: 'exact' })
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
-        if (legacyError) {
-            console.error('[MyOrders] Failed to fetch orders:', legacyError);
+        if (error) {
+            console.error('[MyOrders] Failed to fetch orders:', error);
+            return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
         }
 
-        // Transform child orders to unified format
-        const transformedChildOrders = (childOrders || []).map(order => ({
+        // Transform to frontend format
+        const transformedOrders = (orders || []).map(order => ({
             id: order.id,
-            order_code: order.code_child,
-            product_name: order.product_name,
-            product_type: order.product_type,
-            quantity: order.quantity,
-            total: order.total_price,
+            order_code: order.order_code,
+            product_name: order.items?.[0]?.name || 'Đơn hàng',
+            quantity: order.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 0,
+            subtotal: order.subtotal,
+            shipping_fee: order.shipping_fee,
+            discount: order.discount,
+            total: order.total_amount,
+            deposit_amount: order.deposit_amount,
             status: order.status,
-            payment_qr_url: order.payment_qr_url,
-            metadata: order.metadata,
+            payment_status: order.payment_status,
+            notes: order.notes,
+            shipping_address: order.shipping_address_snapshot,
             created_at: order.created_at,
-            source: 'order_child' as const,
-            // For display in order list
-            order_items: [{
-                name: order.product_name,
-                quantity: order.quantity,
-                total_price: order.total_price,
-            }],
+            updated_at: order.updated_at,
+            confirmed_at: order.confirmed_at,
+            paid_at: order.paid_at,
+            completed_at: order.completed_at,
+            items: order.items || [],
         }));
-
-        // Transform legacy orders
-        const transformedLegacyOrders = (legacyOrders || []).map(order => ({
-            id: order.id,
-            order_code: order.order_code || order.id.substring(0, 12).toUpperCase(),
-            product_name: order.order_items?.[0]?.name || 'Đơn hàng',
-            product_type: 'product',
-            quantity: order.order_items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 1,
-            total: order.total || order.total_amount,
-            status: order.status,
-            created_at: order.created_at,
-            source: 'orders' as const,
-            order_items: order.order_items || [],
-        }));
-
-        // Merge and sort by created_at
-        const allOrders = [...transformedChildOrders, ...transformedLegacyOrders]
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         return NextResponse.json({
             success: true,
-            data: allOrders,
+            data: transformedOrders,
             meta: {
-                total: allOrders.length,
-                childOrders: transformedChildOrders.length,
-                legacyOrders: transformedLegacyOrders.length,
+                total: count || transformedOrders.length,
             }
         });
     } catch (error) {

@@ -217,9 +217,9 @@ export default function AdminOrderDetailPage() {
                 configuration?: Record<string, unknown>;
             }) => ({
                 ...item,
-                product_name: item.product_name || 'Sản phẩm',
-                product_sku: item.product_sku || '',
-                size: item.size || '',
+                product_name: item.product_name || (item as any).name || 'Sản phẩm',
+                product_sku: item.product_sku || (item as any).sku || '',
+                size: item.size || (item.configuration as any)?.size || '',
                 product_image: item.product_image || null,
             }));
 
@@ -1150,8 +1150,8 @@ export default function AdminOrderDetailPage() {
                                 <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-white/70">Phí ship</span>
-                                <span className="text-white">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white/70">Tổng sản phẩm</span>
+                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white font-medium">Tổng cộng</span>

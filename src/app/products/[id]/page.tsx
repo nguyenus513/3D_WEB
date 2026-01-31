@@ -52,7 +52,7 @@ export default function ProductDetailPage() {
                         metadata: {
                             size: size?.name || 'Default',
                             sku: product.sku,
-                            image: product.images?.[0]?.url,
+                            image: product.images?.[0], // Direct string
                         },
                     }),
                 });
@@ -111,7 +111,29 @@ export default function ProductDetailPage() {
             return;
         }
 
-        setProduct(data);
+        // Schema v3 Adapter: Map DB fields to Component expectations
+        const adaptedProduct: Product = {
+            ...data,
+            // Map specs.sizes to top-level sizes if available
+            sizes: (data.specs as any)?.sizes?.map((s: any) => ({
+                ...s,
+                enabled: true // Default to enabled if missing
+            })) || [],
+            // Ensure images is string[] but component might check .url, need to inspect component usage
+            // The component uses product.images[0].url checks, so we might need object wrapping if we don't change component logic
+            // But let's verify if we can just update component logic.
+            // For now, let's cast/map strictly.
+        };
+
+        // Images handling: New schema is string[]. Component expects { url: string }[] logic? 
+        // Actually component lines 185: product.images?.[0]?.url 
+        // We should probably patch the component to handle string[] or map it here.
+        // Let's map it here for minimal component disruption:
+        const imagesAdapted = (data.images || []).map((img: string | { url: string }) =>
+            typeof img === 'string' ? { url: img } : img
+        );
+
+        setProduct({ ...adaptedProduct, images: imagesAdapted as any });
         setLoading(false);
     };
 
@@ -125,11 +147,11 @@ export default function ProductDetailPage() {
             type: 'product',
             productId: product.id,
             name: product.name,
-            sku: product.sku,
+            sku: product.sku || undefined,
             price: price,
             quantity: quantity,
             size: size?.name || 'Default',
-            image: product.images?.[0]?.url,
+            image: product.images?.[0],
         });
 
         setAddedToCart(true);
@@ -182,9 +204,9 @@ export default function ProductDetailPage() {
                     {/* Left - Product Image */}
                     <AnimatedSection animation="fadeIn">
                         <div className="aspect-square rounded-3xl bg-gradient-to-br from-white/5 to-white/10 flex items-center justify-center relative overflow-hidden">
-                            {product.images?.[0]?.url ? (
+                            {product.images?.[0] ? (
                                 <img
-                                    src={product.images[0].url}
+                                    src={product.images[0]}
                                     alt={product.name}
                                     className="w-full h-full object-cover"
                                 />

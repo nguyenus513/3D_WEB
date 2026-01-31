@@ -134,28 +134,33 @@ export default function QRChildPage() {
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-12 px-4">
             <div className="max-w-4xl mx-auto">
-                {/* QR Payment - Apple Store Style */}
-                <PaymentQR
-                    orderId={order.id}
-                    orderCode={code}
-                    customerCode={order.metadata?.customer_code}
-                    amount={totalWithShipping}
-                    // Bank info with proper defaults
-                    bankId={(order.metadata?.bank_code || 'MB') as BankCode}
-                    accountNo={order.metadata?.account_no || '0336668386'}
-                    accountName={order.metadata?.account_name || 'NGUYEN MINH NHAT'}
-                    qrUrl={order.payment_qr_url}
-                    transferContent={order.metadata?.transfer_content}
-                    // Order details for left panel (no shipping fee)
-                    orderDetails={{
-                        productName: order.product_name,
-                        productType: order.product_type,
-                        quantity: order.quantity,
-                        unitPrice: order.unit_price,
-                        shippingAddress: order.metadata?.shipping_address,
-                    }}
-                    onPaymentConfirmed={() => setPaymentStatus('paid')}
-                />
+                {/* Check if bank info exists in order metadata */}
+                {order.metadata?.account_no ? (
+                    <PaymentQR
+                        orderId={order.id}
+                        orderCode={code}
+                        customerCode={order.metadata?.customer_code}
+                        amount={totalWithShipping}
+                        bankId={(order.metadata.bank_code || 'MB') as BankCode}
+                        accountNo={order.metadata.account_no}
+                        accountName={order.metadata.account_name || 'Chủ tài khoản'}
+                        qrUrl={order.payment_qr_url}
+                        transferContent={order.metadata?.transfer_content}
+                        orderDetails={{
+                            productName: order.product_name,
+                            productType: order.product_type,
+                            quantity: order.quantity,
+                            unitPrice: order.unit_price,
+                            shippingAddress: order.metadata?.shipping_address,
+                        }}
+                        onPaymentConfirmed={() => setPaymentStatus('paid')}
+                    />
+                ) : (
+                    <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
+                        <p className="text-red-400 text-lg mb-2">Lỗi cấu hình thanh toán</p>
+                        <p className="text-white/50">Thông tin ngân hàng không tồn tại trong đơn hàng. Vui lòng liên hệ admin.</p>
+                    </div>
+                )}
 
                 {/* Back link */}
                 <div className="text-center mt-8">

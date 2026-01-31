@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { isDriveConnected, disconnectDrive } from '@/lib/google-drive-oauth';
+import { isDriveConnected, disconnectDrive, getDriveStatus } from '@/lib/google-drive-oauth';
 
 /**
  * GET /api/drive/status
@@ -7,8 +7,8 @@ import { isDriveConnected, disconnectDrive } from '@/lib/google-drive-oauth';
  */
 export async function GET() {
     try {
-        const connected = await isDriveConnected();
-        return NextResponse.json({ connected });
+        const status = await getDriveStatus();
+        return NextResponse.json(status);
     } catch (error) {
         return NextResponse.json({ connected: false, error: (error as Error).message });
     }

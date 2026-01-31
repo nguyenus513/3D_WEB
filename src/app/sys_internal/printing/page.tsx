@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
-import type { Order } from '@/types/database';
+// import type { Order } from '@/types/database'; // Don't use legacy type if it conflicts
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
     paid: 'bg-blue-500/20 text-blue-400',
-    printing: 'bg-purple-500/20 text-purple-400',
+    processing: 'bg-indigo-500/20 text-indigo-400',
+    producing: 'bg-purple-500/20 text-purple-400', // printing -> producing
+    shipping: 'bg-cyan-500/20 text-cyan-400',
+    delivered: 'bg-green-500/20 text-green-400',
     completed: 'bg-green-500/20 text-green-400',
     cancelled: 'bg-red-500/20 text-red-400',
 };
@@ -17,15 +20,19 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
     paid: 'Đã thanh toán',
-    printing: 'Đang in',
+    processing: 'Đang xử lý',
+    producing: 'Đang sản xuất', // printing -> producing
+    shipping: 'Đang giao hàng',
+    delivered: 'Đã giao',
     completed: 'Hoàn thành',
     cancelled: 'Đã hủy',
 };
 
 export default function AdminPrintingPage() {
-    const [orders, setOrders] = useState<Order[]>([]);
+    // any for now to bypass strict legacy type checks during migration
+    const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ pending: 0, printing: 0, completed: 0 });
+    const [stats, setStats] = useState({ pending: 0, producing: 0, completed: 0 });
 
     useEffect(() => {
         fetchOrders();
@@ -34,10 +41,11 @@ export default function AdminPrintingPage() {
     const fetchOrders = async () => {
         const supabase = getSupabase();
 
+        // Removed .eq('order_type', 'printing') as column is gone.
+        // For now, fetching all orders. One could filter by 'producing' status if strictly needed.
         const { data, error } = await supabase
             .from('orders')
             .select('*')
-            .eq('order_type', 'printing')
             .order('created_at', { ascending: false });
 
         if (!error && data) {
@@ -45,9 +53,9 @@ export default function AdminPrintingPage() {
 
             // Calculate stats
             setStats({
-                pending: data.filter((o: Order) => o.status === 'pending').length,
-                printing: data.filter((o: Order) => o.status === 'printing' || o.status === 'preparing').length,
-                completed: data.filter((o: Order) => o.status === 'delivered').length,
+                pending: data.filter((o: any) => o.status === 'pending').length,
+                producing: data.filter((o: any) => o.status === 'producing' || o.status === 'processing').length,
+                completed: data.filter((o: any) => o.status === 'delivered' || o.status === 'completed').length,
             });
         }
         setLoading(false);
@@ -71,7 +79,7 @@ export default function AdminPrintingPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Đơn in 3D</h1>
+                    <h1 className="text-2xl font-bold text-white">Quản lý Đơn hàng (Printing)</h1>
                     <p className="text-white/50 mt-1">
                         {loading ? 'Đang tải...' : `${orders.length} đơn hàng`}
                     </p>
@@ -88,8 +96,8 @@ export default function AdminPrintingPage() {
                     <p className="text-2xl font-bold text-yellow-400 mt-1">{stats.pending}</p>
                 </div>
                 <div className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10">
-                    <p className="text-white/50 text-sm">Đang in</p>
-                    <p className="text-2xl font-bold text-purple-400 mt-1">{stats.printing}</p>
+                    <p className="text-white/50 text-sm">Đang sản xuất</p>
+                    <p className="text-2xl font-bold text-purple-400 mt-1">{stats.producing}</p>
                 </div>
                 <div className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10">
                     <p className="text-white/50 text-sm">Hoàn thành</p>
@@ -110,72 +118,77 @@ export default function AdminPrintingPage() {
                     </div>
                 ) : orders.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-white/50">Chưa có đơn in 3D nào</p>
+                        <p className="text-white/50">Chưa có đơn hàng nào</p>
                     </div>
                 ) : (
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-white/10">
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Mã đơn</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Khách hàng</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Ngày tạo</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Giá</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Trạng thái</th>
-                                <th className="text-right text-white/50 text-sm font-medium px-5 py-4">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {orders.map((order) => (
-                                <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                                    <td className="px-5 py-4">
-                                        <Link href={`/sys_internal/printing/${order.id}`} className="text-white font-mono hover:text-blue-400">
-                                            {order.order_code}
-                                        </Link>
-                                    </td>
-                                    <td className="px-5 py-4 text-white/70">
-                                        {order.shipping_address?.full_name || 'Khách'}
-                                    </td>
-                                    <td className="px-5 py-4 text-white/50">
-                                        {new Date(order.created_at).toLocaleDateString('vi-VN')}
-                                    </td>
-                                    <td className="px-5 py-4 text-white">
-                                        {Number(order.total).toLocaleString('vi-VN')}đ
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                                            {statusLabels[order.status] || order.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <div className="flex items-center justify-end gap-2">
-                                            {order.status === 'paid' && (
-                                                <button
-                                                    onClick={() => handleUpdateStatus(order.id, 'printing')}
-                                                    className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded-lg hover:bg-purple-600"
-                                                >
-                                                    Bắt đầu in
-                                                </button>
-                                            )}
-                                            {order.status === 'printing' && (
-                                                <button
-                                                    onClick={() => handleUpdateStatus(order.id, 'shipped')}
-                                                    className="px-3 py-1.5 bg-cyan-500 text-white text-xs rounded-lg hover:bg-cyan-600"
-                                                >
-                                                    Đã gửi
-                                                </button>
-                                            )}
-                                            <Link
-                                                href={`/sys_internal/printing/${order.id}`}
-                                                className="px-3 py-1.5 rounded-lg bg-white/10 text-white/70 hover:text-white text-sm"
-                                            >
-                                                Chi tiết
-                                            </Link>
-                                        </div>
-                                    </td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-white/10">
+                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Mã đơn</th>
+                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Khách hàng</th>
+                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Ngày tạo</th>
+                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Giá</th>
+                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Trạng thái</th>
+                                    <th className="text-right text-white/50 text-sm font-medium px-5 py-4">Thao tác</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {orders.map((order) => {
+                                    const shippingInfo = order.shipping_address_snapshot as any;
+                                    return (
+                                        <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                            <td className="px-5 py-4">
+                                                <Link href={`/sys_internal/printing/${order.id}`} className="text-white font-mono hover:text-blue-400">
+                                                    {order.order_code}
+                                                </Link>
+                                            </td>
+                                            <td className="px-5 py-4 text-white/70">
+                                                {shippingInfo?.full_name || 'Khách'}
+                                            </td>
+                                            <td className="px-5 py-4 text-white/50">
+                                                {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                                            </td>
+                                            <td className="px-5 py-4 text-white">
+                                                {Number(order.total_amount).toLocaleString('vi-VN')}đ
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-white/10 text-white/50'}`}>
+                                                    {statusLabels[order.status] || order.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {order.status === 'paid' && (
+                                                        <button
+                                                            onClick={() => handleUpdateStatus(order.id, 'producing')}
+                                                            className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded-lg hover:bg-purple-600"
+                                                        >
+                                                            Bắt đầu SX
+                                                        </button>
+                                                    )}
+                                                    {order.status === 'producing' && (
+                                                        <button
+                                                            onClick={() => handleUpdateStatus(order.id, 'shipping')}
+                                                            className="px-3 py-1.5 bg-cyan-500 text-white text-xs rounded-lg hover:bg-cyan-600"
+                                                        >
+                                                            Gửi hàng
+                                                        </button>
+                                                    )}
+                                                    <Link
+                                                        href={`/sys_internal/printing/${order.id}`}
+                                                        className="px-3 py-1.5 rounded-lg bg-white/10 text-white/70 hover:text-white text-sm"
+                                                    >
+                                                        Chi tiết
+                                                    </Link>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </motion.div>
         </div>

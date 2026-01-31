@@ -76,20 +76,26 @@ export default function AdminProductEditPage() {
         }
 
         const product = data as Product;
-        const hasSizes = product.sizes && product.sizes.length > 0;
+        // Map images (string[] -> FormImage[])
+        const images = Array.isArray(product.images)
+            ? product.images.map((url: any, i: number) => ({ url: typeof url === 'string' ? url : url.url, is_main: i === 0 }))
+            : [];
 
-        setPricingMode(hasSizes ? 'multi_size' : 'original');
+        // Map sizes (ensure array)
+        const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+
+        setPricingMode(sizes.length > 0 ? 'multi_size' : 'original');
         setFormData({
             name: product.name,
-            sku: product.sku,
-            status: product.status,
-            basePrice: String(product.base_price),
-            stock: String(product.stock),
-            images: product.images || [],
-            sizes: (product.sizes || []).map(s => ({
-                name: s.name,
-                price: String(s.price),
-                stock: String(s.stock),
+            sku: product.sku || '',
+            status: (product as any).is_active ? 'active' : 'draft',
+            basePrice: String(product.base_price || 0),
+            stock: String(product.stock || 0),
+            images: images,
+            sizes: sizes.map((s: any) => ({
+                name: s.name || '',
+                price: String(s.price || 0),
+                stock: String(s.stock || 0),
             })),
         });
         setLoading(false);
@@ -123,7 +129,7 @@ export default function AdminProductEditPage() {
 
             const productData = {
                 name: formData.name,
-                status: formData.status,
+                is_active: formData.status === 'active',
                 base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : 0,
                 sale_price: null,
                 stock: pricingMode === 'original' ? parseInt(formData.stock) || 0 : 0,

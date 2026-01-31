@@ -202,12 +202,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     if (!existingProfile) {
                         // No profile found - create new one
                         console.log('[AUTH DEBUG] Creating new profile for Google user');
+
+                        // Generate UUID BEFORE insert - we control the ID
+                        const profileId = crypto.randomUUID();
                         const { generateId } = await import('@/lib/generateId');
                         const customerCode = generateId.user();
 
-                        const { data: newProfile, error: insertError } = await supabaseAdmin
+                        const { error: insertError } = await supabaseAdmin
                             .from('profiles')
                             .insert({
+                                id: profileId,  // EXPLICIT ID - prevents mismatch
                                 email: user.email.toLowerCase(),
                                 // Extract name from Google profile or email
                                 full_name: user.name || user.email.split('@')[0]
@@ -220,20 +224,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                                 customer_code: customerCode,
                                 email_verified: true,
                                 role: 'customer',
-                            })
-                            .select('id')
-                            .single();
+                            });
 
                         if (insertError) {
                             console.error('[AUTH DEBUG] Insert error:', insertError);
+                            // Profile creation failed - will be handled in complete-profile
                         } else {
-                            console.log('[AUTH DEBUG] Profile created with ID:', newProfile?.id);
-                            // IMPORTANT: Set the database ID on user object
-                            if (newProfile?.id) {
-                                user.id = newProfile.id;
-                            }
+                            console.log('[AUTH DEBUG] Profile created with ID:', profileId);
                         }
 
+                        // ALWAYS set user.id to our controlled UUID
+                        user.id = profileId;
                         // Mark as new user - needs to complete profile
                         (user as { isNewUser?: boolean }).isNewUser = true;
                     } else {
@@ -256,39 +257,50 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             console.log('[AUTH DEBUG] signIn returning true');
             return true;
         },
-        async jwt({ token, user, account }) {
-            // For Google OAuth, ALWAYS fetch profile ID from database
-            if (account?.provider === 'google' && user?.email) {
-                console.log('[AUTH DEBUG] JWT callback - fetching profile for Google user:', user.email);
+        async jwt({ token, user, account, trigger, session }) {
+            const email = token.email || user?.email;
+            console.log(`[AUTH DEBUG] JWT Callback | Trigger: ${trigger} | User: ${!!user} | Email: ${email}`);
 
-                const { data: profile } = await supabaseAdmin
-                    .from('profiles')
-                    .select('id, role, customer_code')
-                    .eq('email', (user.email as string).toLowerCase())
-                    .single();
-
-                if (profile) {
-                    console.log('[AUTH DEBUG] JWT - using database profile ID:', profile.id);
-                    token.id = profile.id;
-                    token.role = profile.role;
-                    token.customerCode = profile.customer_code;
-                } else {
-                    console.log('[AUTH DEBUG] JWT - no profile found, using user.id');
-                    token.id = user.id;
-                }
-
-                // Pass isNewUser flag for Google OAuth redirect
-                token.isNewUser = (user as { isNewUser?: boolean }).isNewUser || false;
-            } else if (user) {
-                // For credentials login, use user data directly
+            // First login - set initial values
+            if (user) {
+                console.log('[AUTH DEBUG] JWT - Initial Login Processing');
                 token.id = user.id;
+                token.email = user.email;
                 token.role = (user as { role?: string }).role;
                 token.customerCode = (user as { customerCode?: string }).customerCode;
+
+                // For Google OAuth, handle isNewUser flag
+                if (account?.provider === 'google') {
+                    token.isNewUser = (user as { isNewUser?: boolean }).isNewUser || false;
+                }
+            }
+
+            // ALWAYS fetch latest role from DB (handles role changes after login)
+            if (email) {
+                try {
+                    const { data: profile } = await supabaseAdmin
+                        .from('profiles')
+                        .select('id, role, customer_code')
+                        .eq('email', (email as string).toLowerCase())
+                        .single();
+
+                    if (profile) {
+                        console.log(`[AUTH DEBUG] DB Query Success | Role: ${profile.role} | Token Before: ${token.role}`);
+                        token.id = profile.id;
+                        token.role = profile.role;
+                        token.customerCode = profile.customer_code;
+                    } else {
+                        console.warn('[AUTH DEBUG] Profile not found in DB for:', email);
+                    }
+                } catch (error) {
+                    console.error('[AUTH] Error fetching profile in JWT callback:', error);
+                }
             }
 
             return token;
         },
         async session({ session, token }) {
+            // console.log('[AUTH DEBUG] Session Callback | Role:', token.role);
             if (session.user) {
                 session.user.id = token.id as string;
                 (session.user as { role?: string }).role = token.role as string;

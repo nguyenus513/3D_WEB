@@ -8,6 +8,7 @@ function SettingsContent() {
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState('storage');
     const [driveConnected, setDriveConnected] = useState(false);
+    const [isServiceAccount, setIsServiceAccount] = useState(false);
     const [driveLoading, setDriveLoading] = useState(true);
     const [driveMessage, setDriveMessage] = useState('');
 
@@ -32,6 +33,13 @@ function SettingsContent() {
             const res = await fetch('/api/drive/status');
             const data = await res.json();
             setDriveConnected(data.connected);
+
+            if (data.connected && data.type === 'service_account') {
+                setIsServiceAccount(true);
+                setDriveMessage(''); // No message needed for Service Account
+            } else if (data.connected) {
+                setDriveMessage('✅ Đã kết nối qua OAuth Token');
+            }
         } catch (error) {
             console.error('Failed to check drive status:', error);
         } finally {
@@ -117,7 +125,7 @@ function SettingsContent() {
                             <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                         ) : driveConnected ? (
                             <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-sm">
-                                Đã kết nối
+                                {isServiceAccount ? 'Service Account' : 'Đã kết nối'}
                             </span>
                         ) : (
                             <span className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-400 text-sm">
@@ -128,29 +136,31 @@ function SettingsContent() {
 
                     {/* Message */}
                     {driveMessage && (
-                        <div className={`mt-4 p-3 rounded-xl text-sm ${driveMessage.includes('✅') ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                        <div className={`mt-4 p-3 rounded-xl text-sm ${driveMessage.includes('✅') || driveMessage.includes('Service Account') ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                             {driveMessage}
                         </div>
                     )}
 
-                    {/* Action */}
-                    <div className="mt-6 pt-4 border-t border-white/10">
-                        {driveConnected ? (
-                            <button
-                                onClick={disconnectDrive}
-                                className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white hover:border-white/40 text-sm transition-colors"
-                            >
-                                Ngắt kết nối
-                            </button>
-                        ) : (
-                            <button
-                                onClick={connectDrive}
-                                className="px-6 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-white/90 text-sm transition-colors"
-                            >
-                                Kết nối tài khoản Google
-                            </button>
-                        )}
-                    </div>
+                    {/* Action - Hide completely for Service Account */}
+                    {!isServiceAccount && (
+                        <div className="mt-6 pt-4 border-t border-white/10">
+                            {driveConnected ? (
+                                <button
+                                    onClick={disconnectDrive}
+                                    className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white hover:border-white/40 text-sm transition-colors"
+                                >
+                                    Ngắt kết nối
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={connectDrive}
+                                    className="px-6 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-white/90 text-sm transition-colors"
+                                >
+                                    Kết nối tài khoản Google
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </motion.div>
             )}
 

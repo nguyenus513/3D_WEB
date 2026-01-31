@@ -112,11 +112,11 @@ export async function POST(request: NextRequest) {
         }
 
         const totalPrice = unitPrice * quantity;
-        const shippingFee = shippingAddress ? 30000 : 0;
+        const shippingFee = 0;
         const finalAmount = totalPrice + shippingFee;
 
         // 1. Get or Generate Customer Code (10 hex)
-        const rawCustomerCode = await getCustomerCode(session.user.id);
+        const rawCustomerCode = await getCustomerCode(session.user.id, session.user.email);
         let customerCode: string;
 
         const isCustomerCodeValid = rawCustomerCode && isValidCustomerCode(rawCustomerCode);
@@ -147,7 +147,19 @@ export async function POST(request: NextRequest) {
         // 3. Payment Setup (Manual to enforce content format)
         // Get bank info
         const orderType = getOrderTypeForProduct(productType);
-        const bankInfo = await getPaymentConfig(orderType) || getDefaultPaymentConfig();
+        const bankInfo = await getPaymentConfig(orderType);
+
+        // SECURITY: Fail if no config found - don't use hardcoded fallback
+        if (!bankInfo) {
+            logger.error('Payment config not found for order type', { orderType });
+            return NextResponse.json(
+                createErrorResponse('PAYMENT_CONFIG_MISSING', 'Cấu hình thanh toán không tồn tại. Vui lòng liên hệ admin.', {
+                    correlationId,
+                    reason: `Missing payment_configs for order_type: ${orderType}`
+                }),
+                { status: 500 }
+            );
+        }
 
         // Generate transfer content: Customer(10) + Parent(8)
         const transferContent = generateTransferContent(customerCode, codeParent);

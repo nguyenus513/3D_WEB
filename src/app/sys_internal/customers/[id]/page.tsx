@@ -9,8 +9,10 @@ import type { Profile, Order } from '@/types/database';
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    confirmed: 'bg-blue-500/20 text-blue-400', // Added confirmed
     paid: 'bg-blue-500/20 text-blue-400',
-    preparing: 'bg-purple-500/20 text-purple-400',
+    processing: 'bg-purple-500/20 text-purple-400', // Changed/Added
+    producing: 'bg-purple-500/20 text-purple-400', // Added producing
     shipped: 'bg-cyan-500/20 text-cyan-400',
     delivered: 'bg-green-500/20 text-green-400',
     completed: 'bg-green-500/20 text-green-400',
@@ -19,10 +21,12 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
     pending: 'Chờ TT',
+    confirmed: 'Đã xác nhận',
     paid: 'Đã TT',
-    preparing: 'Chuẩn bị',
-    shipped: 'Gửi hàng',
-    delivered: 'Hoàn thành',
+    processing: 'Đang xử lý',
+    producing: 'Đang sản xuất',
+    shipped: 'Đang giao',
+    delivered: 'Đã giao',
     completed: 'Hoàn thành',
     cancelled: 'Đã hủy',
 };
@@ -76,7 +80,7 @@ export default function AdminCustomerDetailPage() {
         }
     };
 
-    const totalSpent = orders.reduce((sum, order) => sum + order.total, 0);
+    const totalSpent = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
 
     if (loading) {
         return (
@@ -111,7 +115,7 @@ export default function AdminCustomerDetailPage() {
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">{customer.full_name || customer.name || 'Chưa có tên'}</h1>
+                        <h1 className="text-2xl font-bold text-white">{customer.full_name || 'Chưa có tên'}</h1>
                         <p className="text-white/50 mt-1">Mã KH: {customer.customer_code}</p>
                     </div>
                 </div>
@@ -133,7 +137,7 @@ export default function AdminCustomerDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-white/50 text-sm block mb-1">Họ tên</label>
-                            <p className="text-white">{customer.full_name || customer.name || '-'}</p>
+                            <p className="text-white">{customer.full_name || '-'}</p>
                         </div>
                         <div>
                             <label className="text-white/50 text-sm block mb-1">Email</label>
@@ -143,10 +147,10 @@ export default function AdminCustomerDetailPage() {
                             <label className="text-white/50 text-sm block mb-1">Số điện thoại</label>
                             <p className="text-white">{customer.phone || '-'}</p>
                         </div>
-                        <div>
+                        {/* <div>
                             <label className="text-white/50 text-sm block mb-1">Instagram</label>
                             <p className="text-white">{customer.instagram || '-'}</p>
-                        </div>
+                        </div> */}
                     </div>
 
                     <div className="pt-4 border-t border-white/10">
@@ -244,7 +248,7 @@ export default function AdminCustomerDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <span className="text-white font-medium">
-                                        {order.total.toLocaleString('vi-VN')}đ
+                                        {order.total_amount.toLocaleString('vi-VN')}đ
                                     </span>
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-white/10 text-white/50'}`}>
                                         {statusLabels[order.status] || order.status}

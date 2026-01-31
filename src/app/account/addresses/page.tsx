@@ -146,13 +146,31 @@ export default function AccountAddressesPage() {
         setSaving(true);
 
         try {
+            // Robust name resolution
+            let finalProvinceName = formData.provinceName;
+            let finalDistrictName = formData.districtName;
+            let finalWardName = formData.wardName;
+
+            if (!finalProvinceName && formData.provinceCode) {
+                const ps = await getProvinces();
+                finalProvinceName = ps.find(p => p.code === formData.provinceCode)?.name || '';
+            }
+            if (!finalDistrictName && formData.districtCode && formData.provinceCode) {
+                const ds = await getDistricts(formData.provinceCode);
+                finalDistrictName = ds.find(d => d.code === formData.districtCode)?.name || '';
+            }
+            if (!finalWardName && formData.wardCode && formData.districtCode) {
+                const ws = await getWards(formData.districtCode);
+                finalWardName = ws.find(w => w.code === formData.wardCode)?.name || '';
+            }
+
             const payload = {
                 full_name: formData.full_name,
                 phone: formData.phone,
                 address_line: formData.address_line,
-                ward: formData.wardName,
-                district: formData.districtName,
-                province: formData.provinceName,
+                ward: finalWardName,
+                district: finalDistrictName,
+                province: finalProvinceName,
                 label: 'Địa chỉ giao hàng',
                 is_default: formData.is_default,
             };

@@ -15,7 +15,7 @@ export async function GET() {
         let customerCode = null;
 
         if (session?.user?.id) {
-            customerCode = await getCustomerCode(session.user.id);
+            customerCode = await getCustomerCode(session.user.id, session.user.email);
             if (!customerCode) {
                 customerCode = generateFallbackCustomerCode(session.user.id);
             }

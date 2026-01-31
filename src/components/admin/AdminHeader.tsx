@@ -72,7 +72,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     const pendingCount = notifications.filter(n => n.status === 'pending').length;
 
     return (
-        <header className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/10">
+        <header className="sticky top-0 z-40 bg-[#0a0a0a] border-b border-white/5">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
                 {/* Mobile menu button */}
                 <button

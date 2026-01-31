@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getSupabase } from '@/lib/supabase/client';
+import { getProfileId } from '@/lib/utils/getProfileId';
 
 /**
  * GET /api/wishlist
@@ -14,6 +15,13 @@ export async function GET() {
         }
 
         const supabase = getSupabase();
+
+        // Smart profile ID lookup with email fallback
+        const profileId = await getProfileId(session.user, supabase);
+        if (!profileId) {
+            return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
+        }
+
         const { data, error } = await supabase
             .from('wishlists')
             .select(`
@@ -30,7 +38,7 @@ export async function GET() {
                     status
                 )
             `)
-            .eq('user_id', session.user.id)
+            .eq('user_id', profileId)
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -78,11 +86,17 @@ export async function POST(request: NextRequest) {
 
         const supabase = getSupabase();
 
+        // Smart profile ID lookup with email fallback
+        const profileId = await getProfileId(session.user, supabase);
+        if (!profileId) {
+            return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
+        }
+
         // Check if already in wishlist
         const { data: existing } = await supabase
             .from('wishlists')
             .select('id')
-            .eq('user_id', session.user.id)
+            .eq('user_id', profileId)
             .eq('product_id', productId)
             .single();
 
@@ -98,7 +112,7 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase
             .from('wishlists')
             .insert({
-                user_id: session.user.id,
+                user_id: profileId,
                 product_id: productId,
             });
 
@@ -136,10 +150,16 @@ export async function DELETE(request: NextRequest) {
 
         const supabase = getSupabase();
 
+        // Smart profile ID lookup with email fallback
+        const profileId = await getProfileId(session.user, supabase);
+        if (!profileId) {
+            return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
+        }
+
         const { error } = await supabase
             .from('wishlists')
             .delete()
-            .eq('user_id', session.user.id)
+            .eq('user_id', profileId)
             .eq('product_id', productId);
 
         if (error) {

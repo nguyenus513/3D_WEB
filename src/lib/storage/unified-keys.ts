@@ -169,11 +169,14 @@ export function getFolderPath(params: StorageKeyParams): string[] {
         customerCode,
         timestamp = getTodayTimestamp(),
         parentOrderCode,
+        childOrderCode,
         fileType,
     } = params;
 
     const safeCustomerCode = sanitizeSegment(customerCode || 'GUEST');
-    const safeParentCode = sanitizeSegment(parentOrderCode);
+    const safeParentCode = parentOrderCode
+        ? sanitizeSegment(parentOrderCode)
+        : sanitizeSegment(childOrderCode || 'UNKNOWN');
 
     if (fileType === 'review') {
         return [safeCustomerCode, timestamp, safeParentCode, 'review'];

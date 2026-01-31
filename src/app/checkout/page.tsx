@@ -365,8 +365,9 @@ function CheckoutContent() {
 
                         {/* QR Code Section - Enabled only when address valid */}
                         <AnimatePresence>
-                            {isAddressValid ? (
+                            {isAddressValid && paymentConfig?.account_no ? (
                                 <motion.div
+                                    key="payment-qr"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                 >
@@ -375,12 +376,16 @@ function CheckoutContent() {
                                         orderCode={qrTransferContent}
                                         transferContent={qrTransferContent}
                                         amount={finalTotal}
-                                        bankId={paymentConfig?.bank_code || 'MB'}
-                                        accountNo={paymentConfig?.account_no || '0336668386'}
-                                        accountName={paymentConfig?.account_name || 'NGUYEN MINH NHAT'}
+                                        bankId={paymentConfig.bank_code}
+                                        accountNo={paymentConfig.account_no}
+                                        accountName={paymentConfig.account_name}
                                         onPaymentConfirmed={mode === 'cart' ? handleCartPayment : undefined}
                                     />
                                 </motion.div>
+                            ) : isAddressValid && !paymentConfig?.account_no ? (
+                                <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
+                                    <p className="text-red-400">Lỗi cấu hình thanh toán. Vui lòng liên hệ admin.</p>
+                                </div>
                             ) : (
                                 <div className="bg-white/5 rounded-3xl p-8 text-center border border-white/10 border-dashed">
                                     <p className="text-white/50">Vui lòng nhập địa chỉ giao hàng để hiển thị mã QR thanh toán</p>

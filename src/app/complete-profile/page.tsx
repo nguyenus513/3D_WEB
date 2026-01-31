@@ -128,6 +128,19 @@ export default function CompleteProfilePage() {
             setError('Vui lòng chọn Phường/Xã');
             return false;
         }
+        // Safety check for names
+        if (!formData.districtName && formData.districtCode) {
+            const d = districts.find(x => x.code === formData.districtCode);
+            if (d) {
+                setFormData(prev => ({ ...prev, districtName: d.name }));
+            }
+        }
+        if (!formData.wardName && formData.wardCode) {
+            const w = wards.find(x => x.code === formData.wardCode);
+            if (w) {
+                setFormData(prev => ({ ...prev, wardName: w.name }));
+            }
+        }
         if (!formData.addressLine) {
             setError('Vui lòng nhập địa chỉ chi tiết');
             return false;
@@ -157,6 +170,26 @@ export default function CompleteProfilePage() {
                 throw new Error(data.error || 'Không thể cập nhật hồ sơ');
             }
 
+            // Robustly resolve names even if state is stale
+            let finalProvinceName = formData.provinceName;
+            let finalDistrictName = formData.districtName;
+            let finalWardName = formData.wardName;
+
+            if (!finalProvinceName && formData.provinceCode) {
+                const ps = await getProvinces();
+                finalProvinceName = ps.find(p => p.code === formData.provinceCode)?.name || '';
+            }
+
+            if (!finalDistrictName && formData.districtCode && formData.provinceCode) {
+                const ds = await getDistricts(formData.provinceCode);
+                finalDistrictName = ds.find(d => d.code === formData.districtCode)?.name || '';
+            }
+
+            if (!finalWardName && formData.wardCode && formData.districtCode) {
+                const ws = await getWards(formData.districtCode);
+                finalWardName = ws.find(w => w.code === formData.wardCode)?.name || '';
+            }
+
             // Create address
             const addressRes = await fetch('/api/addresses', {
                 method: 'POST',
@@ -166,15 +199,17 @@ export default function CompleteProfilePage() {
                     full_name: formData.name,
                     phone: formData.phone,
                     address_line: formData.addressLine,
-                    ward: formData.wardName,
-                    district: formData.districtName,
-                    province: formData.provinceName,
+                    ward: finalWardName,
+                    district: finalDistrictName,
+                    province: finalProvinceName,
                     is_default: true,
                 }),
             });
 
             if (!addressRes.ok) {
-                console.error('Address creation failed');
+                const errorData = await addressRes.json();
+                console.error('Address creation failed:', errorData);
+                throw new Error(errorData.error || 'Không thể tạo địa chỉ');
             }
 
             // Update session to clear isNewUser flag

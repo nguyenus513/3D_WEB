@@ -86,7 +86,7 @@ export async function getAuthUrl(): Promise<string> {
 
     return oauth2Client.generateAuthUrl({
         access_type: 'offline', // Get refresh token
-        prompt: 'consent', // Force consent to get refresh token
+        prompt: 'consent select_account', // Force consent AND account picker
         scope: [
             'https://www.googleapis.com/auth/drive.file',
             'https://www.googleapis.com/auth/userinfo.email',
@@ -171,11 +171,32 @@ export async function getStoredTokens() {
 /**
  * Get authenticated Drive client with auto-refresh
  */
+/**
+ * Get authenticated Drive client 
+ * Priority:
+ * 1. Service Account (if configured in env) - Recommended for server-side
+ * 2. OAuth Token (if stored in DB) - Fallback for personal accounts
+ */
 export async function getDriveClient() {
+    // 1. Try Service Account First
+    const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    if (SERVICE_ACCOUNT_EMAIL && PRIVATE_KEY) {
+        // console.log('[DRIVE] Using Service Account:', SERVICE_ACCOUNT_EMAIL);
+        const auth = new google.auth.JWT({
+            email: SERVICE_ACCOUNT_EMAIL,
+            key: PRIVATE_KEY,
+            scopes: ['https://www.googleapis.com/auth/drive'],
+        });
+        return google.drive({ version: 'v3', auth });
+    }
+
+    // 2. Fallback to OAuth (User Account)
     const tokens = await getStoredTokens();
 
     if (!tokens || !tokens.refresh_token) {
-        throw new Error('Google Drive not connected. Please connect in Admin Settings.');
+        throw new Error('Google Drive not connected. Please configure Service Account in .env or connect in Admin Settings.');
     }
 
     const oauth2Client = getOAuth2Client();
@@ -193,7 +214,7 @@ export async function getDriveClient() {
             oauth2Client.setCredentials(credentials);
         } catch (error) {
             console.error('Failed to refresh token:', error);
-            throw new Error('Google Drive token expired. Please reconnect in Admin Settings.');
+            throw new Error('Google Drive OAuth token expired. Please reconnect in Admin Settings.');
         }
     }
 
@@ -204,8 +225,23 @@ export async function getDriveClient() {
  * Check if Google Drive is connected
  */
 export async function isDriveConnected(): Promise<boolean> {
+    const status = await getDriveStatus();
+    return status.connected;
+}
+
+export async function getDriveStatus(): Promise<{ connected: boolean; type?: 'service_account' | 'oauth' }> {
+    // 1. Check Service Account
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+        return { connected: true, type: 'service_account' };
+    }
+
+    // 2. Check OAuth Tokens
     const tokens = await getStoredTokens();
-    return !!(tokens && tokens.refresh_token);
+    if (tokens && tokens.refresh_token) {
+        return { connected: true, type: 'oauth' };
+    }
+
+    return { connected: false };
 }
 
 /**
