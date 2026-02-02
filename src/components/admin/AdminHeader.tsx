@@ -72,6 +72,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     const pendingCount = notifications.filter(n => n.status === 'pending').length;
 
     return (
+        // Updated to matching Miniver theme #1D1D1F
         <header className="sticky top-0 z-40 bg-[#1D1D1F] border-b border-white/5">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
                 {/* Mobile menu button */}
