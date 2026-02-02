@@ -159,7 +159,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
 
                     const activeClass = isActive
                         ? 'bg-[var(--color-accent)] text-white shadow-md'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]';
+                        : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]';
 
                     return (
                         <div key={fullHref}>
@@ -170,7 +170,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                         className={clsx(`
                                             w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
                                             border border-transparent
-                                        `, isActive ? 'bg-white/10 text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]')}
+                                        `, isActive ? 'bg-white/10 text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]')}
                                     >
                                         <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
                                         <span className="font-semibold flex-1 text-left text-sm">{item.name}</span>
@@ -228,18 +228,11 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                         border border-transparent
                                     `, isActive
                                         ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-2)]'
-                                        : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]'
+                                        : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]'
                                     )}
                                 >
                                     <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
                                     <span className="font-semibold text-sm">{item.name}</span>
-                                    {isActive && (
-                                        <motion.div
-                                            layoutId="sidebar-active-glow"
-                                            className="absolute inset-0 rounded-2xl bg-white/20 blur-lg -z-10"
-                                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                        />
-                                    )}
                                 </Link>
                             )}
                         </div>
@@ -251,7 +244,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
             <div className="p-4 border-t border-white/5">
                 <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-[var(--material-glass)] transition-all cursor-pointer text-left border border-transparent hover:border-[var(--edge-light)] group"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 transition-all cursor-pointer text-left border border-transparent hover:border-[var(--edge-light)] group"
                 >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-accent)] to-[#4F46E5] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
                         <span className="font-bold text-sm">{session?.user?.name?.[0]?.toUpperCase() || 'A'}</span>
