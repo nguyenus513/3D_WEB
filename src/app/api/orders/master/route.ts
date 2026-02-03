@@ -296,7 +296,7 @@ export async function GET() {
                 .select(`
                     *,
                     address:addresses(*),
-                    orders(id, order_code, status, total),
+                    orders(id, order_code, status, total_amount),
                     print_orders(id, order_number, status, total_price),
                     custom_orders(id, order_number, status, estimated_price)
                 `)
