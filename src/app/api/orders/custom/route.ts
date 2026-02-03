@@ -98,7 +98,8 @@ export async function POST(request: NextRequest) {
                 shipping_fee: 0,
                 total: totalPrice,
                 deposit_amount: depositAmount,
-                customer_note: notes || null,
+                // customer_note: notes || null, // FIX: Schema cache error workaround
+                admin_note: notes ? `[User Note]: ${notes}` : null,
                 shipping_address: {
                     full_name: shippingAddress.full_name,
                     phone: shippingAddress.phone,
@@ -107,10 +108,7 @@ export async function POST(request: NextRequest) {
                     district: shippingAddress.district || '',
                     province: shippingAddress.province,
                 },
-                custom_config: {
-                    type: type,
-                    size: size,
-                },
+                // Note: custom type/size stored in order_configs table below
             })
             .select()
             .single();
