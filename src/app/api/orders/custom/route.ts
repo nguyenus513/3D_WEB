@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         // Also added explicit logs for debugging
         console.log('[Custom Order API] Calling RPC create_custom_order_v5...');
 
-        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v5', {
+        const { data: order, error: orderError } = await supabase.rpc('debug_rpc_identity', {
             payload: {
                 order_code: orderCode,
                 user_id: userId,
