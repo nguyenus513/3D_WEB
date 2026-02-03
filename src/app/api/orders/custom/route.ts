@@ -86,6 +86,22 @@ export async function POST(request: NextRequest) {
         // Generate order code
         const orderCode = generateId.custom();
 
+        // DEBUG: Verify Service Role Key
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+        try {
+            const payloadPart = serviceKey.split('.')[1];
+            if (payloadPart) {
+                // Fix base64 padding if needed
+                const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = Buffer.from(base64, 'base64').toString('utf-8');
+                const parsed = JSON.parse(jsonPayload);
+                console.log('[Custom Order API] Service Key Role:', parsed.role); // MUST be 'service_role'
+                console.log('[Custom Order API] Key exp:', new Date(parsed.exp * 1000).toISOString());
+            }
+        } catch (e) {
+            console.error('[Custom Order API] Failed to parse key:', e);
+        }
+
         // FAILSAFE STRATEGY for Persistent Schema Cache Errors:
         // 1. Do NOT use RPC (functions are not found in cache)
         // 2. Do NOT insert into new columns like 'admin_note', 'customer_note', 'custom_config'

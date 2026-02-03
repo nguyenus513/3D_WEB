@@ -15,6 +15,8 @@ export function getAdminSupabase(): SupabaseClient {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+    console.log('[Supabase Admin] Initializing client. URL present:', !!supabaseUrl, 'Key present:', !!serviceRoleKey, 'Key length:', serviceRoleKey?.length);
+
     if (!supabaseUrl || !serviceRoleKey) {
         throw new Error('Missing Supabase admin credentials');
     }
