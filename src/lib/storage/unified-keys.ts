@@ -33,6 +33,7 @@ export interface ProductKeyParams {
     sku: string;
     index: number;
     ext: string;
+    variant?: 'size';
 }
 
 export interface ParsedKey {
@@ -96,12 +97,19 @@ export function generateUnifiedKey(params: StorageKeyParams): string {
  * @example
  * generateProductKey({ sku: 'FIG-001', index: 1, ext: 'jpg' })
  * // => 'products/FIG-001/FIG-001_01.jpg'
+ * 
+ * generateProductKey({ sku: 'FIG-001', index: 1, ext: 'jpg', variant: 'size' })
+ * // => 'products/FIG-001/sizes/FIG-001_size_01.jpg'
  */
 export function generateProductKey(params: ProductKeyParams): string {
-    const { sku, index, ext } = params;
+    const { sku, index, ext, variant } = params;
     const safeSku = sanitizeSegment(sku);
     const safeExt = ext.replace(/^\./, '').toLowerCase();
     const paddedIndex = String(index).padStart(2, '0');
+
+    if (variant === 'size') {
+        return `products/${safeSku}/sizes/${safeSku}_size_${paddedIndex}.${safeExt}`;
+    }
 
     return `products/${safeSku}/${safeSku}_${paddedIndex}.${safeExt}`;
 }

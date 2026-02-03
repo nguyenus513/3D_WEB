@@ -75,7 +75,7 @@ export class UploadService {
         }
 
         // Product uploads require admin
-        if (params.type === 'product' && !isAdmin) {
+        if ((params.type === 'product' || params.type === 'product-size') && !isAdmin) {
             throw new ForbiddenError('Admin only');
         }
 
@@ -104,7 +104,14 @@ export class UploadService {
         // Google Drive is used ONLY for archival (Cold Storage) via separate process.
         // This prevents checkout failures due to Drive token expiration.
 
-        return this.uploadToR2Storage(buffer, file, params, userId);
+        // return this.uploadToR2Storage(buffer, file, params, userId);
+        try {
+            console.log('[UploadService] Starting upload:', { type: params.type, filename: file.name, size: file.size });
+            return await this.uploadToR2Storage(buffer, file, params, userId);
+        } catch (error) {
+            console.error('[UploadService] Upload failed:', error);
+            throw error;
+        }
     }
 
     /**
@@ -124,6 +131,7 @@ export class UploadService {
         // uploadWithNaming only accepts: product, printing, custom_main, custom_accessory, custom_preview
         const driveTypeMap: Record<string, 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview'> = {
             'product': 'product',
+            'product-size': 'product',
             'printing': 'printing',
             'custom': 'custom_main',
             'custom_single': 'custom_main',
@@ -175,10 +183,10 @@ export class UploadService {
                 throw new Error('R2 not configured');
             }
 
-            const identifier = params.type === 'product' ? params.sku : params.orderCode;
+            const identifier = (params.type === 'product' || params.type === 'product-size') ? params.sku : params.orderCode;
             if (!identifier) {
                 throw new BadRequestError(
-                    params.type === 'product'
+                    (params.type === 'product' || params.type === 'product-size')
                         ? 'SKU is required for product uploads'
                         : 'Order code is required for order uploads'
                 );
@@ -195,7 +203,7 @@ export class UploadService {
                 'upload-type': params.type,
                 'original-name': file.name,
             };
-            if (params.type === 'product' && params.sku) {
+            if ((params.type === 'product' || params.type === 'product-size') && params.sku) {
                 metadata.sku = params.sku;
             } else {
                 if (params.orderCode) metadata.orderCode = params.orderCode;
@@ -235,6 +243,14 @@ export class UploadService {
             };
         } catch (error) {
             console.error('[Upload] R2 Upload Failed:', error);
+
+            // For product uploads, don't fallback to Drive - show clear error
+            if (params.type === 'product' || params.type === 'product-size') {
+                throw new BadRequestError(
+                    'R2 Storage không khả dụng. Vui lòng kiểm tra cấu hình Cloudflare R2 (bucket name, account ID, credentials).'
+                );
+            }
+
             console.warn('[Upload] Falling back to Google Drive...');
             return this.uploadToDrive(buffer, file, params);
         }
@@ -258,6 +274,16 @@ export class UploadService {
                 sku: sku,
                 index: index,
                 ext: ext
+            });
+        }
+
+        // 1b. Product Size Variant Uploads
+        if (type === 'product-size' && sku) {
+            return generateProductKey({
+                sku: sku,
+                index: index,
+                ext: ext,
+                variant: 'size'
             });
         }
 

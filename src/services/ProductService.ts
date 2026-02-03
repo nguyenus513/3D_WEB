@@ -61,11 +61,10 @@ export class ProductService {
                 sale_price: input.sale_price,
                 cost_price: input.cost_price,
                 stock: input.stock,
-                low_stock_alert: input.low_stock_alert,
                 images: input.images,
-                sizes: input.sizes,
                 tags: input.tags,
                 is_featured: input.is_featured,
+                // Note: sizes stored separately or as JSONB - not supported in current DB schema
             });
         } catch (error: unknown) {
             if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {

@@ -751,7 +751,6 @@ body {
 *:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.5);
-  border-radius: inherit;
 }
 
 /* Skip link for screen readers */
@@ -796,6 +795,37 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* ============================================
+   FORM INPUT REFINEMENTS
+   ============================================ */
+
+/* Remove spin buttons from number inputs (Chrome, Safari, Edge, Opera) */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Remove spin buttons from number inputs (Firefox) */
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Hide scrollbar for inputs/textareas but allow scrolling */
+input::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
+  display: none;
+}
+
+input,
+textarea {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 /* ============================================

@@ -7,7 +7,6 @@ import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { getSupabase } from '@/lib/supabase/client';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 
@@ -188,74 +187,52 @@ export default function CustomPage() {
         setError('');
 
         try {
-            const supabase = getSupabase();
             const orderCode = generateId.custom();
 
-            // Upload images to Drive
+            // Upload images to R2/Drive first
             const images = await uploadImages(orderCode);
 
-            // Create order in Supabase with shipping_address
-            const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .insert({
-                    order_code: orderCode,
-                    user_id: user.id,
-                    order_type: 'custom',
-                    status: 'pending',
-                    subtotal: totalPrice,
-                    shipping_fee: 0,
-                    total: totalPrice,
-                    deposit_amount: depositAmount,
-                    shipping_address: {
+            // Create order via API (bypasses RLS)
+            const res = await fetch('/api/orders/custom', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: orderData.type,
+                    size: orderData.size,
+                    notes: orderData.notes || '',
+                    shippingAddress: {
                         full_name: shippingAddress.full_name,
                         phone: shippingAddress.phone,
-                        address_line: shippingAddress.address_line,
+                        address_line: shippingAddress.address_line || '',
                         ward: shippingAddress.ward || '',
                         district: shippingAddress.district || '',
                         province: shippingAddress.province,
                     },
-                })
-                .select()
-                .single();
-
-            if (orderError) {
-                throw new Error(orderError.message);
-            }
-
-            // Insert into order_configs (normalized)
-            await supabase.from('order_configs').insert({
-                order_id: order.id,
-                custom_type: orderData.type,
-                custom_size: orderData.size,
+                    images: images.map(img => ({
+                        id: img.id,
+                        name: img.name,
+                    })),
+                }),
             });
 
-            // Insert files into order_files (normalized)
-            if (images && images.length > 0) {
-                const orderFiles = images.map((img: FileInfo) => ({
-                    order_id: order.id,
-                    file_id: img.id,
-                    file_type: 'photo',
-                    file_name: img.name || null,
-                }));
-                await supabase.from('order_files').insert(orderFiles);
-            }
+            const result = await res.json();
 
-            // Store notes in customer_note field
-            if (orderData.notes) {
-                await supabase.from('orders').update({ customer_note: orderData.notes }).eq('id', order.id);
+            if (!res.ok || !result.success) {
+                throw new Error(result.error?.message || 'Không thể tạo đơn hàng');
             }
 
             // Store order type for payment page
             sessionStorage.setItem('checkout_order_type', 'custom');
-            sessionStorage.setItem('checkout_order_id', order.id);
+            sessionStorage.setItem('checkout_order_id', result.data.id);
 
-            // Redirect to success page instead of deleted payment page
-            router.push('/checkout/success/' + orderCode);
+            // Redirect to success page
+            router.push('/checkout/success/' + result.data.order_code);
         } catch (err) {
             setError((err as Error).message);
             setSubmitting(false);
         }
     };
+
 
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();

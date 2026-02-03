@@ -89,15 +89,31 @@ export class UploadController extends BaseController {
             const buffer = Buffer.from(arrayBuffer);
 
             // Upload file
-            const result = await this.uploadService.uploadFile(
-                file,
-                buffer,
-                params,
+            console.log('[Upload] Calling uploadService.uploadFile with:', {
+                filename: file.name,
+                size: file.size,
+                type: params.type,
+                sku: params.sku,
+                index: params.index,
                 userId,
                 isAdmin
-            );
+            });
 
-            return this.handleSuccess(result);
+            try {
+                const result = await this.uploadService.uploadFile(
+                    file,
+                    buffer,
+                    params,
+                    userId,
+                    isAdmin
+                );
+                console.log('[Upload] Upload success:', result.storage);
+                return this.handleSuccess(result);
+            } catch (uploadError) {
+                console.error('[Upload] Upload FAILED:', uploadError);
+                console.error('[Upload] Stack:', (uploadError as Error).stack);
+                throw uploadError;
+            }
         }, 'UploadController.upload');
     }
 }

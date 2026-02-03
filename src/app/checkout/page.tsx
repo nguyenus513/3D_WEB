@@ -9,7 +9,6 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { useCart, CartItem } from '@/lib/store/cart';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { PaymentQR } from '@/components/PaymentQR';
-import { getSupabase } from '@/lib/supabase/client';
 
 // Icons
 const ProductIcon = () => (
@@ -149,14 +148,10 @@ function CheckoutContent() {
             setLoading(true);
             const fetchOrder = async () => {
                 try {
-                    const supabase = getSupabase();
-                    const { data, error } = await supabase
-                        .from('orders')
-                        .select('*')
-                        .eq('id', orderIdParam)
-                        .single();
-
-                    if (data) {
+                    // Use API route instead of direct Supabase query
+                    const res = await fetch(`/api/orders/${orderIdParam}`);
+                    if (res.ok) {
+                        const data = await res.json();
                         // Normalize single order to look like an item
                         setSingleOrder({
                             ...data,
@@ -171,7 +166,7 @@ function CheckoutContent() {
                             setIsAddressValid(true);
                         }
                     } else {
-                        console.error('Order not found', error);
+                        console.error('Order not found');
                     }
                 } catch (err) {
                     console.error(err);
@@ -192,20 +187,23 @@ function CheckoutContent() {
         const isValid = !!(address.full_name && address.phone && address.address_line && address.province);
         setIsAddressValid(isValid);
 
-        // If in Single Order mode, update the order's address in DB immediately?
-        // Or wait? Better to update so Admin sees it.
+        // If in Single Order mode, update the order's address in DB via API
         if (mode === 'single' && orderIdParam && isValid) {
             updateOrderAddress(orderIdParam, address);
         }
     };
 
     const updateOrderAddress = async (id: string, address: ShippingAddress) => {
-        const supabase = getSupabase();
-        await supabase.from('orders').update({
-            shipping_address: address,
-            shipping_fee: 0, // Free shipping
-            total: (singleOrder?.subtotal || 0) // Recalculate total with 0 shipping
-        }).eq('id', id);
+        // Update order address via API
+        await fetch(`/api/orders/${id}/update-address`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                shipping_address: address,
+                shipping_fee: 0,
+                total: singleOrder?.subtotal || 0,
+            }),
+        });
     };
 
     // Handle Payment Confirmation (Cart Mode)

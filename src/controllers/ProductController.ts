@@ -69,7 +69,10 @@ export class ProductController extends BaseController {
                 status: searchParams.get('status'),
             });
 
+            console.log('[ProductController] List params:', params);
             const result = await this.productService.listProducts(params);
+            console.log('[ProductController] Found products:', result.total, 'items');
+
             return this.handleSuccess({
                 products: result.products,
                 total: result.total,
@@ -87,7 +90,14 @@ export class ProductController extends BaseController {
             if (!authorized) throw new UnauthorizedError('Admin access required');
 
             const body = await request.json();
-            const input = CreateProductSchema.parse(body);
+            console.log('[ProductController] Create product body:', JSON.stringify(body, null, 2));
+
+            const parseResult = CreateProductSchema.safeParse(body);
+            if (!parseResult.success) {
+                console.error('[ProductController] Validation failed:', parseResult.error.issues);
+                throw new BadRequestError(`Validation failed: ${JSON.stringify(parseResult.error.issues)}`);
+            }
+            const input = parseResult.data;
 
             const product = await this.productService.createProduct(input);
             return this.handleSuccess({ product, success: true }, { status: 201 });

@@ -56,6 +56,16 @@ export const generateId = {
     sku: (): string => generateHexCode(8),
 
     /**
+     * Generate SKU Variant for Sizes: 6 chars from Base SKU + 2 chars Random Hex
+     * @example Base "A7B3C9D1" -> Variant "A7B3C9EF"
+     */
+    skuVariant: (baseSku: string): string => {
+        const prefix = baseSku.slice(0, 6).toUpperCase();
+        const suffix = generateHexCode(2);
+        return `${prefix}${suffix}`;
+    },
+
+    /**
      * Generate Master Order ID: 12 chars Hex
      * @example A1B2C3D4E5F6
      */

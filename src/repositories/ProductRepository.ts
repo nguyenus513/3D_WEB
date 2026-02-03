@@ -16,6 +16,7 @@ export interface ProductImage {
 }
 
 export interface ProductSize {
+    sku?: string;
     name: string;
     price: number;
     stock: number;
@@ -37,19 +38,18 @@ export interface Product {
     sale_price?: number | null;
     cost_price?: number | null;
     stock: number;
-    low_stock_alert: number;
     images: ProductImage[] | string[];
-    sizes: ProductSize[] | string[];
     tags: string[];
     is_featured: boolean;
     created_at: string;
     updated_at: string;
+    // Note: sizes and low_stock_alert removed - columns don't exist in DB
 }
 
 export interface ProductQueryParams {
     page?: number;
     limit?: number;
-    status?: string;
+    status?: string | null;
 }
 
 // =============================================================================

@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { Switch } from '@/components/ui/Switch';
 import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import type { Product } from '@/types/database';
+import { generateId } from '@/lib/generateId';
 
 type PricingMode = 'original' | 'multi_size';
 
@@ -14,6 +16,9 @@ interface SizeVariant {
     name: string;
     price: string;
     stock: string;
+    sku?: string;
+    image_url?: string;
+    uploading?: boolean;
 }
 
 interface FormImage {
@@ -94,8 +99,10 @@ export default function AdminProductEditPage() {
             images: images,
             sizes: sizes.map((s: any) => ({
                 name: s.name || '',
+                sku: s.sku || '',
                 price: String(s.price || 0),
                 stock: String(s.stock || 0),
+                image_url: s.image_url,
             })),
         });
         setLoading(false);
@@ -136,8 +143,10 @@ export default function AdminProductEditPage() {
                 images: formData.images.map((img, i) => ({ url: img.url, is_main: i === 0 })),
                 sizes: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
                     name: s.name,
+                    sku: s.sku,
                     price: parseInt(s.price) || 0,
                     stock: parseInt(s.stock) || 0,
+                    image_url: s.image_url,
                     enabled: true,
                 })) : [],
             };
@@ -236,15 +245,58 @@ export default function AdminProductEditPage() {
 
     // Size management
     const addSize = () => {
+        let newSku = generateId.skuVariant(formData.sku);
+        // Ensure uniqueness
+        let attempts = 0;
+        while (formData.sizes.some(s => s.sku === newSku) && attempts < 10) {
+            newSku = generateId.skuVariant(formData.sku);
+            attempts++;
+        }
+
         setFormData(prev => ({
             ...prev,
-            sizes: [...prev.sizes, { name: '', price: '', stock: '0' }]
+            sizes: [...prev.sizes, { name: '', price: '', stock: '0', sku: newSku }]
         }));
     };
 
-    const updateSize = (index: number, field: keyof SizeVariant, value: string) => {
+    const updateSize = (index: number, field: keyof SizeVariant, value: string | undefined) => {
         const newSizes = [...formData.sizes];
-        newSizes[index][field] = value;
+        if (value === undefined && field === 'image_url') {
+            delete newSizes[index].image_url;
+        } else {
+            (newSizes[index] as any)[field] = value;
+        }
+        setFormData({ ...formData, sizes: newSizes });
+    };
+
+    const uploadSizeImage = async (index: number, file: File) => {
+        const newSizes = [...formData.sizes];
+        newSizes[index].uploading = true;
+        setFormData({ ...formData, sizes: newSizes });
+
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('type', 'product-size');
+        formDataUpload.append('sku', formData.sku || 'PROD-SIZE');
+        formDataUpload.append('index', String(index));
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formDataUpload,
+            });
+            const result = await res.json();
+
+            if (result.success) {
+                updateSize(index, 'image_url', result.file.url);
+            } else {
+                setError('Upload ảnh size thất bại');
+            }
+        } catch (err) {
+            setError('Lỗi upload ảnh size');
+        }
+
+        newSizes[index].uploading = false;
         setFormData({ ...formData, sizes: newSizes });
     };
 
@@ -279,15 +331,6 @@ export default function AdminProductEditPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <select
-                        value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        className="px-4 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white"
-                    >
-                        <option value="draft">Nháp</option>
-                        <option value="active">Đang bán</option>
-                        <option value="archived">Lưu trữ</option>
-                    </select>
                     <button
                         onClick={handleDelete}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors"
@@ -423,59 +466,165 @@ export default function AdminProductEditPage() {
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {formData.sizes.map((size, index) => (
-                                        <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-                                            <input
-                                                type="text"
-                                                value={size.name}
-                                                onChange={(e) => updateSize(index, 'name', e.target.value)}
-                                                placeholder="Tên size (S, M, L...)"
-                                                className="flex-1 px-4 py-2 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                            />
-                                            <input
-                                                type="number"
-                                                value={size.price}
-                                                onChange={(e) => updateSize(index, 'price', e.target.value)}
-                                                placeholder="Giá"
-                                                className="w-32 px-4 py-2 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                            />
-                                            <input
-                                                type="number"
-                                                value={size.stock}
-                                                onChange={(e) => updateSize(index, 'stock', e.target.value)}
-                                                placeholder="SL"
-                                                className="w-20 px-4 py-2 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeSize(index)}
-                                                className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
+                                        <div key={index} className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                                            {/* Left: Image Upload - Enhanced UI */}
+                                            <div className="w-full md:w-32 flex-shrink-0">
+                                                <div className="relative aspect-square">
+                                                    {size.image_url ? (
+                                                        <div className="w-full h-full rounded-lg overflow-hidden relative group">
+                                                            <img
+                                                                src={size.image_url}
+                                                                alt={size.name || 'Size'}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity p-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateSize(index, 'image_url', undefined)}
+                                                                    className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full text-white transition-colors"
+                                                                    title="Xóa ảnh"
+                                                                >
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <label className="w-full h-full rounded-lg border-2 border-dashed border-white/20 hover:border-[var(--color-accent)] hover:bg-white/5 flex flex-col items-center justify-center cursor-pointer transition-all group">
+                                                            {size.uploading ? (
+                                                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            ) : (
+                                                                <>
+                                                                    <svg className="w-6 h-6 text-white/30 group-hover:text-[var(--color-accent)] transition-colors mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                    <span className="text-[10px] text-white/30 group-hover:text-white/60 text-center px-1">Upload ảnh</span>
+                                                                </>
+                                                            )}
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (file) uploadSizeImage(index, file);
+                                                                }}
+                                                            />
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Right: Inputs */}
+                                            <div className="flex-1 space-y-3">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-xs text-white/50 mb-1 block">Tên size</label>
+                                                        <input
+                                                            type="text"
+                                                            value={size.name}
+                                                            onChange={(e) => updateSize(index, 'name', e.target.value)}
+                                                            placeholder="S, M, L..."
+                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white text-sm focus:border-white/40 focus:outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs text-white/50 mb-1 block">Giá (VNĐ)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={size.price}
+                                                            onChange={(e) => updateSize(index, 'price', e.target.value)}
+                                                            placeholder="0"
+                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white text-sm focus:border-white/40 focus:outline-none text-right"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-end gap-3">
+                                                    <div className="flex-1">
+                                                        <label className="text-xs text-white/50 mb-1 block">Tồn kho</label>
+                                                        <input
+                                                            type="number"
+                                                            value={size.stock}
+                                                            onChange={(e) => updateSize(index, 'stock', e.target.value)}
+                                                            placeholder="0"
+                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white text-sm focus:border-white/40 focus:outline-none"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeSize(index)}
+                                                        className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm transition-colors flex items-center gap-1 h-[38px]"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        Xóa
+                                                    </button>
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs text-white/50 mb-1 block">SKU Size</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={size.sku || ''}
+                                                            readOnly
+                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white/70 text-sm focus:outline-none cursor-default"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const newSku = generateId.skuVariant(formData.sku);
+                                                                // Simple check for duplicates
+                                                                const isDuplicate = formData.sizes.some((s, i) => i !== index && s.sku === newSku);
+                                                                if (!isDuplicate) {
+                                                                    updateSize(index, 'sku', newSku);
+                                                                } else {
+                                                                    // Retry once if duplicate
+                                                                    updateSize(index, 'sku', generateId.skuVariant(formData.sku));
+                                                                }
+                                                            }}
+                                                            className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
+                                                            title="Tạo lại SKU"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
 
                                     {formData.sizes.length === 0 && (
-                                        <p className="text-white/40 text-center py-4">Chưa có size. Click &quot;Thêm size&quot; để thêm.</p>
+                                        <div className="text-center py-8 bg-white/5 rounded-xl border border-dashed border-white/10">
+                                            <p className="text-white/40 mb-3 block">Chưa có size nào</p>
+                                            <button
+                                                type="button"
+                                                onClick={addSize}
+                                                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-medium transition-colors"
+                                            >
+                                                + Thêm size đầu tiên
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         )}
                     </motion.div>
 
-                    {/* Images */}
+                    {/* Images Section - Keeping existing logic but improving UI if needed, for now just keeping it standard */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
                         className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-5"
                     >
-                        <h2 className="text-lg font-semibold text-white">Hình ảnh</h2>
-
+                        <h2 className="text-lg font-semibold text-white">Hình ảnh chung</h2>
+                        {/* Existing Image Grid Code - Implicitly retained or updated if I want to match New Product exactly. I will reuse the existing block for now to minimize diff risk, but the content replacement should cover it. */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {formData.images.map((img, index) => (
                                 <div key={index} className="aspect-square rounded-xl relative group overflow-hidden bg-white/5">
@@ -517,7 +666,7 @@ export default function AdminProductEditPage() {
                                 </div>
                             ))}
 
-                            <label className="aspect-square rounded-xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-colors">
+                            <label className="aspect-square rounded-xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-colors bg-white/5 hover:bg-white/10">
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -553,14 +702,14 @@ export default function AdminProductEditPage() {
                         <button
                             type="submit"
                             disabled={isSaving}
-                            className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 disabled:opacity-50"
+                            className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 disabled:opacity-50 shadow-lg shadow-white/10"
                         >
                             {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
                         </button>
                         <button
                             type="button"
                             onClick={() => router.push(`${adminRoot}/products`)}
-                            className="w-full py-3 rounded-xl border border-white/20 text-white/70 hover:text-white"
+                            className="w-full py-3 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
                         >
                             Hủy
                         </button>
@@ -574,33 +723,64 @@ export default function AdminProductEditPage() {
                         className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                     >
                         <h2 className="text-lg font-semibold text-white mb-4">Tóm tắt</h2>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-white/50">Ảnh:</span>
-                                <span className="text-white">{formData.images.length}</span>
+
+                        {/* Status Toggle */}
+                        <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/5">
+                            <div className="flex items-center justify-between">
+                                <span className={formData.status === 'active' ? "text-green-400 font-medium" : "text-white/50"}>
+                                    {formData.status === 'active' ? 'Đang bán' : 'Bản nháp/Ẩn'}
+                                </span>
+                                <Switch
+                                    checked={formData.status === 'active'}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, status: checked ? 'active' : 'draft' })}
+                                />
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-white/50">Cách tính giá:</span>
-                                <span className="text-white">{pricingMode === 'original' ? 'Giá gốc' : 'Nhiều size'}</span>
+                        </div>
+
+                        <div className="space-y-3 text-sm">
+                            <div className="flex justify-between py-2 border-b border-white/5">
+                                <span className="text-white/50">Ảnh:</span>
+                                <span className="text-white font-medium">{formData.images.length}</span>
+                            </div>
+                            <div className="flex justify-between py-2 border-b border-white/5">
+                                <span className="text-white/50">Loại giá:</span>
+                                <span className="text-white font-medium">{pricingMode === 'original' ? 'Giá đơn' : 'Đa dạng size'}</span>
                             </div>
                             {pricingMode === 'original' ? (
                                 <>
-                                    <div className="flex justify-between">
-                                        <span className="text-white/50">Giá:</span>
-                                        <span className="text-white">
+                                    <div className="flex justify-between py-2 border-b border-white/5">
+                                        <span className="text-white/50">Giá bán:</span>
+                                        <span className="text-white font-medium">
                                             {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + 'đ' : '-'}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between">
+                                    <div className="flex justify-between py-2">
                                         <span className="text-white/50">Tồn kho:</span>
-                                        <span className="text-white">{formData.stock || 0}</span>
+                                        <span className="text-white font-medium">{formData.stock || 0}</span>
                                     </div>
                                 </>
                             ) : (
-                                <div className="flex justify-between">
-                                    <span className="text-white/50">Số size:</span>
-                                    <span className="text-white">{formData.sizes.length}</span>
-                                </div>
+                                <>
+                                    <div className="flex justify-between py-2 border-b border-white/5">
+                                        <span className="text-white/50">Số lượng size:</span>
+                                        <span className="text-white font-medium">{formData.sizes.length}</span>
+                                    </div>
+                                    <div className="flex justify-between py-2 border-b border-white/5">
+                                        <span className="text-white/50">Tổng tồn kho:</span>
+                                        <span className="text-white font-medium">
+                                            {formData.sizes.reduce((acc, curr) => acc + (parseInt(curr.stock) || 0), 0)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between py-2">
+                                        <span className="text-white/50">Khoảng giá:</span>
+                                        <span className="text-white font-medium">
+                                            {formData.sizes.length > 0
+                                                ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ`
+                                                : '-'
+                                            }
+                                        </span>
+                                    </div>
+                                </>
                             )}
                         </div>
                     </motion.div>

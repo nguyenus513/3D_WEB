@@ -38,32 +38,33 @@ export default function AdminProductsPage() {
 
     const fetchProducts = async () => {
         setLoading(true);
-        const supabase = getSupabase();
 
-        // Fetch products with category info
-        const { data: productsData, error } = await supabase
-            .from('products')
-            .select('*, category:categories(*)')
-            .order('created_at', { ascending: false });
+        try {
+            // Use API endpoint with admin auth instead of direct Supabase
+            const response = await fetch('/api/admin/products');
+            const data = await response.json();
 
-        if (error) {
+            if (!response.ok) {
+                console.error('Error fetching products:', data.error);
+                setLoading(false);
+                return;
+            }
+
+            // Map products to include stats
+            const productsWithStats = (data.products || []).map((product: any) => ({
+                ...product,
+                sizes: product.sizes || [],
+                status: product.status || (product.is_active ? 'active' : 'draft'),
+                sold_count: 0,
+                buyer_count: 0,
+            }));
+
+            setProducts(productsWithStats);
+        } catch (error) {
             console.error('Error fetching products:', error);
+        } finally {
             setLoading(false);
-            return;
         }
-
-        // Note: order_items stats removed due to RLS restrictions
-        // TODO: Create admin API endpoint for product stats if needed
-        const productsWithStats = (productsData || []).map((product: any) => ({
-            ...product,
-            sizes: product.sizes || [], // Use the JSON column directly
-            status: (product as any).status || ((product as any).is_active ? 'active' : 'draft'),
-            sold_count: 0,
-            buyer_count: 0,
-        }));
-
-        setProducts(productsWithStats);
-        setLoading(false);
     };
 
     const handleDelete = async (id: string) => {

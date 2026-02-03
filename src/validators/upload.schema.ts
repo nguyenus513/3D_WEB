@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 export const UploadTypeSchema = z.enum([
     'product',
+    'product-size',
     'printing',
     'custom_single',
     'custom_couple',

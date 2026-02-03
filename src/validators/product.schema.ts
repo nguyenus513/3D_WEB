@@ -27,6 +27,7 @@ export const ProductImageSchema = z.object({
 
 export const ProductSizeSchema = z.object({
     name: z.string().min(1),
+    sku: z.string().optional(),
     price: z.coerce.number().int().min(0),
     stock: z.coerce.number().int().min(0).default(0),
     enabled: z.boolean().default(true),
@@ -50,7 +51,7 @@ export const CreateProductSchema = z.object({
     sale_price: z.coerce.number().int().min(0).optional().nullable(),
     cost_price: z.coerce.number().int().min(0).optional().nullable(),
     stock: z.coerce.number().int().min(0).default(0),
-    low_stock_alert: z.coerce.number().int().min(0).default(5),
+    // low_stock_alert removed - column doesn't exist in database
     images: z.array(ProductImageSchema).optional().default([]),
     sizes: z.array(ProductSizeSchema).optional().default([]),
     tags: z.array(z.string()).optional().default([]),
@@ -86,9 +87,9 @@ export type UpdateProductInput = z.infer<typeof UpdateProductSchema>;
 // =============================================================================
 
 export const ProductQuerySchema = z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    status: ProductStatus.optional(),
+    page: z.coerce.number().int().min(1).default(1).catch(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20).catch(20),
+    status: ProductStatus.optional().nullable(),
 });
 
 export type ProductQueryInput = z.infer<typeof ProductQuerySchema>;
