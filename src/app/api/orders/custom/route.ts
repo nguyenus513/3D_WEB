@@ -107,10 +107,7 @@ export async function POST(request: NextRequest) {
                     district: shippingAddress.district || '',
                     province: shippingAddress.province,
                 },
-                custom_config: {
-                    type: type,
-                    size: size,
-                },
+                // Note: custom type/size stored in order_configs table below
             })
             .select()
             .single();
