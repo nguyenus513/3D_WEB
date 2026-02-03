@@ -86,29 +86,30 @@ export async function POST(request: NextRequest) {
         // Generate order code
         const orderCode = generateId.custom();
 
-        // Use RPC v3 to bypass schema cache issues (fresh name to force cache update)
-        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v3', {
-            p_order_code: orderCode,
-            p_user_id: userId,
-            p_order_type: 'custom',
-            p_status: 'pending',
-            p_subtotal: totalPrice,
-            // p_shipping_fee removed per user request and new RPC signature
-            p_total: totalPrice,
-            p_deposit_amount: depositAmount,
-            p_customer_note: notes || null,
-            p_admin_note: null,
-            p_shipping_address: {
-                full_name: shippingAddress.full_name,
-                phone: shippingAddress.phone,
-                address_line: shippingAddress.address_line || '',
-                ward: shippingAddress.ward || '',
-                district: shippingAddress.district || '',
-                province: shippingAddress.province,
-            },
-            p_custom_config: {
-                type: type,
-                size: size,
+        // Use RPC v4 (single JSONB param) to completely bypass signature matching issues
+        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v4', {
+            data: {
+                order_code: orderCode,
+                user_id: userId,
+                order_type: 'custom',
+                status: 'pending',
+                subtotal: totalPrice,
+                total: totalPrice,
+                deposit_amount: depositAmount,
+                // customer_note: notes || null,
+                admin_note: notes ? `[User Note]: ${notes}` : null,
+                shipping_address: {
+                    full_name: shippingAddress.full_name,
+                    phone: shippingAddress.phone,
+                    address_line: shippingAddress.address_line || '',
+                    ward: shippingAddress.ward || '',
+                    district: shippingAddress.district || '',
+                    province: shippingAddress.province,
+                },
+                custom_config: {
+                    type: type,
+                    size: size,
+                }
             }
         });
 
