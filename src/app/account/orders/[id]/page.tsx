@@ -140,18 +140,38 @@ export default function AccountOrderDetailPage() {
         if (!session?.user?.email) return;
 
         try {
-            // Use API route to bypass RLS (API verifies ownership server-side)
-            const res = await fetch(`/api/orders/${params.id}`);
+            // Use lookup API that searches across all order tables
+            const res = await fetch(`/api/orders/lookup?id=${params.id}`);
             const response = await res.json();
 
-            if (!res.ok) {
+            if (!res.ok || !response.success) {
                 setError(response.error?.message || response.error || 'Không tìm thấy đơn hàng');
                 setLoading(false);
                 return;
             }
 
-            // API returns { success: true, data: order }
-            const orderData = response.data || response;
+            // Transform API response to match Order interface
+            const data = response.data;
+            const orderData: Order = {
+                id: data.id,
+                order_code: data.order_code,
+                order_type: data.order_type || 'custom',
+                status: data.status,
+                subtotal: data.total,
+                shipping_fee: 0,
+                total: data.total,
+                deposit_amount: data.deposit_amount || Math.round(data.total * 0.5),
+                deposit_paid: data.payment_status === 'paid',
+                shipping_address: data.shipping_address,
+                shipping_code: null,
+                customer_note: null,
+                admin_note: null,
+                created_at: data.created_at,
+                paid_at: null,
+                shipped_at: null,
+                delivered_at: null,
+                order_items: data.items || [],
+            };
             setOrder(orderData);
             setLoading(false);
         } catch (err) {
