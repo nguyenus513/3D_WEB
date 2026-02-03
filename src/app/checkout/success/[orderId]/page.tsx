@@ -305,7 +305,7 @@ export default function CheckoutSuccessPage() {
                         {/* Sub-orders */}
                         {subOrders.length > 0 && (
                             <div className="mb-6">
-                                <p className="text-white/50 text-sm mb-3">Đơn hàng chi tiết</p>
+                                <p className="text-white/50 text-sm mb-3">Chi tiết đơn hàng</p>
                                 <div className="space-y-2">
                                     {subOrders.map((sub, index) => (
                                         <div
