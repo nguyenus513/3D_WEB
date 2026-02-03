@@ -188,45 +188,67 @@ export default function AccountOrderDetailPage() {
     const getTimeline = () => {
         if (!order) return [];
 
-        const baseTimeline = [
+        // Define status order for completion checks
+        const statusOrder = ['pending', 'confirmed', 'designing', 'review', 'approved', 'processing', 'shipping', 'delivered'];
+        const currentIndex = statusOrder.indexOf(order.status);
+        const isCompleted = (targetStatus: string) => {
+            const targetIndex = statusOrder.indexOf(targetStatus);
+            return currentIndex >= targetIndex;
+        };
+
+        const timeline = [
+            // 1. Đặt hàng thành công
             {
                 status: 'ordered',
                 label: 'Đặt hàng thành công',
                 date: formatDate(order.created_at),
                 completed: true
             },
+            // 2. Chờ xác nhận thanh toán / Đã xác nhận thanh toán
+            {
+                status: 'pending',
+                label: order.status === 'pending' ? 'Chờ xác nhận thanh toán' : 'Đã xác nhận thanh toán',
+                date: order.deposit_paid ? formatDate(order.paid_at) : '',
+                completed: isCompleted('confirmed'),
+            },
+            // 3. Đang thiết kế
+            {
+                status: 'designing',
+                label: 'Đang thiết kế',
+                date: '',
+                completed: isCompleted('designing'),
+            },
+            // 4. Chờ xác nhận ảnh
+            {
+                status: 'review',
+                label: 'Chờ xác nhận ảnh',
+                date: '',
+                completed: isCompleted('review'),
+            },
+            // 5. Đang sản xuất
+            {
+                status: 'processing',
+                label: 'Đang sản xuất',
+                date: '',
+                completed: isCompleted('processing'),
+            },
+            // 6. Đang giao hàng
+            {
+                status: 'shipping',
+                label: 'Đang giao hàng',
+                date: formatDate(order.shipped_at),
+                completed: isCompleted('shipping'),
+            },
+            // 7. Đã giao hàng
+            {
+                status: 'delivered',
+                label: 'Đã giao hàng',
+                date: formatDate(order.delivered_at),
+                completed: order.status === 'delivered',
+            },
         ];
 
-        if (order.deposit_paid || order.paid_at) {
-            baseTimeline.push({
-                status: 'paid',
-                label: order.order_type === 'printing' ? 'Đã thanh toán 100%' : 'Đã cọc 50%',
-                date: formatDate(order.paid_at),
-                completed: true,
-            });
-        }
-
-        // Add type-specific steps
-        if (order.order_type === 'custom') {
-            baseTimeline.push(
-                { status: 'designing', label: 'Đang thiết kế', date: '', completed: order.status === 'designing' || ['review', 'approved', 'processing', 'shipping', 'delivered'].includes(order.status) },
-                { status: 'review', label: 'Chờ xác nhận ảnh', date: '', completed: ['review', 'approved', 'processing', 'shipping', 'delivered'].includes(order.status) },
-            );
-        }
-
-        if (order.order_type === 'printing') {
-            baseTimeline.push(
-                { status: 'printing', label: 'Đang in', date: '', completed: ['printing', 'shipping', 'delivered'].includes(order.status) },
-            );
-        }
-
-        baseTimeline.push(
-            { status: 'processing', label: 'Đang sản xuất', date: '', completed: ['processing', 'shipping', 'delivered'].includes(order.status) },
-            { status: 'shipping', label: 'Đang giao hàng', date: formatDate(order.shipped_at), completed: ['shipping', 'delivered'].includes(order.status) },
-            { status: 'delivered', label: 'Đã giao hàng', date: formatDate(order.delivered_at), completed: order.status === 'delivered' },
-        );
-
-        return baseTimeline;
+        return timeline;
     };
 
     if (loading) {
