@@ -86,44 +86,56 @@ export async function POST(request: NextRequest) {
         // Generate order code
         const orderCode = generateId.custom();
 
-        // Create order in database
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-                order_code: orderCode,
-                user_id: userId,
-                order_type: 'custom',
-                status: 'pending',
-                subtotal: totalPrice,
-                shipping_fee: 0,
-                total: totalPrice,
-                deposit_amount: depositAmount,
-                // customer_note: notes || null, // FIX: Schema cache error workaround
-                admin_note: notes ? `[User Note]: ${notes}` : null,
-                shipping_address: {
-                    full_name: shippingAddress.full_name,
-                    phone: shippingAddress.phone,
-                    address_line: shippingAddress.address_line || '',
-                    ward: shippingAddress.ward || '',
-                    district: shippingAddress.district || '',
-                    province: shippingAddress.province,
-                },
-                // Note: custom type/size stored in order_configs table below
-            })
-            .select()
-            .single();
+        // Use RPC to bypass schema cache issues with custom_config/customer_note columns
+        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v2', {
+            p_order_code: orderCode,
+            p_user_id: userId,
+            p_order_type: 'custom',
+            p_status: 'pending',
+            p_subtotal: totalPrice,
+            p_shipping_fee: 0,
+            p_total: totalPrice,
+            p_deposit_amount: depositAmount,
+            p_customer_note: notes || null,
+            p_admin_note: null,
+            p_shipping_address: {
+                full_name: shippingAddress.full_name,
+                phone: shippingAddress.phone,
+                address_line: shippingAddress.address_line || '',
+                ward: shippingAddress.ward || '',
+                district: shippingAddress.district || '',
+                province: shippingAddress.province,
+            },
+            p_custom_config: {
+                type: type,
+                size: size,
+            }
+        });
 
         if (orderError) {
-            console.error('[Custom Order API] Create order error:', orderError);
+            console.error('[Custom Order API] Create order RPC error:', orderError);
             return NextResponse.json(
-                { success: false, error: { code: 'DB_ERROR', message: orderError.message } },
+                {
+                    success: false,
+                    error: {
+                        code: 'DB_ERROR',
+                        message: (orderError as { message: string }).message || 'Unknown database error'
+                    }
+                },
+                { status: 500 }
+            );
+        }
+
+        if (!order) {
+            return NextResponse.json(
+                { success: false, error: { code: 'DB_ERROR', message: 'Order creation failed (no data returned)' } },
                 { status: 500 }
             );
         }
 
         // Insert order_configs record
         const { error: configError } = await supabase.from('order_configs').insert({
-            order_id: order.id,
+            order_id: (order as any).id,
             custom_type: type,
             custom_size: size,
         });
@@ -136,7 +148,7 @@ export async function POST(request: NextRequest) {
         // Insert order_files records if images provided
         if (images && images.length > 0) {
             const orderFiles = images.map((img) => ({
-                order_id: order.id,
+                order_id: (order as any).id,
                 file_id: img.id,
                 file_type: 'photo',
                 file_name: img.name || null,
@@ -154,11 +166,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             data: {
-                id: order.id,
-                order_code: order.order_code,
-                total: order.total,
-                deposit_amount: order.deposit_amount,
-                status: order.status,
+                id: (order as any).id,
+                order_code: (order as any).order_code,
+                total: (order as any).total,
+                deposit_amount: (order as any).deposit_amount,
+                status: (order as any).status,
             },
         });
     } catch (error) {
