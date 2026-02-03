@@ -86,35 +86,43 @@ export async function POST(request: NextRequest) {
         // Generate order code
         const orderCode = generateId.custom();
 
-        // Use RPC v5 (single 'payload' param) - 'data' might be reserved or ambiguous
-        // Also added explicit logs for debugging
-        console.log('[Custom Order API] Calling RPC create_custom_order_v5...');
+        // FAILSAFE STRATEGY for Persistent Schema Cache Errors:
+        // 1. Do NOT use RPC (functions are not found in cache)
+        // 2. Do NOT insert into new columns like 'admin_note', 'customer_note', 'custom_config'
+        // 3. Embed metadata into 'shipping_address' (JSONB) which is a stable column
 
-        const { data: order, error: orderError } = await supabase.rpc('debug_rpc_identity', {
-            payload: {
+        const safeShippingAddress = {
+            full_name: shippingAddress.full_name,
+            phone: shippingAddress.phone,
+            address_line: shippingAddress.address_line || '',
+            ward: shippingAddress.ward || '',
+            district: shippingAddress.district || '',
+            province: shippingAddress.province,
+            // Embed metadata here to survive schema cache issues
+            _metadata: {
+                customer_note: notes,
+                admin_note: notes ? `[User Note]: ${notes}` : null,
+                custom_config: { type, size }
+            }
+        };
+
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
                 order_code: orderCode,
                 user_id: userId,
                 order_type: 'custom',
                 status: 'pending',
                 subtotal: totalPrice,
+                shipping_fee: 0,
                 total: totalPrice,
                 deposit_amount: depositAmount,
-                // customer_note: notes || null,
-                admin_note: notes ? `[User Note]: ${notes}` : null,
-                shipping_address: {
-                    full_name: shippingAddress.full_name,
-                    phone: shippingAddress.phone,
-                    address_line: shippingAddress.address_line || '',
-                    ward: shippingAddress.ward || '',
-                    district: shippingAddress.district || '',
-                    province: shippingAddress.province,
-                },
-                custom_config: {
-                    type: type,
-                    size: size,
-                }
-            }
-        });
+                shipping_address: safeShippingAddress,
+                // Exclude problematic columns that are not in schema cache:
+                // customer_note, admin_note, custom_config
+            })
+            .select()
+            .single();
 
         if (orderError) {
             console.error('[Custom Order API] Create order RPC error:', orderError);
