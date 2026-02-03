@@ -192,6 +192,7 @@ export async function POST(request: NextRequest) {
             data: {
                 id: (order as any).id,
                 order_code: (order as any).order_code,
+                order_number: (order as any).order_number, // For checkout success lookup
                 total: (order as any).total,
                 deposit_amount: (order as any).deposit_amount,
                 status: (order as any).status,

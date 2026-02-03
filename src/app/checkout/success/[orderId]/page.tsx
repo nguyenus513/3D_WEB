@@ -98,20 +98,33 @@ export default function CheckoutSuccessPage() {
     useEffect(() => {
         const fetchOrder = async () => {
             try {
-                const res = await fetch('/api/orders/master');
+                // Use new unified lookup API that searches all order tables
+                const res = await fetch(`/api/orders/lookup?id=${orderId}`);
                 if (res.ok) {
                     const data = await res.json();
-                    // master_orders uses order_number, not order_code
-                    const found = data.orders?.find((o: MasterOrder) => o.order_number === orderId || o.id === orderId);
-                    if (found) {
-                        setOrder(found);
+                    if (data.success && data.data) {
+                        const orderData = data.data;
+                        setOrder({
+                            id: orderData.id,
+                            order_number: orderData.order_code,
+                            order_code: orderData.order_code,
+                            subtotal: orderData.total,
+                            shipping: 0,
+                            total: orderData.total,
+                            status: orderData.status,
+                            payment_status: orderData.payment_status,
+                            created_at: orderData.created_at,
+                            address: orderData.shipping_address || {},
+                            // Store payment info for QR
+                            payment: orderData.payment,
+                        } as any);
 
-                        // Build sub-orders list
-                        const subs: SubOrder[] = [];
-                        found.orders?.forEach((o: any) => subs.push({ type: 'product', orderNumber: o.order_code, status: o.status }));
-                        found.print_orders?.forEach((o: any) => subs.push({ type: 'print', orderNumber: o.order_number, status: o.status }));
-                        found.custom_orders?.forEach((o: any) => subs.push({ type: 'custom', orderNumber: o.order_number, status: o.status }));
-                        setSubOrders(subs);
+                        // Set sub-orders based on order type
+                        setSubOrders([{
+                            type: orderData.order_type === 'custom' ? 'custom' : orderData.order_type === 'printing' ? 'print' : 'product',
+                            orderNumber: orderData.order_code,
+                            status: orderData.status,
+                        }]);
                     }
                 }
             } catch (err) {
@@ -231,16 +244,17 @@ export default function CheckoutSuccessPage() {
                         <h3 className="text-lg font-semibold text-white mb-4 text-center">💳 Thanh toán chuyển khoản</h3>
 
                         {order && (() => {
-                            const depositAmount = Math.round(order.total * 0.5);
-                            const bankConfig = getBankConfig('ready_made');
-                            // Use stored transfer_content from order metadata if available
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const orderAny = order as any;
-                            const storedContent = orderAny?.metadata?.transfer_content;
-                            const transferContent = storedContent || `MINWSUN_${orderId}`;
-                            // Use stored qr_url if available
-                            const storedQrUrl = orderAny?.payment_qr_url;
-                            const qrUrl = storedQrUrl || `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
+                            const payment = orderAny?.payment;
+
+                            // Use payment info from API if available
+                            const depositAmount = orderAny?.deposit_amount || Math.round(order.total * 0.5);
+                            const qrUrl = payment?.qr_url || `https://img.vietqr.io/image/MB-0359123456-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(`MINWSUN_${orderId}`)}`;
+                            const transferContent = payment?.transfer_content || `MINWSUN_${orderId}`;
+                            const bankName = payment?.bank_id ? (BANK_INFO[payment.bank_id as BankCode]?.shortName || payment.bank_id) : 'MB Bank';
+                            const accountNo = payment?.account_no || '0359123456';
+                            const accountName = payment?.account_name || 'MINWSUN';
 
                             return (
                                 <div className="space-y-6">
@@ -258,15 +272,15 @@ export default function CheckoutSuccessPage() {
                                     <div className="text-sm space-y-2">
                                         <div className="flex justify-between py-2 border-b border-white/10">
                                             <span className="text-white/50">Ngân hàng</span>
-                                            <span className="text-white font-medium">{BANK_INFO[bankConfig.bankId as BankCode].shortName}</span>
+                                            <span className="text-white font-medium">{bankName}</span>
                                         </div>
                                         <div className="flex justify-between py-2 border-b border-white/10">
                                             <span className="text-white/50">Số tài khoản</span>
-                                            <span className="text-white font-mono">{bankConfig.accountNo}</span>
+                                            <span className="text-white font-mono">{accountNo}</span>
                                         </div>
                                         <div className="flex justify-between py-2 border-b border-white/10">
                                             <span className="text-white/50">Chủ TK</span>
-                                            <span className="text-white">{bankConfig.accountName}</span>
+                                            <span className="text-white">{accountName}</span>
                                         </div>
                                         <div className="flex justify-between py-2 border-b border-white/10">
                                             <span className="text-white/50">Nội dung CK</span>
