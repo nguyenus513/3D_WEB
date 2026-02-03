@@ -16,7 +16,8 @@ interface SubOrder {
 
 interface MasterOrder {
     id: string;
-    order_code: string;
+    order_number: string; // Primary identifier for master_orders
+    order_code: string;   // Fallback for compatibility
     subtotal: number;
     shipping: number;
     total: number;
@@ -100,7 +101,8 @@ export default function CheckoutSuccessPage() {
                 const res = await fetch('/api/orders/master');
                 if (res.ok) {
                     const data = await res.json();
-                    const found = data.orders?.find((o: MasterOrder) => o.order_code === orderId);
+                    // master_orders uses order_number, not order_code
+                    const found = data.orders?.find((o: MasterOrder) => o.order_number === orderId || o.id === orderId);
                     if (found) {
                         setOrder(found);
 
