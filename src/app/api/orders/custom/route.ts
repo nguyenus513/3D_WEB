@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
         // Generate order code
         const orderCode = generateId.custom();
 
-        // Use RPC to bypass schema cache issues with custom_config/customer_note columns
-        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v2', {
+        // Use RPC v3 to bypass schema cache issues (fresh name to force cache update)
+        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v3', {
             p_order_code: orderCode,
             p_user_id: userId,
             p_order_type: 'custom',
