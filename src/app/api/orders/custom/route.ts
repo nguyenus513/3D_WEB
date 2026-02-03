@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
         };
 
         const { data: order, error: orderError } = await supabase
-            .from('orders')
+            .from('orders_api_view') // Bypassing 'orders' table cache by using a fresh View
             .insert({
                 order_code: orderCode,
                 user_id: userId,
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
                 // Exclude problematic columns that are not in schema cache:
                 // customer_note, admin_note, custom_config, order_type
             })
-            .select()
+            .select() // View is updatable, so returning * should work
             .single();
 
         if (orderError) {
