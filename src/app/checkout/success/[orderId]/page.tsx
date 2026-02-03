@@ -94,6 +94,7 @@ export default function CheckoutSuccessPage() {
     const [order, setOrder] = useState<MasterOrder | null>(null);
     const [loading, setLoading] = useState(true);
     const [subOrders, setSubOrders] = useState<SubOrder[]>([]);
+    const [hasConfirmedPayment, setHasConfirmedPayment] = useState(false);
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -119,6 +120,11 @@ export default function CheckoutSuccessPage() {
                             payment: orderData.payment,
                         } as any);
 
+                        // If already paid, skip payment view
+                        if (orderData.payment_status === 'paid' || orderData.deposit_paid) {
+                            setHasConfirmedPayment(true);
+                        }
+
                         // Set sub-orders based on order type
                         setSubOrders([{
                             type: orderData.order_type === 'custom' ? 'custom' : orderData.order_type === 'printing' ? 'print' : 'product',
@@ -138,6 +144,11 @@ export default function CheckoutSuccessPage() {
         }
     }, [orderId]);
 
+    const handleConfirmPayment = () => {
+        setHasConfirmedPayment(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#0a0a0a] pt-32 pb-20 flex items-center justify-center">
@@ -149,6 +160,114 @@ export default function CheckoutSuccessPage() {
         );
     }
 
+    if (!order) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] pt-32 pb-20 flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-red-400 mb-4">Không tìm thấy đơn hàng</p>
+                    <Link href="/">
+                        <Button variant="secondary">Về trang chủ</Button>
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    // 1. PAYMENT VIEW (Shown first if not paid/confirmed)
+    if (!hasConfirmedPayment) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const orderAny = order as any;
+        const payment = orderAny?.payment;
+        const depositAmount = orderAny?.deposit_amount || Math.round(order.total * 0.5);
+        const qrUrl = payment?.qr_url || `https://img.vietqr.io/image/MB-0359123456-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(`MINWSUN_${orderId}`)}`;
+        const transferContent = payment?.transfer_content || `MINWSUN_${orderId}`;
+        const bankName = payment?.bank_id ? (BANK_INFO[payment.bank_id as BankCode]?.shortName || payment.bank_id) : 'MB Bank';
+        const accountNo = payment?.account_no || '0359123456';
+        const accountName = payment?.account_name || 'MINWSUN';
+
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+                <div className="max-w-[600px] mx-auto px-6">
+                    <AnimatedSection className="text-center mb-8">
+                        <h1 className="text-3xl font-bold text-white mb-2">Vui Lòng Thanh Toán</h1>
+                        <p className="text-white/60">Quét mã QR để hoàn tất đơn hàng</p>
+                    </AnimatedSection>
+
+                    <AnimatedSection delay={0.1}>
+                        <div className="bg-[#1D1D1F] rounded-3xl p-8 mb-6 border border-white/5">
+                            {/* QR Code */}
+                            <div className="bg-white rounded-2xl p-4 max-w-[280px] mx-auto mb-8 shadow-2xl">
+                                <img
+                                    src={qrUrl}
+                                    alt="VietQR Payment"
+                                    className="w-full aspect-square object-contain"
+                                />
+                                <p className="text-center text-xs text-gray-500 mt-2 font-medium">Quét mã để chuyển khoản tự động</p>
+                            </div>
+
+                            {/* Bank Info */}
+                            <div className="space-y-4 mb-8">
+                                <div className="bg-white/5 rounded-xl p-4 space-y-3">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-white/50">Ngân hàng</span>
+                                        <span className="text-white font-medium">{bankName}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-white/50">Số tài khoản</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-white font-mono text-lg">{accountNo}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-white/50">Chủ tài khoản</span>
+                                        <span className="text-white font-medium uppercase">{accountName}</span>
+                                    </div>
+                                    <div className="h-px bg-white/10 my-2" />
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-white/50">Số tiền cọc (50%)</span>
+                                        <span className="text-green-400 font-bold text-xl">{depositAmount.toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2">
+                                        <span className="text-white/50">Nội dung CK</span>
+                                        <span className="text-yellow-400 font-mono font-bold bg-yellow-400/10 px-3 py-1 rounded-lg select-all cursor-text">{transferContent}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                                    <svg className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p className="text-sm text-blue-200/80">
+                                        Nội dung chuyển khoản chính xác giúp hệ thống tự động xác nhận đơn hàng của bạn nhanh chóng hơn.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <Button
+                                variant="primary"
+                                size="lg"
+                                className="w-full h-14 text-lg font-medium shadow-lg shadow-primary/20"
+                                onClick={handleConfirmPayment}
+                            >
+                                Tôi đã chuyển khoản xong
+                            </Button>
+                        </div>
+
+                        <div className="text-center">
+                            <button
+                                onClick={() => setHasConfirmedPayment(true)}
+                                className="text-white/40 text-sm hover:text-white transition-colors"
+                            >
+                                Bỏ qua bước này (Thanh toán sau)
+                            </button>
+                        </div>
+                    </AnimatedSection>
+                </div>
+            </div>
+        );
+    }
+
+    // 2. SUCCESS VIEW (Shown after confirmation)
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
             <div className="max-w-[800px] mx-auto px-6">
@@ -166,7 +285,7 @@ export default function CheckoutSuccessPage() {
                         Đặt Hàng Thành Công!
                     </h1>
                     <p className="text-white/60">
-                        Cảm ơn bạn đã đặt hàng. Chúng tôi sẽ xử lý đơn hàng trong thời gian sớm nhất.
+                        Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang chờ xác nhận thanh toán.
                     </p>
                 </AnimatedSection>
 
@@ -238,72 +357,8 @@ export default function CheckoutSuccessPage() {
                     </AnimatedSection>
                 )}
 
-                {/* QR Payment Section */}
-                <AnimatedSection delay={0.3}>
-                    <div className="bg-[#1D1D1F] rounded-3xl p-8 mb-8">
-                        <h3 className="text-lg font-semibold text-white mb-4 text-center">💳 Thanh toán chuyển khoản</h3>
-
-                        {order && (() => {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const orderAny = order as any;
-                            const payment = orderAny?.payment;
-
-                            // Use payment info from API if available
-                            const depositAmount = orderAny?.deposit_amount || Math.round(order.total * 0.5);
-                            const qrUrl = payment?.qr_url || `https://img.vietqr.io/image/MB-0359123456-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(`MINWSUN_${orderId}`)}`;
-                            const transferContent = payment?.transfer_content || `MINWSUN_${orderId}`;
-                            const bankName = payment?.bank_id ? (BANK_INFO[payment.bank_id as BankCode]?.shortName || payment.bank_id) : 'MB Bank';
-                            const accountNo = payment?.account_no || '0359123456';
-                            const accountName = payment?.account_name || 'MINWSUN';
-
-                            return (
-                                <div className="space-y-6">
-                                    {/* QR Code */}
-                                    <div className="bg-white rounded-2xl p-4 max-w-xs mx-auto">
-                                        <img
-                                            src={qrUrl}
-                                            alt="VietQR Payment"
-                                            className="w-full aspect-square object-contain"
-                                        />
-                                        <p className="text-center text-xs text-gray-500 mt-2">Quét mã để thanh toán</p>
-                                    </div>
-
-                                    {/* Bank Info */}
-                                    <div className="text-sm space-y-2">
-                                        <div className="flex justify-between py-2 border-b border-white/10">
-                                            <span className="text-white/50">Ngân hàng</span>
-                                            <span className="text-white font-medium">{bankName}</span>
-                                        </div>
-                                        <div className="flex justify-between py-2 border-b border-white/10">
-                                            <span className="text-white/50">Số tài khoản</span>
-                                            <span className="text-white font-mono">{accountNo}</span>
-                                        </div>
-                                        <div className="flex justify-between py-2 border-b border-white/10">
-                                            <span className="text-white/50">Chủ TK</span>
-                                            <span className="text-white">{accountName}</span>
-                                        </div>
-                                        <div className="flex justify-between py-2 border-b border-white/10">
-                                            <span className="text-white/50">Nội dung CK</span>
-                                            <span className="text-white font-mono text-sm bg-white/5 px-2 py-1 rounded">{transferContent}</span>
-                                        </div>
-                                        <div className="flex justify-between py-2">
-                                            <span className="text-white/50">Số tiền cọc (50%)</span>
-                                            <span className="text-green-400 font-bold text-lg">{depositAmount.toLocaleString('vi-VN')}đ</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Note */}
-                                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-sm">
-                                        <p className="text-yellow-400">⚠️ Ghi đúng nội dung CK để đơn hàng được xác nhận nhanh nhất</p>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </div>
-                </AnimatedSection>
-
                 {/* Actions */}
-                <AnimatedSection delay={0.4}>
+                <AnimatedSection delay={0.3}>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link href="/account/orders">
                             <Button variant="primary" size="lg">
