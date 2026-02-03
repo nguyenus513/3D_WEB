@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
         const { data: order, error: orderError } = await supabase
             .from('custom_orders')
             .insert({
+                order_number: orderCode, // Required by DB schema (NOT NULL)
                 order_code: orderCode,
                 user_id: userId,
                 order_type: 'custom',
