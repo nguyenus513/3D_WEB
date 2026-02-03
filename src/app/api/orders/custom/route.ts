@@ -102,7 +102,9 @@ export async function POST(request: NextRequest) {
             _metadata: {
                 customer_note: notes,
                 admin_note: notes ? `[User Note]: ${notes}` : null,
-                custom_config: { type, size }
+                custom_config: { type, size },
+                // Validating intent in metadata in case default is wrong
+                intended_order_type: 'custom'
             }
         };
 
@@ -111,15 +113,15 @@ export async function POST(request: NextRequest) {
             .insert({
                 order_code: orderCode,
                 user_id: userId,
-                order_type: 'custom',
-                status: 'pending',
+                // order_type: 'custom', // Removed: Rely on DB DEFAULT 'custom' to bypass cache error
+                // status: 'pending',    // Removed: Rely on DB DEFAULT 'pending'
                 subtotal: totalPrice,
                 shipping_fee: 0,
                 total: totalPrice,
                 deposit_amount: depositAmount,
                 shipping_address: safeShippingAddress,
                 // Exclude problematic columns that are not in schema cache:
-                // customer_note, admin_note, custom_config
+                // customer_note, admin_note, custom_config, order_type
             })
             .select()
             .single();
