@@ -86,9 +86,12 @@ export async function POST(request: NextRequest) {
         // Generate order code
         const orderCode = generateId.custom();
 
-        // Use RPC v4 (single JSONB param) to completely bypass signature matching issues
-        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v4', {
-            data: {
+        // Use RPC v5 (single 'payload' param) - 'data' might be reserved or ambiguous
+        // Also added explicit logs for debugging
+        console.log('[Custom Order API] Calling RPC create_custom_order_v5...');
+
+        const { data: order, error: orderError } = await supabase.rpc('create_custom_order_v5', {
+            payload: {
                 order_code: orderCode,
                 user_id: userId,
                 order_type: 'custom',
