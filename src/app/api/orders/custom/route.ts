@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
             p_order_type: 'custom',
             p_status: 'pending',
             p_subtotal: totalPrice,
-            p_shipping_fee: 0,
+            // p_shipping_fee removed per user request and new RPC signature
             p_total: totalPrice,
             p_deposit_amount: depositAmount,
             p_customer_note: notes || null,
