@@ -112,6 +112,19 @@ export async function POST(request: NextRequest) {
         // Bypasses Supabase PostgREST API entirely (eliminates Schema Cache issues)
         console.log('[Custom Order API] Executing DIRECT SQL via pg driver...');
 
+        // Debug Environment presence
+        const hasDbUrl = !!process.env.DATABASE_URL;
+        const hasDirectUrl = !!process.env.DIRECT_URL;
+        console.log('[Custom Order API] DB Env Check - DATABASE_URL:', hasDbUrl, 'DIRECT_URL:', hasDirectUrl);
+
+        if (!hasDbUrl && !hasDirectUrl) {
+            console.error('[Custom Order API] Missing Database Connection String');
+            return NextResponse.json(
+                { success: false, error: { code: 'CONFIG_ERROR', message: 'Missing DATABASE_URL in environment' } },
+                { status: 500 }
+            );
+        }
+
         const safeShippingAddress = JSON.stringify({
             full_name: shippingAddress.full_name,
             phone: shippingAddress.phone,
