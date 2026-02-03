@@ -9,6 +9,7 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { generateId } from '@/lib/generateId';
+import { dbRequest } from '@/lib/db-direct';
 
 interface CustomOrderRequest {
     type: 'single' | 'couple' | 'group';
@@ -107,40 +108,74 @@ export async function POST(request: NextRequest) {
         // 2. Do NOT insert into new columns like 'admin_note', 'customer_note', 'custom_config'
         // 3. Embed metadata into 'shipping_address' (JSONB) which is a stable column
 
-        const safeShippingAddress = {
+        // NUCLEAR OPTION: Direct Postgres Connection via 'pg' driver
+        // Bypasses Supabase PostgREST API entirely (eliminates Schema Cache issues)
+        console.log('[Custom Order API] Executing DIRECT SQL via pg driver...');
+
+        const safeShippingAddress = JSON.stringify({
             full_name: shippingAddress.full_name,
             phone: shippingAddress.phone,
             address_line: shippingAddress.address_line || '',
             ward: shippingAddress.ward || '',
             district: shippingAddress.district || '',
             province: shippingAddress.province,
-            // Embed metadata here to survive schema cache issues
             _metadata: {
                 customer_note: notes,
                 admin_note: notes ? `[User Note]: ${notes}` : null,
                 custom_config: { type, size },
-                // Validating intent in metadata in case default is wrong
                 intended_order_type: 'custom'
             }
-        };
+        });
 
-        const { data: order, error: orderError } = await supabase
-            .from('orders_api_view') // Bypassing 'orders' table cache by using a fresh View
-            .insert({
-                order_code: orderCode,
-                user_id: userId,
-                // order_type: 'custom', // Removed: Rely on DB DEFAULT 'custom' to bypass cache error
-                // status: 'pending',    // Removed: Rely on DB DEFAULT 'pending'
-                subtotal: totalPrice,
-                shipping_fee: 0,
-                total: totalPrice,
-                deposit_amount: depositAmount,
-                shipping_address: safeShippingAddress,
-                // Exclude problematic columns that are not in schema cache:
-                // customer_note, admin_note, custom_config, order_type
-            })
-            .select() // View is updatable, so returning * should work
-            .single();
+        const insertQuery = `
+            INSERT INTO orders (
+                order_code,
+                user_id,
+                subtotal,
+                shipping_fee,
+                total,
+                deposit_amount,
+                shipping_address,
+                status,
+                order_type
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
+            RETURNING *;
+        `;
+
+        const values = [
+            orderCode,
+            userId,
+            totalPrice,
+            0,
+            totalPrice,
+            depositAmount,
+            safeShippingAddress,
+            'pending', // Explicitly setting status to ensure it works
+            'custom'   // Explicitly setting order_type
+        ];
+
+        let order;
+        try {
+            const result = await dbRequest.query(insertQuery, values);
+            order = result.rows[0];
+            console.log('[Custom Order API] Direct SQL Success:', order.id);
+        } catch (dbError: any) {
+            console.error('[Custom Order API] Direct SQL Error:', dbError);
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: {
+                        code: 'DB_DIRECT_ERROR',
+                        message: dbError.message || 'Database connection failed'
+                    }
+                },
+                { status: 500 }
+            );
+        }
+        // Legacy Supabase error handling removed as we use try/catch block above
+        const orderError = null;
+
+
 
         if (orderError) {
             console.error('[Custom Order API] Create order RPC error:', orderError);
