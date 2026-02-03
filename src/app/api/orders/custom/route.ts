@@ -103,90 +103,35 @@ export async function POST(request: NextRequest) {
             console.error('[Custom Order API] Failed to parse key:', e);
         }
 
-        // FAILSAFE STRATEGY for Persistent Schema Cache Errors:
-        // 1. Do NOT use RPC (functions are not found in cache)
-        // 2. Do NOT insert into new columns like 'admin_note', 'customer_note', 'custom_config'
-        // 3. Embed metadata into 'shipping_address' (JSONB) which is a stable column
+        // FRESH TABLE STRATEGY: Using brand new 'custom_orders' table
+        // PostgREST cache is frozen for 'orders' table, so we insert into a new table
+        console.log('[Custom Order API] Inserting into custom_orders (fresh table)...');
 
-        // NUCLEAR OPTION: Direct Postgres Connection via 'pg' driver
-        // Bypasses Supabase PostgREST API entirely (eliminates Schema Cache issues)
-        console.log('[Custom Order API] Executing DIRECT SQL via pg driver...');
-
-        // Debug Environment presence
-        const hasDbUrl = !!process.env.DATABASE_URL;
-        const hasDirectUrl = !!process.env.DIRECT_URL;
-        console.log('[Custom Order API] DB Env Check - DATABASE_URL:', hasDbUrl, 'DIRECT_URL:', hasDirectUrl);
-
-        if (!hasDbUrl && !hasDirectUrl) {
-            console.error('[Custom Order API] Missing Database Connection String');
-            return NextResponse.json(
-                { success: false, error: { code: 'CONFIG_ERROR', message: 'Missing DATABASE_URL in environment' } },
-                { status: 500 }
-            );
-        }
-
-        const safeShippingAddress = JSON.stringify({
-            full_name: shippingAddress.full_name,
-            phone: shippingAddress.phone,
-            address_line: shippingAddress.address_line || '',
-            ward: shippingAddress.ward || '',
-            district: shippingAddress.district || '',
-            province: shippingAddress.province,
-            _metadata: {
-                customer_note: notes,
-                admin_note: notes ? `[User Note]: ${notes}` : null,
-                custom_config: { type, size },
-                intended_order_type: 'custom'
-            }
-        });
-
-        const insertQuery = `
-            INSERT INTO orders (
-                order_code,
-                user_id,
-                subtotal,
-                shipping_fee,
-                total,
-                deposit_amount,
-                shipping_address,
-                status,
-                order_type
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
-            RETURNING *;
-        `;
-
-        const values = [
-            orderCode,
-            userId,
-            totalPrice,
-            0,
-            totalPrice,
-            depositAmount,
-            safeShippingAddress,
-            'pending', // Explicitly setting status to ensure it works
-            'custom'   // Explicitly setting order_type
-        ];
-
-        let order;
-        try {
-            const result = await dbRequest.query(insertQuery, values);
-            order = result.rows[0];
-            console.log('[Custom Order API] Direct SQL Success:', order.id);
-        } catch (dbError: any) {
-            console.error('[Custom Order API] Direct SQL Error:', dbError);
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: {
-                        code: 'DB_DIRECT_ERROR',
-                        message: dbError.message || 'Database connection failed'
-                    }
+        const { data: order, error: orderError } = await supabase
+            .from('custom_orders')
+            .insert({
+                order_code: orderCode,
+                user_id: userId,
+                order_type: 'custom',
+                status: 'pending',
+                subtotal: totalPrice,
+                shipping_fee: 0,
+                total: totalPrice,
+                deposit_amount: depositAmount,
+                shipping_address: {
+                    full_name: shippingAddress.full_name,
+                    phone: shippingAddress.phone,
+                    address_line: shippingAddress.address_line || '',
+                    ward: shippingAddress.ward || '',
+                    district: shippingAddress.district || '',
+                    province: shippingAddress.province,
                 },
-                { status: 500 }
-            );
-        }
-        // Legacy Supabase error handling removed as we use try/catch block above
-        const orderError = null;
+                custom_config: { type, size },
+                customer_note: notes || null,
+                admin_note: notes ? `[User Note]: ${notes}` : null,
+            })
+            .select()
+            .single();
 
 
 
