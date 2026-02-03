@@ -157,34 +157,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Insert order_configs record
-        const { error: configError } = await supabase.from('order_configs').insert({
-            order_id: (order as any).id,
-            custom_type: type,
-            custom_size: size,
-        });
-
-        if (configError) {
-            console.error('[Custom Order API] Create config error:', configError);
-            // Non-fatal, continue
-        }
-
-        // Insert order_files records if images provided
-        if (images && images.length > 0) {
-            const orderFiles = images.map((img) => ({
-                order_id: (order as any).id,
-                file_id: img.id,
-                file_type: 'photo',
-                file_name: img.name || null,
-            }));
-
-            const { error: filesError } = await supabase.from('order_files').insert(orderFiles);
-
-            if (filesError) {
-                console.error('[Custom Order API] Create files error:', filesError);
-                // Non-fatal, continue
-            }
-        }
+        // Note: order_configs and order_files tables don't exist
+        // Custom config is stored in custom_config jsonb column
+        // Files info is stored in the images array in custom_config
 
         // Return success response
         return NextResponse.json({

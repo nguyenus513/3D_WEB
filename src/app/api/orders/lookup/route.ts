@@ -37,21 +37,40 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
         }
 
+        console.log('[OrderLookup] Searching for order:', orderId, 'user:', userId);
+
         // Search across all order tables
         let order = null;
         let orderType: 'ready_made' | 'custom' | 'printing' = 'ready_made';
 
-        // 1. Try custom_orders first (most likely for recent orders)
-        const { data: customOrder } = await supabaseAdmin
+        // 1. Try custom_orders by order_number (most common field)
+        const { data: customByNumber } = await supabaseAdmin
             .from('custom_orders')
             .select('*')
             .eq('user_id', userId)
-            .or(`order_number.eq.${orderId},order_code.eq.${orderId},id.eq.${orderId}`)
-            .single();
+            .eq('order_number', orderId)
+            .maybeSingle();
 
-        if (customOrder) {
-            order = customOrder;
+        if (customByNumber) {
+            order = customByNumber;
             orderType = 'custom';
+            console.log('[OrderLookup] Found in custom_orders by order_number');
+        }
+
+        // 1b. Try custom_orders by order_code
+        if (!order) {
+            const { data: customByCode } = await supabaseAdmin
+                .from('custom_orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('order_code', orderId)
+                .maybeSingle();
+
+            if (customByCode) {
+                order = customByCode;
+                orderType = 'custom';
+                console.log('[OrderLookup] Found in custom_orders by order_code');
+            }
         }
 
         // 2. Try print_orders
@@ -60,12 +79,13 @@ export async function GET(request: NextRequest) {
                 .from('print_orders')
                 .select('*')
                 .eq('user_id', userId)
-                .or(`order_number.eq.${orderId},id.eq.${orderId}`)
-                .single();
+                .eq('order_number', orderId)
+                .maybeSingle();
 
             if (printOrder) {
                 order = printOrder;
                 orderType = 'printing';
+                console.log('[OrderLookup] Found in print_orders');
             }
         }
 
@@ -75,12 +95,13 @@ export async function GET(request: NextRequest) {
                 .from('orders')
                 .select('*')
                 .eq('user_id', userId)
-                .or(`order_code.eq.${orderId},id.eq.${orderId}`)
-                .single();
+                .eq('order_code', orderId)
+                .maybeSingle();
 
             if (readyMadeOrder) {
                 order = readyMadeOrder;
                 orderType = 'ready_made';
+                console.log('[OrderLookup] Found in orders');
             }
         }
 
@@ -90,16 +111,18 @@ export async function GET(request: NextRequest) {
                 .from('master_orders')
                 .select('*, address:addresses(*)')
                 .eq('user_id', userId)
-                .or(`order_number.eq.${orderId},id.eq.${orderId}`)
-                .single();
+                .eq('order_number', orderId)
+                .maybeSingle();
 
             if (masterOrder) {
                 order = masterOrder;
-                orderType = 'ready_made'; // Master uses ready_made bank config
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in master_orders');
             }
         }
 
         if (!order) {
+            console.log('[OrderLookup] Order not found in any table');
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
