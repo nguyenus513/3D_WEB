@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         let order = null;
         let orderType: 'ready_made' | 'custom' | 'printing' = 'ready_made';
 
-        // 1. Try custom_orders by order_number (most common field)
+        // 1a. Try custom_orders by order_number
         const { data: customByNumber } = await supabaseAdmin
             .from('custom_orders')
             .select('*')
@@ -73,7 +73,23 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 2. Try print_orders
+        // 1c. Try custom_orders by id (UUID)
+        if (!order) {
+            const { data: customById } = await supabaseAdmin
+                .from('custom_orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (customById) {
+                order = customById;
+                orderType = 'custom';
+                console.log('[OrderLookup] Found in custom_orders by id');
+            }
+        }
+
+        // 2a. Try print_orders by order_number
         if (!order) {
             const { data: printOrder } = await supabaseAdmin
                 .from('print_orders')
@@ -85,11 +101,27 @@ export async function GET(request: NextRequest) {
             if (printOrder) {
                 order = printOrder;
                 orderType = 'printing';
-                console.log('[OrderLookup] Found in print_orders');
+                console.log('[OrderLookup] Found in print_orders by order_number');
             }
         }
 
-        // 3. Try orders table
+        // 2b. Try print_orders by id (UUID)
+        if (!order) {
+            const { data: printById } = await supabaseAdmin
+                .from('print_orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (printById) {
+                order = printById;
+                orderType = 'printing';
+                console.log('[OrderLookup] Found in print_orders by id');
+            }
+        }
+
+        // 3a. Try orders table by order_code
         if (!order) {
             const { data: readyMadeOrder } = await supabaseAdmin
                 .from('orders')
@@ -101,11 +133,27 @@ export async function GET(request: NextRequest) {
             if (readyMadeOrder) {
                 order = readyMadeOrder;
                 orderType = 'ready_made';
-                console.log('[OrderLookup] Found in orders');
+                console.log('[OrderLookup] Found in orders by order_code');
             }
         }
 
-        // 4. Try master_orders
+        // 3b. Try orders table by id (UUID)
+        if (!order) {
+            const { data: ordersById } = await supabaseAdmin
+                .from('orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (ordersById) {
+                order = ordersById;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in orders by id');
+            }
+        }
+
+        // 4a. Try master_orders by order_number
         if (!order) {
             const { data: masterOrder } = await supabaseAdmin
                 .from('master_orders')
@@ -117,7 +165,23 @@ export async function GET(request: NextRequest) {
             if (masterOrder) {
                 order = masterOrder;
                 orderType = 'ready_made';
-                console.log('[OrderLookup] Found in master_orders');
+                console.log('[OrderLookup] Found in master_orders by order_number');
+            }
+        }
+
+        // 4b. Try master_orders by id (UUID)
+        if (!order) {
+            const { data: masterById } = await supabaseAdmin
+                .from('master_orders')
+                .select('*, address:addresses(*)')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (masterById) {
+                order = masterById;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in master_orders by id');
             }
         }
 
