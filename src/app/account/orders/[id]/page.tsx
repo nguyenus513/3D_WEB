@@ -68,7 +68,7 @@ const statusLabels: Record<string, string> = {
     designing: 'Đang thiết kế',
     review: 'Chờ xác nhận',
     approved: 'Đã duyệt',
-    printing: 'Đang in',
+    production_pending: 'Chờ sản xuất',
     shipping: 'Đang giao hàng',
     delivered: 'Đã giao hàng',
     cancelled: 'Đã hủy',
@@ -172,7 +172,7 @@ export default function AccountOrderDetailPage() {
                 shipping_fee: 0,
                 total: data.total,
                 deposit_amount: data.deposit_amount || Math.round(data.total * 0.5),
-                deposit_paid: data.payment_status === 'paid',
+                deposit_paid: data.payment_status === 'paid' || data.payment_status === 'deposit_paid',
                 shipping_address: data.shipping_address,
                 shipping_code: null,
                 customer_note: null,
@@ -204,7 +204,7 @@ export default function AccountOrderDetailPage() {
         if (!order) return [];
 
         // Define status order for completion checks
-        const statusOrder = ['pending', 'confirmed', 'designing', 'review', 'approved', 'processing', 'shipping', 'delivered'];
+        const statusOrder = ['pending', 'confirmed', 'designing', 'review', 'approved', 'production_pending', 'processing', 'shipping', 'delivered'];
         const currentIndex = statusOrder.indexOf(order.status);
         const isCompleted = (targetStatus: string) => {
             const targetIndex = statusOrder.indexOf(targetStatus);
