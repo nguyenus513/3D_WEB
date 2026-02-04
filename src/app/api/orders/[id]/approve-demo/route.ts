@@ -43,7 +43,7 @@ export async function POST(
         // Check custom_orders
         const { data: customOrder } = await supabase
             .from('custom_orders')
-            .select('id, user_id, status, payment_status')
+            .select('*')
             .eq('id', orderId)
             .maybeSingle();
 
@@ -54,7 +54,7 @@ export async function POST(
             console.log('[ApproveDemo] Not found in custom_orders, trying print_orders...');
             const { data: printOrder } = await supabase
                 .from('print_orders')
-                .select('id, user_id, status, payment_status')
+                .select('*')
                 .eq('id', orderId)
                 .maybeSingle();
 
@@ -65,7 +65,7 @@ export async function POST(
                 console.log('[ApproveDemo] Not found in print_orders, trying orders...');
                 const { data: regularOrder } = await supabase
                     .from('orders')
-                    .select('id, user_id, status, payment_status')
+                    .select('*')
                     .eq('id', orderId)
                     .maybeSingle();
 
