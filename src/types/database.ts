@@ -11,6 +11,7 @@ export type OrderStatus =
     | 'designing'
     | 'review'      // Chờ khách duyệt demo
     | 'approved'    // Khách đã duyệt
+    | 'production_pending' // Chờ sản xuất (Đã duyệt + Đã cọc/thanh toán)
     | 'revising'    // Yêu cầu chỉnh sửa
     | 'producing'
     | 'printing'
@@ -20,7 +21,7 @@ export type OrderStatus =
     | 'cancelled'
     | 'refunded';
 
-export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'refunded' | 'failed';
+export type PaymentStatus = 'pending' | 'partial' | 'deposit_paid' | 'paid' | 'refunded' | 'failed';
 
 export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'printing';
 
