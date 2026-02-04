@@ -223,20 +223,24 @@ export async function GET(request: NextRequest) {
         let finalDemoUrl = order.demo_image_url;
 
         if (orderType === 'custom' || orderType === 'printing') {
-            // [DEBUG] DIRECT DB QUERY WITHOUT CATCH
-            // This ensures we fail if the DB connection is bad, rather than showing stale cached data.
-            const tableName = orderType === 'custom' ? 'custom_orders' : 'print_orders';
-            console.log(`[OrderLookup] Querying fresh data from ${tableName} for ${order.id}`);
+            try {
+                // [DEBUG] DIRECT DB QUERY
+                // This ensures we fail if the DB connection is bad, rather than showing stale cached data.
+                const tableName = orderType === 'custom' ? 'custom_orders' : 'print_orders';
+                console.log(`[OrderLookup] Querying fresh data from ${tableName} for ${order.id}`);
 
-            const freshData = await dbRequest.query(
-                `SELECT status, demo_image_url FROM ${tableName} WHERE id = $1`,
-                [order.id]
-            );
+                const freshData = await dbRequest.query(
+                    `SELECT status, demo_image_url FROM ${tableName} WHERE id = $1`,
+                    [order.id]
+                );
 
-            if (freshData.rows.length > 0) {
-                finalStatus = freshData.rows[0].status || finalStatus;
-                finalDemoUrl = freshData.rows[0].demo_image_url || finalDemoUrl;
-                console.log('[OrderLookup] Fresh data from PostgreSQL:', { status: finalStatus, demo: finalDemoUrl?.substring(0, 50) });
+                if (freshData.rows.length > 0) {
+                    finalStatus = freshData.rows[0].status || finalStatus;
+                    finalDemoUrl = freshData.rows[0].demo_image_url || finalDemoUrl;
+                    console.log('[OrderLookup] Fresh data from PostgreSQL:', { status: finalStatus, demo: finalDemoUrl?.substring(0, 50) });
+                }
+            } catch (dbError) {
+                console.warn('[OrderLookup] Direct PostgreSQL failed, using cached:', dbError);
             }
         }
 

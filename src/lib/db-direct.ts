@@ -7,6 +7,10 @@ const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
     console.error('[DB Direct] Missing DIRECT_URL or DATABASE_URL environment variable');
+} else {
+    // Mask sensitive info
+    const masked = connectionString.substring(0, 25) + '...';
+    console.log(`[DB Direct] Initializing pool with: ${process.env.DIRECT_URL ? 'DIRECT_URL' : 'DATABASE_URL'} (${masked})`);
 }
 
 const pool = new Pool({
