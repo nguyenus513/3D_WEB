@@ -19,6 +19,7 @@ const CUSTOM_STEPS = [
     { value: 'designing', label: 'Đang thiết kế', icon: PenTool },
     { value: 'review', label: 'Chờ duyệt demo', icon: ImageIcon },
     { value: 'approved', label: 'Khách đã duyệt', icon: ThumbsUp },
+    { value: 'production_pending', label: 'Chờ sản xuất', icon: Clock },
     { value: 'producing', label: 'Đang sản xuất', icon: Package },
     { value: 'shipping', label: 'Đang giao hàng', icon: Truck },
     { value: 'delivered', label: 'Hoàn thành', icon: Check }

@@ -235,53 +235,7 @@ export class AdminOrderController extends BaseController {
             const { authorized } = await requireAdmin(request);
             if (!authorized) throw new UnauthorizedError('Admin access required');
 
-            // 1. Try orders table
-            const { data: order, error } = await this.supabase
-                .from('orders')
-                .select(`*, user:profiles(*), items:order_items(*), address:addresses(*)`)
-                .eq('id', orderId)
-                .maybeSingle() as any;
-
-            if (order) {
-                // Map to legacy structure
-                const items = Array.isArray(order.items) ? order.items : [];
-                const mainItem = items[0] || {};
-                const config = mainItem.configuration || {};
-                const orderType = this.inferOrderType(items);
-
-                let custom_config = null;
-                if (orderType === 'custom') {
-                    custom_config = {
-                        type: config.type || 'unknown',
-                        size: config.size || mainItem?.size || 'Chưa chọn',
-                        notes: order.notes || '',
-                        images: (Array.isArray(config.photos) ? config.photos : []).map((p: any) => ({
-                            id: p.drive_file_id || p.id,
-                            name: p.file_name || p.name,
-                            url: p.web_view_link || p.url,
-                            thumbnail: p.thumbnail
-                        })),
-                    };
-                }
-
-                return this.handleSuccess({
-                    order: {
-                        ...order,
-                        profiles: order.user,
-                        order_items: order.items,
-                        total: order.total_amount,
-                        customer_note: order.notes,
-                        admin_note: order.admin_notes,
-                        order_type: orderType,
-                        custom_config,
-                        shipping_address: order.shipping_address_snapshot,
-                        _source_table: 'orders'
-                    },
-                    profile: order.user,
-                });
-            }
-
-            // 2. Try custom_orders table
+            // 1. Try custom_orders table (Primary for Custom items)
             const { data: customOrder } = await this.supabase
                 .from('custom_orders')
                 .select('*')
@@ -295,48 +249,8 @@ export class AdminOrderController extends BaseController {
                 // === Get fresh status and demo_image_url - ALWAYS try multiple methods ===
                 let finalStatus = customOrder.status;
                 let finalDemoUrl = customOrder.demo_image_url;
-                let gotFreshData = false;
 
-                // Method 1: Try Direct PostgreSQL
-                try {
-                    const freshData = await dbRequest.query(
-                        `SELECT status, demo_image_url FROM custom_orders WHERE id = $1`,
-                        [orderId]
-                    );
-                    if (freshData.rows.length > 0) {
-                        finalStatus = freshData.rows[0].status || finalStatus;
-                        finalDemoUrl = freshData.rows[0].demo_image_url || finalDemoUrl;
-                        gotFreshData = true;
-                        console.log('[AdminOrder] Fresh data from PostgreSQL:', { status: finalStatus });
-                    }
-                } catch (dbError) {
-                    console.warn('[AdminOrder] Direct PostgreSQL failed:', (dbError as Error).message);
-                }
-
-                // Method 2: ALWAYS try Supabase REST as backup (even if Method 1 succeeded, for verification)
-                if (!gotFreshData) {
-                    try {
-                        const { data: refetchData, error: refetchError } = await this.supabase
-                            .from('custom_orders')
-                            .select('status, demo_image_url')
-                            .eq('id', orderId)
-                            .single();
-
-                        if (!refetchError && refetchData) {
-                            const restStatus = (refetchData as any).status;
-                            const restDemoUrl = (refetchData as any).demo_image_url;
-
-                            // Prefer REST if it shows 'review' (more recent update)
-                            if (restStatus === 'review' || restDemoUrl) {
-                                finalStatus = restStatus || finalStatus;
-                                finalDemoUrl = restDemoUrl || finalDemoUrl;
-                            }
-                            console.log('[AdminOrder] Supabase REST data:', { status: restStatus });
-                        }
-                    } catch (restError) {
-                        console.warn('[AdminOrder] Supabase REST also failed');
-                    }
-                }
+                console.log('[AdminOrder] Status from Supabase:', { status: finalStatus });
 
                 // Virtual Status fallback: If demo_image_url exists but status is stuck, FORCE to 'review'
                 if (finalDemoUrl && ['pending', 'confirmed', 'designing'].includes(finalStatus)) {
@@ -344,9 +258,49 @@ export class AdminOrderController extends BaseController {
                     finalStatus = 'review';
                 }
 
+                // Ensure custom_config.images exists (map from photos if needed)
+                let customConfig = customOrder.custom_config || {};
+
+                // Map 'photos' to 'images' if 'images' is missing/empty but 'photos' exists
+                if ((!customConfig.images || customConfig.images.length === 0) && customConfig.photos && Array.isArray(customConfig.photos)) {
+                    customConfig.images = customConfig.photos.map((p: any) => ({
+                        id: p.drive_file_id || p.id,
+                        name: p.file_name || p.name,
+                        url: p.web_view_link || p.url,
+                        thumbnail: p.thumbnail
+                    }));
+                }
+
+                // === MERGE FINANCE DATA FROM ORDERS TABLE ===
+                // Fetch from orders (Primary for FINANCE & ADMIN NOTES)
+                const { data: masterOrder } = await this.supabase
+                    .from('orders')
+                    .select('deposit_paid, deposit_amount, paid_at, shipping_code, admin_notes, notes, shipping_address_snapshot')
+                    .eq('id', orderId)
+                    .maybeSingle() as any;
+
+                const financialData = masterOrder ? {
+                    deposit_paid: masterOrder.deposit_paid,
+                    deposit_amount: masterOrder.deposit_amount,
+                    paid_at: masterOrder.paid_at,
+                    shipping_code: masterOrder.shipping_code,
+                    admin_note: masterOrder.admin_notes,
+                    customer_note: masterOrder.notes,
+                    shipping_address: masterOrder.shipping_address_snapshot || customOrder.shipping_address
+                } : {
+                    deposit_paid: customOrder.status !== 'pending',
+                    deposit_amount: customOrder.deposit_amount || 0,
+                    paid_at: null,
+                    shipping_code: null,
+                    admin_note: customOrder.admin_note,
+                    customer_note: customOrder.customer_note,
+                    shipping_address: customOrder.shipping_address
+                };
+
                 return this.handleSuccess({
                     order: {
                         ...customOrder,
+                        ...financialData,
                         status: finalStatus,
                         demo_image_url: finalDemoUrl,
                         profiles: profile,
@@ -361,7 +315,7 @@ export class AdminOrderController extends BaseController {
                             total_price: customOrder.total || customOrder.estimated_price || 0,
                             unit_price: (customOrder.total || customOrder.estimated_price || 0) / (customOrder.quantity || 1)
                         }],
-                        custom_config: customOrder.custom_config,
+                        custom_config: customConfig,
                         shipping_address: customOrder.shipping_address,
                         _source_table: 'custom_orders'
                     },
@@ -369,7 +323,7 @@ export class AdminOrderController extends BaseController {
                 });
             }
 
-            // 3. Try print_orders table
+            // 2. Try print_orders table
             const { data: printOrder } = await this.supabase
                 .from('print_orders')
                 .select('*')
@@ -413,6 +367,52 @@ export class AdminOrderController extends BaseController {
                         _source_table: 'print_orders'
                     },
                     profile: profile
+                });
+            }
+
+            // 3. Try orders table (Fallback for Ready Made or Legacy)
+            const { data: order, error } = await this.supabase
+                .from('orders')
+                .select(`*, user:profiles(*), items:order_items(*), address:addresses(*)`)
+                .eq('id', orderId)
+                .maybeSingle() as any;
+
+            if (order) {
+                // Map to legacy structure
+                const items = Array.isArray(order.items) ? order.items : [];
+                const mainItem = items[0] || {};
+                const config = mainItem.configuration || {};
+                const orderType = this.inferOrderType(items);
+
+                let custom_config = null;
+                if (orderType === 'custom') {
+                    custom_config = {
+                        type: config.type || 'unknown',
+                        size: config.size || mainItem?.size || 'Chưa chọn',
+                        notes: order.notes || '',
+                        images: (Array.isArray(config.photos) ? config.photos : []).map((p: any) => ({
+                            id: p.drive_file_id || p.id,
+                            name: p.file_name || p.name,
+                            url: p.web_view_link || p.url,
+                            thumbnail: p.thumbnail
+                        })),
+                    };
+                }
+
+                return this.handleSuccess({
+                    order: {
+                        ...order,
+                        profiles: order.user,
+                        order_items: order.items,
+                        total: order.total_amount,
+                        customer_note: order.notes,
+                        admin_note: order.admin_notes,
+                        order_type: orderType,
+                        custom_config,
+                        shipping_address: order.shipping_address_snapshot,
+                        _source_table: 'orders'
+                    },
+                    profile: order.user,
                 });
             }
 
