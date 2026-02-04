@@ -43,7 +43,7 @@ export async function POST(
         // Check custom_orders
         const { data: customOrder } = await supabase
             .from('custom_orders')
-            .select('id, user_id, status')
+            .select('id, user_id, status, payment_status')
             .eq('id', orderId)
             .maybeSingle();
 
@@ -54,7 +54,7 @@ export async function POST(
             console.log('[ApproveDemo] Not found in custom_orders, trying print_orders...');
             const { data: printOrder } = await supabase
                 .from('print_orders')
-                .select('id, user_id, status')
+                .select('id, user_id, status, payment_status')
                 .eq('id', orderId)
                 .maybeSingle();
 
@@ -65,7 +65,7 @@ export async function POST(
                 console.log('[ApproveDemo] Not found in print_orders, trying orders...');
                 const { data: regularOrder } = await supabase
                     .from('orders')
-                    .select('id, user_id, status')
+                    .select('id, user_id, status, payment_status')
                     .eq('id', orderId)
                     .maybeSingle();
 
@@ -99,11 +99,21 @@ export async function POST(
         }
 
         // 4. Update status
-        console.log(`[ApproveDemo] Updating status to 'approved' in ${targetTable}...`);
+        let newStatus = 'production_pending';
+
+        // Check if payment is pending or failed (requires payment first)
+        // If paid or deposit_paid, we proceed to production_pending
+        if (order.payment_status === 'pending' || order.payment_status === 'failed' || !order.payment_status) {
+            newStatus = 'awaiting_payment';
+        }
+
+        console.log(`[ApproveDemo] Payment Status: ${order.payment_status} -> New Status: ${newStatus}`);
+        console.log(`[ApproveDemo] Updating status to '${newStatus}' in ${targetTable}...`);
+
         const { error: updateError } = await supabase
             .from(targetTable)
             .update({
-                status: 'approved',
+                status: newStatus,
                 approved_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
@@ -125,7 +135,7 @@ export async function POST(
         return NextResponse.json({
             success: true,
             message: 'Demo approved successfully',
-            new_status: 'approved'
+            new_status: newStatus
         });
 
     } catch (error) {
