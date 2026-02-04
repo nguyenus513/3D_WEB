@@ -108,11 +108,22 @@ export default function AccountOrderDetailPage() {
 
         setSubmittingReview(true);
         try {
-            const res = await fetch(`/api/orders/${order.id}/review`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action }),
-            });
+            let res;
+            if (action === 'approve') {
+                // Approve: POST to /api/orders/[id]/approve-demo
+                res = await fetch(`/api/orders/${order.id}/approve-demo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            } else {
+                // Reject: DELETE with feedback
+                const feedback = prompt('Nhập lý do cần chỉnh sửa:') || 'Cần chỉnh sửa thêm';
+                res = await fetch(`/api/orders/${order.id}/approve-demo`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedback }),
+                });
+            }
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
@@ -171,6 +182,10 @@ export default function AccountOrderDetailPage() {
                 shipped_at: null,
                 delivered_at: null,
                 order_items: data.items || [],
+                // CRITICAL: Include demo_image_url for review flow
+                demo_image_url: data.demo_image_url,
+                custom_config: data.custom_config,
+                printing_config: data.printing_config,
             };
             setOrder(orderData);
             setLoading(false);
@@ -454,26 +469,20 @@ export default function AccountOrderDetailPage() {
                             {order.status === 'review' && (
                                 <div className="space-y-3">
                                     <p className="text-white/70 text-sm text-center">
-                                        Bạn có hài lòng với thiết kế này?
+                                        Xác nhận duyệt thiết kế để tiến hành sản xuất
                                     </p>
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={() => handleReview('approve')}
-                                            disabled={submittingReview}
-                                            className="flex-1 py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
-                                        >
-                                            {submittingReview ? 'Đang xử lý...' : '✓ Duyệt thiết kế'}
-                                        </button>
-                                        <button
-                                            onClick={() => handleReview('reject')}
-                                            disabled={submittingReview}
-                                            className="flex-1 py-3 rounded-xl border border-amber-500/50 text-amber-400 font-medium hover:bg-amber-500/10 transition-colors disabled:opacity-50"
-                                        >
-                                            Yêu cầu chỉnh sửa
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={() => handleReview('approve')}
+                                        disabled={submittingReview}
+                                        className="w-full py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                                    >
+                                        {submittingReview ? 'Đang xử lý...' : '✓ Duyệt thiết kế'}
+                                    </button>
                                     <p className="text-white/40 text-xs text-center">
-                                        * Khi duyệt, đơn hàng sẽ được chuyển sang sản xuất
+                                        * Sau khi duyệt, đơn hàng sẽ được chuyển sang sản xuất
+                                    </p>
+                                    <p className="text-white/40 text-xs text-center">
+                                        Nếu cần hỗ trợ, vui lòng liên hệ Zalo
                                     </p>
                                 </div>
                             )}

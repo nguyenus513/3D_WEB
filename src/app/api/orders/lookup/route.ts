@@ -4,6 +4,7 @@
  * 
  * Searches across all order tables to find a specific order
  * Used by checkout success page to display QR
+ * Uses DIRECT PostgreSQL for status/demo_image_url to bypass REST API cache
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -11,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { getBankConfig } from '@/lib/vietqr';
+import { dbRequest } from '@/lib/db-direct';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
         if (!order) {
             const { data: readyMadeOrder } = await supabaseAdmin
                 .from('orders')
-                .select('*')
+                .select('*, items:order_items(*)')
                 .eq('user_id', userId)
                 .eq('order_code', orderId)
                 .maybeSingle();
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest) {
         if (!order) {
             const { data: ordersById } = await supabaseAdmin
                 .from('orders')
-                .select('*')
+                .select('*, items:order_items(*)')
                 .eq('user_id', userId)
                 .eq('id', orderId)
                 .maybeSingle();
@@ -197,6 +199,51 @@ export async function GET(request: NextRequest) {
         const transferContent = `MINWSUN_${order.order_number || order.order_code || orderId}`;
         const qrUrl = `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
 
+        // Normalize items for response
+        let items = [];
+        if (orderType === 'ready_made') {
+            items = order.items || [];
+        } else if (orderType === 'custom') {
+            items = [{
+                name: order.description || 'Đơn hàng Custom',
+                quantity: order.quantity || 1,
+                total_price: total
+            }];
+        } else if (orderType === 'printing') {
+            items = [{
+                name: `In 3D - ${order.print_type || 'FDM'}`,
+                quantity: order.quantity || 1,
+                total_price: total
+            }];
+        }
+
+        // === CRITICAL: Bypass Supabase REST API cache using direct PostgreSQL ===
+        // The order object from Supabase may have stale status/demo_image_url
+        let finalStatus = order.status;
+        let finalDemoUrl = order.demo_image_url;
+
+        if (orderType === 'custom' || orderType === 'printing') {
+            try {
+                const tableName = orderType === 'custom' ? 'custom_orders' : 'print_orders';
+                const freshData = await dbRequest.query(
+                    `SELECT status, demo_image_url FROM ${tableName} WHERE id = $1`,
+                    [order.id]
+                );
+                if (freshData.rows.length > 0) {
+                    finalStatus = freshData.rows[0].status || finalStatus;
+                    finalDemoUrl = freshData.rows[0].demo_image_url || finalDemoUrl;
+                    console.log('[OrderLookup] Fresh data from PostgreSQL:', { status: finalStatus, demo: finalDemoUrl?.substring(0, 50) });
+                }
+            } catch (dbError) {
+                console.warn('[OrderLookup] Direct PostgreSQL failed, using cached:', dbError);
+            }
+        }
+
+        // Virtual Status Logic fallback: If demo_image_url exists but status is stuck, override to 'review'
+        if (finalDemoUrl && ['pending', 'confirmed', 'designing'].includes(finalStatus)) {
+            finalStatus = 'review';
+        }
+
         return NextResponse.json({
             success: true,
             data: {
@@ -205,10 +252,20 @@ export async function GET(request: NextRequest) {
                 order_type: orderType,
                 total,
                 deposit_amount: depositAmount,
-                status: order.status,
+                status: finalStatus,
                 payment_status: order.payment_status || 'pending',
                 shipping_address: order.shipping_address || order.address,
                 created_at: order.created_at,
+                items: items,
+                custom_config: order.custom_config,
+                printing_config: {
+                    type: order.print_type || order.print_tech,
+                    color: order.color,
+                    quantity: order.quantity,
+                    files: order.files || (order.file_url ? [{ url: order.file_url, name: 'File 3D' }] : []),
+                    analysis: { grams: order.grams, hours: order.hours }
+                },
+                demo_image_url: finalDemoUrl,
                 payment: {
                     bank_id: bankConfig.bankId,
                     account_no: bankConfig.accountNo,

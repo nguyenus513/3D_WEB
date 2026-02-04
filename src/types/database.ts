@@ -9,7 +9,11 @@ export type OrderStatus =
     | 'paid'
     | 'processing'
     | 'designing'
+    | 'review'      // Chờ khách duyệt demo
+    | 'approved'    // Khách đã duyệt
+    | 'revising'    // Yêu cầu chỉnh sửa
     | 'producing'
+    | 'printing'
     | 'shipping'
     | 'delivered'
     | 'completed'

@@ -9,6 +9,8 @@
 import { NextRequest } from 'next/server';
 import { adminOrderController } from '@/controllers/AdminOrderController';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/admin/orders/[id]
  * Get single order with all related data

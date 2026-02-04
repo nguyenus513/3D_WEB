@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
+import { OrderStatus } from '@/types/database';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
+
+// Force dynamic rendering and disable caching for this page
+// Note: 'dynamic' and 'revalidate' exports don't work in Client Components
+// We rely on fetch({ cache: 'no-store' }) instead
 
 interface CustomConfig {
     type?: 'single' | 'couple' | 'group';
@@ -139,6 +145,10 @@ export default function AdminOrderDetailPage() {
     const [uploadingDemo, setUploadingDemo] = useState(false);
     const [archiving, setArchiving] = useState(false);
     const [archiveError, setArchiveError] = useState('');
+    // Lock fetches while optimistic update is in progress
+    const isOptimisticUpdate = useRef(false);
+    // Explicit UI override state
+    const [optimisticStatus, setOptimisticStatus] = useState<OrderStatus | null>(null);
 
     // Archive order files (R2 → Google Drive)
     const handleArchiveFiles = async () => {
@@ -174,6 +184,12 @@ export default function AdminOrderDetailPage() {
     const fetchOrder = async () => {
         // Guard against undefined orderId
         const orderId = params.id;
+        // Skip fetch if optimistic update is locked
+        if (isOptimisticUpdate.current) {
+            console.log("Skipping fetch due to optimistic lock");
+            return;
+        }
+
         if (!orderId || typeof orderId !== 'string') {
             console.error('Invalid order ID:', orderId);
             setLoading(false);
@@ -181,8 +197,8 @@ export default function AdminOrderDetailPage() {
         }
 
         try {
-            // Use admin API to bypass RLS
-            const res = await fetch(`/api/admin/orders/${orderId}`);
+            // Use admin API to bypass RLS, disable cache to ensure fresh data
+            const res = await fetch(`/api/admin/orders/${orderId}`, { cache: 'no-store' });
             const json = await res.json();
 
             // Handle both error formats
@@ -226,21 +242,24 @@ export default function AdminOrderDetailPage() {
             // Get shipping address for fallback
             const shippingAddr = orderData.shipping_address as { full_name?: string; phone?: string } | null;
 
-            setOrder({
-                ...orderData,
-                profiles: profileData ? {
-                    full_name: profileData.full_name || shippingAddr?.full_name || 'Khách vãng lai',
-                    email: profileData.email || '',
-                    phone: profileData.phone || shippingAddr?.phone || '',
-                    customer_code: profileData.customer_code || '',
-                } : {
-                    full_name: shippingAddr?.full_name || 'Khách vãng lai',
-                    email: '',
-                    phone: shippingAddr?.phone || '',
-                    customer_code: '',
-                },
-                order_items: items,
-            } as Order);
+            // Safely set order only if not locked (double check)
+            if (!isOptimisticUpdate.current) {
+                setOrder({
+                    ...orderData,
+                    profiles: profileData ? {
+                        full_name: profileData.full_name || shippingAddr?.full_name || 'Khách vãng lai',
+                        email: profileData.email || '',
+                        phone: profileData.phone || shippingAddr?.phone || '',
+                        customer_code: profileData.customer_code || '',
+                    } : {
+                        full_name: shippingAddr?.full_name || 'Khách vãng lai',
+                        email: '',
+                        phone: shippingAddr?.phone || '',
+                        customer_code: '',
+                    },
+                    order_items: items,
+                } as Order);
+            }
             setAdminNote(orderData.admin_note || '');
             setTrackingCode(orderData.shipping_code || '');
         } catch (error) {
@@ -401,9 +420,32 @@ export default function AdminOrderDetailPage() {
                 throw new Error(data.error || 'Upload failed');
             }
 
-            // Refresh order to show new demo image and status
-            await fetchOrder();
-            alert('Upload thành công! Status đã chuyển sang "Chờ xác nhận"');
+            // === OPTIMISTIC UI: Override UI state immediately ===
+            isOptimisticUpdate.current = true; // Lock fetches
+            setOptimisticStatus('review');     // Force UI to show 'review'
+
+            setOrder(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    status: 'review',  // Also update data state
+                    demo_image_url: data.demo_image_url || prev.demo_image_url,
+                };
+            });
+
+            alert('Upload thành công! Status đã chuyển sang "Chờ duyệt"');
+
+            // Hold UI override for 3s to mask any server lag/cache issues
+            setTimeout(() => {
+                router.refresh();
+                fetchOrder();
+
+                // Release overrides after Sync is likely done
+                setTimeout(() => {
+                    isOptimisticUpdate.current = false;
+                    setOptimisticStatus(null);
+                }, 1000);
+            }, 3000);
         } catch (error) {
             console.error('Demo upload error:', error);
             alert('Upload thất bại: ' + (error as Error).message);
@@ -526,8 +568,8 @@ export default function AdminOrderDetailPage() {
 
                             {/* New Square Block Stepper */}
                             <OrderStatusStepper
-                                orderType={order.order_type}
-                                currentStatus={order.status}
+                                currentStatus={(optimisticStatus || order.status) as OrderStatus}
+                                orderType={order.order_type as any}
                                 onStatusChange={handleUpdateStatus}
                                 onShippingClick={() => setShowTrackingModal(true)}
                                 updating={updating}
@@ -831,7 +873,7 @@ export default function AdminOrderDetailPage() {
                                 </div>
                             )}
 
-                            {order.order_items && order.order_items.length > 0 && order.order_items.map((item) => {
+                            {order.order_items && order.order_items.length > 0 && order.order_items.map((item, idx) => {
                                 const config = item.configuration as CustomConfig | PrintingConfig | undefined;
                                 const isCustom = order.order_type === 'custom';
                                 const isPrinting = order.order_type === 'printing';
@@ -839,7 +881,7 @@ export default function AdminOrderDetailPage() {
                                 const printingConfig = isPrinting ? config as PrintingConfig : null;
 
                                 return (
-                                    <div key={item.id} className="p-4 bg-white/5 rounded-xl space-y-4">
+                                    <div key={item.id || idx} className="p-4 bg-white/5 rounded-xl space-y-4">
                                         {/* Main product info */}
                                         <div className="flex items-center gap-4">
                                             <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
@@ -866,143 +908,147 @@ export default function AdminOrderDetailPage() {
                                                     {item.product_sku} • {item.size} × {item.quantity}
                                                 </p>
                                                 <p className="text-white/40 text-xs mt-1">
-                                                    {item.unit_price.toLocaleString('vi-VN')}đ/sp
+                                                    {(item.unit_price || (item.total_price / (item.quantity || 1))).toLocaleString('vi-VN')}đ/sp
                                                 </p>
                                             </div>
                                             <p className="text-white font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
                                         </div>
 
                                         {/* Custom Order: Photo uploads & style */}
-                                        {isCustom && customConfig && (
-                                            <div className="pt-4 border-t border-white/10 space-y-3">
-                                                {/* Style & Type */}
-                                                <div className="flex flex-wrap gap-2">
-                                                    {customConfig.type && (
-                                                        <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">
-                                                            {customConfig.type === 'single' ? '1 người' : customConfig.type === 'couple' ? 'Couple' : 'Nhóm'}
-                                                        </span>
+                                        {
+                                            isCustom && customConfig && (
+                                                <div className="pt-4 border-t border-white/10 space-y-3">
+                                                    {/* Style & Type */}
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {customConfig.type && (
+                                                            <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                                                                {customConfig.type === 'single' ? '1 người' : customConfig.type === 'couple' ? 'Couple' : 'Nhóm'}
+                                                            </span>
+                                                        )}
+                                                        {customConfig.style && (
+                                                            <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">
+                                                                {customConfig.style}
+                                                            </span>
+                                                        )}
+                                                        {customConfig.size && (
+                                                            <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full">
+                                                                Size: {customConfig.size}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Uploaded photos */}
+                                                    {customConfig.photos && customConfig.photos.length > 0 && (
+                                                        <div>
+                                                            <p className="text-white/50 text-xs mb-2">📸 Ảnh khách gửi ({customConfig.photos.length})</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {customConfig.photos.map((photo, idx) => (
+                                                                    <a
+                                                                        key={idx}
+                                                                        href={photo.web_view_link || `https://drive.google.com/file/d/${photo.drive_file_id}/view`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-cyan-500 transition-all"
+                                                                    >
+                                                                        <img
+                                                                            src={`https://lh3.googleusercontent.com/d/${photo.drive_file_id}=w200`}
+                                                                            alt={photo.file_name}
+                                                                            className="w-full h-full object-cover"
+                                                                            onError={(e) => {
+                                                                                e.currentTarget.src = '';
+                                                                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/30"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>';
+                                                                            }}
+                                                                        />
+                                                                    </a>
+                                                                ))}
+                                                            </div>
+                                                        </div>
                                                     )}
-                                                    {customConfig.style && (
-                                                        <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">
-                                                            {customConfig.style}
-                                                        </span>
-                                                    )}
-                                                    {customConfig.size && (
-                                                        <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full">
-                                                            Size: {customConfig.size}
-                                                        </span>
+
+                                                    {/* Demo photo if approved */}
+                                                    {customConfig.demo_photo && (
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <p className="text-white/50 text-xs">🎨 Demo</p>
+                                                                {customConfig.customer_approved && (
+                                                                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">✓ Đã duyệt</span>
+                                                                )}
+                                                            </div>
+                                                            <a
+                                                                href={customConfig.demo_photo.web_view_link || `https://drive.google.com/file/d/${customConfig.demo_photo.drive_file_id}/view`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-block w-24 h-24 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-emerald-500 transition-all"
+                                                            >
+                                                                <img
+                                                                    src={`https://lh3.googleusercontent.com/d/${customConfig.demo_photo.drive_file_id}=w200`}
+                                                                    alt="Demo"
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            </a>
+                                                        </div>
                                                     )}
                                                 </div>
-
-                                                {/* Uploaded photos */}
-                                                {customConfig.photos && customConfig.photos.length > 0 && (
-                                                    <div>
-                                                        <p className="text-white/50 text-xs mb-2">📸 Ảnh khách gửi ({customConfig.photos.length})</p>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {customConfig.photos.map((photo, idx) => (
-                                                                <a
-                                                                    key={idx}
-                                                                    href={photo.web_view_link || `https://drive.google.com/file/d/${photo.drive_file_id}/view`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-cyan-500 transition-all"
-                                                                >
-                                                                    <img
-                                                                        src={`https://lh3.googleusercontent.com/d/${photo.drive_file_id}=w200`}
-                                                                        alt={photo.file_name}
-                                                                        className="w-full h-full object-cover"
-                                                                        onError={(e) => {
-                                                                            e.currentTarget.src = '';
-                                                                            e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/30"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>';
-                                                                        }}
-                                                                    />
-                                                                </a>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Demo photo if approved */}
-                                                {customConfig.demo_photo && (
-                                                    <div>
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <p className="text-white/50 text-xs">🎨 Demo</p>
-                                                            {customConfig.customer_approved && (
-                                                                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">✓ Đã duyệt</span>
-                                                            )}
-                                                        </div>
-                                                        <a
-                                                            href={customConfig.demo_photo.web_view_link || `https://drive.google.com/file/d/${customConfig.demo_photo.drive_file_id}/view`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="inline-block w-24 h-24 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-emerald-500 transition-all"
-                                                        >
-                                                            <img
-                                                                src={`https://lh3.googleusercontent.com/d/${customConfig.demo_photo.drive_file_id}=w200`}
-                                                                alt="Demo"
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        </a>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                            )
+                                        }
 
                                         {/* Printing Order: STL file & specs */}
-                                        {isPrinting && printingConfig && (
-                                            <div className="pt-4 border-t border-white/10 space-y-3">
-                                                {/* Print specs */}
-                                                <div className="flex flex-wrap gap-2">
-                                                    {printingConfig.print_type && (
-                                                        <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full">
-                                                            {printingConfig.print_type}
-                                                        </span>
+                                        {
+                                            isPrinting && printingConfig && (
+                                                <div className="pt-4 border-t border-white/10 space-y-3">
+                                                    {/* Print specs */}
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {printingConfig.print_type && (
+                                                            <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full">
+                                                                {printingConfig.print_type}
+                                                            </span>
+                                                        )}
+                                                        {printingConfig.material && (
+                                                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                                                                {printingConfig.material}
+                                                            </span>
+                                                        )}
+                                                        {printingConfig.color && (
+                                                            <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full flex items-center gap-1">
+                                                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: printingConfig.color.toLowerCase() }}></span>
+                                                                {printingConfig.color}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Technical specs */}
+                                                    {(printingConfig.infill || printingConfig.layer_height) && (
+                                                        <div className="flex gap-4 text-xs text-white/50">
+                                                            {printingConfig.infill && <span>Infill: {printingConfig.infill}%</span>}
+                                                            {printingConfig.layer_height && <span>Layer: {printingConfig.layer_height}mm</span>}
+                                                        </div>
                                                     )}
-                                                    {printingConfig.material && (
-                                                        <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
-                                                            {printingConfig.material}
-                                                        </span>
-                                                    )}
-                                                    {printingConfig.color && (
-                                                        <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full flex items-center gap-1">
-                                                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: printingConfig.color.toLowerCase() }}></span>
-                                                            {printingConfig.color}
-                                                        </span>
+
+                                                    {/* STL File */}
+                                                    {printingConfig.stl_file && (
+                                                        <a
+                                                            href={printingConfig.stl_file.web_view_link || `https://drive.google.com/file/d/${printingConfig.stl_file.drive_file_id}/view`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                                                        >
+                                                            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                                                                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                </svg>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-white text-sm truncate">{printingConfig.stl_file.file_name}</p>
+                                                                <p className="text-white/40 text-xs">File STL • Click để xem</p>
+                                                            </div>
+                                                            <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                            </svg>
+                                                        </a>
                                                     )}
                                                 </div>
-
-                                                {/* Technical specs */}
-                                                {(printingConfig.infill || printingConfig.layer_height) && (
-                                                    <div className="flex gap-4 text-xs text-white/50">
-                                                        {printingConfig.infill && <span>Infill: {printingConfig.infill}%</span>}
-                                                        {printingConfig.layer_height && <span>Layer: {printingConfig.layer_height}mm</span>}
-                                                    </div>
-                                                )}
-
-                                                {/* STL File */}
-                                                {printingConfig.stl_file && (
-                                                    <a
-                                                        href={printingConfig.stl_file.web_view_link || `https://drive.google.com/file/d/${printingConfig.stl_file.drive_file_id}/view`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                                                    >
-                                                        <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                                                            <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                            </svg>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-white text-sm truncate">{printingConfig.stl_file.file_name}</p>
-                                                            <p className="text-white/40 text-xs">File STL • Click để xem</p>
-                                                        </div>
-                                                        <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                        </svg>
-                                                    </a>
-                                                )}
-                                            </div>
-                                        )}
+                                            )
+                                        }
                                     </div>
                                 );
                             })}
@@ -1181,42 +1227,44 @@ export default function AdminOrderDetailPage() {
                         </motion.div>
                     )}
                 </div>
-            </div>
+            </div >
 
             {/* Tracking Modal */}
-            {showTrackingModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="w-full max-w-md bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
-                    >
-                        <h2 className="text-xl font-bold text-white mb-4">Nhập mã vận đơn</h2>
-                        <input
-                            type="text"
-                            value={trackingCode}
-                            onChange={(e) => setTrackingCode(e.target.value)}
-                            placeholder="VD: VTP123456789"
-                            className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 mb-4"
-                        />
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => handleUpdateStatus('shipping')}
-                                disabled={updating || !trackingCode}
-                                className="flex-1 py-3 rounded-xl bg-white text-black font-medium disabled:opacity-50"
-                            >
-                                {updating ? 'Đang xử lý...' : 'Xác nhận'}
-                            </button>
-                            <button
-                                onClick={() => setShowTrackingModal(false)}
-                                className="px-6 py-3 rounded-xl border border-white/20 text-white/70"
-                            >
-                                Hủy
-                            </button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
-        </div>
+            {
+                showTrackingModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="w-full max-w-md bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        >
+                            <h2 className="text-xl font-bold text-white mb-4">Nhập mã vận đơn</h2>
+                            <input
+                                type="text"
+                                value={trackingCode}
+                                onChange={(e) => setTrackingCode(e.target.value)}
+                                placeholder="VD: VTP123456789"
+                                className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 mb-4"
+                            />
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => handleUpdateStatus('shipping')}
+                                    disabled={updating || !trackingCode}
+                                    className="flex-1 py-3 rounded-xl bg-white text-black font-medium disabled:opacity-50"
+                                >
+                                    {updating ? 'Đang xử lý...' : 'Xác nhận'}
+                                </button>
+                                <button
+                                    onClick={() => setShowTrackingModal(false)}
+                                    className="px-6 py-3 rounded-xl border border-white/20 text-white/70"
+                                >
+                                    Hủy
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

@@ -27,7 +27,7 @@ interface UnifiedOrder {
     status: string;
     payment_status: string;
     created_at: string;
-    items?: { name: string; quantity: number; total_price: number }[];
+    order_items?: { name: string; quantity: number; total_price: number }[];
     shipping_address?: Record<string, unknown>;
 }
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
                     status: order.status,
                     payment_status: order.payment_status,
                     created_at: order.created_at,
-                    items: order.items || [],
+                    order_items: order.items || [],
                     shipping_address: order.shipping_address_snapshot,
                 });
             });
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
                     status: order.status,
                     payment_status: order.status === 'pending' ? 'pending' : 'paid',
                     created_at: order.created_at,
-                    items: [{
+                    order_items: [{
                         name: order.description || 'Đơn hàng Custom',
                         quantity: order.quantity || 1,
                         total_price: order.total || order.estimated_price || 0,
@@ -96,6 +96,7 @@ export async function GET(request: NextRequest) {
                 });
             });
         }
+
 
         // 3. Fetch from print_orders table
         const { data: printOrders } = await supabaseAdmin
@@ -114,10 +115,40 @@ export async function GET(request: NextRequest) {
                     status: order.status,
                     payment_status: order.status === 'pending' ? 'pending' : 'paid',
                     created_at: order.created_at,
-                    items: [{
+                    order_items: [{
                         name: `In 3D - ${order.print_type || 'FDM'}`,
                         quantity: order.quantity || 1,
                         total_price: order.total_price || 0,
+                    }],
+                });
+            });
+        }
+
+        // 4. Fetch from master_orders (New DB Schema Support)
+        const { data: masterOrders } = await supabaseAdmin
+            .from('master_orders')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (masterOrders) {
+            masterOrders.forEach(order => {
+                // Determine if this master order likely replicates children we already have.
+                // Since we don't have easy dedup logic here without complex joins, 
+                // we will include it but marked clearly if possible.
+                // For now, we allow duplication to ensure visibility if children are missing.
+                allOrders.push({
+                    id: order.id,
+                    order_code: order.order_number || order.id.slice(0, 8),
+                    order_type: 'ready_made', // Defaulting to ready_made for generic display or use a new type if frontend supports it
+                    total: order.total || 0,
+                    status: order.status,
+                    payment_status: order.payment_status || 'pending',
+                    created_at: order.created_at,
+                    order_items: [{
+                        name: 'Đơn hàng tổng hợp (Master)',
+                        quantity: 1,
+                        total_price: order.total || 0,
                     }],
                 });
             });

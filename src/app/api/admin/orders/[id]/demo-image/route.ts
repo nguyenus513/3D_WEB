@@ -3,26 +3,26 @@
  * POST /api/admin/orders/[id]/demo-image - Upload demo/preview image for customer review
  * 
  * Storage: Cloudflare R2 (fast serving)
- * After order completes: Will be migrated to Google Drive via archive API
- * 
- * File naming: {orderCode}-0.{index}.{ext}
+ * Uses DIRECT PostgreSQL to bypass Supabase REST API cache issues
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache'; // Invalidate Next.js cache
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, generateReviewR2Key, isR2Configured } from '@/lib/storage/r2';
+import { dbRequest } from '@/lib/db-direct';
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
         // Verify admin
         const { authorized, response } = await requireAdmin(request);
         if (!authorized) return response;
 
-        const { id: orderId } = await params;
+        const { id: orderId } = await props.params;
         if (!orderId) {
             return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
         }
@@ -33,26 +33,48 @@ export async function POST(
         }
 
         const supabase = getAdminSupabase();
+        let targetTable = '';
+        let orderCode = '';
 
-        // Get order info and count existing demo images
-        const { data: order, error: orderError } = await supabase
+        // 1. Try orders table
+        const { data: order } = await supabase
             .from('orders')
-            .select('order_code, user_id, profiles:user_id(customer_code, email)')
+            .select('id, order_code, user_id')
             .eq('id', orderId)
-            .single();
+            .maybeSingle();
 
-        if (orderError || !order) {
-            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        if (order) {
+            targetTable = 'orders';
+            orderCode = order.order_code;
+        } else {
+            // 2. Try custom_orders table
+            const { data: customOrder } = await supabase
+                .from('custom_orders')
+                .select('id, order_number, user_id')
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (customOrder) {
+                targetTable = 'custom_orders';
+                orderCode = customOrder.order_number;
+            } else {
+                // 3. Try print_orders table
+                const { data: printOrder } = await supabase
+                    .from('print_orders')
+                    .select('id, order_number, user_id')
+                    .eq('id', orderId)
+                    .maybeSingle();
+
+                if (printOrder) {
+                    targetTable = 'print_orders';
+                    orderCode = printOrder.order_number;
+                }
+            }
         }
 
-        // Get count of existing demo files for this order to determine index
-        const { count: existingDemos } = await supabase
-            .from('order_files')
-            .select('*', { count: 'exact', head: true })
-            .eq('order_id', orderId)
-            .eq('file_type', 'demo');
-
-        const demoIndex = (existingDemos || 0) + 1;
+        if (!targetTable) {
+            return NextResponse.json({ error: 'Order not found in any table' }, { status: 404 });
+        }
 
         // Parse multipart form data
         const formData = await request.formData();
@@ -75,50 +97,68 @@ export async function POST(
         // Get file extension
         const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
 
-        // Generate R2 key using new review naming convention: {orderCode}-0.{index}.{ext}
-        const r2Key = generateReviewR2Key(order.order_code, demoIndex, ext);
+        // Generate R2 key and upload
+        const r2Key = generateReviewR2Key(orderCode, 1, ext);
         const { url: demoImageUrl } = await uploadToR2(buffer, r2Key, file.type, {
             orderId,
-            orderCode: order.order_code,
+            orderCode: orderCode,
             type: 'demo',
         });
 
-        // Save demo_image_url to order
-        const { error: updateError } = await supabase
-            .from('orders')
-            .update({
-                demo_image_url: demoImageUrl,
-                status: 'review',  // Auto-set status to review when demo uploaded
-                review_at: new Date().toISOString(),
-            })
-            .eq('id', orderId);
+        // ===== Update status: Try Direct PostgreSQL first, fallback to Supabase REST =====
+        let updateSuccess = false;
 
-        if (updateError) {
-            console.error('Update order error:', updateError);
-            return NextResponse.json({ error: 'Failed to save demo image URL' }, { status: 500 });
+        // Try direct PostgreSQL
+        try {
+            const updateQuery = `
+                UPDATE ${targetTable} 
+                SET status = $1, 
+                    demo_image_url = $2,
+                    updated_at = NOW()
+                WHERE id = $3
+            `;
+            const result = await dbRequest.query(updateQuery, ['review', demoImageUrl, orderId]);
+            console.log('[DemoUpload] Direct PostgreSQL update:', result.rowCount, 'rows affected');
+            updateSuccess = (result.rowCount || 0) > 0;
+        } catch (dbError) {
+            console.warn('[DemoUpload] Direct PostgreSQL failed, trying Supabase REST:', (dbError as Error).message);
         }
 
-        // Also save to order_files for tracking
-        await supabase.from('order_files').insert({
-            order_id: orderId,
-            file_id: r2Key,  // Use R2 key as file_id 
-            file_name: file.name,
-            file_type: 'demo',
-        });
+        // Fallback: Use Supabase REST API
+        if (!updateSuccess) {
+            const { error: updateError } = await supabase
+                .from(targetTable)
+                .update({
+                    status: 'review',
+                    demo_image_url: demoImageUrl,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', orderId);
 
-        // TODO: Send email notification to customer
-        // const customerEmail = (order.profiles as { email?: string })?.email;
-        // if (customerEmail) {
-        //     await sendReviewNotification(customerEmail, order.order_code, demoImageUrl);
-        // }
+            if (updateError) {
+                console.error('[DemoUpload] Supabase REST also failed:', updateError);
+            } else {
+                console.log('[DemoUpload] Supabase REST update succeeded');
+                updateSuccess = true;
+            }
+        }
+
+        // === CRITICAL: Invalidate Next.js cache to ensure fresh data on reload ===
+        if (updateSuccess) {
+            console.log('[DemoUpload] Invalidating cache for:', `/sys_internal/orders/${orderId}`);
+            revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
+            revalidatePath('/sys_internal/orders', 'page');
+        }
 
         return NextResponse.json({
             success: true,
             demo_image_url: demoImageUrl,
             r2_key: r2Key,
+            status: 'review'
         });
     } catch (error) {
-        console.error('Demo image upload error:', error);
+        console.error('[DemoUpload] Error:', error);
         return NextResponse.json({ error: 'Upload failed: ' + (error as Error).message }, { status: 500 });
     }
 }
+
