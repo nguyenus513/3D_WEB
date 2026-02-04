@@ -103,8 +103,15 @@ export async function POST(
 
         // Check if payment is pending or failed (requires payment first)
         // If paid or deposit_paid, we proceed to production_pending
-        if (order.payment_status === 'pending' || order.payment_status === 'failed' || !order.payment_status) {
+        console.log(`[ApproveDemo] Payment Status: ${order.payment_status}`); // Debug log
+
+        // LOGIC MỚI: Chỉ bắt thanh toán nếu đang nợ (pending/failed)
+        // Các trạng thái 'paid' (đủ) hoặc 'deposit_paid' (cọc) đều cho qua.
+        // Bao gồm: paid, deposit_paid, hoặc undefined (nếu lỗi) thì cứ cho sản xuất để tránh tắc nghẽn
+        if (order.payment_status === 'pending' || order.payment_status === 'failed') {
             newStatus = 'awaiting_payment';
+        } else {
+            newStatus = 'production_pending';
         }
 
         console.log(`[ApproveDemo] Payment Status: ${order.payment_status} -> New Status: ${newStatus}`);

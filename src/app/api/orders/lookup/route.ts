@@ -223,24 +223,29 @@ export async function GET(request: NextRequest) {
         let finalDemoUrl = order.demo_image_url;
 
         if (orderType === 'custom' || orderType === 'printing') {
+            // SỬ DỤNG SUPABASE CLIENT ĐỂ LẤY DỮ LIỆU TƯƠI (Thay thế cho Direct DB đang lỗi)
             try {
-                // [DEBUG] DIRECT DB QUERY
-                // This ensures we fail if the DB connection is bad, rather than showing stale cached data.
                 const tableName = orderType === 'custom' ? 'custom_orders' : 'print_orders';
-                console.log(`[OrderLookup] Querying fresh data from ${tableName} for ${order.id}`);
+                console.log(`[OrderLookup] Querying fresh data via Supabase Admin from ${tableName} for ${order.id}`);
 
-                const freshData = await dbRequest.query(
-                    `SELECT status, demo_image_url FROM ${tableName} WHERE id = $1`,
-                    [order.id]
-                );
+                const { data: freshOrder, error: freshError } = await supabaseAdmin
+                    .from(tableName)
+                    .select('status, demo_image_url')
+                    .eq('id', order.id)
+                    .single();
 
-                if (freshData.rows.length > 0) {
-                    finalStatus = freshData.rows[0].status || finalStatus;
-                    finalDemoUrl = freshData.rows[0].demo_image_url || finalDemoUrl;
-                    console.log('[OrderLookup] Fresh data from PostgreSQL:', { status: finalStatus, demo: finalDemoUrl?.substring(0, 50) });
+                if (!freshError && freshOrder) {
+                    console.log(`[OrderLookup] Updated status via Supabase: ${freshOrder.status}`);
+                    // Ghi đè dữ liệu cũ
+                    finalStatus = freshOrder.status || finalStatus;
+                    if (freshOrder.demo_image_url) {
+                        finalDemoUrl = freshOrder.demo_image_url;
+                    }
+                } else if (freshError) {
+                    console.warn('[OrderLookup] Supabase refresh failed:', freshError.message);
                 }
-            } catch (dbError) {
-                console.warn('[OrderLookup] Direct PostgreSQL failed, using cached:', dbError);
+            } catch (err) {
+                console.error('[OrderLookup] Failed to refresh data:', err);
             }
         }
 
