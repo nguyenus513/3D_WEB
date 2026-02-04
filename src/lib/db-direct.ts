@@ -2,10 +2,11 @@ import { Pool } from 'pg';
 
 // Use DATABASE_URL (Transaction Pool) or DIRECT_URL (Session Pool)
 // Prefer DIRECT_URL for migrations or schema changes, but DATABASE_URL is fine for this bypass
-const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
+// FIX: Prioritize DIRECT_URL to avoid "Tenant or user not found" errors with Transaction Pooler + pg Pool
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
-    console.error('[DB Direct] Missing DATABASE_URL or DIRECT_URL environment variable');
+    console.error('[DB Direct] Missing DIRECT_URL or DATABASE_URL environment variable');
 }
 
 const pool = new Pool({
