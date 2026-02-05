@@ -63,12 +63,17 @@ interface Order {
 
 const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
+    pending_confirmation: 'Chờ xác nhận giao dịch',
+    confirmed: 'Đã xác nhận',
     paid: 'Đã thanh toán',
-    processing: 'Đang sản xuất',
+    processing: 'Đang xử lý',
     designing: 'Đang thiết kế',
-    review: 'Chờ xác nhận',
-    approved: 'Đã duyệt',
+    review: 'Chờ duyệt thiết kế',
+    revising: 'Đang chỉnh sửa',
+    approved: 'Đã duyệt thiết kế',
     production_pending: 'Chờ sản xuất',
+    producing: 'Đang sản xuất',
+    printing: 'Đang in 3D',
     shipping: 'Đang giao hàng',
     delivered: 'Đã giao hàng',
     cancelled: 'Đã hủy',
@@ -152,7 +157,8 @@ export default function AccountOrderDetailPage() {
 
         try {
             // Use lookup API that searches across all order tables
-            const res = await fetch(`/api/orders/lookup?id=${params.id}`);
+            // Disable cache to ensure fresh status updates
+            const res = await fetch(`/api/orders/lookup?id=${params.id}`, { cache: 'no-store' });
             const response = await res.json();
 
             if (!res.ok || !response.success) {
@@ -215,7 +221,7 @@ export default function AccountOrderDetailPage() {
 
         if (s === 'delivered') currentLevel = 4;
         else if (s === 'shipping') currentLevel = 3;
-        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising'].includes(s)) currentLevel = 2;
+        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising', 'pending_confirmation'].includes(s)) currentLevel = 2;
         else if (s === 'confirmed' || order.deposit_paid || (s !== 'pending' && s !== 'cancelled')) currentLevel = 1;
 
         const timeline = [
