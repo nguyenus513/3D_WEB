@@ -139,6 +139,8 @@ export async function POST(request: NextRequest) {
                 user_id: user.id,
                 order_type: orderType,
                 status: 'pending',
+                payment_status: 'pending',
+                deposit_paid: false,
                 subtotal: totalPrice,
                 shipping_fee: shippingFee,
                 total: total,
