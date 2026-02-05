@@ -100,7 +100,7 @@ export class OrderService {
         const order = await this.orderRepo.create(
             {
                 userId: profile.id,
-                orderCode: `ORD-${Date.now()}`, // Simple generation or provided in input
+                orderCode: `${Date.now()}`, // Simple generation or provided in input
                 subtotal: totalAmount, // Note: input.items might need to sum up
                 shippingFee: 0, // Default or calculated
                 discount: 0,
