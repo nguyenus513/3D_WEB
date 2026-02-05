@@ -28,9 +28,12 @@ export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    console.log('[PaymentConfirmation] API CALLED');
     try {
-        const session = await auth();
         const { id: orderId } = await params;
+        console.log('[PaymentConfirmation] Order ID:', orderId);
+
+        const session = await auth();
 
         if (!orderId) {
             return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
