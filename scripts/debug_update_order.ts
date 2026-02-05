@@ -31,7 +31,7 @@ async function debugUpdate() {
         .from('custom_orders')
         .update(updates)
         .eq('id', ORDER_ID)
-        .select('id', { count: 'exact' });
+        .select('id');
 
     if (error) {
         console.error('❌ Update Failed:', error);
