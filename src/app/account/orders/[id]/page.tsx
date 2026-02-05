@@ -221,7 +221,7 @@ export default function AccountOrderDetailPage() {
 
         if (s === 'delivered') currentLevel = 4;
         else if (s === 'shipping') currentLevel = 3;
-        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising', 'pending_confirmation'].includes(s)) currentLevel = 2;
+        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising'].includes(s)) currentLevel = 2;
         else if (s === 'confirmed' || order.deposit_paid || (s !== 'pending' && s !== 'cancelled')) currentLevel = 1;
 
         const timeline = [
