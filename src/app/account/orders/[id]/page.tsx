@@ -203,64 +203,50 @@ export default function AccountOrderDetailPage() {
     const getTimeline = () => {
         if (!order) return [];
 
-        // Define status order for completion checks
-        const statusOrder = ['pending', 'confirmed', 'designing', 'review', 'approved', 'production_pending', 'processing', 'shipping', 'delivered'];
-        const currentIndex = statusOrder.indexOf(order.status);
-        const isCompleted = (targetStatus: string) => {
-            const targetIndex = statusOrder.indexOf(targetStatus);
-            return currentIndex >= targetIndex;
-        };
+        // Define status hierarchy
+        // 0: pending
+        // 1: confirmed (deposit paid)
+        // 2: processing (design/produce/print)
+        // 3: shipping
+        // 4: delivered
+
+        let currentLevel = 0;
+        const s = order.status;
+
+        if (s === 'delivered') currentLevel = 4;
+        else if (s === 'shipping') currentLevel = 3;
+        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising'].includes(s)) currentLevel = 2;
+        else if (s === 'confirmed' || order.deposit_paid || (s !== 'pending' && s !== 'cancelled')) currentLevel = 1;
 
         const timeline = [
-            // 1. Đặt hàng thành công
+            // 1. Đã xác nhận
             {
-                status: 'ordered',
-                label: 'Đặt hàng thành công',
-                date: formatDate(order.created_at),
-                completed: true
+                status: 'confirmed',
+                label: 'Đã xác nhận',
+                date: order.paid_at ? formatDate(order.paid_at) : (currentLevel >= 1 ? formatDate(order.created_at) : ''),
+                completed: currentLevel >= 1
             },
-            // 2. Chờ xác nhận thanh toán / Đã xác nhận thanh toán
-            {
-                status: 'pending',
-                label: order.status === 'pending' ? 'Chờ xác nhận thanh toán' : 'Đã xác nhận thanh toán',
-                date: order.deposit_paid ? formatDate(order.paid_at) : '',
-                completed: isCompleted('confirmed'),
-            },
-            // 3. Đang thiết kế
-            {
-                status: 'designing',
-                label: 'Đang thiết kế',
-                date: '',
-                completed: isCompleted('designing'),
-            },
-            // 4. Chờ xác nhận ảnh
-            {
-                status: 'review',
-                label: 'Chờ xác nhận ảnh',
-                date: '',
-                completed: isCompleted('review'),
-            },
-            // 5. Đang sản xuất
+            // 2. Đang xử lý
             {
                 status: 'processing',
-                label: 'Đang sản xuất',
-                date: '',
-                completed: isCompleted('processing'),
+                label: 'Đang xử lý',
+                date: (currentLevel >= 2 && currentLevel < 3) ? 'Đang thực hiện' : '',
+                completed: currentLevel >= 2
             },
-            // 6. Đang giao hàng
+            // 3. Đang giao hàng
             {
                 status: 'shipping',
                 label: 'Đang giao hàng',
-                date: formatDate(order.shipped_at),
-                completed: isCompleted('shipping'),
+                date: order.shipped_at ? formatDate(order.shipped_at) : '',
+                completed: currentLevel >= 3
             },
-            // 7. Đã giao hàng
+            // 4. Hoàn thành
             {
                 status: 'delivered',
-                label: 'Đã giao hàng',
-                date: formatDate(order.delivered_at),
-                completed: order.status === 'delivered',
-            },
+                label: 'Hoàn thành',
+                date: order.delivered_at ? formatDate(order.delivered_at) : '',
+                completed: currentLevel >= 4
+            }
         ];
 
         return timeline;
@@ -331,7 +317,7 @@ export default function AccountOrderDetailPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-6">Trạng thái đơn hàng</h2>
+                        <h2 className="text-lg font-semibold text-white mb-6">Tiến trình đơn hàng</h2>
                         <div className="relative">
                             {timeline.map((step, index) => (
                                 <div key={step.status} className="flex gap-4 pb-6 last:pb-0">
@@ -419,11 +405,13 @@ export default function AccountOrderDetailPage() {
                                                 rel="noopener noreferrer"
                                                 className="aspect-square rounded-xl bg-white/10 overflow-hidden hover:ring-2 ring-white/50 transition-all"
                                             >
-                                                <img
-                                                    src={img.thumbnail || img.url}
-                                                    alt={`Ảnh ${i + 1}`}
-                                                    className="w-full h-full object-cover"
-                                                />
+                                                {(!img.thumbnail?.includes('[object Object]') && !img.url?.includes('[object Object]')) && (
+                                                    <img
+                                                        src={img.thumbnail || img.url}
+                                                        alt={`Ảnh ${i + 1}`}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                )}
                                             </a>
                                         ))}
                                     </div>
@@ -433,7 +421,7 @@ export default function AccountOrderDetailPage() {
                     )}
 
                     {/* Demo Image Review - For custom orders with demo image */}
-                    {order.order_type === 'custom' && order.demo_image_url && (
+                    {order.order_type === 'custom' && order.demo_image_url && !order.demo_image_url.includes('[object Object]') && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
