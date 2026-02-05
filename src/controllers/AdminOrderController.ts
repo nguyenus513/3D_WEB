@@ -10,7 +10,6 @@ import { createClient } from '@supabase/supabase-js';
 import { BaseController, UnauthorizedError, NotFoundError } from '@/lib/core/BaseController';
 import { config } from '@/config/unifiedConfig';
 import { requireAdmin } from '@/lib/security/admin-guard';
-import { dbRequest } from '@/lib/db-direct';
 
 // =============================================================================
 // Supabase Admin Client
@@ -448,6 +447,16 @@ export class AdminOrderController extends BaseController {
                     // Only add status if provided
                     if (body.status !== undefined && body.status !== null) {
                         update.status = body.status;
+                    }
+
+                    // Auto-complete payment on Delivery/Completion (50/50 Model)
+                    if (body.status === 'delivered' || body.status === 'completed') {
+                        update.payment_status = 'paid';
+                        // Only update paid_at if not already set (preserve original deposit date if needed, though for full payment this usually implies "now")
+                        // Actually for 50/50, paid_at usually marks the FINAL payment.
+                        // Let's set it to now if we are moving to paid.
+                        update.paid_at = new Date().toISOString();
+                        console.log('[AdminOrder] Auto-completing payment for delivery');
                     }
 
                     // For 'orders' table, we can add admin_notes (note the plural)

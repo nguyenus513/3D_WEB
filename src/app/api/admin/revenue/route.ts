@@ -30,39 +30,71 @@ export async function GET(request: Request) {
 
         const supabase = getAdminSupabase();
 
-        // Fetch all orders
-        const { data: orders, error } = await supabase
-            .from('orders')
-            .select('*')
-            .order('created_at', { ascending: false });
+        // Fetch from ALL order tables in parallel
+        const [ordersRes, customRes, printRes] = await Promise.all([
+            supabase.from('orders').select('*').order('created_at', { ascending: false }),
+            supabase.from('custom_orders').select('*').order('created_at', { ascending: false }),
+            supabase.from('print_orders').select('*').order('created_at', { ascending: false }),
+        ]);
 
-        if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
+        if (ordersRes.error) console.error('Error fetching orders:', ordersRes.error);
+        if (customRes.error) console.error('Error fetching custom_orders:', customRes.error);
+        if (printRes.error) console.error('Error fetching print_orders:', printRes.error);
 
-        // Calculate revenue for selected month
+        const orders = ordersRes.data || [];
+        const customOrders = customRes.data || [];
+        const printOrders = printRes.data || [];
+
+        // Helper to check if date is in target month
+        const isInMonth = (dateStr: string, m: number, y: number) => {
+            const d = new Date(dateStr);
+            return d.getMonth() + 1 === m && d.getFullYear() === y;
+        };
+
+        // Calculate revenue for selected month from ALL tables
         const calculateMonthRevenue = (m: number, y: number): MonthlyData => {
-            const monthOrders = (orders || []).filter((o: { created_at: string }) => {
-                const d = new Date(o.created_at);
-                return d.getMonth() + 1 === m && d.getFullYear() === y;
-            });
-
             let depositRevenue = 0;
             let deliveredRevenue = 0;
             let deliveredCount = 0;
             let pendingCount = 0;
+            let orderCount = 0;
 
-            monthOrders.forEach((o: {
-                status: string;
-                deposit_paid: boolean;
-                deposit_amount: number;
-                total: number
-            }) => {
+            // 1. Legacy orders table
+            orders.filter(o => isInMonth(o.created_at, m, y)).forEach((o: any) => {
+                orderCount++;
                 if (o.status === 'delivered') {
-                    deliveredRevenue += Number(o.total);
+                    deliveredRevenue += Number(o.total_amount || o.total || 0);
                     deliveredCount++;
-                } else if (o.deposit_paid && o.status !== 'pending' && o.status !== 'cancelled') {
-                    depositRevenue += Number(o.deposit_amount) || Number(o.total) * 0.5;
+                } else if (o.deposit_paid && !['pending', 'cancelled'].includes(o.status)) {
+                    depositRevenue += Number(o.deposit_amount) || Number(o.total_amount || o.total || 0) * 0.5;
+                    pendingCount++;
+                }
+            });
+
+            // 2. Custom orders table
+            customOrders.filter(o => isInMonth(o.created_at, m, y)).forEach((o: any) => {
+                orderCount++;
+                const total = Number(o.total || o.estimated_price || 0);
+                if (o.status === 'delivered') {
+                    deliveredRevenue += total;
+                    deliveredCount++;
+                } else if (['confirmed', 'processing', 'designing', 'review', 'approved', 'producing', 'shipping'].includes(o.status)) {
+                    // Assume 50% deposit for confirmed custom orders
+                    depositRevenue += total * 0.5;
+                    pendingCount++;
+                }
+            });
+
+            // 3. Print orders table
+            printOrders.filter(o => isInMonth(o.created_at, m, y)).forEach((o: any) => {
+                orderCount++;
+                const total = Number(o.total_price || 0);
+                if (o.status === 'delivered') {
+                    deliveredRevenue += total;
+                    deliveredCount++;
+                } else if (['confirmed', 'processing', 'printing', 'shipping'].includes(o.status)) {
+                    // Print orders are usually paid in full upfront
+                    depositRevenue += total;
                     pendingCount++;
                 }
             });
@@ -73,7 +105,7 @@ export async function GET(request: Request) {
                 depositRevenue,
                 deliveredRevenue,
                 totalRevenue: depositRevenue + deliveredRevenue,
-                orderCount: monthOrders.length,
+                orderCount,
                 deliveredCount,
                 pendingCount,
             };
@@ -108,55 +140,84 @@ export async function GET(request: Request) {
             });
         }
 
-        // Fetch profiles for customer names
-        const userIds = [...new Set((orders || []).map((o: { user_id?: string }) => o.user_id).filter(Boolean))];
-        const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, full_name')
-            .in('id', userIds);
+        // Gather all user IDs for profile lookup
+        const allUserIds = new Set([
+            ...orders.map((o: any) => o.user_id),
+            ...customOrders.map((o: any) => o.user_id),
+            ...printOrders.map((o: any) => o.user_id),
+        ].filter(Boolean));
 
-        const profileMap = new Map((profiles || []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]));
+        let profileMap = new Map<string, string>();
+        if (allUserIds.size > 0) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, full_name')
+                .in('id', Array.from(allUserIds));
+            if (profiles) {
+                profiles.forEach((p: any) => profileMap.set(p.id, p.full_name));
+            }
+        }
 
-        // Orders for selected month (detailed list)
-        const monthOrders = (orders || [])
-            .filter((o: { created_at: string }) => {
-                const d = new Date(o.created_at);
-                return d.getMonth() + 1 === month && d.getFullYear() === year;
-            })
-            .filter((o: { status: string; deposit_paid: boolean }) =>
-                o.status === 'delivered' || (o.deposit_paid && o.status !== 'pending' && o.status !== 'cancelled')
-            )
+        // Merge and transform orders for detailed list (top 20)
+        const allOrdersThisMonth = [
+            ...orders.filter((o: any) => isInMonth(o.created_at, month, year)).map((o: any) => ({
+                id: o.id,
+                order_code: o.order_code,
+                total: Number(o.total_amount || o.total || 0),
+                deposit_amount: Number(o.deposit_amount || 0),
+                status: o.status,
+                user_id: o.user_id,
+                shipping_address: o.shipping_address_snapshot,
+                created_at: o.created_at,
+                order_type: 'ready_made',
+            })),
+            ...customOrders.filter((o: any) => isInMonth(o.created_at, month, year)).map((o: any) => ({
+                id: o.id,
+                order_code: o.order_number || o.order_code || o.id.slice(0, 8),
+                total: Number(o.total || o.estimated_price || 0),
+                deposit_amount: Number(o.total || o.estimated_price || 0) * 0.5,
+                status: o.status,
+                user_id: o.user_id,
+                shipping_address: o.shipping_address,
+                created_at: o.created_at,
+                order_type: 'custom',
+            })),
+            ...printOrders.filter((o: any) => isInMonth(o.created_at, month, year)).map((o: any) => ({
+                id: o.id,
+                order_code: o.order_number || o.id.slice(0, 8),
+                total: Number(o.total_price || 0),
+                deposit_amount: Number(o.total_price || 0),
+                status: o.status,
+                user_id: o.user_id,
+                shipping_address: o.shipping_address,
+                created_at: o.created_at,
+                order_type: 'printing',
+            })),
+        ];
+
+        // Sort by created_at DESC, filter to revenue-generating, take 20
+        const monthOrders = allOrdersThisMonth
+            .filter(o => o.status === 'delivered' || !['pending', 'cancelled'].includes(o.status))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 20)
-            .map((o: {
-                id: string;
-                order_code: string;
-                total: number;
-                deposit_amount: number;
-                status: string;
-                created_at: string;
-                user_id?: string;
-                shipping_address?: { full_name?: string } | string | null;
-            }) => {
-                // Parse shipping_address if it's a string
+            .map(o => {
                 let shippingAddr = o.shipping_address;
                 if (typeof shippingAddr === 'string') {
                     try { shippingAddr = JSON.parse(shippingAddr); } catch { shippingAddr = null; }
                 }
-
-                // Get customer name: profile > shipping_address > default
                 const customerName =
                     (o.user_id && profileMap.get(o.user_id)) ||
-                    (shippingAddr && typeof shippingAddr === 'object' && shippingAddr?.full_name) ||
+                    (shippingAddr && typeof shippingAddr === 'object' && (shippingAddr as any)?.full_name) ||
                     'Khách';
-
                 return {
                     id: o.id,
                     order_code: o.order_code,
-                    total: Number(o.total),
-                    deposit_amount: Number(o.deposit_amount),
+                    total: o.total,
+                    deposit_amount: o.deposit_amount,
                     status: o.status,
                     customer_name: customerName,
                     created_at: o.created_at,
+                    order_type: o.order_type,
                 };
             });
 

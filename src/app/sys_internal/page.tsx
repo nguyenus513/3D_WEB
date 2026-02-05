@@ -27,18 +27,36 @@ interface RecentOrder {
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    confirmed: 'bg-emerald-500/20 text-emerald-400',
     paid: 'bg-blue-500/20 text-blue-400',
     preparing: 'bg-purple-500/20 text-purple-400',
+    processing: 'bg-purple-500/20 text-purple-400',
+    designing: 'bg-indigo-500/20 text-indigo-400',
+    review: 'bg-amber-500/20 text-amber-400',
+    approved: 'bg-cyan-500/20 text-cyan-400',
+    production_pending: 'bg-orange-500/20 text-orange-400',
+    producing: 'bg-violet-500/20 text-violet-400',
+    printing: 'bg-pink-500/20 text-pink-400',
     shipped: 'bg-cyan-500/20 text-cyan-400',
+    shipping: 'bg-cyan-500/20 text-cyan-400',
     delivered: 'bg-green-500/20 text-green-400',
     cancelled: 'bg-red-500/20 text-red-400',
 };
 
 const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
+    confirmed: 'Đã xác nhận TT',
     paid: 'Đã thanh toán',
     preparing: 'Đang chuẩn bị',
+    processing: 'Đang xử lý',
+    designing: 'Đang thiết kế',
+    review: 'Chờ duyệt',
+    approved: 'Đã duyệt',
+    production_pending: 'Chờ sản xuất',
+    producing: 'Đang sản xuất',
+    printing: 'Đang in',
     shipped: 'Đã gửi',
+    shipping: 'Đang giao',
     delivered: 'Hoàn thành',
     cancelled: 'Đã hủy',
 };
@@ -47,6 +65,7 @@ const typeLabels: Record<string, string> = {
     ready_made: 'Sản phẩm',
     custom: 'Custom',
     printing: 'In 3D',
+    master: 'Master',
 };
 
 export default function AdminDashboard() {
