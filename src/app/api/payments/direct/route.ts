@@ -274,10 +274,19 @@ export async function POST(request: NextRequest) {
                 bankName: BANK_INFO[bankInfo.bank_code as keyof typeof BANK_INFO]?.shortName || bankInfo.bank_code,
             },
         }));
-    } catch (error) {
+    } catch (error: any) {
         logger.error('Unexpected error in direct payment', error);
+
+        // Return detailed error for debugging (remove in production)
         return NextResponse.json(
-            createErrorResponse('INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR, { correlationId }),
+            createErrorResponse('INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR, {
+                correlationId,
+                debug: {
+                    message: error?.message || String(error),
+                    name: error?.name,
+                    stack: error?.stack?.split('\n').slice(0, 5)
+                }
+            }),
             { status: 500 }
         );
     }
