@@ -45,12 +45,14 @@ export function getOrderTypeForProduct(productType: string): PaymentOrderType {
  * Fetch active payment config for a specific order type
  */
 export async function getPaymentConfig(orderType: PaymentOrderType): Promise<PaymentConfig | null> {
+    // Query with is_active filter - handle both boolean and string types
     const { data, error } = await supabaseAdmin
         .from('payment_configs')
         .select('*')
         .eq('order_type', orderType)
-        .eq('is_active', true)
-        .single();
+        .in('is_active', [true, 'true']) // Handle both boolean and string types
+        .limit(1)
+        .maybeSingle();
 
     if (error || !data) {
         console.error(`[PaymentConfig] Failed to fetch config for ${orderType}:`, error);
