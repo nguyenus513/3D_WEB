@@ -177,9 +177,10 @@ export async function getStoredTokens() {
  * 1. Service Account (if configured in env) - Recommended for server-side
  * 2. OAuth Token (if stored in DB) - Fallback for personal accounts
  */
-export async function getDriveClient(options: { preferOAuth?: boolean } = {}) {
-    // 1. If preferOAuth is true, check OAuth tokens first
-    if (options.preferOAuth) {
+export async function getDriveClient(options: { useServiceAccount?: boolean } = {}) {
+    // 1. Try OAuth (User Account) FIRST - As requested by user to avoid Quota issues
+    // Unless explicitly asked to use Service Account
+    if (!options.useServiceAccount) {
         const tokens = await getStoredTokens();
         if (tokens && tokens.refresh_token) {
             const oauth2Client = getOAuth2Client();
@@ -197,15 +198,14 @@ export async function getDriveClient(options: { preferOAuth?: boolean } = {}) {
                     oauth2Client.setCredentials(credentials);
                 } catch (error) {
                     console.warn('[DRIVE] Failed to refresh OAuth token:', error);
-                    // Fall through to Service Account if OAuth fails? Or throw?
-                    // If they PREFERRED OAuth, we should probably try SA as backup if configured.
+                    // If OAuth fails, we might fall through to Service Account below
                 }
             }
             return google.drive({ version: 'v3', auth: oauth2Client });
         }
     }
 
-    // 2. Try Service Account (Default Priority)
+    // 2. Fallback to Service Account (or if explicitly requested)
     const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
@@ -219,35 +219,7 @@ export async function getDriveClient(options: { preferOAuth?: boolean } = {}) {
         return google.drive({ version: 'v3', auth });
     }
 
-    // 3. Fallback to OAuth (if not preferred but SA missing)
-    if (!options.preferOAuth) {
-        const tokens = await getStoredTokens();
-        if (!tokens || !tokens.refresh_token) {
-            throw new Error('Google Drive not connected. Please configure Service Account in .env or connect in Admin Settings.');
-        }
-
-        const oauth2Client = getOAuth2Client();
-        oauth2Client.setCredentials(tokens);
-
-        // Check if token needs refresh
-        if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
-            try {
-                const { credentials } = await oauth2Client.refreshAccessToken();
-                await saveTokens({
-                    access_token: credentials.access_token,
-                    refresh_token: credentials.refresh_token || tokens.refresh_token,
-                    expiry_date: credentials.expiry_date,
-                });
-                oauth2Client.setCredentials(credentials);
-            } catch (error) {
-                console.error('Failed to refresh token:', error);
-                throw new Error('Google Drive OAuth token expired. Please reconnect in Admin Settings.');
-            }
-        }
-        return google.drive({ version: 'v3', auth: oauth2Client });
-    }
-
-    throw new Error('No valid Google Drive authentication method found.');
+    throw new Error('Google Drive not connected. Please connect in Admin Settings (OAuth) or configure Service Account.');
 }
 
 /**
@@ -305,81 +277,35 @@ export async function uploadFileOAuth(
     }
 
     // Upload file
-    try {
-        const response = await drive.files.create({
-            requestBody: {
-                name: fileName,
-                parents: [targetFolder],
-            },
-            media: {
-                mimeType,
-                body: require('stream').Readable.from(file),
-            },
-            fields: 'id, name, webViewLink, webContentLink, thumbnailLink',
-            supportsAllDrives: true,
-        });
+    const response = await drive.files.create({
+        requestBody: {
+            name: fileName,
+            parents: [targetFolder],
+        },
+        media: {
+            mimeType,
+            body: require('stream').Readable.from(file),
+        },
+        fields: 'id, name, webViewLink, webContentLink, thumbnailLink',
+        supportsAllDrives: true,
+    });
 
-        // Make file publicly accessible
-        await drive.permissions.create({
-            fileId: response.data.id!,
-            requestBody: {
-                role: 'reader',
-                type: 'anyone',
-            },
-        });
+    // Make file publicly accessible
+    await drive.permissions.create({
+        fileId: response.data.id!,
+        requestBody: {
+            role: 'reader',
+            type: 'anyone',
+        },
+    });
 
-        return {
-            fileId: response.data.id!,
-            fileName: response.data.name!,
-            webViewLink: response.data.webViewLink!,
-            webContentLink: response.data.webContentLink!,
-            thumbnailLink: response.data.thumbnailLink ?? undefined,
-        };
-    } catch (error: any) {
-        // Check for Service Account Quota Error (403)
-        // "Service Accounts do not have storage quota" or "The user's Drive storage quota has been exceeded"
-        const msg = error?.message || '';
-        const isQuotaError = (error.code === 403 || error.status === 403) &&
-            (msg.includes('storage quota') || msg.includes('quota'));
-
-        if (isQuotaError) {
-            console.warn('[DRIVE] Service Account quota exceeded. Retrying with User OAuth...');
-
-            // Retry with OAuth Priority
-            const oauthDrive = await getDriveClient({ preferOAuth: true });
-
-            const response = await oauthDrive.files.create({
-                requestBody: {
-                    name: fileName,
-                    parents: [targetFolder],
-                },
-                media: {
-                    mimeType,
-                    body: require('stream').Readable.from(file),
-                },
-                fields: 'id, name, webViewLink, webContentLink, thumbnailLink',
-                supportsAllDrives: true,
-            });
-
-            // Make file publicly accessible
-            await oauthDrive.permissions.create({
-                fileId: response.data.id!,
-                requestBody: {
-                    role: 'reader',
-                    type: 'anyone',
-                },
-            });
-
-            return {
-                fileId: response.data.id!,
-                fileName: response.data.name!,
-                webViewLink: response.data.webViewLink!,
-                webContentLink: response.data.webContentLink!,
-                thumbnailLink: response.data.thumbnailLink ?? undefined,
-            };
-        }
-        throw error;
-    }
+    return {
+        fileId: response.data.id!,
+        fileName: response.data.name!,
+        webViewLink: response.data.webViewLink!,
+        webContentLink: response.data.webContentLink!,
+        thumbnailLink: response.data.thumbnailLink ?? undefined,
+    };
 }
 
 /**
