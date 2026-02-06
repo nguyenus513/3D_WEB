@@ -113,11 +113,11 @@ export async function POST(request: NextRequest) {
                 order_code: orderCode,
                 user_id: userId,
                 order_type: 'custom',
-                status: 'pending_confirmation',
+                status: 'pending',
                 deposit_paid: false,
                 subtotal: totalPrice,
                 shipping_fee: 0,
-                total: totalPrice,
+                total_amount: totalPrice,
                 deposit_amount: depositAmount,
                 shipping_address: {
                     full_name: shippingAddress.full_name,
