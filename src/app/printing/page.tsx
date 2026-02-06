@@ -341,29 +341,22 @@ export default function PrintingPage() {
             // Upload files to Drive
             const files = await uploadFiles(orderCode);
 
-            // Build customer note with all items
-            const itemsNote = order.items.map((item, idx) =>
-                `${item.file.name} x${item.quantity}`
-            ).join('\n');
-            const settingsNote = order.type === 'fdm'
-                ? `Infill: ${order.infill} | Layer: ${order.layerHeight}mm`
-                : '';
-            const customerNote = [settingsNote, itemsNote, order.notes].filter(Boolean).join('\n');
-
-            // Create order in Supabase
-            const { data: orderData, error: orderError } = await supabase
-                .from('orders')
-                .insert({
-                    order_code: orderCode,
-                    user_id: user.id,
-                    order_type: 'printing',
-                    status: 'pending',
-                    subtotal: totalPrice,
-                    shipping_fee: 0,
-                    total_amount: grandTotal,
-                    deposit_amount: grandTotal, // 100% for printing
-                    customer_note: customerNote || null,
-                    shipping_address: {
+            // Call API to create order (Bypasses RLS)
+            const res = await fetch('/api/orders/printing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: order.items.map(item => ({
+                        quantity: item.quantity,
+                        analysis: item.analysis
+                    })),
+                    files: files.map(f => ({ id: f.id, name: f.name })),
+                    type: order.type,
+                    color: order.color,
+                    infill: order.infill,
+                    layerHeight: order.layerHeight,
+                    notes: order.notes,
+                    shippingAddress: {
                         full_name: shippingAddress.full_name,
                         phone: shippingAddress.phone,
                         address_line: shippingAddress.address_line,
@@ -371,48 +364,26 @@ export default function PrintingPage() {
                         district: shippingAddress.district || '',
                         province: shippingAddress.province,
                     },
+                    totalPrice: grandTotal
                 })
-                .select()
-                .single();
+            });
 
-            if (orderError) {
-                throw new Error(orderError.message);
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to create order');
             }
 
-            // Insert config for each item into order_configs
-            for (const item of order.items) {
-                if (item.analysis) {
-                    await supabase.from('order_configs').insert({
-                        order_id: orderData.id,
-                        print_tech: order.type,
-                        material: order.type === 'resin' ? 'standard_resin' : 'pla',
-                        color: order.color,
-                        quantity: item.quantity,
-                        print_volume: item.analysis.volume,
-                        print_weight: item.analysis.grams,
-                        print_time: item.analysis.hours,
-                    });
-                }
-            }
-
-            // Insert files into order_files (normalized)
-            if (files && files.length > 0) {
-                const orderFiles = files.map((f: FileInfo) => ({
-                    order_id: orderData.id,
-                    file_id: f.id,
-                    file_type: 'stl',
-                    file_name: f.name || null,
-                }));
-                await supabase.from('order_files').insert(orderFiles);
-            }
+            const orderId = data.orderId;
 
             // Store order type for payment page
             sessionStorage.setItem('checkout_order_type', 'printing');
-            sessionStorage.setItem('checkout_order_id', orderData.id);
+            sessionStorage.setItem('checkout_order_id', orderId);
 
             // Redirect to payment
-            router.push('/checkout/payment?orderId=' + orderData.id);
+            router.push('/checkout/payment?orderId=' + orderId);
         } catch (err) {
+            console.error('Submit error:', err);
             setError((err as Error).message);
             setSubmitting(false);
         }
