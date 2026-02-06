@@ -12,6 +12,10 @@ interface SubOrder {
     type: string;
     orderNumber: string;
     status: string;
+    customConfig?: {
+        type?: string;
+        size?: string;
+    };
 }
 
 interface MasterOrder {
@@ -125,11 +129,12 @@ export default function CheckoutSuccessPage() {
                             setHasConfirmedPayment(true);
                         }
 
-                        // Set sub-orders based on order type
+                        // Set sub-orders based on order type with custom config
                         setSubOrders([{
                             type: orderData.order_type === 'custom' ? 'custom' : orderData.order_type === 'printing' ? 'print' : 'product',
                             orderNumber: orderData.order_code,
                             status: orderData.status,
+                            customConfig: orderData.custom_config,
                         }]);
                     }
                 }
@@ -310,11 +315,36 @@ export default function CheckoutSuccessPage() {
                                     {subOrders.map((sub, index) => (
                                         <div
                                             key={index}
-                                            className={`flex items-center gap-3 p-3 rounded-xl border ${getTypeColor(sub.type)}`}
+                                            className={`p-4 rounded-xl border ${getTypeColor(sub.type)}`}
                                         >
-                                            {getTypeIcon(sub.type)}
-                                            <span className="font-mono text-sm">{sub.orderNumber}</span>
-                                            <span className="text-xs opacity-70">{getTypeLabel(sub.type)}</span>
+                                            <div className="flex items-center gap-3 mb-2">
+                                                {getTypeIcon(sub.type)}
+                                                <span className="font-mono text-sm">{sub.orderNumber}</span>
+                                                <span className="text-xs opacity-70">{getTypeLabel(sub.type)}</span>
+                                            </div>
+                                            {sub.type === 'custom' && sub.customConfig && (
+                                                <div className="ml-8 space-y-1 text-sm">
+                                                    <div className="flex gap-2">
+                                                        <span className="text-white/50">Loại:</span>
+                                                        <span className="text-white capitalize">
+                                                            {sub.customConfig.type === 'single' ? 'Cá nhân (1 người)' :
+                                                                sub.customConfig.type === 'couple' ? 'Cặp đôi (2 người)' :
+                                                                    sub.customConfig.type === 'group' ? 'Nhóm (3+ người)' :
+                                                                        sub.customConfig.type || '—'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <span className="text-white/50">Kích thước:</span>
+                                                        <span className="text-white">
+                                                            {sub.customConfig.size === 'S' ? 'S - 10cm' :
+                                                                sub.customConfig.size === 'M' ? 'M - 15cm' :
+                                                                    sub.customConfig.size === 'L' ? 'L - 20cm' :
+                                                                        sub.customConfig.size === 'XL' ? 'XL - 25cm' :
+                                                                            sub.customConfig.size || '—'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

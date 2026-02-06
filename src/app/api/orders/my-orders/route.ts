@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
         const allOrders: UnifiedOrder[] = [];
 
-        // 1. Fetch from orders table (ready-made products)
+        // 1. Fetch from orders table (ready-made products AND custom orders)
         const { data: readyMadeOrders } = await supabaseAdmin
             .from('orders')
             .select('*, items:order_items(*)')
@@ -56,19 +56,39 @@ export async function GET(request: NextRequest) {
 
         if (readyMadeOrders) {
             readyMadeOrders.forEach(order => {
+                // Determine order type from order_type field or default to ready_made
+                const orderType = order.order_type || 'ready_made';
+
+                // Generate order_items based on order type
+                let orderItems = order.items || [];
+                if (orderType === 'custom' && (!orderItems || orderItems.length === 0)) {
+                    // For custom orders, generate items from custom_config
+                    const config = order.custom_config || {};
+                    const typeLabel = config.type === 'single' ? 'Cá nhân (1 người)' :
+                        config.type === 'couple' ? 'Cặp đôi (2 người)' :
+                            config.type === 'group' ? 'Nhóm (3+ người)' : 'Custom';
+                    const sizeLabel = config.size ? `Size ${config.size}` : '';
+                    orderItems = [{
+                        name: `Đơn Custom - ${typeLabel}${sizeLabel ? ' - ' + sizeLabel : ''}`,
+                        quantity: 1,
+                        total_price: order.total_amount || 0,
+                    }];
+                }
+
                 allOrders.push({
                     id: order.id,
                     order_code: order.order_code,
-                    order_type: 'ready_made',
+                    order_type: orderType as 'ready_made' | 'custom' | 'printing',
                     total: order.total_amount || 0,
                     status: order.status,
-                    payment_status: order.payment_status,
+                    payment_status: order.payment_status || 'pending',
                     created_at: order.created_at,
-                    order_items: order.items || [],
-                    shipping_address: order.shipping_address_snapshot,
+                    order_items: orderItems,
+                    shipping_address: order.shipping_address || order.shipping_address_snapshot,
                 });
             });
         }
+
 
         // 2. Fetch from custom_orders table
         const { data: customOrders } = await supabaseAdmin
