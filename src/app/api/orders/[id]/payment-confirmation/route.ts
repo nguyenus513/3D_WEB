@@ -92,7 +92,7 @@ export async function POST(
             const { error: updateError } = await supabaseAdmin
                 .from('order_child')
                 .update({
-                    status: 'pending_confirmation',
+                    status: 'confirmed',
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', orderId);
@@ -102,11 +102,13 @@ export async function POST(
                 return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
             }
         } else {
+            // For orders table - set deposit_paid=true so checkout success page skips payment view
             const { error: updateError } = await supabaseAdmin
                 .from('orders')
                 .update({
-                    status: 'pending_confirmation',
-                    payment_confirmed_at: new Date().toISOString(),
+                    status: 'confirmed',
+                    deposit_paid: true,
+                    payment_status: 'pending', // Still pending admin verification
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', orderId);

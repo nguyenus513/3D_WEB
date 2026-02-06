@@ -14,7 +14,7 @@ interface Notification {
 }
 
 const typeLabels: Record<string, string> = {
-    ready_made: 'Sáº£n pháº©m',
+    ready_made: 'Sản phẩm',
     custom: 'Custom',
     printing: 'In 3D',
 };
@@ -59,14 +59,14 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         const diffMs = now.getTime() - date.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
-        if (diffMins < 1) return 'Vá»«a xong';
-        if (diffMins < 60) return `${diffMins} phÃºt trÆ°á»›c`;
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
 
         const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours} giá» trÆ°á»›c`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
 
         const diffDays = Math.floor(diffHours / 24);
-        return `${diffDays} ngÃ y trÆ°á»›c`;
+        return `${diffDays} ngày trước`;
     };
 
     const pendingCount = notifications.filter(n => n.status === 'pending').length;
@@ -93,7 +93,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                         </svg>
                         <input
                             type="text"
-                            placeholder="TÃ¬m kiáº¿m..."
+                            placeholder="Tìm kiếm..."
                             className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
                         />
                     </div>
@@ -122,10 +122,10 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                         {showNotifications && (
                             <div className="absolute right-0 mt-2 w-96 bg-[#1D1D1F] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]">
                                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                                    <h3 className="text-white font-semibold">ThÃ´ng bÃ¡o</h3>
+                                    <h3 className="text-white font-semibold">Thông báo</h3>
                                     {pendingCount > 0 && (
                                         <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
-                                            {pendingCount} chá» thanh toÃ¡n
+                                            {pendingCount} chờ thanh toán
                                         </span>
                                     )}
                                 </div>
@@ -136,7 +136,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         </div>
                                     ) : notifications.length === 0 ? (
                                         <div className="p-8 text-center text-white/50">
-                                            KhÃ´ng cÃ³ thÃ´ng bÃ¡o má»›i
+                                            Không có thông báo mới
                                         </div>
                                     ) : (
                                         notifications.map((n) => (
@@ -158,13 +158,13 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                             <span className="text-white text-sm font-medium">{n.order_code}</span>
                                                             <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
                                                                 }`}>
-                                                                {n.status === 'pending' ? 'Chá» TT' : 'ÄÃ£ TT'}
+                                                                {n.status === 'pending' ? 'Chờ TT' : 'Đã TT'}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2 mt-0.5">
                                                             <span className="text-white/50 text-xs">{typeLabels[n.order_type] || n.order_type}</span>
-                                                            <span className="text-white/30">â€¢</span>
-                                                            <span className="text-white/50 text-xs">{Number(n.total).toLocaleString('vi-VN')}Ä‘</span>
+                                                            <span className="text-white/30">•</span>
+                                                            <span className="text-white/50 text-xs">{Number(n.total).toLocaleString('vi-VN')}đ</span>
                                                         </div>
                                                         <p className="text-white/40 text-xs mt-1">{formatTime(n.created_at)}</p>
                                                     </div>
@@ -179,7 +179,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         onClick={() => setShowNotifications(false)}
                                         className="block text-center text-sm text-white/70 hover:text-white transition-colors"
                                     >
-                                        Xem táº¥t cáº£ Ä‘Æ¡n hÃ ng
+                                        Xem tất cả đơn hàng
                                     </Link>
                                 </div>
                             </div>
@@ -190,4 +190,3 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         </header>
     );
 }
-
