@@ -18,7 +18,21 @@
 
 export type FileType = 'main' | 'acc' | 'fdm' | 'resin' | 'review' | 'product';
 
+// NEW: Order-centric storage types (Production-Ready)
+export type OrderFileCategory = 'model' | 'preview' | 'invoice' | 'reference' | 'demo';
 
+export interface OrderCentricKeyParams {
+    orderCode: string;           // Hex order code (e.g., 4A1B9C2D8E3F)
+    fileName: string;            // Original or generated filename
+    category?: OrderFileCategory; // File category for organization
+}
+
+export interface TempStorageKeyParams {
+    sessionId: string;           // Session or upload token
+    fileName: string;            // Original filename
+}
+
+// Legacy types (preserved for backward compatibility)
 export interface StorageKeyParams {
     customerCode: string;       // CUS-001
     timestamp?: string;         // YYYY-MM-DD (auto-generated if not provided)
@@ -89,6 +103,98 @@ export function generateUnifiedKey(params: StorageKeyParams): string {
     }
 
     return `${safeCustomerCode}/${timestamp}/${safeParentCode}/${safeChildCode}-${fileType}.${index}.${safeExt}`;
+}
+
+// =============================================================================
+// NEW: Order-Centric Key Generation (Production-Ready)
+// =============================================================================
+
+/**
+ * Generate order-centric storage key (Privacy-First)
+ *
+ * Path Format: orders/{orderCode}/{fileName}
+ *
+ * Benefits:
+ * - No user ID exposure in URLs
+ * - Professional shareable links
+ * - Easy order-based file grouping
+ *
+ * @example
+ * generateOrderCentricKey({
+ *   orderCode: '4A1B9C2D8E3F',
+ *   fileName: 'model.stl',
+ *   category: 'model'
+ * })
+ * // => 'orders/4A1B9C2D8E3F/model.stl'
+ */
+export function generateOrderCentricKey(params: OrderCentricKeyParams): string {
+    const { orderCode, fileName, category } = params;
+
+    // Sanitize order code (must be valid Hex)
+    const safeOrderCode = orderCode.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    if (safeOrderCode.length < 8) {
+        throw new Error('Invalid order code: must be at least 8 hex characters');
+    }
+
+    // Sanitize filename
+    const safeFileName = sanitizeFileName(fileName);
+
+    // Optional category subfolder
+    if (category) {
+        return `orders/${safeOrderCode}/${category}/${safeFileName}`;
+    }
+
+    return `orders/${safeOrderCode}/${safeFileName}`;
+}
+
+/**
+ * Generate temp storage key for pre-checkout uploads
+ *
+ * Path Format: temp/{sessionId}/{fileName}
+ *
+ * Files in temp/ should be auto-deleted after 24h via R2 lifecycle rules.
+ *
+ * @example
+ * generateTempKey({
+ *   sessionId: 'sess_abc123',
+ *   fileName: 'design.stl'
+ * })
+ * // => 'temp/sess_abc123/design.stl'
+ */
+export function generateTempKey(params: TempStorageKeyParams): string {
+    const { sessionId, fileName } = params;
+
+    const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+    const safeFileName = sanitizeFileName(fileName);
+
+    return `temp/${safeSessionId}/${safeFileName}`;
+}
+
+/**
+ * Get folder path for order-centric storage
+ */
+export function getOrderFolderPath(orderCode: string): string {
+    const safeOrderCode = orderCode.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    return `orders/${safeOrderCode}`;
+}
+
+/**
+ * Sanitize filename to be URL-safe
+ */
+function sanitizeFileName(fileName: string): string {
+    // Extract extension
+    const lastDot = fileName.lastIndexOf('.');
+    const name = lastDot > 0 ? fileName.slice(0, lastDot) : fileName;
+    const ext = lastDot > 0 ? fileName.slice(lastDot + 1).toLowerCase() : '';
+
+    // Sanitize name part
+    const safeName = name
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .slice(0, 100);
+
+    return ext ? `${safeName}.${ext}` : safeName;
 }
 
 /**
