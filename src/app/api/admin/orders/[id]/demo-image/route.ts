@@ -9,12 +9,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache'; // Invalidate Next.js cache
 import { requireAdmin } from '@/lib/security/admin-guard';
-import { requireCsrf } from '@/lib/security/csrf';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, generateReviewR2Key, isR2Configured } from '@/lib/storage/r2';
 import { dbRequest } from '@/lib/db-direct';
-import { trackFileUpload } from '@/lib/security/file-access';
-import { getTodayDate } from '@/lib/storage/order-storage';
 
 export async function POST(
     request: NextRequest,
@@ -24,11 +21,6 @@ export async function POST(
         // Verify admin
         const { authorized, response } = await requireAdmin(request);
         if (!authorized) return response;
-
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
 
         const { id: orderId } = await props.params;
         if (!orderId) {
@@ -41,20 +33,47 @@ export async function POST(
         }
 
         const supabase = getAdminSupabase();
-        let targetTable = 'orders';
+        let targetTable = '';
         let orderCode = '';
 
-        // 1. Try orders table (Unified)
+        // 1. Try orders table
         const { data: order } = await supabase
             .from('orders')
-            .select('id, order_code, user_id, created_at')
+            .select('id, order_code, user_id')
             .eq('id', orderId)
             .maybeSingle();
 
         if (order) {
+            targetTable = 'orders';
             orderCode = order.order_code;
         } else {
-            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+            // 2. Try custom_orders table
+            const { data: customOrder } = await supabase
+                .from('custom_orders')
+                .select('id, order_number, user_id')
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (customOrder) {
+                targetTable = 'custom_orders';
+                orderCode = customOrder.order_number;
+            } else {
+                // 3. Try print_orders table
+                const { data: printOrder } = await supabase
+                    .from('print_orders')
+                    .select('id, order_number, user_id')
+                    .eq('id', orderId)
+                    .maybeSingle();
+
+                if (printOrder) {
+                    targetTable = 'print_orders';
+                    orderCode = printOrder.order_number;
+                }
+            }
+        }
+
+        if (!targetTable) {
+            return NextResponse.json({ error: 'Order not found in any table' }, { status: 404 });
         }
 
         // Parse multipart form data
@@ -78,21 +97,8 @@ export async function POST(
         // Get file extension
         const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
 
-        // Resolve customer code for storage path
-        let customerCode = 'GUEST';
-        if (order.user_id) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('customer_code')
-                .eq('id', order.user_id)
-                .single();
-            if (profile?.customer_code) customerCode = profile.customer_code;
-        }
-
-        const createdDate = order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : getTodayDate();
-
         // Generate R2 key and upload
-        const r2Key = generateReviewR2Key(customerCode, orderCode, 1, ext, createdDate);
+        const r2Key = generateReviewR2Key(orderCode, 1, ext);
         const { url: demoImageUrl } = await uploadToR2(buffer, r2Key, file.type, {
             orderId,
             orderCode: orderCode,
@@ -142,17 +148,6 @@ export async function POST(
             console.log('[DemoUpload] Invalidating cache for:', `/sys_internal/orders/${orderId}`);
             revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
             revalidatePath('/sys_internal/orders', 'page');
-        }
-
-        // Track file in order_files (for archive + access control)
-        if (order.user_id) {
-            await trackFileUpload(r2Key, order.user_id, {
-                orderId,
-                orderCode,
-                fileName: file.name,
-                fileType: 'review',
-                storageProvider: 'r2',
-            });
         }
 
         return NextResponse.json({

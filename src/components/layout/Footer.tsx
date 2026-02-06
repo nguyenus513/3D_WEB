@@ -1,39 +1,24 @@
 import Link from 'next/link';
-import { useUiLabels } from '@/hooks/useUiLabels';
 
-interface FooterLink {
-    name: string;
-    href: string;
-}
-
-interface FooterSection {
-    title: string;
-    links: FooterLink[];
-}
-
-interface FooterLabels {
-    brand?: string;
-    tagline?: string;
-    sections?: {
-        products?: FooterSection;
-        support?: FooterSection;
-        account?: FooterSection;
-    };
-    bottom?: {
-        copyright?: string;
-        links?: FooterLink[];
-    };
-}
+const footerLinks = {
+    products: [
+        { name: 'Sản phẩm có sẵn', href: '/products' },
+        { name: 'Custom theo yêu cầu', href: '/custom' },
+        { name: 'Dịch vụ in 3D', href: '/printing' },
+    ],
+    support: [
+        { name: 'FAQ', href: '/faq' },
+        { name: 'Liên hệ', href: '/about' },
+        { name: 'Chính sách đổi trả', href: '/policy' },
+    ],
+    account: [
+        { name: 'Tài khoản', href: '/account' },
+        { name: 'Đơn hàng của tôi', href: '/account/orders' },
+        { name: 'Giỏ hàng', href: '/cart' },
+    ],
+};
 
 export function Footer() {
-    const { t } = useUiLabels(['public.footer', 'common']);
-    const footer = t<FooterLabels>('footer', {}) as FooterLabels;
-
-    const productsSection = footer.sections?.products;
-    const supportSection = footer.sections?.support;
-    const accountSection = footer.sections?.account;
-    const bottomLinks = footer.bottom?.links || [];
-
     return (
         <footer
             className="relative backdrop-blur-xl border-t border-white/10"
@@ -46,18 +31,18 @@ export function Footer() {
                     {/* Brand */}
                     <div className="space-y-4">
                         <Link href="/" className="text-xl font-semibold text-white">
-                            {footer.brand}
+                            Miniver 3D Lab
                         </Link>
                         <p className="text-sm text-[#A1A1A6]">
-                            {footer.tagline}
+                            Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu.
                         </p>
                     </div>
 
                     {/* Products */}
                     <div>
-                        <h3 className="text-sm font-semibold text-white mb-4">{productsSection?.title}</h3>
+                        <h3 className="text-sm font-semibold text-white mb-4">Sản phẩm</h3>
                         <ul className="space-y-3">
-                            {(productsSection?.links || []).map((link) => (
+                            {footerLinks.products.map((link) => (
                                 <li key={link.name}>
                                     <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
                                         {link.name}
@@ -69,9 +54,9 @@ export function Footer() {
 
                     {/* Support */}
                     <div>
-                        <h3 className="text-sm font-semibold text-white mb-4">{supportSection?.title}</h3>
+                        <h3 className="text-sm font-semibold text-white mb-4">Hỗ trợ</h3>
                         <ul className="space-y-3">
-                            {(supportSection?.links || []).map((link) => (
+                            {footerLinks.support.map((link) => (
                                 <li key={link.name}>
                                     <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
                                         {link.name}
@@ -83,9 +68,9 @@ export function Footer() {
 
                     {/* Account */}
                     <div>
-                        <h3 className="text-sm font-semibold text-white mb-4">{accountSection?.title}</h3>
+                        <h3 className="text-sm font-semibold text-white mb-4">Tài khoản</h3>
                         <ul className="space-y-3">
-                            {(accountSection?.links || []).map((link) => (
+                            {footerLinks.account.map((link) => (
                                 <li key={link.name}>
                                     <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
                                         {link.name}
@@ -100,14 +85,15 @@ export function Footer() {
                 <div className="mt-12 pt-8 border-t border-white/[0.08]">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                         <p className="text-xs text-[#6E6E73]">
-                            {footer.bottom?.copyright}
+                            Copyright © 2026 Miniver 3D Lab. All rights reserved.
                         </p>
                         <div className="flex items-center gap-6">
-                            {bottomLinks.map((link) => (
-                                <Link key={link.name} href={link.href} className="text-xs text-[#6E6E73] hover:text-white transition-colors">
-                                    {link.name}
-                                </Link>
-                            ))}
+                            <Link href="/privacy" className="text-xs text-[#6E6E73] hover:text-white transition-colors">
+                                Chính sách bảo mật
+                            </Link>
+                            <Link href="/terms" className="text-xs text-[#6E6E73] hover:text-white transition-colors">
+                                Điều khoản sử dụng
+                            </Link>
                         </div>
                     </div>
                 </div>

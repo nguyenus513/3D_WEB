@@ -6,32 +6,11 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import Link from 'next/link';
 import { getSupabase } from '@/lib/supabase/client';
 import type { FAQ } from '@/types/database';
-import { useContent } from '@/hooks/useContent';
-import { useUiLabels } from '@/hooks/useUiLabels';
-
-interface HeaderBlockData {
-    kicker?: string;
-    title?: string;
-    subtitle?: string;
-}
-
-interface CtaBlockData {
-    title?: string;
-    subtitle?: string;
-    primaryLabel?: string;
-    primaryHref?: string;
-}
 
 export default function FAQPage() {
     const [faqs, setFaqs] = useState<FAQ[]>([]);
     const [loading, setLoading] = useState(true);
     const [openIndex, setOpenIndex] = useState<number | null>(0);
-    const { getBlock } = useContent('faq');
-    const { t } = useUiLabels(['public.faq', 'common']);
-
-    const header = (getBlock('header')?.data ?? {}) as HeaderBlockData;
-    const cta = (getBlock('cta')?.data ?? {}) as CtaBlockData;
-    const emptyLabel = t('empty', '') as string;
 
     useEffect(() => {
         fetchFaqs();
@@ -51,19 +30,30 @@ export default function FAQPage() {
         setLoading(false);
     };
 
+    // Fallback FAQs if none in database
+    const defaultFaqs = [
+        { id: '1', question: 'Thời gian sản xuất mất bao lâu?', answer: 'Thời gian sản xuất thông thường từ 5-7 ngày làm việc đối với sản phẩm có sẵn, và 7-14 ngày với đơn hàng custom.' },
+        { id: '2', question: 'Tôi cần chuẩn bị gì để đặt hàng custom?', answer: 'Bạn chỉ cần upload ảnh chất lượng cao (tối thiểu 1-2 ảnh rõ mặt).' },
+        { id: '3', question: 'Chính sách đổi trả như thế nào?', answer: 'Chúng tôi hỗ trợ đổi trả trong vòng 7 ngày nếu sản phẩm bị lỗi do sản xuất.' },
+        { id: '4', question: 'Hình thức thanh toán nào được chấp nhận?', answer: 'Chúng tôi chấp nhận chuyển khoản ngân hàng qua mã QR VietQR. Đặt cọc 50% khi đặt hàng.' },
+        { id: '5', question: 'Có giao hàng toàn quốc không?', answer: 'Có, chúng tôi giao hàng toàn quốc qua các đơn vị vận chuyển uy tín.' },
+    ];
+
+    const displayFaqs = faqs.length > 0 ? faqs : defaultFaqs;
+
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
             <div className="max-w-[800px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-12">
                     <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
-                        {header.kicker}
+                        Hỗ Trợ
                     </span>
                     <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-                        {header.title}
+                        Câu Hỏi Thường Gặp
                     </h1>
                     <p className="text-white/50">
-                        {header.subtitle}
+                        Giải đáp các thắc mắc phổ biến về dịch vụ của chúng tôi
                     </p>
                 </AnimatedSection>
 
@@ -75,9 +65,9 @@ export default function FAQPage() {
                 )}
 
                 {/* FAQ Accordion */}
-                {!loading && faqs.length > 0 && (
+                {!loading && (
                     <div className="space-y-4">
-                        {faqs.map((faq, index) => (
+                        {displayFaqs.map((faq, index) => (
                             <AnimatedSection key={faq.id} delay={index * 0.05}>
                                 <div className="bg-white/5 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/10">
                                     <button
@@ -113,27 +103,21 @@ export default function FAQPage() {
                     </div>
                 )}
 
-                {!loading && faqs.length === 0 && (
-                    <div className="text-center py-12 text-white/50">
-                        {emptyLabel}
-                    </div>
-                )}
-
                 {/* Contact CTA */}
                 <AnimatedSection delay={0.4} className="mt-16 text-center">
                     <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-white/10">
                         <h2 className="text-2xl font-semibold text-white mb-4">
-                            {cta.title}
+                            Không tìm thấy câu trả lời?
                         </h2>
                         <p className="text-white/50 mb-6">
-                            {cta.subtitle}
+                            Liên hệ trực tiếp với chúng tôi để được hỗ trợ nhanh nhất
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                             <Link
-                                href={cta.primaryHref || '/about'}
+                                href="/about"
                                 className="px-8 py-4 rounded-full bg-white text-black font-medium hover:scale-105 transition-transform"
                             >
-                                {cta.primaryLabel}
+                                Liên hệ ngay
                             </Link>
                         </div>
                     </div>

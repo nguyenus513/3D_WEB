@@ -30,26 +30,20 @@ export async function GET(request: Request) {
 
         const supabase = getAdminSupabase();
 
-        // Fetch from UNIFIED orders table
-        // We fetch a bit more data (whole year usually) to calculate charts
-        // Optimally we could filter by date range in SQL, but for small volume fetching all orders is okay
-        // Let's filter by year at least to be slightly optimized
-        const startOfYear = `${year}-01-01T00:00:00.000Z`;
-        const endOfYear = `${year}-12-31T23:59:59.999Z`;
+        // Fetch from ALL order tables in parallel
+        const [ordersRes, customRes, printRes] = await Promise.all([
+            supabase.from('orders').select('*').order('created_at', { ascending: false }),
+            supabase.from('custom_orders').select('*').order('created_at', { ascending: false }),
+            supabase.from('print_orders').select('*').order('created_at', { ascending: false }),
+        ]);
 
-        const { data: orders, error } = await supabase
-            .from('orders')
-            .select('*')
-            .gte('created_at', startOfYear)
-            .lte('created_at', endOfYear)
-            .order('created_at', { ascending: false });
+        if (ordersRes.error) console.error('Error fetching orders:', ordersRes.error);
+        if (customRes.error) console.error('Error fetching custom_orders:', customRes.error);
+        if (printRes.error) console.error('Error fetching print_orders:', printRes.error);
 
-        if (error) {
-            console.error('Error fetching orders:', error);
-            return NextResponse.json({ error: 'Database error' }, { status: 500 });
-        }
-
-        const allOrders = orders || [];
+        const orders = ordersRes.data || [];
+        const customOrders = customRes.data || [];
+        const printOrders = printRes.data || [];
 
         // Helper to check if date is in target month
         const isInMonth = (dateStr: string, m: number, y: number) => {
@@ -57,7 +51,7 @@ export async function GET(request: Request) {
             return d.getMonth() + 1 === m && d.getFullYear() === y;
         };
 
-        // Calculate revenue for selected month
+        // Calculate revenue for selected month from ALL tables
         const calculateMonthRevenue = (m: number, y: number): MonthlyData => {
             let depositRevenue = 0;
             let deliveredRevenue = 0;
@@ -65,27 +59,42 @@ export async function GET(request: Request) {
             let pendingCount = 0;
             let orderCount = 0;
 
-            allOrders.filter((o: any) => isInMonth(o.created_at, m, y)).forEach((o: any) => {
+            // 1. Legacy orders table
+            orders.filter(o => isInMonth(o.created_at, m, y)).forEach((o: any) => {
                 orderCount++;
-                const total = Number(o.total_amount || 0);
-                const deposit = Number(o.deposit_amount || 0);
-                const isDepositPaid = o.payment_status === 'paid' || o.status !== 'pending';
+                if (o.status === 'delivered') {
+                    deliveredRevenue += Number(o.total_amount || o.total || 0);
+                    deliveredCount++;
+                } else if (o.deposit_paid && !['pending', 'cancelled'].includes(o.status)) {
+                    depositRevenue += Number(o.deposit_amount) || Number(o.total_amount || o.total || 0) * 0.5;
+                    pendingCount++;
+                }
+            });
 
+            // 2. Custom orders table
+            customOrders.filter(o => isInMonth(o.created_at, m, y)).forEach((o: any) => {
+                orderCount++;
+                const total = Number(o.total || o.estimated_price || 0);
                 if (o.status === 'delivered') {
                     deliveredRevenue += total;
                     deliveredCount++;
-                } else if (isDepositPaid && !['pending', 'cancelled', 'payment_failed'].includes(o.status)) {
-                    // Count revenue based on deposit
-                    // If deposit_amount is set, use it. Else estimate based on type.
-                    if (deposit > 0) {
-                        depositRevenue += deposit;
-                    } else {
-                        // Fallback estimation if deposit_amount missing
-                        if (o.order_type === 'custom') depositRevenue += total * 0.5;
-                        else if (o.order_type === 'printing') depositRevenue += total; // Usually full prepaid?
-                        else if (o.order_type === 'ready_made') depositRevenue += total; // Usually full prepaid
-                        else depositRevenue += total * 0.5;
-                    }
+                } else if (['confirmed', 'processing', 'designing', 'review', 'approved', 'producing', 'shipping'].includes(o.status)) {
+                    // Assume 50% deposit for confirmed custom orders
+                    depositRevenue += total * 0.5;
+                    pendingCount++;
+                }
+            });
+
+            // 3. Print orders table
+            printOrders.filter(o => isInMonth(o.created_at, m, y)).forEach((o: any) => {
+                orderCount++;
+                const total = Number(o.total_price || 0);
+                if (o.status === 'delivered') {
+                    deliveredRevenue += total;
+                    deliveredCount++;
+                } else if (['confirmed', 'processing', 'printing', 'shipping'].includes(o.status)) {
+                    // Print orders are usually paid in full upfront
+                    depositRevenue += total;
                     pendingCount++;
                 }
             });
@@ -105,26 +114,21 @@ export async function GET(request: Request) {
         // Current month data
         const currentMonth = calculateMonthRevenue(month, year);
 
-        // Previous month calculation (Might need to fetch prev year if Jan)
-        // Note: The main query above filters by ONE year. So strict prev month calc across year boundary might be inaccurate here.
-        // Quick fix: if prev month is in prev year, we return 0 or do separate fetch. 
-        // For simplicity in this refactor, we accept 0 for prev year boundary or separate fetch.
-        // Let's keep it simple: if prev year, simplistic 0 to avoid complexity, or fetch if needed.
-        // Actually, let's fetch strictly needed range or just fetch everything (simplest for Admin dashboard usually).
-        // For now, assume single year view or 0 for prev year crossing.
-
-        // Use simplistic approaches for now:
-        let previousMonth = { totalRevenue: 0 } as MonthlyData;
-        if (month > 1) {
-            previousMonth = calculateMonthRevenue(month - 1, year);
+        // Previous month data for comparison
+        let prevMonth = month - 1;
+        let prevYear = year;
+        if (prevMonth === 0) {
+            prevMonth = 12;
+            prevYear = year - 1;
         }
+        const previousMonth = calculateMonthRevenue(prevMonth, prevYear);
 
         // Percentage change
         const percentChange = previousMonth.totalRevenue > 0
             ? ((currentMonth.totalRevenue - previousMonth.totalRevenue) / previousMonth.totalRevenue) * 100
             : currentMonth.totalRevenue > 0 ? 100 : 0;
 
-        // Yearly data
+        // Yearly data for chart (all 12 months)
         const yearlyData = [];
         for (let m = 1; m <= 12; m++) {
             const monthData = calculateMonthRevenue(m, year);
@@ -136,55 +140,92 @@ export async function GET(request: Request) {
             });
         }
 
-        // Gather user IDs for profile lookup
-        const userIds = Array.from(new Set(allOrders.map((o: any) => o.user_id).filter(Boolean)));
-        let profileMap = new Map<string, string>();
+        // Gather all user IDs for profile lookup
+        const allUserIds = new Set([
+            ...orders.map((o: any) => o.user_id),
+            ...customOrders.map((o: any) => o.user_id),
+            ...printOrders.map((o: any) => o.user_id),
+        ].filter(Boolean));
 
-        if (userIds.length > 0) {
+        let profileMap = new Map<string, string>();
+        if (allUserIds.size > 0) {
             const { data: profiles } = await supabase
                 .from('profiles')
                 .select('id, full_name')
-                .in('id', userIds);
+                .in('id', Array.from(allUserIds));
             if (profiles) {
                 profiles.forEach((p: any) => profileMap.set(p.id, p.full_name));
             }
         }
 
-        // Recent orders list (Unified)
-        const monthOrdersRaw = allOrders.filter((o: any) => isInMonth(o.created_at, month, year));
+        // Merge and transform orders for detailed list (top 20)
+        const allOrdersThisMonth = [
+            ...orders.filter((o: any) => isInMonth(o.created_at, month, year)).map((o: any) => ({
+                id: o.id,
+                order_code: o.order_code,
+                total: Number(o.total_amount || o.total || 0),
+                deposit_amount: Number(o.deposit_amount || 0),
+                status: o.status,
+                user_id: o.user_id,
+                shipping_address: o.shipping_address_snapshot,
+                created_at: o.created_at,
+                order_type: 'ready_made',
+            })),
+            ...customOrders.filter((o: any) => isInMonth(o.created_at, month, year)).map((o: any) => ({
+                id: o.id,
+                order_code: o.order_number || o.order_code || o.id.slice(0, 8),
+                total: Number(o.total || o.estimated_price || 0),
+                deposit_amount: Number(o.total || o.estimated_price || 0) * 0.5,
+                status: o.status,
+                user_id: o.user_id,
+                shipping_address: o.shipping_address,
+                created_at: o.created_at,
+                order_type: 'custom',
+            })),
+            ...printOrders.filter((o: any) => isInMonth(o.created_at, month, year)).map((o: any) => ({
+                id: o.id,
+                order_code: o.order_number || o.id.slice(0, 8),
+                total: Number(o.total_price || 0),
+                deposit_amount: Number(o.total_price || 0),
+                status: o.status,
+                user_id: o.user_id,
+                shipping_address: o.shipping_address,
+                created_at: o.created_at,
+                order_type: 'printing',
+            })),
+        ];
 
-        const monthOrders = monthOrdersRaw
-            .filter((o: any) => o.status === 'delivered' || !['pending', 'cancelled'].includes(o.status))
-            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // Sort by created_at DESC, filter to revenue-generating, take 20
+        const monthOrders = allOrdersThisMonth
+            .filter(o => o.status === 'delivered' || !['pending', 'cancelled'].includes(o.status))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 20)
-            .map((o: any) => {
-                let shippingAddr = o.shipping_address_snapshot;
+            .map(o => {
+                let shippingAddr = o.shipping_address;
                 if (typeof shippingAddr === 'string') {
                     try { shippingAddr = JSON.parse(shippingAddr); } catch { shippingAddr = null; }
                 }
-
                 const customerName =
                     (o.user_id && profileMap.get(o.user_id)) ||
                     (shippingAddr && typeof shippingAddr === 'object' && (shippingAddr as any)?.full_name) ||
                     'Khách';
-
                 return {
                     id: o.id,
                     order_code: o.order_code,
-                    total: Number(o.total_amount || 0),
-                    deposit_amount: Number(o.deposit_amount || 0),
+                    total: o.total,
+                    deposit_amount: o.deposit_amount,
                     status: o.status,
                     customer_name: customerName,
                     created_at: o.created_at,
-                    order_type: o.order_type || 'ready_made',
+                    order_type: o.order_type,
                 };
             });
 
         return NextResponse.json({
             currentMonth,
             previousMonth: {
-                month: month - 1,
-                year: year,
+                month: prevMonth,
+                year: prevYear,
                 totalRevenue: previousMonth.totalRevenue,
             },
             percentChange: Math.round(percentChange * 10) / 10,

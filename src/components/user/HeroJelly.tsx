@@ -8,18 +8,6 @@ import { motion } from 'framer-motion';
 import { TextReveal } from '../ui/Animations';
 import Link from 'next/link';
 
-interface HeroJellyData {
-    pretitle?: string;
-    title?: string;
-    highlight?: string;
-    subtitle?: string;
-    primaryLabel?: string;
-    primaryHref?: string;
-    secondaryLabel?: string;
-    secondaryHref?: string;
-    scrollLabel?: string;
-}
-
 // Velocity tracking hook
 function useScrollVelocity() {
     const velocity = useRef(0);
@@ -164,19 +152,7 @@ function Scene() {
     );
 }
 
-export function HeroJelly({ data }: { data?: HeroJellyData }) {
-    const {
-        pretitle = '',
-        title = '',
-        highlight = '',
-        subtitle = '',
-        primaryLabel = '',
-        primaryHref = '/products',
-        secondaryLabel = '',
-        secondaryHref = '/custom',
-        scrollLabel = '',
-    } = data ?? {};
-
+export function HeroJelly() {
     return (
         <section className="relative min-h-screen w-full overflow-hidden bg-[#0a0a0a]">
             {/* 3D Canvas */}
@@ -209,14 +185,14 @@ export function HeroJelly({ data }: { data?: HeroJellyData }) {
                         transition={{ duration: 0.8, delay: 0.3 }}
                         className="text-sm md:text-base text-white/50 font-medium tracking-widest uppercase mb-6"
                     >
-                        {pretitle}
+                        Miniver 3D Lab
                     </motion.p>
 
                     {/* Main Title */}
                     <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1.2] tracking-[-0.04em] text-white mb-8 whitespace-nowrap">
-                        <TextReveal text={`${title} `} delay={0.4} />
+                        <TextReveal text="Sản Phẩm " delay={0.4} />
                         <span className="text-white/70">
-                            <TextReveal text={highlight} delay={0.7} />
+                            <TextReveal text="Độc Đáo" delay={0.7} />
                         </span>
                     </h1>
 
@@ -227,7 +203,7 @@ export function HeroJelly({ data }: { data?: HeroJellyData }) {
                         transition={{ duration: 0.8, delay: 1 }}
                         className="text-lg md:text-xl text-white/50 mb-12 max-w-lg mx-auto"
                     >
-                        {subtitle}
+                        Chế tác thủ công tỉ mỉ • Cá nhân hóa hoàn toàn • Chất lượng cao cấp
                     </motion.p>
 
                     {/* CTAs */}
@@ -238,23 +214,23 @@ export function HeroJelly({ data }: { data?: HeroJellyData }) {
                         className="flex flex-col sm:flex-row items-center justify-center gap-4"
                     >
                         <Link
-                            href={primaryHref}
+                            href="/products"
                             className="group px-8 py-4 rounded-full bg-white text-[#0a0a0a] font-medium text-base hover:scale-105 transition-all flex items-center gap-2"
                             data-cursor
                             data-cursor-text="View"
                         >
-                            {primaryLabel}
+                            Khám phá ngay
                             <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                             </svg>
                         </Link>
                         <Link
-                            href={secondaryHref}
+                            href="/custom"
                             className="px-8 py-4 rounded-full border border-white/20 text-white font-medium text-base hover:bg-white/10 transition-all"
                             data-cursor
                             data-cursor-text="Custom"
                         >
-                            {secondaryLabel}
+                            Tạo riêng cho bạn
                         </Link>
                     </motion.div>
                 </motion.div>
@@ -271,7 +247,7 @@ export function HeroJelly({ data }: { data?: HeroJellyData }) {
                         transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
                         className="flex flex-col items-center gap-2 text-white/30"
                     >
-                        <span className="text-[10px] uppercase tracking-[0.2em]">{scrollLabel}</span>
+                        <span className="text-[10px] uppercase tracking-[0.2em]">Scroll</span>
                         <div className="w-5 h-8 rounded-full border border-white/30 flex justify-center pt-2">
                             <motion.div
                                 animate={{ y: [0, 8, 0], opacity: [1, 0, 1] }}

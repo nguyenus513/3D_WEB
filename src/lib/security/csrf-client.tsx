@@ -29,23 +29,10 @@ export function CsrfProvider({ children, initialToken }: CsrfProviderProps) {
     const [token, setToken] = useState<string | null>(initialToken || null);
     const [isLoading, setIsLoading] = useState(!initialToken);
 
-    const syncMetaToken = (value: string | null) => {
-        if (typeof document === 'undefined') return;
-        const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
-        if (meta) {
-            meta.content = value || '';
-        } else {
-            const newMeta = document.createElement('meta');
-            newMeta.name = 'csrf-token';
-            newMeta.content = value || '';
-            document.head.appendChild(newMeta);
-        }
-    };
-
     const fetchToken = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch('/api/security/csrf', {
+            const response = await fetch('/api/auth/csrf', {
                 method: 'GET',
                 credentials: 'include',
             });
@@ -53,7 +40,6 @@ export function CsrfProvider({ children, initialToken }: CsrfProviderProps) {
             if (response.ok) {
                 const data = await response.json();
                 setToken(data.token);
-                syncMetaToken(data.token);
             }
         } catch (error) {
             console.error('Failed to fetch CSRF token:', error);
@@ -65,8 +51,6 @@ export function CsrfProvider({ children, initialToken }: CsrfProviderProps) {
     useEffect(() => {
         if (!initialToken) {
             fetchToken();
-        } else {
-            syncMetaToken(initialToken);
         }
     }, [initialToken]);
 

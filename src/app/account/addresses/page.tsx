@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface Address {
     id: string;
@@ -135,10 +134,7 @@ export default function AccountAddressesPage() {
         if (!confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
 
         try {
-            await fetch(`/api/addresses?id=${id}`, {
-                method: 'DELETE',
-                headers: addCsrfToRequest(),
-            });
+            await fetch(`/api/addresses?id=${id}`, { method: 'DELETE' });
             setAddresses(addresses.filter(a => a.id !== id));
         } catch (error) {
             console.error('Delete error:', error);
@@ -182,7 +178,7 @@ export default function AccountAddressesPage() {
             if (editingId) {
                 const res = await fetch('/api/addresses', {
                     method: 'PUT',
-                    headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: editingId, ...payload }),
                 });
 
@@ -193,7 +189,7 @@ export default function AccountAddressesPage() {
             } else {
                 const res = await fetch('/api/addresses', {
                     method: 'POST',
-                    headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...payload,
                         // First address is always default, otherwise use checkbox value

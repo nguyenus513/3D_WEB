@@ -69,6 +69,7 @@ function LoginForm() {
             }
 
             if (result?.ok) {
+                console.log('[LOGIN DEBUG] SignIn successful, checking session...');
 
                 // Fetch user session to check role - FORCE NO CACHE
                 const sessionRes = await fetch('/api/auth/session', {
@@ -80,15 +81,18 @@ function LoginForm() {
                 });
 
                 const session = await sessionRes.json();
+                console.log('[LOGIN DEBUG] Session role:', session?.user?.role);
 
                 // If user is admin, redirect to admin panel
                 if (session?.user?.role === 'admin') {
+                    console.log('[LOGIN DEBUG] Admin detected, redirecting to /sys_internal');
                     window.location.href = '/sys_internal';
                     return;
                 }
 
                 // Regular users go to callback URL or account page
                 // Use window.location for hard redirect to ensure session is synced
+                console.log('[LOGIN DEBUG] User detected, redirecting to:', callbackUrl);
                 window.location.href = callbackUrl;
             }
         } catch {

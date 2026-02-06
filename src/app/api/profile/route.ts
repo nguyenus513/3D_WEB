@@ -8,7 +8,6 @@
 
 import { NextRequest } from 'next/server';
 import { profileController } from '@/controllers/ProfileController';
-import { requireCsrf } from '@/lib/security/csrf';
 
 /**
  * GET /api/profile
@@ -23,11 +22,6 @@ export async function GET() {
  * Update or create profile
  */
 export async function PUT(request: NextRequest) {
-    const csrf = await requireCsrf(request);
-    if (!csrf.valid) {
-        return csrf.error!;
-    }
-
     return profileController.updateProfile(request);
 }
 

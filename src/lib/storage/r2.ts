@@ -15,7 +15,6 @@ import {
     HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { buildOrderStorageKey, type OrderFileCategory, getTodayDate } from '@/lib/storage/order-storage';
 
 // R2 Configuration
 const R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -119,27 +118,18 @@ export function generateR2Key(
  * Format: orders/{orderCode}/{orderCode}-{x}.{y}.{z}.{ext}
  */
 export function generateCustomR2Key(
-    customerCode: string,
     orderCode: string,
     customType: 'single' | 'couple' | 'group',
     personCount: number,
     photoCategory: 'main' | 'accessory',
     photoIndex: number,
-    extension: string,
-    date: string = getTodayDate()
+    extension: string
 ): string {
     const x = customType === 'single' ? 1 : customType === 'couple' ? 2 : Math.max(3, personCount);
     const y = photoCategory === 'main' ? 1 : 2;
     const ext = extension.startsWith('.') ? extension.slice(1) : extension;
     const fileName = `${orderCode}-${x}.${y}.${photoIndex}.${ext}`;
-    const category: OrderFileCategory = photoCategory === 'accessory' ? 'custom_accessory' : 'custom_main';
-    return buildOrderStorageKey({
-        customerCode,
-        orderCode,
-        category,
-        fileName,
-        date,
-    });
+    return `orders/${orderCode}/${fileName}`;
 }
 
 /**
@@ -148,39 +138,26 @@ export function generateCustomR2Key(
  * FDM: orders/{orderCode}/{orderCode}-2.{n}.{p}.{q}.{r}.{ext}
  */
 export function generatePrintingR2Key(
-    customerCode: string,
     orderCode: string,
     tech: 'resin' | 'fdm',
     fileIndex: number,
     infill?: number,      // 15, 20, 30, 50
     layerHeight?: string, // '0.2', '0.12', '0.08'
     color?: 'white' | 'black' | 'transparent',
-    extension: string = 'stl',
-    date: string = getTodayDate()
+    extension: string = 'stl'
 ): string {
     const ext = extension.startsWith('.') ? extension.slice(1) : extension;
+
     if (tech === 'resin') {
         const fileName = `${orderCode}-1.${fileIndex}.${ext}`;
-        return buildOrderStorageKey({
-            customerCode,
-            orderCode,
-            category: 'printing_resin',
-            fileName,
-            date,
-        });
+        return `orders/${orderCode}/${fileName}`;
+    } else {
+        const p = infill || 20;
+        const q = layerHeight === '0.12' ? '12' : layerHeight === '0.08' ? '08' : '20';
+        const r = color === 'black' ? 2 : color === 'transparent' ? 3 : 1;
+        const fileName = `${orderCode}-2.${fileIndex}.${p}.${q}.${r}.${ext}`;
+        return `orders/${orderCode}/${fileName}`;
     }
-
-    const p = infill || 20;
-    const q = layerHeight === '0.12' ? '12' : layerHeight === '0.08' ? '08' : '20';
-    const r = color === 'black' ? 2 : color === 'transparent' ? 3 : 1;
-    const fileName = `${orderCode}-2.${fileIndex}.${p}.${q}.${r}.${ext}`;
-    return buildOrderStorageKey({
-        customerCode,
-        orderCode,
-        category: 'printing_fdm',
-        fileName,
-        date,
-    });
 }
 
 /**
@@ -188,21 +165,13 @@ export function generatePrintingR2Key(
  * Format: orders/{orderCode}/{orderCode}-0.{index}.{ext}
  */
 export function generateReviewR2Key(
-    customerCode: string,
     orderCode: string,
     index: number,
-    extension: string,
-    date: string = getTodayDate()
+    extension: string
 ): string {
     const ext = extension.startsWith('.') ? extension.slice(1) : extension;
     const fileName = `${orderCode}-0.${index}.${ext}`;
-    return buildOrderStorageKey({
-        customerCode,
-        orderCode,
-        category: 'review',
-        fileName,
-        date,
-    });
+    return `orders/${orderCode}/${fileName}`;
 }
 
 /**

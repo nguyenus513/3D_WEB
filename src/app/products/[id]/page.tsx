@@ -8,7 +8,6 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { getSupabase } from '@/lib/supabase/client';
 import { useCartStore } from '@/lib/store/cart';
 import type { Product } from '@/types/database';
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 export default function ProductDetailPage() {
     const params = useParams();
@@ -40,10 +39,10 @@ export default function ProductDetailPage() {
             const attemptPayment = async (): Promise<{ success: boolean; data?: any; error?: any }> => {
                 const res = await fetch('/api/payments/direct', {
                     method: 'POST',
-                    headers: addCsrfToRequest({
+                    headers: {
                         'Content-Type': 'application/json',
                         'Idempotency-Key': idempotencyKey,
-                    }),
+                    },
                     body: JSON.stringify({
                         productId: product.id,
                         productName: product.name,
@@ -53,7 +52,7 @@ export default function ProductDetailPage() {
                         metadata: {
                             size: size?.name || 'Default',
                             sku: product.sku,
-                            image: typeof product.images?.[0] === 'string' ? product.images[0] : '', // Direct string
+                            image: product.images?.[0], // Direct string
                         },
                     }),
                 });
@@ -67,6 +66,7 @@ export default function ProductDetailPage() {
             while (!result.success && retryCount < maxRetries) {
                 retryCount++;
                 const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
+                console.log(`Payment retry ${retryCount}/${maxRetries} in ${delay}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 result = await attemptPayment();
             }
@@ -129,12 +129,9 @@ export default function ProductDetailPage() {
         // Actually component lines 185: product.images?.[0]?.url 
         // We should probably patch the component to handle string[] or map it here.
         // Let's map it here for minimal component disruption:
-        const imagesAdapted = (data.images || []).map((img: string | { url: string; web_view_link?: string }) => {
-            if (typeof img === 'string') {
-                return img.includes('[object Object]') ? '' : img;
-            }
-            return img.url || img.web_view_link || '';
-        }).filter(Boolean);
+        const imagesAdapted = (data.images || []).map((img: string | { url: string }) =>
+            typeof img === 'string' ? { url: img } : img
+        );
 
         setProduct({ ...adaptedProduct, images: imagesAdapted as any });
         setLoading(false);

@@ -1,17 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { isDriveConnected, disconnectDrive, getDriveStatus } from '@/lib/google-drive-oauth';
-import { requireAdmin } from '@/lib/security/admin-guard';
-import { requireCsrf } from '@/lib/security/csrf';
 
 /**
  * GET /api/drive/status
  * Check if Google Drive is connected
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
-        const { authorized, response } = await requireAdmin(request);
-        if (!authorized) return response!;
-
         const status = await getDriveStatus();
         return NextResponse.json(status);
     } catch (error) {
@@ -23,16 +18,8 @@ export async function GET(request: NextRequest) {
  * DELETE /api/drive/status
  * Disconnect Google Drive
  */
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
     try {
-        const { authorized, response } = await requireAdmin(request);
-        if (!authorized) return response!;
-
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
         await disconnectDrive();
         return NextResponse.json({ success: true });
     } catch (error) {

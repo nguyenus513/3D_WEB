@@ -1,17 +1,18 @@
-﻿/**
+/**
  * Single Order Lookup API
  * GET /api/orders/lookup?id=xxx
- *
- * Searches unified orders table for a specific order
- * Used by checkout success page to display payment info
+ * 
+ * Searches across all order tables to find a specific order
+ * Used by checkout success page to display QR
+ * Uses DIRECT PostgreSQL for status/demo_image_url to bypass REST API cache
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
 import { getProfileId } from '@/lib/utils/getProfileId';
-import { getPaymentSetup } from '@/lib/services/paymentConfigService';
-import { parseOrderStorageKey } from '@/lib/storage/order-storage';
+import { getBankConfig } from '@/lib/vietqr';
+import { dbRequest } from '@/lib/db-direct';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -38,177 +39,252 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
         }
 
-        // Unified Query: single table source of truth
-        const query = supabaseAdmin
-            .from('orders')
-            .select('*, order_items(*)')
-            .eq('user_id', userId);
+        console.log('[OrderLookup] Searching for order:', orderId, 'user:', userId);
 
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-        if (isUUID) {
-            query.eq('id', orderId);
-        } else {
-            query.eq('order_code', orderId);
+        // Search across all order tables
+        let order = null;
+        let orderType: 'ready_made' | 'custom' | 'printing' = 'ready_made';
+
+        // 1a. Try custom_orders by order_number
+        const { data: customByNumber } = await supabaseAdmin
+            .from('custom_orders')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('order_number', orderId)
+            .maybeSingle();
+
+        if (customByNumber) {
+            order = customByNumber;
+            orderType = 'custom';
+            console.log('[OrderLookup] Found in custom_orders by order_number');
         }
 
-        const { data: foundOrder, error } = await query.maybeSingle();
+        // 1b. Try custom_orders by order_code
+        if (!order) {
+            const { data: customByCode } = await supabaseAdmin
+                .from('custom_orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('order_code', orderId)
+                .maybeSingle();
 
-        if (error) {
-            console.error('[OrderLookup] DB Error:', error);
-            return NextResponse.json({ error: 'Database error' }, { status: 500 });
+            if (customByCode) {
+                order = customByCode;
+                orderType = 'custom';
+                console.log('[OrderLookup] Found in custom_orders by order_code');
+            }
         }
 
-        if (!foundOrder) {
+        // 1c. Try custom_orders by id (UUID)
+        if (!order) {
+            const { data: customById } = await supabaseAdmin
+                .from('custom_orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (customById) {
+                order = customById;
+                orderType = 'custom';
+                console.log('[OrderLookup] Found in custom_orders by id');
+            }
+        }
+
+        // 2a. Try print_orders by order_number
+        if (!order) {
+            const { data: printOrder } = await supabaseAdmin
+                .from('print_orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('order_number', orderId)
+                .maybeSingle();
+
+            if (printOrder) {
+                order = printOrder;
+                orderType = 'printing';
+                console.log('[OrderLookup] Found in print_orders by order_number');
+            }
+        }
+
+        // 2b. Try print_orders by id (UUID)
+        if (!order) {
+            const { data: printById } = await supabaseAdmin
+                .from('print_orders')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (printById) {
+                order = printById;
+                orderType = 'printing';
+                console.log('[OrderLookup] Found in print_orders by id');
+            }
+        }
+
+        // 3a. Try orders table by order_code
+        if (!order) {
+            const { data: readyMadeOrder } = await supabaseAdmin
+                .from('orders')
+                .select('*, items:order_items(*)')
+                .eq('user_id', userId)
+                .eq('order_code', orderId)
+                .maybeSingle();
+
+            if (readyMadeOrder) {
+                order = readyMadeOrder;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in orders by order_code');
+            }
+        }
+
+        // 3b. Try orders table by id (UUID)
+        if (!order) {
+            const { data: ordersById } = await supabaseAdmin
+                .from('orders')
+                .select('*, items:order_items(*)')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (ordersById) {
+                order = ordersById;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in orders by id');
+            }
+        }
+
+        // 4a. Try master_orders by order_number
+        if (!order) {
+            const { data: masterOrder } = await supabaseAdmin
+                .from('master_orders')
+                .select('*, address:addresses(*)')
+                .eq('user_id', userId)
+                .eq('order_number', orderId)
+                .maybeSingle();
+
+            if (masterOrder) {
+                order = masterOrder;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in master_orders by order_number');
+            }
+        }
+
+        // 4b. Try master_orders by id (UUID)
+        if (!order) {
+            const { data: masterById } = await supabaseAdmin
+                .from('master_orders')
+                .select('*, address:addresses(*)')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (masterById) {
+                order = masterById;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in master_orders by id');
+            }
+        }
+
+        if (!order) {
+            console.log('[OrderLookup] Order not found in any table');
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const order = foundOrder as any;
-        const orderType = order.order_type || 'ready_made';
+        // Generate QR info
+        const total = order.total || order.total_amount || order.total_price || order.estimated_price || 0;
+        const depositAmount = order.deposit_amount || Math.round(total * 0.5);
+        const bankConfig = getBankConfig(orderType);
+        const transferContent = `MINWSUN_${order.order_number || order.order_code || orderId}`;
+        const qrUrl = `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
 
-        // Normalize items
-        let items: any[] = [];
-        let configData: any = null;
-
+        // Normalize items for response
+        let items = [];
         if (orderType === 'ready_made') {
-            const relationalItems = Array.isArray(order.order_items) ? order.order_items : [];
-            const jsonItems = Array.isArray(order.items) ? order.items : [];
-            items = relationalItems.length > 0 ? relationalItems : jsonItems;
+            items = order.items || [];
         } else if (orderType === 'custom') {
-            const config = order.custom_config || (order.items_config && order.items_config.custom) || {};
-            configData = config;
             items = [{
-                name: order.notes ? `Custom: ${order.notes}` : 'Đơn hàng Custom',
-                quantity: 1,
-                total_price: order.total_amount || order.subtotal || 0,
-                configuration: config
+                name: order.description || 'Đơn hàng Custom',
+                quantity: order.quantity || 1,
+                total_price: total
             }];
         } else if (orderType === 'printing') {
-            const config = order.printing_config || (order.items_config && order.items_config.printing) || {};
-            const relationalItems = Array.isArray(order.order_items) ? order.order_items : [];
-            const analysisSummary = relationalItems.reduce((sum: { grams: number; hours: number; price: number }, item: any) => {
-                const analysis = item?.configuration?.analysis || {};
-                const qty = Number(item.quantity || 1);
-                return {
-                    grams: sum.grams + Number(analysis.grams || 0) * qty,
-                    hours: sum.hours + Number(analysis.hours || 0) * qty,
-                    price: sum.price + Number(item.total_price || 0),
-                };
-            }, { grams: 0, hours: 0, price: 0 });
-            configData = config;
             items = [{
-                name: `In 3D - ${config.type || 'FDM'}`,
-                quantity: config.quantity || 1,
-                total_price: order.total_amount || 0,
-                configuration: config
+                name: `In 3D - ${order.print_type || 'FDM'}`,
+                quantity: order.quantity || 1,
+                total_price: total
             }];
-            configData = { ...config, analysis: analysisSummary };
         }
 
-        const { data: fileRows } = await supabaseAdmin
-            .from('order_files')
-            .select('file_key, file_name, storage_provider, drive_url, archived_at')
-            .or(`order_id.eq.${order.id},order_code.eq.${order.order_code}`);
+        // === CRITICAL: Bypass Supabase REST API cache using direct PostgreSQL ===
+        // The order object from Supabase may have stale status/demo_image_url
+        let finalStatus = order.status;
+        let finalDemoUrl = order.demo_image_url;
 
-        const files = (fileRows || []).filter((f: any) => f.file_key);
-        const isArchived = !!order.archived_at || files.some((f: any) => (f.storage_provider || 'r2') === 'drive' || f.archived_at);
-        const visibleFiles = isArchived ? [] : files.filter((f: any) => (f.storage_provider || 'r2') !== 'drive');
-
-        const customImages: Array<{ url: string; thumbnail: string; name: string; key: string }> = [];
-        const printingFiles: Array<{ url: string; name: string; key: string }> = [];
-
-        visibleFiles.forEach((file: any) => {
-            const key = file.file_key as string;
-            const parsed = parseOrderStorageKey(key);
-            if (!parsed) return;
-            const fileUrl = `/api/files/${key}`;
-            const name = file.file_name || parsed.fileName || key.split('/').pop() || 'file';
-
-            if (parsed.category.startsWith('custom_')) {
-                customImages.push({ url: fileUrl, thumbnail: fileUrl, name, key });
-            } else if (parsed.category.startsWith('printing_')) {
-                printingFiles.push({ url: fileUrl, name, key });
-            }
-        });
-
-        if (orderType === 'custom') {
-            configData = { ...(configData || {}), images: customImages };
-        }
-        if (orderType === 'printing') {
-            configData = { ...(configData || {}), files: printingFiles };
-        }
-
-        // Fetch payment info (preferred)
-        const { data: payment } = await supabaseAdmin
-            .from('payments')
-            .select('transaction_code, gateway_response, amount, status, method, created_at')
-            .eq('order_id', order.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        const gateway = (payment?.gateway_response || {}) as Record<string, unknown>;
-        const total = Number(order.total_amount || 0);
-        const depositAmount = Number(order.deposit_amount || Math.round(total * 0.5));
-
-        let transferContent = (payment?.transaction_code as string) || (gateway.reference_code as string) || order.order_code;
-        let qrUrl = gateway.qr_url as string | undefined;
-        let bankCode = gateway.bank_code as string | undefined;
-        let accountNo = gateway.account_no as string | undefined;
-        let accountName = gateway.account_name as string | undefined;
-
-        // Fallback to payment config if gateway data missing
-        if (!qrUrl || !bankCode || !accountNo || !accountName) {
-            const productType = orderType === 'ready_made' ? 'product' : orderType;
+        if (orderType === 'custom' || orderType === 'printing') {
+            // SỬ DỤNG SUPABASE CLIENT ĐỂ LẤY DỮ LIỆU TƯƠI (Thay thế cho Direct DB đang lỗi)
             try {
-                const setup = await getPaymentSetup(
-                    order.user_id,
-                    productType,
-                    order.order_code,
-                    depositAmount
-                );
-                transferContent = transferContent || setup.transferContent;
-                qrUrl = qrUrl || setup.qrUrl;
-                bankCode = bankCode || setup.bankInfo.bank_code;
-                accountNo = accountNo || setup.bankInfo.account_no;
-                accountName = accountName || setup.bankInfo.account_name;
-            } catch (e) {
-                if (process.env.NODE_ENV !== 'production') {
-                    console.warn('[OrderLookup] Payment setup fallback failed:', e);
+                const tableName = orderType === 'custom' ? 'custom_orders' : 'print_orders';
+                console.log(`[OrderLookup] Querying fresh data via Supabase Admin from ${tableName} for ${order.id}`);
+
+                const { data: freshOrder, error: freshError } = await supabaseAdmin
+                    .from(tableName)
+                    .select('status, demo_image_url')
+                    .eq('id', order.id)
+                    .single();
+
+                if (!freshError && freshOrder) {
+                    console.log(`[OrderLookup] Updated status via Supabase: ${freshOrder.status}`);
+                    // Ghi đè dữ liệu cũ
+                    finalStatus = freshOrder.status || finalStatus;
+                    if (freshOrder.demo_image_url) {
+                        finalDemoUrl = freshOrder.demo_image_url;
+                    }
+                } else if (freshError) {
+                    console.warn('[OrderLookup] Supabase refresh failed:', freshError.message);
                 }
+            } catch (err) {
+                console.error('[OrderLookup] Failed to refresh data:', err);
             }
+        }
+
+        // Virtual Status Logic fallback: If demo_image_url exists but status is stuck, override to 'review'
+        if (finalDemoUrl && ['pending', 'confirmed', 'designing'].includes(finalStatus)) {
+            finalStatus = 'review';
         }
 
         return NextResponse.json({
             success: true,
             data: {
                 id: order.id,
-                order_code: order.order_code,
+                order_code: order.order_number || order.order_code,
                 order_type: orderType,
                 total,
-                total_amount: total,
                 deposit_amount: depositAmount,
-                deposit_paid: order.deposit_paid ?? false,
-                status: order.status,
+                status: finalStatus,
                 payment_status: order.payment_status || 'pending',
-                shipping_address: order.shipping_address_snapshot,
+                shipping_address: order.shipping_address || order.address,
                 created_at: order.created_at,
-                items,
-                custom_config: orderType === 'custom' ? configData : undefined,
-                printing_config: orderType === 'printing' ? configData : undefined,
-                demo_image_url: isArchived ? null : order.demo_image_url,
-                archived_at: order.archived_at || null,
+                items: items,
+                custom_config: order.custom_config,
+                printing_config: {
+                    type: order.print_type || order.print_tech,
+                    color: order.color,
+                    quantity: order.quantity,
+                    files: order.files || (order.file_url ? [{ url: order.file_url, name: 'File 3D' }] : []),
+                    analysis: { grams: order.grams, hours: order.hours }
+                },
+                demo_image_url: finalDemoUrl,
                 payment: {
-                    bank_id: bankCode || null,
-                    account_no: accountNo || null,
-                    account_name: accountName || null,
+                    bank_id: bankConfig.bankId,
+                    account_no: bankConfig.accountNo,
+                    account_name: bankConfig.accountName,
                     transfer_content: transferContent,
-                    qr_url: qrUrl || null,
-                    amount: payment?.amount || depositAmount,
-                    status: payment?.status || 'pending',
+                    qr_url: qrUrl,
                 },
             },
         });
-
     } catch (error) {
         console.error('[OrderLookup] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

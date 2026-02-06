@@ -31,7 +31,7 @@ export async function archiveOrderFiles(orderId: string) {
     // 1. Fetch Order with Items
     const { data: order, error } = await supabase
         .from('orders')
-        .select('*, items:order_items(*), user:profiles(customer_code)')
+        .select('*, items:order_items(*)')
         .eq('id', orderId)
         .single();
 
@@ -49,7 +49,7 @@ export async function archiveOrderFiles(orderId: string) {
     }
 
     const orderCode = order.order_code;
-    const customerCode = order.user?.customer_code || 'UNKNOWN';
+    const customerCode = order.user?.customer_code || 'CUS-UNKNOWN';
 
     // 2. Process Items
     for (const item of items) {

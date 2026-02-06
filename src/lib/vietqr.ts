@@ -48,7 +48,7 @@ interface GenerateQRParams extends VietQRConfig {
  *   accountNo: '1234567890',
  *   accountName: 'NGUYEN VAN A',
  *   amount: 335000,
- *   addInfo: 'A1B2C3D4E5'
+ *   addInfo: 'ORD-ABC123'
  * });
  */
 export function generateVietQR({
@@ -72,9 +72,9 @@ export function generateVietQR({
  * Generate bank transfer content with order code and customer code
  */
 export function generateTransferContent(orderCode: string, customerCode?: string): string {
-    // Format: CUSTOMERHEX + ORDERHEX
+    // Format: "ORD-XXXX KH-YYYY"
     if (customerCode) {
-        return `${customerCode}${orderCode}`;
+        return `${orderCode} ${customerCode}`;
     }
     return orderCode;
 }

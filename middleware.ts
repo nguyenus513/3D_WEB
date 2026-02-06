@@ -1,113 +1,114 @@
-﻿/**
- * Edge Middleware
+/**
+ * Next.js Middleware for Edge Security
  *
- * - Rate limiting (Redis-backed)
- * - Protected routes (login required)
- * - Admin access control (Phoenix Protocol)
+ * Protects routes at the Edge before they reach the application:
+ * - /admin/* and /sys_internal/* - Admin only
+ * - /account/* and /checkout/* - Authenticated users only
+ * - Uses NextAuth JWT token for session verification
+ *
+ * @see DEVELOPMENT_GUIDE.md - Security Layer
  */
 
-import { auth } from '@/auth';
-import { NextResponse } from 'next/server';
-import { checkRateLimit } from '@/lib/security/redis-rate-limit';
+import { NextResponse, type NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+
+// =============================================================================
+// Route Patterns
+// =============================================================================
 
 const PROTECTED_ROUTES = ['/account', '/checkout'];
-const USER_ONLY_ROUTES = ['/cart', '/checkout', '/custom', '/printing', '/account', '/complete-profile'];
+const ADMIN_ROUTES = ['/admin', '/sys_internal'];
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/products', '/about', '/contact', '/printing', '/custom'];
 
-function getClientIp(req: Request): string {
-    const forwarded = req.headers.get('x-forwarded-for');
-    const realIp = req.headers.get('x-real-ip');
-    const cfConnectingIp = req.headers.get('cf-connecting-ip');
-    return forwarded?.split(',')[0]?.trim() || realIp || cfConnectingIp || 'unknown';
-}
+// =============================================================================
+// Middleware
+// =============================================================================
 
-function getRateLimitType(pathname: string): Parameters<typeof checkRateLimit>[1] {
-    if (pathname.startsWith('/api/auth/login')) return 'auth:login';
-    if (pathname.startsWith('/api/auth/register')) return 'auth:register';
-    if (pathname.startsWith('/api/auth/verify')) return 'auth:verify';
-    if (pathname.startsWith('/api/auth/forgot-password') || pathname.startsWith('/api/auth/reset-password')) {
-        return 'auth:forgot-password';
-    }
-    if (pathname.startsWith('/api/send-email')) return 'send-email';
-    if (pathname.startsWith('/api/analyze-stl')) return 'analyze-stl';
-    if (pathname.startsWith('/api/upload')) return 'upload';
-    if (pathname.startsWith('/api/drive')) return 'drive';
-    if (pathname.startsWith('/api/admin')) return 'admin';
-    return 'default';
-}
+export async function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
 
-export const middleware = auth(async (req) => {
-    const { nextUrl } = req;
-    const pathname = nextUrl.pathname;
-
-    // Skip static assets
+    // Skip static files and API routes (API has its own auth)
     if (
         pathname.startsWith('/_next') ||
-        pathname.startsWith('/favicon.ico') ||
-        pathname.match(/\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$/)
+        pathname.startsWith('/api') ||
+        pathname.includes('.') // Static files
     ) {
         return NextResponse.next();
     }
 
-    // Rate limiting for API routes
-    if (pathname.startsWith('/api')) {
-        const ip = getClientIp(req);
-        const limitType = getRateLimitType(pathname);
-        const key = `${limitType}:${ip}`;
-        const { allowed, resetIn } = await checkRateLimit(key, limitType);
+    // Get NextAuth JWT token
+    // Note: Edge Runtime needs explicit secret - AUTH_SECRET is the v5 standard
+    const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
-        if (!allowed) {
-            return new NextResponse('Too Many Requests', {
-                status: 429,
-                headers: { 'Retry-After': String(resetIn) }
-            });
+    if (!secret) {
+        console.error('[MIDDLEWARE ERROR] No AUTH_SECRET or NEXTAUTH_SECRET found');
+        return NextResponse.next();
+    }
+
+    const token = await getToken({
+        req: request,
+        secret: secret
+    });
+
+    // Debug logging (remove in production)
+    console.log('[MIDDLEWARE DEBUG] Path:', pathname);
+    console.log('[MIDDLEWARE DEBUG] Token exists:', !!token);
+    console.log('[MIDDLEWARE DEBUG] Token role:', token?.role);
+
+    // ==========================================================================
+    // Route Protection Logic
+    // ==========================================================================
+
+    // Check if route requires admin
+    const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
+    if (isAdminRoute) {
+        if (!token) {
+            console.log('[MIDDLEWARE DEBUG] No token, redirecting to login');
+            const loginUrl = new URL('/login', request.url);
+            loginUrl.searchParams.set('callbackUrl', pathname);
+            return NextResponse.redirect(loginUrl);
+        }
+
+        // Check admin role from token
+        if (token.role !== 'admin') {
+            console.log('[MIDDLEWARE DEBUG] Not admin, redirecting to home');
+            const homeUrl = new URL('/', request.url);
+            homeUrl.searchParams.set('error', 'unauthorized');
+            return NextResponse.redirect(homeUrl);
         }
     }
 
-    const isLoggedIn = !!req.auth?.user;
-    const userRole = (req.auth?.user as { role?: string } | undefined)?.role;
-    const isAdmin = userRole === 'admin';
-
-    // Protected routes - require login
+    // Check if route requires authentication
     const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
-    if (isProtectedRoute && !isLoggedIn) {
-        const loginUrl = new URL('/login', nextUrl.origin);
+    if (isProtectedRoute && !token) {
+        console.log('[MIDDLEWARE DEBUG] Protected route without token, redirecting to login');
+        const loginUrl = new URL('/login', request.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
     }
 
-    // Block ADMIN from user routes
-    const isUserOnlyRoute = USER_ONLY_ROUTES.some(route =>
-        pathname === route || pathname.startsWith(route + '/')
-    );
-    if (isAdmin && isUserOnlyRoute) {
-        return NextResponse.redirect(new URL('/api/admin/launch', nextUrl.origin));
-    }
-
-    // Phoenix Protocol - Dynamic Admin Path
-    const phoenixToken = req.cookies.get('admin_phoenix_token')?.value;
-    if (phoenixToken && pathname.startsWith(`/${phoenixToken}`)) {
-        if (!isLoggedIn || !isAdmin) {
-            return NextResponse.redirect(new URL('/', nextUrl.origin));
-        }
-
-        const internalPath = pathname.replace(`/${phoenixToken}`, '/sys_internal');
-        return NextResponse.rewrite(new URL(internalPath, nextUrl.origin));
-    }
-
-    // Block direct access to /admin and /sys_internal
-    if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-        return NextResponse.rewrite(new URL('/404', nextUrl.origin));
-    }
-
-    if (pathname.startsWith('/sys_internal')) {
-        return NextResponse.rewrite(new URL('/404', nextUrl.origin));
+    // Redirect logged-in users away from auth pages
+    if (token && (pathname === '/login' || pathname === '/register')) {
+        console.log('[MIDDLEWARE DEBUG] Logged in user on auth page, redirecting to account');
+        return NextResponse.redirect(new URL('/account', request.url));
     }
 
     return NextResponse.next();
-});
+}
+
+// =============================================================================
+// Matcher Configuration
+// =============================================================================
 
 export const config = {
     matcher: [
+        /*
+         * Match all request paths except:
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico (favicon file)
+         * - public files (images, etc.)
+         */
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 };

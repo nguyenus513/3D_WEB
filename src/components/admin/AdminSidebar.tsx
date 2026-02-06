@@ -2,7 +2,7 @@
 
 /**
  * AdminSidebar (Visionary Spatial Edition)
- *
+ * 
  * Features:
  * - Vertical Prism Style: Uses --material-panel for a glass effect.
  * - Liquid Hover: Nav items flow with magnetic physics.
@@ -15,28 +15,18 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signOut } from 'next-auth/react';
 import { clsx } from 'clsx';
-import { useUiLabels } from '@/hooks/useUiLabels';
 
 interface NavItem {
-    id: string;
+    name: string;
     path: string; // Relative path e.g. '/orders'
     icon: React.ReactNode;
-    children?: { id: string; path: string }[];
-}
-
-interface SidebarLabels {
-    brand?: string;
-    subtitle?: string;
-    items?: Record<string, string>;
-    children?: Record<string, string>;
-    logout?: string;
-    userFallback?: string;
+    children?: { name: string; path: string }[];
 }
 
 const navConfig: NavItem[] = [
     {
-        id: 'dashboard',
-        path: '',
+        name: 'Dashboard',
+        path: '', // Root
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
@@ -44,7 +34,7 @@ const navConfig: NavItem[] = [
         ),
     },
     {
-        id: 'products',
+        name: 'Sản phẩm',
         path: '/products',
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,7 +43,7 @@ const navConfig: NavItem[] = [
         ),
     },
     {
-        id: 'categories',
+        name: 'Danh mục',
         path: '/categories',
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,7 +52,7 @@ const navConfig: NavItem[] = [
         ),
     },
     {
-        id: 'featured',
+        name: 'Nổi bật',
         path: '/featured',
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,7 +61,7 @@ const navConfig: NavItem[] = [
         ),
     },
     {
-        id: 'orders',
+        name: 'Đơn hàng',
         path: '/orders',
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,14 +69,14 @@ const navConfig: NavItem[] = [
             </svg>
         ),
         children: [
-            { id: 'orders_all', path: '/orders' },
-            { id: 'orders_products', path: '/orders/products' },
-            { id: 'orders_custom', path: '/orders/custom' },
-            { id: 'orders_printing', path: '/orders/printing' },
+            { name: 'Tất cả', path: '/orders' },
+            { name: 'Sản phẩm', path: '/orders/products' },
+            { name: 'Custom', path: '/orders/custom' },
+            { name: 'In 3D', path: '/orders/printing' },
         ],
     },
     {
-        id: 'customers',
+        name: 'Khách hàng',
         path: '/customers',
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,25 +85,7 @@ const navConfig: NavItem[] = [
         ),
     },
     {
-        id: 'content',
-        path: '/content',
-        icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-            </svg>
-        ),
-    },
-    {
-        id: 'ui_labels',
-        path: '/ui-labels',
-        icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 01-8 0m8 0a4 4 0 00-8 0m8 0v4a4 4 0 01-8 0V7m12 12h-4m4 0a2 2 0 002-2v-4m-6 6a2 2 0 01-2-2v-4" />
-            </svg>
-        ),
-    },
-    {
-        id: 'settings',
+        name: 'Cài đặt',
         path: '/settings',
         icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,10 +99,7 @@ const navConfig: NavItem[] = [
 export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
     const pathname = usePathname();
     const { data: session } = useSession();
-    const { t } = useUiLabels(['admin.sidebar', 'admin.common']);
-    const labels = t<SidebarLabels>('labels', {}) as SidebarLabels;
-
-    const [expandedItems, setExpandedItems] = useState<string[]>([]);
+    const [expandedItems, setExpandedItems] = useState<string[]>(['Khách hàng']);
     const [adminRoot, setAdminRoot] = useState('');
 
     useEffect(() => {
@@ -173,8 +142,8 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                         </svg>
                     </div>
                     <div>
-                        <span className="text-[var(--text-primary)] font-bold tracking-tight text-lg block">{labels.brand}</span>
-                        <span className="text-[var(--text-secondary)] text-xs block font-medium">{labels.subtitle}</span>
+                        <span className="text-[var(--text-primary)] font-bold tracking-tight text-lg block">Miniver</span>
+                        <span className="text-[var(--text-secondary)] text-xs block font-medium">3D Lab Admin</span>
                     </div>
                 </Link>
             </div>
@@ -185,7 +154,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                     const fullHref = `${effectiveRoot}${item.path}`;
                     const isActive = pathname === fullHref ||
                         (item.path !== '' && pathname.startsWith(fullHref));
-                    const isExpanded = expandedItems.includes(item.id);
+                    const isExpanded = expandedItems.includes(item.name);
                     const hasChildren = item.children && item.children.length > 0;
 
                     const activeClass = isActive
@@ -197,14 +166,14 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                             {hasChildren ? (
                                 <>
                                     <button
-                                        onClick={() => toggleExpand(item.id)}
+                                        onClick={() => toggleExpand(item.name)}
                                         className={clsx(`
                                             w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
                                             border border-transparent
                                         `, isActive ? 'bg-white/10 text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]')}
                                     >
                                         <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
-                                        <span className="font-semibold flex-1 text-left text-sm">{labels.items?.[item.id]}</span>
+                                        <span className="font-semibold flex-1 text-left text-sm">{item.name}</span>
                                         <svg
                                             className={clsx("w-4 h-4 transition-transform duration-300", isExpanded ? 'rotate-180' : '')}
                                             fill="none"
@@ -220,10 +189,11 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                                 initial={{ height: 0, opacity: 0 }}
                                                 animate={{ height: 'auto', opacity: 1 }}
                                                 exit={{ height: 0, opacity: 0 }}
-                                                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                                 className="overflow-hidden"
                                             >
                                                 <div className="pl-4 py-2 space-y-1 relative">
+                                                    {/* Guide line */}
                                                     <div className="absolute left-6 top-2 bottom-2 w-px bg-[var(--edge-shade)]" />
 
                                                     {item.children?.map((child) => {
@@ -241,7 +211,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                                                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                                                 )}
                                                             >
-                                                                {labels.children?.[child.id]}
+                                                                {child.name}
                                                             </Link>
                                                         );
                                                     })}
@@ -262,7 +232,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                     )}
                                 >
                                     <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
-                                    <span className="font-semibold text-sm">{labels.items?.[item.id]}</span>
+                                    <span className="font-semibold text-sm">{item.name}</span>
                                 </Link>
                             )}
                         </div>
@@ -280,7 +250,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                         <span className="font-bold text-sm">{session?.user?.name?.[0]?.toUpperCase() || 'A'}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <span className="text-[var(--text-primary)] text-sm font-bold block truncate">{session?.user?.name || labels.userFallback}</span>
+                        <span className="text-[var(--text-primary)] text-sm font-bold block truncate">{session?.user?.name || 'Admin'}</span>
                         <span className="text-[var(--text-secondary)] text-xs block truncate font-medium">{session?.user?.email || ''}</span>
                     </div>
                     <svg className="w-4 h-4 text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">

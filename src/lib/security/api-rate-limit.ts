@@ -1,27 +1,44 @@
-﻿/**
- * API Rate Limiting Utility (Redis-backed)
+/**
+ * API Rate Limiting Utility
  * 
- * Per-route rate limiting for API endpoints.
- * Uses Upstash Redis when configured, falls back to in-memory via redis-rate-limit.
+ * Per-route rate limiting for API endpoints
+ * More granular than middleware-level rate limiting
  */
 
-import { checkRateLimit } from './redis-rate-limit';
+// Rate limit configurations by route pattern
+export const API_RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
+    // Auth routes - strict limits to prevent brute force
+    '/api/auth/register': { limit: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
+    '/api/auth/login': { limit: 10, windowMs: 15 * 60 * 1000 }, // 10 per 15 min
+    '/api/auth/verify': { limit: 10, windowMs: 15 * 60 * 1000 }, // 10 per 15 min
+    '/api/auth/resend': { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
+    '/api/auth/forgot-password': { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
 
-// Route -> limit type mapping
-function getLimitType(pathname: string): Parameters<typeof checkRateLimit>[1] {
-    if (pathname.startsWith('/api/auth/register')) return 'auth:register';
-    if (pathname.startsWith('/api/auth/login')) return 'auth:login';
-    if (pathname.startsWith('/api/auth/verify')) return 'auth:verify';
-    if (pathname.startsWith('/api/auth/forgot-password') || pathname.startsWith('/api/auth/reset-password')) {
-        return 'auth:forgot-password';
-    }
-    if (pathname.startsWith('/api/upload')) return 'upload';
-    if (pathname.startsWith('/api/send-email')) return 'send-email';
-    if (pathname.startsWith('/api/analyze-stl')) return 'analyze-stl';
-    if (pathname.startsWith('/api/drive')) return 'drive';
-    if (pathname.startsWith('/api/admin')) return 'admin';
-    return 'default';
-}
+    // Upload routes - moderate limits
+    '/api/upload': { limit: 30, windowMs: 60 * 60 * 1000 }, // 30 per hour
+
+    // Email - very strict to prevent spam/abuse
+    '/api/send-email': { limit: 10, windowMs: 60 * 1000 }, // 10 per minute
+
+    // STL Analysis - compute-heavy, strict limit
+    '/api/analyze-stl': { limit: 5, windowMs: 60 * 1000 }, // 5 per minute
+
+    // Drive OAuth - one-time action, very strict
+    '/api/drive': { limit: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
+
+    // Admin routes - higher limits but still bounded
+    '/api/admin': { limit: 100, windowMs: 60 * 1000 }, // 100 per minute
+
+    // Public API - standard limits
+    '/api/products': { limit: 60, windowMs: 60 * 1000 }, // 60 per minute
+    '/api/featured-products': { limit: 60, windowMs: 60 * 1000 }, // 60 per minute
+
+    // Default for unspecified routes
+    'default': { limit: 100, windowMs: 60 * 1000 }, // 100 per minute
+};
+
+// In-memory store for rate limiting
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 /**
  * Get client identifier for rate limiting
@@ -31,6 +48,7 @@ export function getClientId(request: Request): string {
     const realIp = request.headers.get('x-real-ip');
     const ip = forwarded?.split(',')[0]?.trim() || realIp || 'unknown';
 
+    // Combine IP with user agent for better fingerprinting
     const userAgent = request.headers.get('user-agent') || 'unknown';
     const fingerprint = `${ip}:${hashString(userAgent)}`;
 
@@ -51,23 +69,60 @@ function hashString(str: string): string {
 }
 
 /**
+ * Get rate limit config for a route
+ */
+function getRouteConfig(pathname: string): { limit: number; windowMs: number } {
+    // Check exact match first
+    if (API_RATE_LIMITS[pathname]) {
+        return API_RATE_LIMITS[pathname];
+    }
+
+    // Check prefix match (e.g., /api/admin/* matches /api/admin)
+    for (const [route, config] of Object.entries(API_RATE_LIMITS)) {
+        if (route !== 'default' && pathname.startsWith(route)) {
+            return config;
+        }
+    }
+
+    return API_RATE_LIMITS['default'];
+}
+
+/**
  * Check if request is rate limited
  * Returns true if request should be blocked
  */
-export async function isRateLimited(request: Request): Promise<{ limited: boolean; remaining: number; resetIn: number }> {
+export function isRateLimited(request: Request): { limited: boolean; remaining: number; resetIn: number } {
     const clientId = getClientId(request);
     const url = new URL(request.url);
     const pathname = url.pathname;
 
-    const limitType = getLimitType(pathname);
-    const key = `${limitType}:${clientId}`;
+    const config = getRouteConfig(pathname);
+    const key = `${clientId}:${pathname}`;
+    const now = Date.now();
 
-    const result = await checkRateLimit(key, limitType);
+    const record = rateLimitStore.get(key);
 
+    if (!record || now > record.resetTime) {
+        // New window
+        rateLimitStore.set(key, { count: 1, resetTime: now + config.windowMs });
+        return { limited: false, remaining: config.limit - 1, resetIn: config.windowMs };
+    }
+
+    if (record.count >= config.limit) {
+        // Rate limited
+        return {
+            limited: true,
+            remaining: 0,
+            resetIn: record.resetTime - now
+        };
+    }
+
+    // Increment count
+    record.count++;
     return {
-        limited: !result.allowed,
-        remaining: result.remaining,
-        resetIn: result.resetIn * 1000, // convert to ms for compatibility
+        limited: false,
+        remaining: config.limit - record.count,
+        resetIn: record.resetTime - now
     };
 }
 
@@ -96,4 +151,16 @@ export function rateLimitedResponse(resetIn: number): Response {
             ...getRateLimitHeaders(0, resetIn),
         },
     });
+}
+
+// Cleanup old entries every 5 minutes
+if (typeof setInterval !== 'undefined') {
+    setInterval(() => {
+        const now = Date.now();
+        rateLimitStore.forEach((value, key) => {
+            if (now > value.resetTime) {
+                rateLimitStore.delete(key);
+            }
+        });
+    }, 5 * 60 * 1000);
 }

@@ -6,7 +6,6 @@
  */
 
 import { getAdminSupabase } from '@/lib/supabase/admin';
-import { extractOrderCodeFromKey } from '@/lib/storage/order-storage';
 
 export interface FileAccessCheck {
     allowed: boolean;
@@ -51,22 +50,11 @@ export async function canAccessFile(
     }
 
     // Check file in database
-    type OrderFileRow = {
-        id: string;
-        order_id: string | null;
-        owner_id: string | null;
-        allowed_user_ids: string[] | null;
-        is_public: boolean | null;
-        file_key: string;
-        storage_provider?: string | null;
-    };
-
-    const { data: fileData } = await supabase
+    const { data: file } = await supabase
         .from('order_files')
-        .select('id, order_id, owner_id, allowed_user_ids, is_public, file_key, storage_provider')
+        .select('id, order_id, owner_id, allowed_user_ids, is_public, file_key')
         .eq('file_key', fileKey)
         .single();
-    const file = (fileData || null) as OrderFileRow | null;
 
     // File not tracked in DB - check by path pattern
     if (!file) {
@@ -76,43 +64,21 @@ export async function canAccessFile(
         }
 
         // Order files - check if user owns the order by extracting order code
-        const orderCode = extractOrderCodeFromKey(fileKey);
-        if (orderCode) {
-        const { data: order } = await supabase
-            .from('orders')
-            .select('user_id, archived_at')
-            .eq('order_code', orderCode)
-            .single();
+        const orderMatch = fileKey.match(/orders\/([^/]+)\//);
+        if (orderMatch) {
+            const orderCode = orderMatch[1];
+            const { data: order } = await supabase
+                .from('orders')
+                .select('user_id')
+                .eq('order_code', orderCode)
+                .single();
 
-        if (order?.archived_at) {
-            return { allowed: false, reason: 'archived' };
-        }
-
-        if (order?.user_id === userId) {
-            return { allowed: true, reason: 'order_owner' };
-        }
+            if (order?.user_id === userId) {
+                return { allowed: true, reason: 'order_owner' };
+            }
         }
 
         return { allowed: false, reason: 'file_not_found' };
-    }
-
-    // Archived files moved to Drive: block non-admin access
-    if (file.storage_provider === 'drive') {
-        return { allowed: false, reason: 'archived', fileId: file.id };
-    }
-
-    if (file.order_id) {
-        const { data: order } = await supabase
-            .from('orders')
-            .select('archived_at, user_id')
-            .eq('id', file.order_id)
-            .single();
-        if (order?.archived_at) {
-            return { allowed: false, reason: 'archived', fileId: file.id };
-        }
-        if (order?.user_id === userId) {
-            return { allowed: true, reason: 'order_owner', fileId: file.id };
-        }
     }
 
     // Public files
@@ -128,6 +94,19 @@ export async function canAccessFile(
     // Allowed users array check
     if (file.allowed_user_ids?.includes(userId)) {
         return { allowed: true, reason: 'allowed_user', fileId: file.id };
+    }
+
+    // Check if user owns the order
+    if (file.order_id) {
+        const { data: order } = await supabase
+            .from('orders')
+            .select('user_id')
+            .eq('id', file.order_id)
+            .single();
+
+        if (order?.user_id === userId) {
+            return { allowed: true, reason: 'order_owner', fileId: file.id };
+        }
     }
 
     return { allowed: false, reason: 'unauthorized', fileId: file.id };
@@ -179,34 +158,27 @@ export async function getFileOwner(fileKey: string): Promise<string | null> {
 export async function trackFileUpload(
     fileKey: string,
     ownerId: string,
+    orderId?: string,
     options?: {
-        orderId?: string;
-        orderCode?: string;
         isPublic?: boolean;
         allowedUserIds?: string[];
         fileName?: string;
         fileType?: string;
-        storageProvider?: 'r2' | 'drive';
     }
 ): Promise<void> {
     try {
         const supabase = getAdminSupabase();
-        const isUuid = (value?: string | null) => !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-        const normalizedOrderId = isUuid(options?.orderId) ? options?.orderId : null;
 
         await supabase
             .from('order_files')
             .insert({
                 file_key: fileKey,
-                file_id: fileKey, // legacy compatibility
-                order_id: normalizedOrderId,
-                order_code: options?.orderCode || null,
+                order_id: orderId || null,
                 owner_id: ownerId,
                 is_public: options?.isPublic || false,
                 allowed_user_ids: options?.allowedUserIds || [],
                 file_name: options?.fileName || null,
                 file_type: options?.fileType || null,
-                storage_provider: options?.storageProvider || 'r2',
             });
     } catch (error) {
         // Don't fail upload if tracking fails (table might not exist)

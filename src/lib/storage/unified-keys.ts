@@ -20,10 +20,10 @@ export type FileType = 'main' | 'acc' | 'fdm' | 'resin' | 'review' | 'product';
 
 
 export interface StorageKeyParams {
-    customerCode: string;       // 10-char HEX
+    customerCode: string;       // CUS-001
     timestamp?: string;         // YYYY-MM-DD (auto-generated if not provided)
-    parentOrderCode?: string;   // 12-char HEX (Optional, defaults to childOrderCode if missing)
-    childOrderCode: string;     // 10-char HEX
+    parentOrderCode?: string;   // MST-001 (Optional, defaults to childOrderCode if missing)
+    childOrderCode: string;     // P3D-001 or FIG-001
     fileType: FileType;
     index: number;
     ext: string;
@@ -57,14 +57,14 @@ export interface ParsedKey {
  *
  * @example
  * generateUnifiedKey({
- *   customerCode: '9CF293891B',
- *   parentOrderCode: 'A1B2C3D4E5F6',
- *   childOrderCode: 'F1E2D3C4B5',
+ *   customerCode: 'CUS-001',
+ *   parentOrderCode: 'MST-001',
+ *   childOrderCode: 'P3D-001',
  *   fileType: 'fdm',
  *   index: 1,
  *   ext: 'stl'
  * })
- * // => '9CF293891B/2026-01-31/A1B2C3D4E5F6/F1E2D3C4B5-fdm.1.stl'
+ * // => 'CUS-001/2026-01-31/MST-001/P3D-001-fdm.1.stl'
  */
 export function generateUnifiedKey(params: StorageKeyParams): string {
     const {

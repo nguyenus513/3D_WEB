@@ -6,9 +6,9 @@ import { generateHexCode } from './utils/generateHexCode';
  * | Entity           | Format        | Example      | Length |
  * |------------------|---------------|--------------|--------|
  * | Custom Order     | Hex String    | 9CF293891B   | 10     |
- * | Product Order    | Hex String    | A1B2C3D4E5   | 10     |
- * | 3D Printing      | Hex String    | F1E2D3C4B5   | 10     |
- * | User Code        | Hex String    | C3D4E5F6A7   | 10     |
+ * | Product Order    | Hex String    | B2N8P4K5...  | 10     |
+ * | 3D Printing      | Hex String    | M4R7S2N9...  | 10     |
+ * | User Code        | Hex String    | K5J2H8M4...  | 10     |
  * | Master Order     | Hex String    | A1B2C3D4E5F6 | 12     |
  * | Product SKU      | Hex String    | A7B3C9D1     | 8      |
  * 
@@ -27,25 +27,25 @@ export const generateId = {
 
     /**
      * Generate Product Order ID: 10 chars Hex
-     * @example A1B2C3D4E5
+     * @example B2N8P4K5AB
      */
     product: (): string => generateHexCode(10),
 
     /**
      * Generate 3D Printing Order ID: 10 chars Hex
-     * @example F1E2D3C4B5
+     * @example M4R7S2N9CD
      */
     printing: (): string => generateHexCode(10),
 
     /**
      * Generate User Code: 10 chars Hex
-     * @example C3D4E5F6A7
+     * @example K5J2H8M4EF
      */
     user: (): string => generateHexCode(10),
 
     /**
      * Generate Admin Code: 10 chars Hex
-     * @example D4E5F6A7B8
+     * @example N9L3K6A7GH
      */
     admin: (): string => generateHexCode(10),
 

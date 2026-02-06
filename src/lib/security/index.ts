@@ -21,7 +21,8 @@ export {
     isRateLimited,
     rateLimitedResponse,
     getRateLimitHeaders,
-    getClientId
+    getClientId,
+    API_RATE_LIMITS
 } from './api-rate-limit';
 
 // File Validation

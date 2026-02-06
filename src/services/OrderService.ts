@@ -15,7 +15,6 @@ import {
     UpdateOrderStatusInput,
     OrderStatusType,
 } from '@/validators/order.schema';
-import { generateId } from '@/lib/generateId';
 
 // =============================================================================
 // Order Service
@@ -94,24 +93,14 @@ export class OrderService {
             0
         );
 
-        // Prepare shipping address snapshot (support legacy field names)
-        const shippingAddress = input.shipping_address
-            ? {
-                full_name: (input.shipping_address as any).full_name || (input.shipping_address as any).name || '',
-                phone: (input.shipping_address as any).phone || '',
-                address_line: (input.shipping_address as any).address_line || (input.shipping_address as any).address || '',
-                ward: (input.shipping_address as any).ward || undefined,
-                district: (input.shipping_address as any).district || undefined,
-                province: (input.shipping_address as any).province || (input.shipping_address as any).city || '',
-            }
-            : null;
+        // Prepare shipping address
+        const shippingAddress = input.shipping_address || {};
 
         // Create order
         const order = await this.orderRepo.create(
             {
                 userId: profile.id,
-                orderCode: generateId.order(),
-                addressId: input.shipping_address_id,
+                orderCode: `${Date.now()}`, // Simple generation or provided in input
                 subtotal: totalAmount, // Note: input.items might need to sum up
                 shippingFee: 0, // Default or calculated
                 discount: 0,
@@ -122,7 +111,7 @@ export class OrderService {
                 notes: input.notes,
             },
             input.items.map((item) => ({
-                name: (item as any).name || (item as any).product_name || 'Item',
+                name: (item as any).product_name || 'Item',
                 productId: item.product_id,
                 quantity: item.quantity,
                 unitPrice: item.price,

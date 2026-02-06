@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,7 +9,6 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { useCart, CartItem } from '@/lib/store/cart';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { PaymentQR } from '@/components/PaymentQR';
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 // Icons
 const ProductIcon = () => (
@@ -31,26 +30,11 @@ const CustomIcon = () => (
     </svg>
 );
 
-type CartPaymentSession = {
-    orderId: string;
-    orderCode: string;
-    customerCode?: string;
-    totalAmount: number;
-    totalQrUrl?: string;
-    totalTransferContent?: string;
-    bankInfo?: {
-        bankCode: string;
-        accountNo: string;
-        accountName: string;
-        bankName?: string;
-    };
-};
-
 // Item row in order summary
 function OrderItem({ item }: { item: CartItem | any }) {
     const getTypeIcon = () => {
-        const rawType = item.type || item.order_type;
-        const type = rawType === 'ready_made' ? 'product' : rawType === 'printing' ? 'print' : rawType;
+        // Handle both CartItem type and DB Order Item type
+        const type = item.type || item.order_type;
         switch (type) {
             case 'product': return <ProductIcon />;
             case 'print': return <PrintIcon />;
@@ -59,26 +43,21 @@ function OrderItem({ item }: { item: CartItem | any }) {
         }
     };
 
-    const quantity = Number(item.quantity ?? 1);
-    const unitPrice = Number(item.unit_price ?? item.price ?? item.total ?? item.total_price ?? 0);
-    const total = Number(item.total_price ?? unitPrice * quantity);
-    const size = item.size || item.configuration?.size;
-    const name = item.name || item.product_name || item.product?.name || 'Sản phẩm';
-
     return (
         <div className="flex justify-between items-start py-3 border-b border-white/10 last:border-b-0">
             <div className="flex items-start gap-3 flex-1">
                 <span className="text-white/50 mt-0.5">{getTypeIcon()}</span>
                 <div>
-                    <p className="text-white font-medium line-clamp-1">{name}</p>
+                    <p className="text-white font-medium line-clamp-1">{item.name || item.product_name || 'Sản phẩm'}</p>
                     <div className="text-white/50 text-sm">
-                        {size && <span>Size: {size} • </span>}
-                        {quantity && <span>SL: {quantity}</span>}
+                        {/* Render details based on type */}
+                        {item.size && <span>Size: {item.size} • </span>}
+                        {item.quantity && <span>SL: {item.quantity}</span>}
                     </div>
                 </div>
             </div>
             <p className="text-white font-medium whitespace-nowrap">
-                {total.toLocaleString('vi-VN')}đ
+                {((item.price || item.total || 0) * (item.quantity || 1)).toLocaleString('vi-VN')}đ
             </p>
         </div>
     );
@@ -93,57 +72,75 @@ function CheckoutContent() {
     const { items, totalPrice: cartTotal, clearCart } = useCart();
     const { data: session } = useSession();
 
+    // State
+    // State
+    // State
     const [loading, setLoading] = useState(true);
     const [singleOrder, setSingleOrder] = useState<any | null>(null);
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
     const [isAddressValid, setIsAddressValid] = useState(false);
-    const [paymentSession, setPaymentSession] = useState<CartPaymentSession | null>(null);
-    const [paymentError, setPaymentError] = useState<string | null>(null);
-    const [creatingPayment, setCreatingPayment] = useState(false);
-
-    const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
-    const lastAddressHashRef = useRef<string | null>(null);
+    const [paymentConfig, setPaymentConfig] = useState<any>(null);
 
     // Derived State
     const mode = orderIdParam ? 'single' : 'cart';
-
-    const currentItems = useMemo(() => {
-        if (mode !== 'single') return items;
-        if (!singleOrder) return [];
-
-        const fallbackType = singleOrder.order_type === 'printing'
-            ? 'print'
-            : singleOrder.order_type === 'custom'
-                ? 'custom'
-                : 'product';
-
-        const orderItems = Array.isArray(singleOrder.items) ? singleOrder.items : [];
-        if (orderItems.length === 0) {
-            return [
-                {
-                    ...singleOrder,
-                    type: fallbackType,
-                    name: singleOrder.name || `Đơn hàng ${singleOrder.order_code}`,
-                    quantity: 1,
-                    unit_price: singleOrder.total_amount ?? singleOrder.total ?? 0,
-                    total_price: singleOrder.total_amount ?? singleOrder.total ?? 0,
-                },
-            ];
-        }
-
-        return orderItems.map((item: any) => ({
-            ...item,
-            type: item.type || fallbackType,
-        }));
-    }, [mode, items, singleOrder]);
+    const currentItems = mode === 'single' ? (singleOrder ? [singleOrder] : []) : items;
 
     // Totals Calculation
     const subtotal = mode === 'single'
-        ? Number(singleOrder?.total_amount ?? singleOrder?.total ?? 0)
+        ? (singleOrder?.total || 0)  // Single order usually already includes price logic
         : cartTotal;
 
+    // Shipping Fee Logic (FREE SHIPPING requested)
     const shippingFee = 0;
     const finalTotal = subtotal + shippingFee;
+
+    // QR Code Logic - 18 Char Hex Format [10 cust][8 parent]
+    const qrTransferContent = useMemo(() => {
+        // 1. Get Customer Code (10 hex) or use placeholder
+        let custCode = paymentConfig?.customer_code;
+
+        // Clean and validate Customer Code
+        if (custCode) {
+            custCode = custCode.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+            if (custCode.length < 10) custCode = custCode.padEnd(10, '0');
+            else if (custCode.length > 10) custCode = custCode.substring(0, 10);
+        } else {
+            // Default placeholder if not logged in or config not loaded yet
+            custCode = '0000000000';
+        }
+
+        // 2. Get Parent Code (8 hex)
+        let parentCode = '';
+
+        if (mode === 'single' && singleOrder) {
+            // Existing Order: Extract parent code from order_code
+            const rawCode = singleOrder.order_code || singleOrder.id;
+            const cleanCode = rawCode.toString().replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+            // If child code (16), take first 8. If parent (8), take 8.
+            parentCode = cleanCode.substring(0, 8).padEnd(8, '0');
+        } else {
+            // Cart: Generate new random 8 hex
+            parentCode = Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0');
+        }
+
+        return `${custCode}${parentCode}`;
+    }, [mode, singleOrder, paymentConfig]);
+
+    // Fetch Payment Config
+    useEffect(() => {
+        const fetchPaymentConfig = async () => {
+            try {
+                const res = await fetch('/api/payment-config');
+                if (res.ok) {
+                    const data = await res.json();
+                    setPaymentConfig(data);
+                }
+            } catch (error) {
+                console.error('Error fetching payment config:', error);
+            }
+        };
+        fetchPaymentConfig();
+    }, []);
 
     // Fetch Single Order if needed
     useEffect(() => {
@@ -151,21 +148,22 @@ function CheckoutContent() {
             setLoading(true);
             const fetchOrder = async () => {
                 try {
-                    const res = await fetch(`/api/orders/lookup?id=${orderIdParam}`, { cache: 'no-store' });
-                    const payload = await res.json();
-                    if (res.ok && payload?.success && payload?.data) {
-                        const data = payload.data;
-                        setSingleOrder(data);
+                    // Use API route instead of direct Supabase query
+                    const res = await fetch(`/api/orders/${orderIdParam}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        // Normalize single order to look like an item
+                        setSingleOrder({
+                            ...data,
+                            name: `Đơn hàng ${data.order_code}`,
+                            type: data.order_type,
+                            price: data.subtotal, // Use subtotal as base price
+                            quantity: 1
+                        });
+                        // Pre-fill address if order has it
                         if (data.shipping_address) {
                             setShippingAddress(data.shipping_address);
-                            const isValid = !!(
-                                data.shipping_address.full_name &&
-                                data.shipping_address.phone &&
-                                data.shipping_address.address_line &&
-                                data.shipping_address.province &&
-                                data.shipping_address.district
-                            );
-                            setIsAddressValid(isValid);
+                            setIsAddressValid(true);
                         }
                     } else {
                         console.error('Order not found');
@@ -185,162 +183,110 @@ function CheckoutContent() {
     // Handle Address Change
     const handleAddressChange = (address: ShippingAddress) => {
         setShippingAddress(address);
-        const isValid = !!(
-            address.full_name &&
-            address.phone &&
-            address.address_line &&
-            address.province &&
-            address.district
-        );
+        // Basic validation
+        const isValid = !!(address.full_name && address.phone && address.address_line && address.province);
         setIsAddressValid(isValid);
+
+        // If in Single Order mode, update the order's address in DB via API
+        if (mode === 'single' && orderIdParam && isValid) {
+            updateOrderAddress(orderIdParam, address);
+        }
     };
 
-    const updateOrderAddress = async (id: string, address: ShippingAddress, amount: number) => {
+    const updateOrderAddress = async (id: string, address: ShippingAddress) => {
+        // Update order address via API
         await fetch(`/api/orders/${id}/update-address`, {
             method: 'PATCH',
-            headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 shipping_address: address,
                 shipping_fee: 0,
-                total_amount: amount,
+                total: singleOrder?.subtotal || 0,
             }),
         });
     };
 
-    // Update address for single order
-    useEffect(() => {
-        if (mode !== 'single' || !orderIdParam || !shippingAddress || !isAddressValid) return;
-        const fingerprint = `${orderIdParam}:${JSON.stringify(shippingAddress)}`;
-        if (lastAddressHashRef.current === fingerprint) return;
-        lastAddressHashRef.current = fingerprint;
-        updateOrderAddress(orderIdParam, shippingAddress, subtotal);
-    }, [mode, orderIdParam, shippingAddress, isAddressValid, subtotal]);
+    // Handle Payment Confirmation (Cart Mode)
+    // Handle Payment Confirmation (Cart Mode)
+    const handleCartPayment = async () => {
+        if (!shippingAddress || !isAddressValid) {
+            alert('Vui lòng chọn địa chỉ giao hàng hợp lệ');
+            return;
+        }
 
-    // Create cart payment session when address is valid
-    useEffect(() => {
-        if (mode !== 'cart') return;
-        if (!shippingAddress || !isAddressValid) return;
-        if (items.length === 0) return;
-        if (paymentSession?.orderId || creatingPayment) return;
+        // Validate address length strictly to match backend schema
+        if ((shippingAddress.address_line || '').length < 5) {
+            alert('Địa chỉ giao hàng quá ngắn. Vui lòng nhập chi tiết hơn (tối thiểu 5 ký tự).');
+            return;
+        }
 
-        const createCartPayment = async () => {
-            setCreatingPayment(true);
-            setPaymentError(null);
-
-            try {
-                const cartItems = items.map((item) => ({
-                    productId: item.productId,
-                    productName: item.name,
-                    productType: item.type === 'print' ? 'printing' : item.type,
-                    productSku: item.sku,
-                    quantity: item.quantity,
-                    unitPrice: item.price,
-                    metadata: {
-                        size: item.size,
-                        sku: item.sku,
-                        image: item.image,
-                        printOptions: item.printOptions,
-                        printFiles: item.printFiles,
-                        description: item.description,
-                        customFiles: item.customFiles,
-                    },
-                }));
-
-                const res = await fetch('/api/payments/cart', {
-                    method: 'POST',
-                    headers: addCsrfToRequest({
-                        'Content-Type': 'application/json',
-                        'Idempotency-Key': idempotencyKeyRef.current,
-                    }),
-                    body: JSON.stringify({
-                        items: cartItems,
-                        shippingAddress: shippingAddress,
-                        note: '',
-                    }),
-                });
-
-                const payload = await res.json();
-                if (!res.ok || !payload?.success) {
-                    const msg = payload?.error?.message || 'Unable to create payment session';
-                    setPaymentError(msg);
-                    return;
-                }
-
-                setPaymentSession(payload.data);
-            } catch (error) {
-                console.error('Create cart payment error:', error);
-                setPaymentError('Unable to create payment session');
-            } finally {
-                setCreatingPayment(false);
-            }
-        };
-
-        createCartPayment();
-    }, [mode, shippingAddress, isAddressValid, items, paymentSession, creatingPayment]);
-
-    // Update address after cart order created
-    useEffect(() => {
-        if (mode !== 'cart') return;
-        if (!paymentSession?.orderId || !shippingAddress || !isAddressValid) return;
-        const fingerprint = `${paymentSession.orderId}:${JSON.stringify(shippingAddress)}`;
-        if (lastAddressHashRef.current === fingerprint) return;
-        lastAddressHashRef.current = fingerprint;
-        updateOrderAddress(paymentSession.orderId, shippingAddress, finalTotal);
-    }, [mode, paymentSession?.orderId, shippingAddress, isAddressValid, finalTotal]);
-
-    const handlePaymentConfirmed = async (orderId: string, orderCode: string, shouldClearCart: boolean) => {
         try {
-            const res = await fetch(`/api/orders/${orderId}/payment-confirmation`, {
+            // 1. Create Order
+            const createRes = await fetch('/api/orders', {
                 method: 'POST',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: items.map(item => ({
+                        // Use productId (UUID) from DB, fallback to item.id if missing (though item.id is likely not UUID)
+                        // If productId is missing for custom items, Backend validation might fail if it requires valid UUID product_id.
+                        product_id: item.productId || item.id,
+                        quantity: item.quantity,
+                        price: item.price,
+                        customization: (item as any).customization || {}
+                    })),
+                    // Map to CreateOrderSchema: { name, phone, address, city }
+                    shipping_address: {
+                        name: shippingAddress.full_name,
+                        phone: shippingAddress.phone,
+                        address: shippingAddress.address_line || '',
+                        city: shippingAddress.province || ''
+                    },
+                    payment_method: 'bank_transfer', // Schema requires 'bank_transfer', not 'QR_TRANSFER'
+                    notes: ''
+                })
             });
 
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || 'Unable to confirm payment');
+            if (!createRes.ok) {
+                const errData = await createRes.json();
+                console.error('API Error Response:', JSON.stringify(errData, null, 2));
+                const errMsg = typeof errData.error === 'object'
+                    ? JSON.stringify(errData.error)
+                    : (errData.error || 'Không thể tạo đơn hàng');
+                throw new Error(errMsg);
             }
 
-            if (shouldClearCart) clearCart();
-            router.push(`/checkout/success/${orderCode}`);
+            const { data: newOrder } = await createRes.json();
+
+            // 2. Confirm Payment immediately (since user clicked "I Paid")
+            const confirmRes = await fetch(`/api/orders/${newOrder.id}/payment-confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!confirmRes.ok) {
+                // If confirmation fails but order created, we still proceed but warn?
+                console.error('Payment confirmation failed for new order:', newOrder.id);
+            }
+
+            // 3. Success
+            clearCart();
+            // Redirect to order history or success page
+            router.push('/account/orders');
         } catch (error) {
             console.error('Checkout failed details:', error);
-            const userMsg = error instanceof Error ? error.message : 'Unable to confirm payment';
-            alert(`Error: ${userMsg}`);
-            throw error;
+            // Display clean error message to user
+            let userMsg = (error as Error).message;
+            if (userMsg.includes('[')) { // Determine if it's stringified JSON
+                try {
+                    const parsed = JSON.parse(userMsg);
+                    // If Zod error array, show first message
+                    if (Array.isArray(parsed)) userMsg = parsed[0]?.message || 'Dữ liệu không hợp lệ';
+                } catch { }
+            }
+            alert(`Lỗi: ${userMsg}`);
+            throw error; // Re-throw to let PaymentQR know it failed (if it handled state)
         }
     };
-
-    const paymentAmount = mode === 'cart'
-        ? finalTotal
-        : Number(singleOrder?.payment?.amount ?? finalTotal);
-
-    const bankInfo = mode === 'cart'
-        ? paymentSession?.bankInfo
-        : {
-            bankCode: singleOrder?.payment?.bank_id,
-            accountNo: singleOrder?.payment?.account_no,
-            accountName: singleOrder?.payment?.account_name,
-            bankName: singleOrder?.payment?.bank_name,
-        };
-
-    const qrUrl = mode === 'cart'
-        ? paymentSession?.totalQrUrl
-        : singleOrder?.payment?.qr_url;
-
-    const transferContent = mode === 'cart'
-        ? paymentSession?.totalTransferContent
-        : singleOrder?.payment?.transfer_content;
-
-    const orderIdForPayment = mode === 'cart' ? paymentSession?.orderId : singleOrder?.id;
-    const orderCodeForPayment = mode === 'cart' ? paymentSession?.orderCode : singleOrder?.order_code;
-
-    const bankCode = bankInfo?.bankCode || 'MB';
-    const bankAccountNo = bankInfo?.accountNo || '';
-    const bankAccountName = bankInfo?.accountName || '';
-    const bankDisplayName = bankInfo?.bankName;
-    const safeOrderId = orderIdForPayment || '';
-    const safeOrderCode = orderCodeForPayment || '';
-    const canShowPayment = !!(bankAccountNo && orderIdForPayment && orderCodeForPayment);
 
     if (loading) return (
         <div className="min-h-screen pt-24 pb-12 flex items-center justify-center">
@@ -364,7 +310,7 @@ function CheckoutContent() {
                 {/* Left Column: Info & Address */}
                 <div className="lg:col-span-2 space-y-6">
                     <AnimatedSection>
-                        <h1 className="text-2xl font-bold text-white mb-6">Thanh toán</h1>
+                        <h1 className="text-2xl font-bold text-white mb-6">Thanh Toán</h1>
 
                         {/* Address Selector */}
                         <div className="bg-[#1D1D1F] rounded-3xl p-6 border border-white/10">
@@ -405,6 +351,7 @@ function CheckoutContent() {
                                     <span>Tạm tính</span>
                                     <span>{subtotal.toLocaleString('vi-VN')}đ</span>
                                 </div>
+                                {/* Removed Shipping Fee Line */}
                                 <div className="pt-3 border-t border-white/10 flex justify-between items-end">
                                     <span className="text-white font-medium">Thành tiền</span>
                                     <span className="text-2xl font-bold text-green-400">
@@ -414,42 +361,29 @@ function CheckoutContent() {
                             </div>
                         </div>
 
-                        {/* QR Code Section */}
+                        {/* QR Code Section - Enabled only when address valid */}
                         <AnimatePresence>
-                            {isAddressValid ? (
-                                creatingPayment ? (
-                                    <div className="bg-white/5 rounded-3xl p-8 text-center border border-white/10 border-dashed">
-                                        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-3" />
-                                        <p className="text-white/60">Đang tạo phiên thanh toán...</p>
-                                    </div>
-                                ) : paymentError ? (
-                                    <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
-                                        <p className="text-red-400">{paymentError}</p>
-                                    </div>
-                                ) : canShowPayment ? (
-                                    <motion.div
-                                        key="payment-qr"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                    >
-                                        <PaymentQR
-                                            orderId={orderIdForPayment}
-                                            orderCode={orderCodeForPayment}
-                                            transferContent={transferContent}
-                                            qrUrl={qrUrl}
-                                            amount={paymentAmount}
-                                            bankId={(bankCode || 'MB') as any}
-                                            accountNo={bankAccountNo}
-                                            accountName={bankAccountName}
-                                            bankName={bankDisplayName}
-                                            onPaymentConfirmed={() => handlePaymentConfirmed(safeOrderId, safeOrderCode, mode === 'cart')}
-                                        />
-                                    </motion.div>
-                                ) : (
-                                    <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
-                                        <p className="text-red-400">Lỗi cấu hình thanh toán. Vui lòng liến hệ admin.</p>
-                                    </div>
-                                )
+                            {isAddressValid && paymentConfig?.account_no ? (
+                                <motion.div
+                                    key="payment-qr"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                >
+                                    <PaymentQR
+                                        orderId={mode === 'single' ? orderIdParam! : 'cart-placeholder'}
+                                        orderCode={qrTransferContent}
+                                        transferContent={qrTransferContent}
+                                        amount={finalTotal}
+                                        bankId={paymentConfig.bank_code}
+                                        accountNo={paymentConfig.account_no}
+                                        accountName={paymentConfig.account_name}
+                                        onPaymentConfirmed={mode === 'cart' ? handleCartPayment : undefined}
+                                    />
+                                </motion.div>
+                            ) : isAddressValid && !paymentConfig?.account_no ? (
+                                <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
+                                    <p className="text-red-400">Lỗi cấu hình thanh toán. Vui lòng liên hệ admin.</p>
+                                </div>
                             ) : (
                                 <div className="bg-white/5 rounded-3xl p-8 text-center border border-white/10 border-dashed">
                                     <p className="text-white/50">Vui lòng nhập địa chỉ giao hàng để hiển thị mã QR thanh toán</p>

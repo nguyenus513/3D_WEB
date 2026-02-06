@@ -7,7 +7,6 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
-import { useUiLabels } from '@/hooks/useUiLabels';
 
 interface Category {
     id: string;
@@ -17,57 +16,15 @@ interface Category {
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'bestseller';
 
-interface ProductsLabels {
-    header?: {
-        kicker?: string;
-        title?: string;
-        subtitle?: string;
-    };
-    search?: {
-        placeholder?: string;
-        clearAria?: string;
-    };
-    categories?: {
-        allLabel?: string;
-    };
-    sort?: {
-        label?: string;
-        options?: {
-            newest?: string;
-            price_asc?: string;
-            price_desc?: string;
-            bestseller?: string;
-        };
-    };
-    results?: {
-        loading?: string;
-        countLabel?: string;
-        searchSuffix?: string;
-    };
-    badges?: {
-        featured?: string;
-        sale?: string;
-        viewDetail?: string;
-    };
-    empty?: {
-        noProducts?: string;
-        noCategory?: string;
-    };
-}
-
 export default function ProductsPage() {
-    const { t, formatLabel } = useUiLabels(['public.products', 'common']);
-    const labels = t<ProductsLabels>('labels', {}) as ProductsLabels;
-    const allCategoryLabel = labels.categories?.allLabel || '';
-
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [activeCategory, setActiveCategory] = useState('all');
+    const [activeCategory, setActiveCategory] = useState('Tất cả');
     const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<SortOption>('newest');
-    const [priceRange] = useState<[number, number]>([0, 10000000]);
+    const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000]);
 
     useEffect(() => {
         fetchCategories();
@@ -97,16 +54,21 @@ export default function ProductsPage() {
         setLoading(false);
     };
 
+    // Filter and sort products
     const filteredProducts = products
         .filter(p => {
-            const matchesCategory = activeCategory === 'all' || p.category_id === activeCategory;
+            // Category filter
+            const matchesCategory = activeCategory === 'Tất cả'
+                || p.category_id === categories.find(c => c.name === activeCategory)?.id;
 
+            // Search filter
             const searchLower = searchQuery.toLowerCase().trim();
             const matchesSearch = !searchLower ||
                 p.name.toLowerCase().includes(searchLower) ||
                 p.sku?.toLowerCase().includes(searchLower) ||
                 p.short_description?.toLowerCase().includes(searchLower);
 
+            // Price filter
             const price = Number(p.sale_price || p.base_price);
             const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
 
@@ -129,6 +91,7 @@ export default function ProductsPage() {
             }
         });
 
+    // Generate gradient colors from product
     const getColors = (index: number) => {
         const colorPairs = [
             ['#FF6B6B', '#4ECDC4'],
@@ -140,13 +103,6 @@ export default function ProductsPage() {
         return colorPairs[index % colorPairs.length];
     };
 
-    const resultsText = loading
-        ? (labels.results?.loading || '')
-        : formatLabel(labels.results?.countLabel || '', { count: filteredProducts.length });
-    const searchSuffix = searchQuery
-        ? formatLabel(labels.results?.searchSuffix || '', { query: searchQuery })
-        : '';
-
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-32 pb-20">
             <div className="max-w-[1400px] mx-auto px-6">
@@ -157,13 +113,13 @@ export default function ProductsPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4"
                     >
-                        {labels.header?.kicker}
+                        Bộ Sưu Tập
                     </motion.p>
                     <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight mb-6">
-                        {labels.header?.title}
+                        Sản Phẩm
                     </h1>
                     <p className="text-lg text-white/50 max-w-xl mx-auto">
-                        {labels.header?.subtitle}
+                        Khám phá bộ sưu tập mô hình 3D độc đáo, được chế tác thủ công với chất lượng cao nhất
                     </p>
                 </AnimatedSection>
 
@@ -185,17 +141,15 @@ export default function ProductsPage() {
                         </svg>
                         <input
                             type="text"
-                            placeholder={labels.search?.placeholder || ''}
+                            placeholder="Tìm kiếm sản phẩm..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 bg-[#1D1D1F] border border-white/10 rounded-full text-white placeholder:text-white/30 focus:outline-none focus:border-[#0071E3] focus:ring-2 focus:ring-[#0071E3]/20 transition-all"
-                            aria-label={labels.search?.placeholder}
                         />
                         {searchQuery && (
                             <button
                                 onClick={() => setSearchQuery('')}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 hover:text-white transition-colors"
-                                aria-label={labels.search?.clearAria}
                             >
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -209,24 +163,24 @@ export default function ProductsPage() {
                 <AnimatedSection delay={0.2} className="flex justify-center mb-12">
                     <div className="inline-flex bg-[#1D1D1F] rounded-full p-1 flex-wrap justify-center gap-1">
                         <button
-                            onClick={() => setActiveCategory('all')}
+                            onClick={() => setActiveCategory('Tất cả')}
                             className={`
                                 px-6 py-3 rounded-full text-sm font-medium transition-all
-                                ${activeCategory === 'all'
+                                ${activeCategory === 'Tất cả'
                                     ? 'bg-white text-[#0a0a0a]'
                                     : 'text-white/70 hover:text-white'
                                 }
                             `}
                         >
-                            {allCategoryLabel}
+                            Tất cả
                         </button>
                         {categories.map((category) => (
                             <button
                                 key={category.id}
-                                onClick={() => setActiveCategory(category.id)}
+                                onClick={() => setActiveCategory(category.name)}
                                 className={`
                                     px-6 py-3 rounded-full text-sm font-medium transition-all
-                                    ${activeCategory === category.id
+                                    ${activeCategory === category.name
                                         ? 'bg-white text-[#0a0a0a]'
                                         : 'text-white/70 hover:text-white'
                                     }
@@ -242,22 +196,22 @@ export default function ProductsPage() {
                 <AnimatedSection delay={0.25} className="flex flex-wrap items-center justify-between gap-4 mb-8">
                     {/* Results count */}
                     <p className="text-white/50 text-sm">
-                        {resultsText}
-                        {searchSuffix && <span className="text-white/30"> {searchSuffix}</span>}
+                        {loading ? 'Đang tải...' : `${filteredProducts.length} sản phẩm`}
+                        {searchQuery && <span className="text-white/30"> cho &quot;{searchQuery}&quot;</span>}
                     </p>
 
                     {/* Sort dropdown */}
                     <div className="flex items-center gap-3">
-                        <span className="text-white/50 text-sm hidden sm:inline">{labels.sort?.label}</span>
+                        <span className="text-white/50 text-sm hidden sm:inline">Sắp xếp:</span>
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as SortOption)}
                             className="bg-[#1D1D1F] border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-[#0071E3] cursor-pointer"
                         >
-                            <option value="newest">{labels.sort?.options?.newest}</option>
-                            <option value="price_asc">{labels.sort?.options?.price_asc}</option>
-                            <option value="price_desc">{labels.sort?.options?.price_desc}</option>
-                            <option value="bestseller">{labels.sort?.options?.bestseller}</option>
+                            <option value="newest">Mới nhất</option>
+                            <option value="price_asc">Giá thấp → cao</option>
+                            <option value="price_desc">Giá cao → thấp</option>
+                            <option value="bestseller">Bán chạy</option>
                         </select>
                     </div>
                 </AnimatedSection>
@@ -306,13 +260,7 @@ export default function ProductsPage() {
                                                 {/* Product Image or Emoji */}
                                                 {product.images?.[0] ? (
                                                     <motion.img
-                                                        src={((): string => {
-                                                            const img = product.images[0];
-                                                            if (typeof img === 'string') {
-                                                                return img.includes('[object Object]') ? '' : img;
-                                                            }
-                                                            return (img as any)?.url || (img as any)?.web_view_link || '';
-                                                        })()}
+                                                        src={product.images[0]}
                                                         alt={product.name}
                                                         className="w-full h-full object-cover relative z-10"
                                                         animate={{
@@ -340,14 +288,14 @@ export default function ProductsPage() {
                                                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                                         </svg>
-                                                        {labels.badges?.featured}
+                                                        Nổi bật
                                                     </span>
                                                 )}
 
                                                 {/* Sale badge */}
                                                 {product.sale_price && (
                                                     <span className="absolute top-4 right-4 px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full z-20">
-                                                        {labels.badges?.sale}
+                                                        SALE
                                                     </span>
                                                 )}
 
@@ -358,7 +306,7 @@ export default function ProductsPage() {
                                                     className="absolute inset-0 bg-black/40 flex items-center justify-center z-20"
                                                 >
                                                     <span className="px-4 py-2 rounded-full bg-white text-[#0a0a0a] text-sm font-medium">
-                                                        {labels.badges?.viewDetail}
+                                                        Xem chi tiết
                                                     </span>
                                                 </motion.div>
                                             </div>
@@ -378,15 +326,15 @@ export default function ProductsPage() {
                                                         {product.sale_price ? (
                                                             <>
                                                                 <p className="text-white font-medium">
-                                                                    {Number(product.sale_price).toLocaleString('vi-VN')}d
+                                                                    {Number(product.sale_price).toLocaleString('vi-VN')}đ
                                                                 </p>
                                                                 <p className="text-sm text-white/40 line-through">
-                                                                    {Number(product.base_price).toLocaleString('vi-VN')}d
+                                                                    {Number(product.base_price).toLocaleString('vi-VN')}đ
                                                                 </p>
                                                             </>
                                                         ) : (
                                                             <p className="text-white font-medium whitespace-nowrap">
-                                                                {Number(product.base_price).toLocaleString('vi-VN')}d
+                                                                {Number(product.base_price).toLocaleString('vi-VN')}đ
                                                             </p>
                                                         )}
                                                     </div>
@@ -409,7 +357,9 @@ export default function ProductsPage() {
                             </svg>
                         </div>
                         <p className="text-white/50 mb-4">
-                            {products.length === 0 ? labels.empty?.noProducts : labels.empty?.noCategory}
+                            {products.length === 0
+                                ? 'Chưa có sản phẩm nào'
+                                : 'Không có sản phẩm nào trong danh mục này'}
                         </p>
                     </div>
                 )}

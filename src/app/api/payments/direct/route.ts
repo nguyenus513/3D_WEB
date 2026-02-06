@@ -5,7 +5,7 @@
  * Features:
  * - Uses payment_configs table for bank account info
  * - Gets customer_code from profiles table
- * - Transfer content format: {customer_code}{order_code}
+ * - Transfer content format: {customer_code}-{order_code}
  * - Idempotency key support
  * - Correlation ID for request tracing
  */
@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
+import { generateHexCode } from '@/lib/utils/generateHexCode';
 import {
     generateParentCode,
     generateChildCode,
@@ -27,11 +28,10 @@ import {
     getCustomerCode,
     getOrderTypeForProduct,
     getPaymentConfig,
+    getDefaultPaymentConfig,
     generateQRUrl
 } from '@/lib/services/paymentConfigService';
 import { BANK_INFO } from '@/lib/vietqr';
-import { getProfileId } from '@/lib/utils/getProfileId';
-import { requireCsrf } from '@/lib/security/csrf';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -73,39 +73,24 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
-        const profileId = await getProfileId(session.user, supabaseAdmin);
-        if (!profileId) {
-            logger.warn('Profile not found for session');
-            return NextResponse.json(
-                createErrorResponse('PROFILE_NOT_FOUND', 'Profile not found', { correlationId }),
-                { status: 400 }
-            );
-        }
-
-        logger.info('Processing direct payment request', { userId: profileId, idempotencyKey });
+        logger.info('Processing direct payment request', { userId: session.user.id, idempotencyKey });
 
         // Check idempotency - return cached result if exists
         if (idempotencyKey) {
             const { data: existingPayment } = await supabaseAdmin
-                .from('payments')
+                .from('payment')
                 .select('*')
-                .eq('gateway_response->>idempotency_key', idempotencyKey) // Helper since it's now in JSON
+                .eq('idempotency_key', idempotencyKey)
                 .single();
 
             if (existingPayment) {
                 logger.info('Returning cached idempotent response', { idempotencyKey });
-                const meta = existingPayment.gateway_response || {};
                 return NextResponse.json(createSuccessResponse({
                     orderId: existingPayment.order_id,
-                    codeChild: meta.reference_code,
+                    codeChild: existingPayment.reference_code,
                     amount: existingPayment.amount,
-                    qrUrl: meta.qr_url,
-                    expiresAt: meta.expires_at,
+                    qrUrl: existingPayment.qr_url,
+                    expiresAt: existingPayment.expires_at,
                     cached: true,
                 }));
             }
@@ -126,46 +111,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        let finalName = productName;
-        let finalSku = body.productSku || null;
-        let finalUnitPrice = unitPrice;
-
-        if (productType === 'product' && productId) {
-            const { data: product, error: productError } = await supabaseAdmin
-                .from('products')
-                .select('id, name, sku, base_price, sale_price, sizes')
-                .eq('id', productId)
-                .single();
-
-            if (productError || !product) {
-                return NextResponse.json(
-                    createErrorResponse('PRODUCT_NOT_FOUND', 'Sản phẩm không tồn tại', { correlationId }),
-                    { status: 404 }
-                );
-            }
-
-            finalName = product.name;
-            finalSku = product.sku || finalSku;
-
-            const sizeName = typeof metadata?.size === 'string' ? metadata.size : undefined;
-            let computedPrice = product.sale_price ?? product.base_price ?? 0;
-
-            if (sizeName && Array.isArray(product.sizes)) {
-                const sizeObj = product.sizes.find((s: any) => s?.name === sizeName);
-                if (sizeObj && typeof sizeObj.price === 'number') {
-                    computedPrice = sizeObj.price;
-                }
-            }
-
-            finalUnitPrice = computedPrice;
-        }
-
-        const totalPrice = finalUnitPrice * quantity;
+        const totalPrice = unitPrice * quantity;
         const shippingFee = 0;
         const finalAmount = totalPrice + shippingFee;
 
         // 1. Get or Generate Customer Code (10 hex)
-        const rawCustomerCode = await getCustomerCode(profileId, session.user.email);
+        const rawCustomerCode = await getCustomerCode(session.user.id, session.user.email);
         let customerCode: string;
 
         const isCustomerCodeValid = rawCustomerCode && isValidCustomerCode(rawCustomerCode);
@@ -179,7 +130,7 @@ export async function POST(request: NextRequest) {
             await supabaseAdmin
                 .from('profiles')
                 .update({ customer_code: customerCode })
-                .eq('id', profileId);
+                .eq('id', session.user.id);
         }
 
         // 2. Generate pure hex codes
@@ -230,56 +181,39 @@ export async function POST(request: NextRequest) {
             bankCode: bankInfo.bank_code
         });
 
-        // Create order (Unified Schema)
-        // Store product details in 'items' JSONB column
-        // Map 'codeChild' to 'order_code'
-        const orderItems = [{
-            id: crypto.randomUUID(),
-            product_id: productId || null,
-            name: finalName,
-            sku: finalSku,
-            quantity: quantity,
-            unit_price: finalUnitPrice,
-            total_price: totalPrice,
-            configuration: metadata || {},
-            type: productType // Store type in item config/metadata if needed, or rely on product
-        }];
-
-        const { data: order, error: orderError } = await supabaseAdmin
-            .from('orders')
+        // Create order_child
+        const { data: orderChild, error: orderError } = await supabaseAdmin
+            .from('order_child')
             .insert({
-                order_code: codeChild,
-                user_id: profileId,
-                order_type: getOrderTypeForProduct(productType),
-                subtotal: totalPrice,
-                shipping_fee: shippingFee,
-                total_amount: finalAmount,
+                code_child: codeChild,
+                product_sku: body.productSku || null,
+                parent_id: null,
+                user_id: session.user.id,
+                product_id: productId || null,
+                product_type: productType,
+                product_name: productName,
+                quantity,
+                unit_price: unitPrice,
+                total_price: totalPrice,
                 status: 'pending',
-                payment_status: 'pending',
-                shipping_address_snapshot: shippingAddress,
-                items: orderItems, // JSONB column
-                // Store extra metadata in specific columns if available or note
-                notes: `Direct Pay: ${customerCode}`,
-                // We can store extended metadata in a generic column if schema supports it, 
-                // but for now we map what we can. 
-                // If we need parent_code/transfer_content, maybe put in admin_notes or check if we have a metadata column? 
-                // Orders table doesn't have generic metadata column in the schema I saw, assumes structured fields.
-                // storing critical payment info in admin_notes for now or relying on payments table.
-                admin_notes: JSON.stringify({
+                payment_qr_url: qrUrl,
+                metadata: {
+                    ...metadata,
                     parent_code: codeParent,
                     customer_code: customerCode,
                     transfer_content: transferContent,
+                    shipping_address: shippingAddress,
+                    shipping_fee: shippingFee,
                     correlation_id: correlationId,
-                    bank_info: {
-                        bank_code: bankInfo.bank_code,
-                        account_no: bankInfo.account_no
-                    }
-                })
+                    bank_code: bankInfo.bank_code,
+                    account_no: bankInfo.account_no,
+                    account_name: bankInfo.account_name,
+                },
             })
             .select()
             .single();
 
-        if (orderError || !order) {
+        if (orderError || !orderChild) {
             logger.error('Order creation failed', orderError);
             return NextResponse.json(
                 createErrorResponse('ORDER_CREATE_FAILED', ERROR_MESSAGES.ORDER_CREATE_FAILED, {
@@ -290,56 +224,34 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        logger.info('Order created successfully', { orderId: order.id });
+        logger.info('Order created successfully', { orderId: orderChild.id });
 
-        // Insert normalized order_items
-        const { error: orderItemsError } = await supabaseAdmin
-            .from('order_items')
-            .insert(orderItems.map((item) => ({
-                order_id: order.id,
-                product_id: item.product_id,
-                name: item.name,
-                sku: item.sku,
-                size: typeof item.configuration?.size === 'string' ? item.configuration.size : null,
-                quantity: item.quantity,
-                unit_price: item.unit_price,
-                total_price: item.total_price,
-                configuration: item.configuration || {},
-            })));
-
-        if (orderItemsError) {
-            logger.warn('Order items insert failed (non-fatal)', { error: orderItemsError });
-        }
-
-        // Create payment record (Table: 'payments')
+        // Create payment record
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
         const { error: paymentError } = await supabaseAdmin
-            .from('payments') // FIXED: 'payment' -> 'payments'
+            .from('payment')
             .insert({
-                order_id: order.id,
-                transaction_code: transferContent, // Map transfer content to transaction_code or similar
+                order_type: 'direct_child',
+                order_id: orderChild.id,
+                reference_code: codeChild,
                 amount: finalAmount,
                 status: 'pending',
                 method: 'QR',
-                gateway_response: {
-                    qr_url: qrUrl,
-                    bank_code: bankInfo.bank_code,
-                    account_no: bankInfo.account_no,
-                    account_name: bankInfo.account_name,
-                    expires_at: expiresAt.toISOString(),
-                    idempotency_key: idempotencyKey || null,
-                    correlation_id: correlationId,
-                    reference_code: codeChild
-                }
+                qr_url: qrUrl,
+                bank_code: bankInfo.bank_code,
+                account_no: bankInfo.account_no,
+                account_name: bankInfo.account_name,
+                expires_at: expiresAt.toISOString(),
+                idempotency_key: idempotencyKey || null,
+                correlation_id: correlationId,
             });
 
         if (paymentError) {
             logger.error('Payment record creation failed', paymentError);
-            // Non-critical (?) but bad state.
         }
 
         logger.info('Direct payment completed successfully', {
-            orderId: order.id,
+            orderId: orderChild.id,
             amount: finalAmount,
             codeChild,
             customerCode: customerCode,
@@ -347,7 +259,7 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json(createSuccessResponse({
-            orderId: order.id,
+            orderId: orderChild.id,
             codeChild,
             customerCode: customerCode,
             amount: finalAmount,
@@ -365,9 +277,15 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
         logger.error('Unexpected error in direct payment', error);
 
+        // Return detailed error for debugging (remove in production)
         return NextResponse.json(
             createErrorResponse('INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR, {
-                correlationId
+                correlationId,
+                debug: {
+                    message: error?.message || String(error),
+                    name: error?.name,
+                    stack: error?.stack?.split('\n').slice(0, 5)
+                }
             }),
             { status: 500 }
         );

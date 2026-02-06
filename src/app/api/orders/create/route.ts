@@ -1,9 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/generateId';
 import { stripHtml } from '@/lib/security/sanitize';
-import { requireCsrf } from '@/lib/security/csrf';
 
 // Supabase admin client with service role key (bypasses RLS)
 const supabaseAdmin = createClient(
@@ -39,11 +38,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
+        // Parse request body
         const body: CreateOrderRequest = await request.json();
         const {
             items,
@@ -52,13 +47,6 @@ export async function POST(request: NextRequest) {
             customerNote,
             orderType = 'ready_made'
         } = body;
-
-        if (orderType !== 'ready_made') {
-            return NextResponse.json(
-                { error: 'Unsupported order type for this endpoint' },
-                { status: 400 }
-            );
-        }
 
         // SECURITY: Sanitize user input
         const sanitizedNote = customerNote ? stripHtml(customerNote).slice(0, 500) : null;
@@ -88,6 +76,7 @@ export async function POST(request: NextRequest) {
         const orderCode = generateId.order();
         const customerCode = user.customer_code || generateId.user();
 
+        // If user doesn't have customer code, update it
         if (!user.customer_code) {
             await supabaseAdmin
                 .from('profiles')
@@ -95,111 +84,54 @@ export async function POST(request: NextRequest) {
                 .eq('id', user.id);
         }
 
-        const shippingFee = 0;
+        // Calculate amounts
+        const shippingFee = 0; // No shipping fee
         const total = totalPrice + shippingFee;
 
         // Create or get shipping address
         let shippingAddressId: string | null = null;
-        let shippingSnapshot: Record<string, unknown> | null = null;
 
         if (shippingAddress && typeof shippingAddress === 'object') {
-            // If address_id provided, verify ownership
-            if ((shippingAddress as any).id) {
-                const addressId = (shippingAddress as any).id as string;
-                const { data: addr } = await supabaseAdmin
-                    .from('addresses')
-                    .select('id, user_id, full_name, phone, address_line, ward, district, province')
-                    .eq('id', addressId)
-                    .single();
-
-                if (!addr || addr.user_id !== user.id) {
-                    return NextResponse.json(
-                        { error: 'Địa chỉ không hợp lệ' },
-                        { status: 403 }
-                    );
-                }
-
-                shippingAddressId = addr.id;
-                shippingSnapshot = {
-                    full_name: addr.full_name,
-                    phone: addr.phone,
-                    address_line: addr.address_line,
-                    ward: addr.ward,
-                    district: addr.district,
-                    province: addr.province,
-                };
-            } else if ((shippingAddress as any).province) {
-                const fullName = (shippingAddress as any).full_name as string | undefined;
-                const phone = (shippingAddress as any).phone as string | undefined;
-                const addressLine = (shippingAddress as any).address_line as string | undefined;
-                const district = (shippingAddress as any).district as string | undefined;
-                const province = (shippingAddress as any).province as string | undefined;
-
-                if (!fullName || !phone || !addressLine || !district || !province) {
-                    return NextResponse.json(
-                        { error: 'Thiếu thông tin địa chỉ giao hàng' },
-                        { status: 400 }
-                    );
-                }
-
+            // Check if it's an address_id or address object
+            if (shippingAddress.id) {
+                shippingAddressId = shippingAddress.id as string;
+            } else if (shippingAddress.province) {
+                // Create new address
                 const { data: newAddress } = await supabaseAdmin
                     .from('addresses')
                     .insert({
                         user_id: user.id,
-                        full_name: fullName,
-                        phone: phone,
-                        address_line: addressLine,
-                        ward: (shippingAddress as any).ward || null,
-                        district: district,
-                        province: province,
+                        full_name: (shippingAddress.full_name as string) || null,
+                        phone: (shippingAddress.phone as string) || null,
+                        address_line: (shippingAddress.address_line as string) || null,
+                        ward: (shippingAddress.ward as string) || null,
+                        district: (shippingAddress.district as string) || null,
+                        province: shippingAddress.province as string,
                         label: 'Đơn hàng',
                         is_default: false,
                     })
-                    .select('id, full_name, phone, address_line, ward, district, province')
+                    .select('id')
                     .single();
 
                 if (newAddress) {
                     shippingAddressId = newAddress.id;
-                    shippingSnapshot = {
-                        full_name: newAddress.full_name,
-                        phone: newAddress.phone,
-                        address_line: newAddress.address_line,
-                        ward: newAddress.ward,
-                        district: newAddress.district,
-                        province: newAddress.province,
-                    };
                 }
             }
-        }
-
-        if (!shippingAddressId && !shippingSnapshot) {
+        } else {
+            // Get default address
             const { data: defaultAddr } = await supabaseAdmin
                 .from('addresses')
-                .select('id, full_name, phone, address_line, ward, district, province')
+                .select('id')
                 .eq('user_id', user.id)
                 .eq('is_default', true)
                 .single();
 
             if (defaultAddr) {
                 shippingAddressId = defaultAddr.id;
-                shippingSnapshot = {
-                    full_name: defaultAddr.full_name,
-                    phone: defaultAddr.phone,
-                    address_line: defaultAddr.address_line,
-                    ward: defaultAddr.ward,
-                    district: defaultAddr.district,
-                    province: defaultAddr.province,
-                };
             }
         }
 
-        if (!shippingAddressId && !shippingSnapshot) {
-            return NextResponse.json(
-                { error: 'Vui lòng cung cấp địa chỉ giao hàng hợp lệ' },
-                { status: 400 }
-            );
-        }
-
+        // Create order with FK instead of JSONB
         const { data: order, error: orderError } = await supabaseAdmin
             .from('orders')
             .insert({
@@ -211,10 +143,9 @@ export async function POST(request: NextRequest) {
                 deposit_paid: false,
                 subtotal: totalPrice,
                 shipping_fee: shippingFee,
-                total_amount: total,
-                address_id: shippingAddressId,
-                shipping_address_snapshot: shippingSnapshot,
-                notes: sanitizedNote,
+                total: total,
+                shipping_address_id: shippingAddressId,
+                customer_note: sanitizedNote,
             })
             .select('id, order_code')
             .single();
@@ -227,6 +158,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Create order items
+        // Fetch all products involved in the order
         const productIds = items
             .map(item => item.productId)
             .filter((id): id is string => !!id);
@@ -246,15 +179,18 @@ export async function POST(request: NextRequest) {
 
         const productMap = new Map((products || []).map(p => [p.id, p]));
 
+        // Calculate order items with server-side pricing
         const orderItems = items.map(item => {
-            let unitPrice = item.price;
+            let unitPrice = item.price; // Fallback (should be overridden below for ready_made)
             let productName = item.name;
 
             if (orderType === 'ready_made' && item.productId) {
                 const product = productMap.get(item.productId);
                 if (product) {
-                    productName = product.name;
+                    productName = product.name; // Use authoritative name
 
+                    // Determine price
+                    // Check for size-specific price first
                     let sizePrice: number | null = null;
                     if (item.size && Array.isArray(product.sizes)) {
                         const sizeObj = product.sizes.find((s: any) =>
@@ -268,6 +204,7 @@ export async function POST(request: NextRequest) {
                     if (sizePrice !== null) {
                         unitPrice = sizePrice;
                     } else {
+                        // Use product sale price or base price
                         unitPrice = (typeof product.sale_price === 'number')
                             ? product.sale_price
                             : product.base_price;
@@ -275,27 +212,35 @@ export async function POST(request: NextRequest) {
                 }
             }
 
+            // For custom/printing orders, logic might differ (usually quoted), 
+            // but for now we trust the input OR you should implement a Quote lookup here.
+            // TODO: specific logic for custom/printing if needed.
+
             return {
                 order_id: order.id,
                 product_id: item.productId || null,
-                sku: item.sku || null,
-                name: productName,
-                size: item.size || null,
+                product_sku: item.sku || null,
+                product_name: productName,
                 quantity: item.quantity,
                 unit_price: unitPrice,
                 total_price: unitPrice * item.quantity,
-                configuration: item.size ? { size: item.size } : {},
+                size: item.size || null,
             };
         });
 
+        // Recalculate total from secure items
         const calculatedSubtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
         const calculatedTotal = calculatedSubtotal + shippingFee;
 
+        // Verify total match (optional: strictly enforce or just warn/update)
+        // We will strictly enforce the server-calculated total
+
+        // Update the order with calculated totals
         await supabaseAdmin
             .from('orders')
             .update({
                 subtotal: calculatedSubtotal,
-                total_amount: calculatedTotal
+                total: calculatedTotal
             })
             .eq('id', order.id);
 
@@ -305,6 +250,8 @@ export async function POST(request: NextRequest) {
 
         if (itemsError) {
             console.error('Order items error:', itemsError);
+            // Order was created but items failed - still return success
+            // Admin can fix manually
         }
 
         return NextResponse.json({
@@ -312,8 +259,8 @@ export async function POST(request: NextRequest) {
             orderId: order.id,
             orderCode: order.order_code,
             customerCode: customerCode,
-            total: calculatedTotal,
-            depositAmount: Math.round(calculatedTotal * 0.5),
+            total: total,
+            depositAmount: Math.round(total * 0.5),
         });
 
     } catch (error) {

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/security/admin-guard';
-import { requireCsrf } from '@/lib/security/csrf';
 
 /**
  * GET /api/admin/categories
@@ -12,21 +11,6 @@ export async function GET(request: NextRequest) {
         // SECURITY: Verify admin access
         const { authorized, response } = await requireAdmin(request);
         if (!authorized) return response;
-
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
 
         const supabase = getAdminSupabase();
 

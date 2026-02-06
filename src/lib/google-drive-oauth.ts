@@ -12,8 +12,6 @@ import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
 import { encryptTokenData, decryptTokenData } from '@/lib/security/token-encryption';
-import { buildOrderPathSegments, getTodayDate, type OrderFileCategory } from '@/lib/storage/order-storage';
-import { generateCustomFileName, generatePrintingFileName } from '@/lib/fileNaming';
 
 // Environment variables
 const CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
@@ -372,8 +370,8 @@ export function getDownloadUrl(fileId: string): string {
  * 
  * Examples:
  * - ['products', 'figures'] -> products/figures/
- * - ['customers', '9CF293891B', 'uploads', 'photos'] -> customers/9CF293891B/uploads/photos/
- * - ['customers', '9CF293891B', 'orders', 'A1B2C3D4E5', 'input'] -> customers/9CF293891B/orders/A1B2C3D4E5/input/
+ * - ['customers', 'CUS-ABC', 'uploads', 'photos'] -> customers/CUS-ABC/uploads/photos/
+ * - ['customers', 'CUS-ABC', 'orders', 'ORD-001', 'input'] -> customers/CUS-ABC/orders/ORD-001/input/
  */
 export async function buildFolderPath(pathSegments: string[]): Promise<string> {
     if (!FOLDER_ID) {
@@ -387,68 +385,6 @@ export async function buildFolderPath(pathSegments: string[]): Promise<string> {
     }
 
     return currentFolderId;
-}
-
-function escapeDriveQuery(value: string): string {
-    return value.replace(/'/g, "\\'");
-}
-
-/**
- * Resolve a folder path without creating missing folders.
- * Returns final folder ID if all segments exist, otherwise null.
- */
-export async function getFolderPathIfExists(pathSegments: string[]): Promise<string | null> {
-    if (!FOLDER_ID) {
-        throw new Error('Root folder ID not configured');
-    }
-
-    const drive = await getDriveClient();
-    let currentFolderId = FOLDER_ID;
-
-    for (const segment of pathSegments) {
-        const safeName = escapeDriveQuery(segment);
-        const existing = await drive.files.list({
-            q: `name='${safeName}' and '${currentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-            fields: 'files(id)',
-        });
-
-        if (!existing.data.files || existing.data.files.length === 0) {
-            return null;
-        }
-        currentFolderId = existing.data.files[0].id!;
-    }
-
-    return currentFolderId;
-}
-
-/**
- * Find a file by name inside a given path (no folder creation).
- * Returns file metadata if found, otherwise null.
- */
-export async function findDriveFileByPath(
-    pathSegments: string[],
-    fileName: string
-): Promise<{ id: string; webViewLink?: string; webContentLink?: string } | null> {
-    const folderId = await getFolderPathIfExists(pathSegments);
-    if (!folderId) return null;
-
-    const drive = await getDriveClient();
-    const safeName = escapeDriveQuery(fileName);
-    const existing = await drive.files.list({
-        q: `name='${safeName}' and '${folderId}' in parents and trashed=false`,
-        fields: 'files(id, webViewLink, webContentLink)',
-    });
-
-    if (!existing.data.files || existing.data.files.length === 0) {
-        return null;
-    }
-
-    const file = existing.data.files[0];
-    return {
-        id: file.id!,
-        webViewLink: file.webViewLink ?? undefined,
-        webContentLink: file.webContentLink ?? undefined,
-    };
 }
 
 /**
@@ -465,9 +401,17 @@ export const FolderPaths = {
     // Products: products/ (flat folder)
     product: () => ['products'],
 
-    // Order files: {customer}/{date}/{order}/{type}
-    order: (customerCode: string, orderCode: string, category: OrderFileCategory, date: string = getTodayDate()) =>
-        buildOrderPathSegments({ customerCode, orderCode, category, date }),
+    // Printing: customers/{cusCode}/printing/{orderCode}/
+    printing: (customerCode: string, orderCode: string) =>
+        ['customers', customerCode, 'printing', orderCode],
+
+    // Custom: customers/{cusCode}/custom/{orderCode}/{type}/
+    customMain: (customerCode: string, orderCode: string) =>
+        ['customers', customerCode, 'custom', orderCode, 'image-main'],
+    customAccessory: (customerCode: string, orderCode: string) =>
+        ['customers', customerCode, 'custom', orderCode, 'image-accessory'],
+    customPreview: (customerCode: string, orderCode: string) =>
+        ['customers', customerCode, 'custom', orderCode, 'preview'],
 };
 
 /**
@@ -488,15 +432,31 @@ export async function uploadToPath(
  * 
  * Formats:
  * - Product: {SKU}_{index}.jpg → FIG-001_01.jpg
- * - Printing: {orderCode}_{index}.stl → A1B2C3D4E5_01.stl
- * - Custom main: {orderCode}_main_{index}.jpg
- * - Custom accessory: {orderCode}_acc_{index}.jpg
- * - Custom preview: {orderCode}_preview_{index}.jpg
+ * - Printing: {P3D-orderCode}_{index}.stl → P3D-2024-001_01.stl
+ * - Custom main: {CUS-orderCode}_main_{index}.jpg
+ * - Custom accessory: {CUS-orderCode}_acc_{index}.jpg
+ * - Custom preview: {CUS-orderCode}_preview_{index}.jpg
  */
 export const FileNames = {
     // Product: SKU_01.jpg
     product: (sku: string, index: number, ext: string) =>
         `${sku}_${String(index).padStart(2, '0')}.${ext}`,
+
+    // Printing: P3D-2024-001_01.stl
+    printing: (orderCode: string, index: number, ext: string) =>
+        `${orderCode}_${String(index).padStart(2, '0')}.${ext}`,
+
+    // Custom main: CUS-2024-001_main_01.jpg
+    customMain: (orderCode: string, index: number, ext: string) =>
+        `${orderCode}_main_${String(index).padStart(2, '0')}.${ext}`,
+
+    // Custom accessory: CUS-2024-001_acc_01.jpg
+    customAccessory: (orderCode: string, index: number, ext: string) =>
+        `${orderCode}_acc_${String(index).padStart(2, '0')}.${ext}`,
+
+    // Custom preview: CUS-2024-001_preview_01.jpg
+    customPreview: (orderCode: string, index: number, ext: string) =>
+        `${orderCode}_preview_${String(index).padStart(2, '0')}.${ext}`,
 
     // Extract extension
     getExt: (filename: string) => {
@@ -525,11 +485,6 @@ export async function uploadWithNaming(
         customerCode?: string;
         orderCode?: string;
         index: number;
-        tech?: 'fdm' | 'resin';
-        date?: string;
-        customType?: 'single' | 'couple' | 'group';
-        personCount?: number;
-        photoCategory?: 'main' | 'accessory';
     }
 ) {
     const ext = FileNames.getExt(originalFilename);
@@ -543,72 +498,23 @@ export async function uploadWithNaming(
             break;
 
         case 'printing':
-            fileName = generatePrintingFileName({
-                orderCode: options.orderCode || 'UNKNOWN',
-                tech: options.tech || 'fdm',
-                fileIndex: options.index,
-                infill: 20,
-                layerHeight: '0.2',
-                color: 'white',
-                extension: ext,
-            });
-            pathSegments = FolderPaths.order(
-                options.customerCode || 'GUEST',
-                options.orderCode || 'UNKNOWN',
-                options.tech === 'resin' ? 'printing_resin' : 'printing_fdm',
-                options.date
-            );
+            fileName = FileNames.printing(options.orderCode || 'P3D', options.index, ext);
+            pathSegments = FolderPaths.printing(options.customerCode || 'CUS', options.orderCode || 'P3D');
             break;
 
         case 'custom_main':
-            fileName = generateCustomFileName({
-                orderCode: options.orderCode || 'UNKNOWN',
-                customType: options.customType || 'single',
-                personCount: options.personCount || 1,
-                photoCategory: 'main',
-                photoIndex: options.index,
-                extension: ext,
-            });
-            pathSegments = FolderPaths.order(
-                options.customerCode || 'GUEST',
-                options.orderCode || 'UNKNOWN',
-                'custom_main',
-                options.date
-            );
+            fileName = FileNames.customMain(options.orderCode || 'CUS', options.index, ext);
+            pathSegments = FolderPaths.customMain(options.customerCode || 'CUS', options.orderCode || 'CUS');
             break;
 
         case 'custom_accessory':
-            fileName = generateCustomFileName({
-                orderCode: options.orderCode || 'UNKNOWN',
-                customType: options.customType || 'single',
-                personCount: options.personCount || 1,
-                photoCategory: 'accessory',
-                photoIndex: options.index,
-                extension: ext,
-            });
-            pathSegments = FolderPaths.order(
-                options.customerCode || 'GUEST',
-                options.orderCode || 'UNKNOWN',
-                'custom_accessory',
-                options.date
-            );
+            fileName = FileNames.customAccessory(options.orderCode || 'CUS', options.index, ext);
+            pathSegments = FolderPaths.customAccessory(options.customerCode || 'CUS', options.orderCode || 'CUS');
             break;
 
         case 'custom_preview':
-            fileName = generateCustomFileName({
-                orderCode: options.orderCode || 'UNKNOWN',
-                customType: options.customType || 'single',
-                personCount: options.personCount || 1,
-                photoCategory: options.photoCategory || 'main',
-                photoIndex: options.index,
-                extension: ext,
-            });
-            pathSegments = FolderPaths.order(
-                options.customerCode || 'GUEST',
-                options.orderCode || 'UNKNOWN',
-                'custom_preview',
-                options.date
-            );
+            fileName = FileNames.customPreview(options.orderCode || 'CUS', options.index, ext);
+            pathSegments = FolderPaths.customPreview(options.customerCode || 'CUS', options.orderCode || 'CUS');
             break;
 
         default:

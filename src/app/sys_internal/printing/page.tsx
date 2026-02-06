@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 // import type { Order } from '@/types/database'; // Don't use legacy type if it conflicts
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
@@ -66,7 +65,7 @@ export default function AdminPrintingPage() {
         try {
             await fetch(`/api/admin/orders/${orderId}/update`, {
                 method: 'PUT',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),
             });
             fetchOrders();

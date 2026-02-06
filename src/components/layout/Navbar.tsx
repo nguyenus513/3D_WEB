@@ -3,35 +3,19 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { useUiLabels } from '@/hooks/useUiLabels';
 
-interface NavLink {
-    name: string;
-    href: string;
-}
-
-interface NavbarLabels {
-    brand?: string;
-    links?: NavLink[];
-    account?: {
-        profile?: string;
-        orders?: string;
-        adminPanel?: string;
-        logout?: string;
-        login?: string;
-        userFallback?: string;
-    };
-}
+const navLinks = [
+    { name: 'Sản phẩm', href: '/products' },
+    { name: 'Custom', href: '/custom' },
+    { name: 'In 3D', href: '/printing' },
+    { name: 'FAQ', href: '/faq' },
+    { name: 'About', href: '/about' },
+];
 
 export function Navbar() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const { data: session, status } = useSession();
-    const { t } = useUiLabels(['public.navbar', 'common']);
-
-    const nav = t<NavbarLabels>('nav', {}) as NavbarLabels;
-    const navLinks = nav.links || [];
-    const accountLabels = nav.account || {};
 
     const isLoggedIn = status === 'authenticated' && !!session?.user;
     const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin';
@@ -41,7 +25,7 @@ export function Navbar() {
             <div className="max-w-[1200px] mx-auto px-6 h-full flex items-center justify-between">
                 {/* Logo */}
                 <Link href="/" className="text-xl font-semibold text-white hover:text-white/80 transition-colors">
-                    {nav.brand}
+                    3D Print
                 </Link>
 
                 {/* Desktop Navigation */}
@@ -84,7 +68,7 @@ export function Navbar() {
                             {showUserMenu && (
                                 <div className="absolute right-0 top-10 w-48 bg-[#1D1D1F] rounded-xl border border-white/10 shadow-xl py-2 z-50">
                                     <div className="px-4 py-2 border-b border-white/10">
-                                        <p className="text-white text-sm font-medium truncate">{session.user?.name || accountLabels.userFallback}</p>
+                                        <p className="text-white text-sm font-medium truncate">{session.user?.name || 'User'}</p>
                                         <p className="text-white/50 text-xs truncate">{session.user?.email}</p>
                                     </div>
                                     <Link
@@ -92,14 +76,14 @@ export function Navbar() {
                                         className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5"
                                         onClick={() => setShowUserMenu(false)}
                                     >
-                                        {accountLabels.profile}
+                                        Tài khoản
                                     </Link>
                                     <Link
                                         href="/account/orders"
                                         className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5"
                                         onClick={() => setShowUserMenu(false)}
                                     >
-                                        {accountLabels.orders}
+                                        Đơn hàng
                                     </Link>
                                     {isAdmin && (
                                         <Link
@@ -107,14 +91,14 @@ export function Navbar() {
                                             className="block px-4 py-2 text-sm text-blue-400 hover:text-blue-300 hover:bg-white/5"
                                             onClick={() => setShowUserMenu(false)}
                                         >
-                                            {accountLabels.adminPanel}
+                                            🛡️ Admin Panel
                                         </Link>
                                     )}
                                     <button
                                         onClick={() => signOut({ callbackUrl: '/' })}
                                         className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5"
                                     >
-                                        {accountLabels.logout}
+                                        Đăng xuất
                                     </button>
                                 </div>
                             )}
@@ -164,7 +148,7 @@ export function Navbar() {
                                     className="block text-base text-[#F5F5F7]/80 hover:text-white transition-colors"
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
-                                    {accountLabels.profile}
+                                    Tài khoản
                                 </Link>
                                 {isAdmin && (
                                     <Link
@@ -172,14 +156,14 @@ export function Navbar() {
                                         className="block text-base text-blue-400 hover:text-blue-300 transition-colors"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
-                                        {accountLabels.adminPanel}
+                                        🛡️ Admin Panel
                                     </Link>
                                 )}
                                 <button
                                     onClick={() => signOut({ callbackUrl: '/' })}
                                     className="block text-base text-red-400 hover:text-red-300 transition-colors"
                                 >
-                                    {accountLabels.logout}
+                                    Đăng xuất
                                 </button>
                             </>
                         ) : (
@@ -188,7 +172,7 @@ export function Navbar() {
                                 className="block text-base text-[#F5F5F7]/80 hover:text-white transition-colors"
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
-                                {accountLabels.login}
+                                Đăng nhập
                             </Link>
                         )}
                     </div>

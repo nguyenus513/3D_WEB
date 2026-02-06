@@ -75,7 +75,7 @@ export class OrderRepository {
 
         let query = this.db
             .from('orders')
-            .select('*, order_items(*)', { count: 'exact' })
+            .select('*, items:order_items(*)', { count: 'exact' })
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
@@ -98,15 +98,8 @@ export class OrderRepository {
             throw error;
         }
 
-        const orders = (data || []).map((o: any) => {
-            const normalizedItems = Array.isArray(o.order_items) && o.order_items.length > 0
-                ? o.order_items
-                : (Array.isArray(o.items) ? o.items : []);
-            return { ...o, items: normalizedItems } as OrderWithItems;
-        });
-
         return {
-            orders,
+            orders: (data as OrderWithItems[]) || [],
             total: count || 0,
         };
     }
@@ -117,7 +110,7 @@ export class OrderRepository {
     async findById(orderId: string): Promise<OrderWithItems | null> {
         const { data, error } = await this.db
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, items:order_items(*)')
             .eq('id', orderId)
             .single();
 
@@ -128,11 +121,7 @@ export class OrderRepository {
             throw error;
         }
 
-        const normalizedItems = Array.isArray((data as any).order_items) && (data as any).order_items.length > 0
-            ? (data as any).order_items
-            : (Array.isArray((data as any).items) ? (data as any).items : []);
-
-        return { ...(data as any), items: normalizedItems } as OrderWithItems;
+        return data as OrderWithItems;
     }
 
     /**
@@ -141,7 +130,7 @@ export class OrderRepository {
     async findByCode(orderCode: string): Promise<OrderWithItems | null> {
         const { data, error } = await this.db
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, items:order_items(*)')
             .eq('order_code', orderCode)
             .single();
 
@@ -152,11 +141,7 @@ export class OrderRepository {
             throw error;
         }
 
-        const normalizedItems = Array.isArray((data as any).order_items) && (data as any).order_items.length > 0
-            ? (data as any).order_items
-            : (Array.isArray((data as any).items) ? (data as any).items : []);
-
-        return { ...(data as any), items: normalizedItems } as OrderWithItems;
+        return data as OrderWithItems;
     }
 
     /**
@@ -165,7 +150,7 @@ export class OrderRepository {
     async findByIdAndUserId(orderId: string, userId: string): Promise<OrderWithItems | null> {
         const { data, error } = await this.db
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, items:order_items(*)')
             .eq('id', orderId)
             .eq('user_id', userId)
             .single();
@@ -177,11 +162,7 @@ export class OrderRepository {
             throw error;
         }
 
-        const normalizedItems = Array.isArray((data as any).order_items) && (data as any).order_items.length > 0
-            ? (data as any).order_items
-            : (Array.isArray((data as any).items) ? (data as any).items : []);
-
-        return { ...(data as any), items: normalizedItems } as OrderWithItems;
+        return data as OrderWithItems;
     }
 
     /**
@@ -191,22 +172,7 @@ export class OrderRepository {
         orderData: CreateOrderParams,
         items: CreateOrderItemParams[]
     ): Promise<OrderWithItems> {
-        const now = new Date().toISOString();
-
-        // Prepare items for JSON storage (compatibility)
-        const orderItemsJson = items.map((item) => ({
-            id: crypto.randomUUID(),
-            product_id: item.productId || null,
-            name: item.name,
-            sku: item.sku || null,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            total_price: item.totalPrice,
-            configuration: item.configuration || {},
-            created_at: now,
-        }));
-
-        // Insert order with items embedded
+        // Insert order
         const { data: order, error: orderError } = await this.db
             .from('orders')
             .insert({
@@ -222,43 +188,40 @@ export class OrderRepository {
                 payment_status: 'pending' as PaymentStatus,
                 shipping_address_snapshot: orderData.shippingAddressSnapshot || null,
                 notes: orderData.notes || null,
-                items: orderItemsJson as any // Store as JSONB
             })
-            .select('*') // Select all, including new 'items' column
+            .select()
             .single();
 
         if (orderError) {
             throw orderError;
         }
 
-        // Insert normalized order_items for relational access
-        if (items.length > 0) {
-            const orderItemsDb = items.map((item) => ({
-                order_id: order.id,
-                product_id: item.productId || null,
-                name: item.name,
-                sku: item.sku || null,
-                quantity: item.quantity,
-                unit_price: item.unitPrice,
-                total_price: item.totalPrice,
-                configuration: item.configuration || {},
-            }));
+        // Insert order items
+        const orderItems = items.map((item) => ({
+            order_id: order.id,
+            product_id: item.productId || null,
+            name: item.name,
+            sku: item.sku || null,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            total_price: item.totalPrice,
+            configuration: item.configuration || {},
+        }));
 
-            const { error: itemsError } = await this.db
-                .from('order_items')
-                .insert(orderItemsDb);
+        const { data: insertedItems, error: itemsError } = await this.db
+            .from('order_items')
+            .insert(orderItems)
+            .select();
 
-            if (itemsError) {
-                // Keep order (items stored in JSONB). Log for observability.
-                // Avoid throwing to prevent order loss.
-                // eslint-disable-next-line no-console
-                console.error('[OrderRepository.create] Failed to insert order_items:', itemsError);
-            }
+        if (itemsError) {
+            // Rollback: delete the order if items failed
+            await this.db.from('orders').delete().eq('id', order.id);
+            throw itemsError;
         }
 
         return {
             ...order,
-            items: orderItemsJson,
+            items: insertedItems,
         } as OrderWithItems;
     }
 
@@ -349,7 +312,7 @@ export class OrderRepository {
 
         let query = this.db
             .from('orders')
-            .select('*, user:profiles(*), order_items(*)', { count: 'exact' })
+            .select('*, items:order_items(*), user:profiles(*)', { count: 'exact' })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -371,15 +334,8 @@ export class OrderRepository {
             throw error;
         }
 
-        const orders = (data || []).map((o: any) => {
-            const normalizedItems = Array.isArray(o.order_items) && o.order_items.length > 0
-                ? o.order_items
-                : (Array.isArray(o.items) ? o.items : []);
-            return { ...o, items: normalizedItems } as OrderWithItems;
-        });
-
         return {
-            orders,
+            orders: (data as OrderWithItems[]) || [],
             total: count || 0,
         };
     }

@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/Button';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface FormData {
     // Personal
@@ -159,7 +158,7 @@ export default function CompleteProfilePage() {
             // Update profile
             const profileRes = await fetch('/api/profile', {
                 method: 'PUT',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: formData.name,
                     phone: formData.phone,
@@ -194,7 +193,7 @@ export default function CompleteProfilePage() {
             // Create address
             const addressRes = await fetch('/api/addresses', {
                 method: 'POST',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     label: 'Nhà riêng',
                     full_name: formData.name,

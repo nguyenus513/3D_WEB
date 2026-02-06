@@ -1,6 +1,7 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { isRateLimited } from '@/lib/security';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 /**
@@ -9,7 +10,8 @@ import crypto from 'crypto';
  */
 export async function POST(request: NextRequest) {
     try {
-        const { limited } = await isRateLimited(request);
+        // Rate limiting
+        const { limited } = isRateLimited(request);
         if (limited) {
             return NextResponse.json(
                 { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
@@ -26,6 +28,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Validate password strength
         if (password.length < 8) {
             return NextResponse.json(
                 { error: 'Mật khẩu phải có ít nhất 8 ký tự' },
@@ -35,11 +38,13 @@ export async function POST(request: NextRequest) {
 
         const supabase = getAdminSupabase();
 
+        // Hash the token to compare
         const tokenHash = crypto
             .createHash('sha256')
             .update(token)
             .digest('hex');
 
+        // Find valid token
         const { data: resetToken, error: tokenError } = await supabase
             .from('password_reset_tokens')
             .select('user_id, expires_at')
@@ -53,7 +58,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Check if token expired
         if (new Date(resetToken.expires_at) < new Date()) {
+            // Delete expired token
             await supabase
                 .from('password_reset_tokens')
                 .delete()
@@ -65,7 +72,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Supabase will hash the password internally
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // Update password in auth.users using Supabase Admin API
         const { error: updateError } = await supabase.auth.admin.updateUserById(
             resetToken.user_id,
             { password: password }
@@ -79,10 +89,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Delete used token
         await supabase
             .from('password_reset_tokens')
             .delete()
             .eq('user_id', resetToken.user_id);
+
+        console.log('[ResetPassword] Password reset successful for user:', resetToken.user_id);
 
         return NextResponse.json({
             success: true,

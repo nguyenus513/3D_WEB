@@ -7,7 +7,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { AuthRepository } from '@/repositories/AuthRepository';
-import { BadRequestError, ConflictError } from '@/lib/core/BaseController';
+import { BadRequestError, ConflictError, RateLimitError } from '@/lib/core/BaseController';
 import { RegisterInput, ForgotPasswordInput, ResetPasswordInput, VerifyEmailInput } from '@/validators/auth.schema';
 
 // =============================================================================

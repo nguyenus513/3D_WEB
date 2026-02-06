@@ -209,27 +209,9 @@ export const useCartStore = create<CartStore>()(
                     });
 
                     // Only update if there were changes
-                    let hasChanges = migratedItems.some((item, i) => item.type !== state.items[i].type);
-
-                    // Sanitize images (fix [object Object] or object refs)
-                    const sanitizedItems = migratedItems.map(item => {
-                        let safeImage = item.image;
-                        if (typeof safeImage === 'object' && safeImage !== null) {
-                            safeImage = (safeImage as any).url || (safeImage as any).web_view_link;
-                        }
-                        if (typeof safeImage === 'string' && safeImage.includes('[object Object]')) {
-                            safeImage = undefined;
-                        }
-                        return { ...item, image: safeImage };
-                    });
-
-                    // Check if sanitization changed anything
-                    if (!hasChanges) {
-                        hasChanges = sanitizedItems.some((item, i) => item.image !== migratedItems[i].image);
-                    }
-
+                    const hasChanges = migratedItems.some((item, i) => item.type !== state.items[i].type);
                     if (hasChanges) {
-                        state.items = sanitizedItems as typeof state.items;
+                        state.items = migratedItems as typeof state.items;
                     }
 
                     state.setHydrated();

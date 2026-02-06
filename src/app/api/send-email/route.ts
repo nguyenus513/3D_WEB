@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { isRateLimited, rateLimitedResponse } from '@/lib/security';
-import { requireCsrf } from '@/lib/security/csrf';
 import {
     sendPaymentConfirmationEmail,
     sendCompletionEmail,
@@ -26,13 +25,8 @@ export async function POST(request: NextRequest) {
         const { authorized, response } = await requireAdmin(request);
         if (!authorized) return response;
 
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
         // SECURITY: Rate limit to prevent quota exhaustion
-        const rateCheck = await isRateLimited(request);
+        const rateCheck = isRateLimited(request);
         if (rateCheck.limited) {
             return rateLimitedResponse(rateCheck.resetIn);
         }

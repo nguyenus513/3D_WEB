@@ -7,25 +7,6 @@ import type { NextConfig } from "next";
  * - X-Frame-Options: Prevents clickjacking
  * - X-Content-Type-Options: Prevents MIME sniffing
  */
-const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-let appOrigin: string | null = null;
-
-if (rawAppUrl) {
-  try {
-    appOrigin = new URL(rawAppUrl).origin;
-  } catch {
-    appOrigin = null;
-  }
-}
-
-const allowUnsafeEval = process.env.NODE_ENV !== 'production' || process.env.CSP_ALLOW_UNSAFE_EVAL === 'true';
-const scriptSrc = [
-  "'self'",
-  "'unsafe-inline'",
-  ...(allowUnsafeEval ? ["'unsafe-eval'"] : []),
-  'https://www.googletagmanager.com',
-];
-
 const securityHeaders = [
   {
     key: 'X-DNS-Prefetch-Control',
@@ -59,7 +40,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      `script-src ${scriptSrc.join(' ')}`,
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com",
       "font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com",
       "img-src 'self' data: blob: https: http:",
@@ -88,12 +69,12 @@ const nextConfig: NextConfig = {
       {
         // CORS for API routes
         source: '/api/:path*',
-        headers: appOrigin ? [
+        headers: [
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: appOrigin },
+          { key: 'Access-Control-Allow-Origin', value: process.env.NEXT_PUBLIC_APP_URL || '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization' },
-        ] : [],
+        ],
       },
     ];
   },

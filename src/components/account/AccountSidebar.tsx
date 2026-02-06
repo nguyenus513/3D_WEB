@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { debugLog } from '@/lib/utils/debugLog';
 
 const navItems = [
     {
@@ -69,7 +68,7 @@ export function AccountSidebar() {
             }
         } catch (err) {
             // Ignore errors - username is optional
-            debugLog('Failed to fetch userName:', err);
+            console.log('Failed to fetch userName:', err);
         }
     };
 

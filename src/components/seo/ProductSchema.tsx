@@ -19,8 +19,6 @@ interface ProductSchemaProps {
     url: string;
 }
 
-const safeJsonLd = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
-
 export function ProductSchema({ product, url }: ProductSchemaProps) {
     const price = product.sale_price || product.base_price;
     const imageUrl = product.images?.[0]?.url || 'https://miniver3d.com/og-default.jpg';
@@ -54,7 +52,7 @@ export function ProductSchema({ product, url }: ProductSchemaProps) {
     return (
         <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
     );
 }
@@ -81,7 +79,7 @@ export function BreadcrumbSchema({ items }: BreadcrumbSchemaProps) {
     return (
         <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
     );
 }
@@ -112,7 +110,7 @@ export function OrganizationSchema() {
     return (
         <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
     );
 }

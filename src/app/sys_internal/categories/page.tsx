@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface Category {
     id: string;
@@ -53,7 +52,7 @@ export default function AdminCategoriesPage() {
         try {
             const response = await fetch('/api/admin/categories', {
                 method: 'POST',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
 
@@ -78,7 +77,7 @@ export default function AdminCategoriesPage() {
         try {
             const response = await fetch('/api/admin/categories', {
                 method: 'PUT',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, ...editFormData }),
             });
 
@@ -102,7 +101,7 @@ export default function AdminCategoriesPage() {
         try {
             const response = await fetch('/api/admin/categories', {
                 method: 'DELETE',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id }),
             });
 

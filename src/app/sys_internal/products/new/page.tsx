@@ -7,8 +7,6 @@ import { motion } from 'framer-motion';
 import { Switch } from '@/components/ui/Switch';
 import { generateId } from '@/lib/generateId';
 import { useAdminPath } from '@/hooks/useAdminPath';
-import { debugLog } from '@/lib/utils/debugLog';
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 type PricingMode = 'original' | 'multi_size';
 
@@ -111,16 +109,16 @@ export default function AdminProductNewPage() {
             };
 
             // Use API endpoint instead of direct Supabase
-            debugLog('[NewProduct] Sending request to /api/admin/products...');
+            console.log('[NewProduct] Sending request to /api/admin/products...');
             const res = await fetch('/api/admin/products', {
                 method: 'POST',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(productData),
             });
 
-            debugLog('[NewProduct] Response status:', res.status);
+            console.log('[NewProduct] Response status:', res.status);
             const data = await res.json();
-            debugLog('[NewProduct] Response data:', data);
+            console.log('[NewProduct] Response data:', data);
 
             if (!res.ok) {
                 console.error('[NewProduct] Error response:', data);
@@ -128,7 +126,7 @@ export default function AdminProductNewPage() {
                 return;
             }
 
-            debugLog('[NewProduct] Success! Redirecting to:', `${adminRoot}/products`);
+            console.log('[NewProduct] Success! Redirecting to:', `${adminRoot}/products`);
             alert('Tạo sản phẩm thành công!'); // Temporary feedback
             router.push(`${adminRoot}/products`);
         } catch (err) {
@@ -146,23 +144,18 @@ export default function AdminProductNewPage() {
 
         setUploadingImage(true);
         let currentIndex = formData.images.length;
-        const uploadSku = formData.sku || generateId.sku();
-        if (!formData.sku) {
-            setFormData(prev => ({ ...prev, sku: uploadSku }));
-        }
 
         for (const file of Array.from(files)) {
             currentIndex++;
             const formDataUpload = new FormData();
             formDataUpload.append('file', file);
             formDataUpload.append('type', 'product');
-            formDataUpload.append('sku', uploadSku);
+            formDataUpload.append('sku', formData.sku || 'PROD-TEMP');
             formDataUpload.append('index', String(currentIndex));
 
             try {
                 const res = await fetch('/api/upload', {
                     method: 'POST',
-                    headers: addCsrfToRequest(),
                     body: formDataUpload,
                 });
                 const result = await res.json();
@@ -236,20 +229,15 @@ export default function AdminProductNewPage() {
     const uploadSizeImage = async (index: number, file: File) => {
         updateSize(index, 'uploading', true);
 
-        const uploadSku = formData.sku || generateId.sku();
-        if (!formData.sku) {
-            setFormData(prev => ({ ...prev, sku: uploadSku }));
-        }
         const formDataUpload = new FormData();
         formDataUpload.append('file', file);
         formDataUpload.append('type', 'product-size');
-        formDataUpload.append('sku', uploadSku);
+        formDataUpload.append('sku', formData.sku || 'PROD-TEMP');
         formDataUpload.append('index', String(formData.images.length + index + 1));
 
         try {
             const res = await fetch('/api/upload', {
                 method: 'POST',
-                headers: addCsrfToRequest(),
                 body: formDataUpload,
             });
             const result = await res.json();

@@ -6,9 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
-import { getProfileId } from '@/lib/utils/getProfileId';
-import { debugLog } from '@/lib/utils/debugLog';
-import { requireCsrf } from '@/lib/security/csrf';
 
 // GET /api/addresses - List user's addresses
 export async function GET() {
@@ -67,11 +64,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
         const body = await request.json();
 
         // Validate required fields (district is NOT NULL in schema v4)
@@ -107,7 +99,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (!profileById) {
-            debugLog('[POST /api/addresses] Profile not found by ID, trying email lookup');
+            console.log('[POST /api/addresses] Profile not found by ID, trying email lookup');
 
             if (session.user.email) {
                 const { data: profileByEmail } = await supabase
@@ -118,7 +110,7 @@ export async function POST(request: NextRequest) {
 
                 if (profileByEmail) {
                     // Found by email - use that ID instead of corrupted session ID
-                    debugLog('[POST /api/addresses] Using profile ID from email lookup:', profileByEmail.id);
+                    console.log('[POST /api/addresses] Using profile ID from email lookup:', profileByEmail.id);
                     profileId = profileByEmail.id;
                 } else {
                     // Neither found - profile truly doesn't exist
@@ -194,11 +186,6 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
         const body = await request.json();
         const { id, ...updates } = body;
 
@@ -207,11 +194,6 @@ export async function PUT(request: NextRequest) {
         }
 
         const supabase = getAdminSupabase();
-        const profileId = await getProfileId(session.user, supabase);
-
-        if (!profileId) {
-            return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
-        }
 
         // Verify ownership
         const { data: existing } = await supabase
@@ -220,7 +202,7 @@ export async function PUT(request: NextRequest) {
             .eq('id', id)
             .single();
 
-        if (!existing || existing.user_id !== profileId) {
+        if (!existing || existing.user_id !== session.user.id) {
             return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
         }
 
@@ -229,30 +211,18 @@ export async function PUT(request: NextRequest) {
             await supabase
                 .from('addresses')
                 .update({ is_default: false })
-                .eq('user_id', profileId);
+                .eq('user_id', session.user.id);
         }
 
         // Sanitize updates
         const sanitized: Record<string, unknown> = {};
-        if (typeof updates.full_name === 'string' && updates.full_name.trim()) {
-            sanitized.full_name = updates.full_name.trim().slice(0, 100);
-        }
-        if (typeof updates.phone === 'string' && updates.phone.trim()) {
-            sanitized.phone = updates.phone.trim().slice(0, 15);
-        }
-        if (typeof updates.address_line === 'string' && updates.address_line.trim()) {
-            sanitized.address_line = updates.address_line.trim().slice(0, 255);
-        }
+        if (updates.full_name) sanitized.full_name = updates.full_name.trim().slice(0, 100);
+        if (updates.phone) sanitized.phone = updates.phone.trim().slice(0, 15);
+        if (updates.address_line) sanitized.address_line = updates.address_line.trim().slice(0, 255);
         if (updates.ward !== undefined) sanitized.ward = updates.ward?.trim().slice(0, 50) || null;
-        if (typeof updates.district === 'string' && updates.district.trim()) {
-            sanitized.district = updates.district.trim().slice(0, 50);
-        }
-        if (typeof updates.province === 'string' && updates.province.trim()) {
-            sanitized.province = updates.province.trim().slice(0, 50);
-        }
-        if (typeof updates.label === 'string' && updates.label.trim()) {
-            sanitized.label = updates.label.trim().slice(0, 20);
-        }
+        if (updates.district !== undefined) sanitized.district = updates.district?.trim().slice(0, 50) || null;
+        if (updates.province) sanitized.province = updates.province.trim().slice(0, 50);
+        if (updates.label) sanitized.label = updates.label.trim().slice(0, 20);
         if (updates.is_default !== undefined) sanitized.is_default = updates.is_default;
 
         const { error } = await supabase
@@ -280,11 +250,6 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const csrf = await requireCsrf(request);
-        if (!csrf.valid) {
-            return csrf.error!;
-        }
-
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
@@ -293,11 +258,6 @@ export async function DELETE(request: NextRequest) {
         }
 
         const supabase = getAdminSupabase();
-        const profileId = await getProfileId(session.user, supabase);
-
-        if (!profileId) {
-            return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
-        }
 
         // Verify ownership
         const { data: existing } = await supabase
@@ -306,7 +266,7 @@ export async function DELETE(request: NextRequest) {
             .eq('id', id)
             .single();
 
-        if (!existing || existing.user_id !== profileId) {
+        if (!existing || existing.user_id !== session.user.id) {
             return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
         }
 

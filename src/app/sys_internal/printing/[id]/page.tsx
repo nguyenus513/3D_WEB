@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
-import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface Order {
     id: string;
@@ -136,7 +135,7 @@ export default function AdminPrintingDetailPage() {
 
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates),
             });
             await fetchOrder();
@@ -152,7 +151,7 @@ export default function AdminPrintingDetailPage() {
         try {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ admin_note: adminNote }),
             });
         } catch (error) {
@@ -167,14 +166,8 @@ export default function AdminPrintingDetailPage() {
         try {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({
-                    deposit_paid: true,
-                    payment_status: 'paid',
-                    status: 'confirmed',
-                    confirmed_at: new Date().toISOString(),
-                    paid_at: new Date().toISOString(),
-                }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'paid' }),
             });
             await fetchOrder();
         } catch (error) {
