@@ -141,8 +141,14 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
     };
 
     const handleNewAddressChange = () => {
-        // Validate
-        if (!newAddress.full_name || !newAddress.phone || !newAddress.provinceName || !newAddress.address_line) {
+        // Validate required fields (district is required in DB)
+        if (
+            !newAddress.full_name ||
+            !newAddress.phone ||
+            !newAddress.provinceName ||
+            !newAddress.districtName ||
+            !newAddress.address_line
+        ) {
             return;
         }
 
@@ -157,7 +163,14 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
     };
 
     useEffect(() => {
-        if (showNewForm && newAddress.full_name && newAddress.phone && newAddress.provinceName) {
+        if (
+            showNewForm &&
+            newAddress.full_name &&
+            newAddress.phone &&
+            newAddress.provinceName &&
+            newAddress.districtName &&
+            newAddress.address_line
+        ) {
             handleNewAddressChange();
         }
     }, [newAddress, showNewForm]);

@@ -47,115 +47,61 @@ export async function GET(request: NextRequest) {
 
         const allOrders: UnifiedOrder[] = [];
 
-        // 1. Fetch from orders table (ready-made products)
-        const { data: readyMadeOrders } = await supabaseAdmin
+        // UNIFIED QUERY: Fetch all orders from single table
+        const { data: orders, error } = await supabaseAdmin
             .from('orders')
-            .select('*, items:order_items(*)')
+            .select('*, order_items(*)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
-        if (readyMadeOrders) {
-            readyMadeOrders.forEach(order => {
+        if (error) {
+            console.error('[MyOrders] DB Error:', error);
+            throw error;
+        }
+
+        if (orders) {
+            orders.forEach(order => {
+                const type = order.order_type || 'ready_made';
+                const relationalItems = Array.isArray(order.order_items) ? order.order_items : [];
+                const jsonItems = Array.isArray(order.items) ? order.items : [];
+                let displayItems: any[] = [];
+
+                if (type === 'ready_made') {
+                    displayItems = relationalItems.length > 0 ? relationalItems : jsonItems;
+                } else if (type === 'custom') {
+                    const config = order.custom_config || (order.items_config?.custom) || {};
+                    displayItems = [{
+                        name: order.notes ? `Custom: ${order.notes}` : 'Đơn hàng Custom',
+                        quantity: 1,
+                        total_price: order.total_amount || 0,
+                        configuration: config
+                    }];
+                } else if (type === 'printing') {
+                    const config = order.printing_config || (order.items_config?.printing) || {};
+                    displayItems = [{
+                        name: `In 3D - ${config.type || 'FDM'}`,
+                        quantity: config.quantity || 1,
+                        total_price: order.total_amount || 0,
+                        configuration: config
+                    }];
+                }
+
                 allOrders.push({
                     id: order.id,
                     order_code: order.order_code,
-                    order_type: 'ready_made',
+                    order_type: type as any,
                     total: order.total_amount || 0,
                     status: order.status,
                     payment_status: order.payment_status,
                     created_at: order.created_at,
-                    order_items: order.items || [],
-                    shipping_address: order.shipping_address_snapshot,
+                    order_items: displayItems,
+                    shipping_address: order.shipping_address_snapshot as any,
                 });
             });
         }
 
-        // 2. Fetch from custom_orders table
-        const { data: customOrders } = await supabaseAdmin
-            .from('custom_orders')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        // No sorting needed as DB query is already sorted
 
-        if (customOrders) {
-            customOrders.forEach(order => {
-                allOrders.push({
-                    id: order.id,
-                    order_code: order.order_number || order.order_code || order.id.slice(0, 8),
-                    order_type: 'custom',
-                    total: order.total || order.estimated_price || 0,
-                    status: order.status,
-                    payment_status: order.status === 'pending' ? 'pending' : 'paid',
-                    created_at: order.created_at,
-                    order_items: [{
-                        name: order.description || 'Đơn hàng Custom',
-                        quantity: order.quantity || 1,
-                        total_price: order.total || order.estimated_price || 0,
-                    }],
-                    shipping_address: order.shipping_address,
-                });
-            });
-        }
-
-
-        // 3. Fetch from print_orders table
-        const { data: printOrders } = await supabaseAdmin
-            .from('print_orders')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-
-        if (printOrders) {
-            printOrders.forEach(order => {
-                allOrders.push({
-                    id: order.id,
-                    order_code: order.order_number || order.id.slice(0, 8),
-                    order_type: 'printing',
-                    total: order.total_price || 0,
-                    status: order.status,
-                    payment_status: order.status === 'pending' ? 'pending' : 'paid',
-                    created_at: order.created_at,
-                    order_items: [{
-                        name: `In 3D - ${order.print_type || 'FDM'}`,
-                        quantity: order.quantity || 1,
-                        total_price: order.total_price || 0,
-                    }],
-                });
-            });
-        }
-
-        // 4. Fetch from master_orders (New DB Schema Support)
-        const { data: masterOrders } = await supabaseAdmin
-            .from('master_orders')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-
-        if (masterOrders) {
-            masterOrders.forEach(order => {
-                // Determine if this master order likely replicates children we already have.
-                // Since we don't have easy dedup logic here without complex joins, 
-                // we will include it but marked clearly if possible.
-                // For now, we allow duplication to ensure visibility if children are missing.
-                allOrders.push({
-                    id: order.id,
-                    order_code: order.order_number || order.id.slice(0, 8),
-                    order_type: 'ready_made', // Defaulting to ready_made for generic display or use a new type if frontend supports it
-                    total: order.total || 0,
-                    status: order.status,
-                    payment_status: order.payment_status || 'pending',
-                    created_at: order.created_at,
-                    order_items: [{
-                        name: 'Đơn hàng tổng hợp (Master)',
-                        quantity: 1,
-                        total_price: order.total || 0,
-                    }],
-                });
-            });
-        }
-
-        // Sort all orders by created_at (newest first)
-        allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         return NextResponse.json({
             success: true,

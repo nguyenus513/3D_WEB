@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BANK_INFO, type BankCode } from '@/lib/vietqr';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface PaymentQRProps {
     orderId: string;
@@ -54,7 +55,7 @@ export function PaymentQR({
 
     // Use provided transfer content from DB, fallback to new format
     const transferContent = providedTransferContent
-        || (customerCode ? `${customerCode}-${orderCode}` : orderCode);
+        || (customerCode ? `${customerCode}${orderCode}` : orderCode);
 
     // Use provided QR URL from DB or generate dynamic VietQR URL
     const qrUrl = providedQrUrl || `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accountName)}`;
@@ -106,7 +107,7 @@ export function PaymentQR({
 
                 const res = await fetch(`/api/orders/${orderId}/payment-confirmation`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 });
 
                 if (!res.ok) {

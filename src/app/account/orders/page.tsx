@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { getSupabase } from '@/lib/supabase/client';
 
 interface OrderItem {
     name: string;
@@ -24,18 +23,21 @@ interface Order {
 const tabs = [
     { key: 'all', label: 'Tất cả' },
     { key: 'pending', label: 'Chờ thanh toán' },
+    { key: 'pending_confirmation', label: 'Chờ xác nhận' },
     { key: 'processing', label: 'Đang xử lý' },
     { key: 'completed', label: 'Hoàn thành' },
 ];
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    pending_confirmation: 'bg-orange-500/20 text-orange-400',
     confirmed: 'bg-green-500/20 text-green-400',
     processing: 'bg-blue-500/20 text-blue-400',
     designing: 'bg-purple-500/20 text-purple-400',
     review: 'bg-orange-500/20 text-orange-400',
     revising: 'bg-pink-500/20 text-pink-400',
     approved: 'bg-cyan-500/20 text-cyan-400',
+    production_pending: 'bg-indigo-500/20 text-indigo-400',
     producing: 'bg-indigo-500/20 text-indigo-400',
     printing: 'bg-violet-500/20 text-violet-400',
     shipping: 'bg-amber-500/20 text-amber-400',
@@ -45,12 +47,14 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
     pending: 'Chờ thanh toán',
+    pending_confirmation: 'Chờ xác nhận giao dịch',
     confirmed: 'Đã xác nhận TT',
     processing: 'Đang xử lý',
     designing: 'Đang thiết kế',
     review: 'Chờ xác nhận',
     revising: 'Đang chỉnh sửa',
     approved: 'Đã xác nhận',
+    production_pending: 'Chờ sản xuất',
     producing: 'Đang sản xuất',
     printing: 'Đang in',
     shipping: 'Đang giao hàng',
@@ -96,7 +100,7 @@ export default function AccountOrdersPage() {
     const filteredOrders = activeTab === 'all'
         ? orders
         : activeTab === 'processing'
-            ? orders.filter(o => ['confirmed', 'processing', 'designing', 'review', 'revising', 'approved', 'producing', 'printing', 'shipping'].includes(o.status))
+            ? orders.filter(o => ['confirmed', 'processing', 'designing', 'review', 'revising', 'approved', 'production_pending', 'producing', 'printing', 'shipping'].includes(o.status))
             : activeTab === 'completed'
                 ? orders.filter(o => o.status === 'delivered')
                 : orders.filter(o => o.status === activeTab);

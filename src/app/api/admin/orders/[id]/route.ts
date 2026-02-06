@@ -8,6 +8,7 @@
 
 import { NextRequest } from 'next/server';
 import { adminOrderController } from '@/controllers/AdminOrderController';
+import { requireCsrf } from '@/lib/security/csrf';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,11 @@ export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const csrf = await requireCsrf(request);
+    if (!csrf.valid) {
+        return csrf.error!;
+    }
+
     const { id } = await params;
     return adminOrderController.updateOrder(request, id);
 }

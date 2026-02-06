@@ -45,14 +45,18 @@ export async function getProfileId(
             .eq('email', user.email.toLowerCase())
             .single();
 
-        if (byEmail) {
-            console.log('[getProfileId] Using email fallback for user:', user.email);
+    if (byEmail) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('[getProfileId] Using email fallback for user:', user.email);
+            }
             return byEmail.id;
         }
     }
 
     // Neither found
-    console.warn('[getProfileId] Profile not found for session user:', user.id, user.email);
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('[getProfileId] Profile not found for session user:', user.id, user.email);
+    }
     return null;
 }
 

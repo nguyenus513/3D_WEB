@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { debugLog } from '@/lib/utils/debugLog';
 
 // Use DATABASE_URL (Transaction Pool) or DIRECT_URL (Session Pool)
 // Prefer DIRECT_URL for migrations or schema changes, but DATABASE_URL is fine for this bypass
@@ -10,7 +11,7 @@ if (!connectionString) {
 } else {
     // Mask sensitive info
     const masked = connectionString.substring(0, 25) + '...';
-    console.log(`[DB Direct] Initializing pool with: ${process.env.DIRECT_URL ? 'DIRECT_URL' : 'DATABASE_URL'} (${masked})`);
+    debugLog(`[DB Direct] Initializing pool with: ${process.env.DIRECT_URL ? 'DIRECT_URL' : 'DATABASE_URL'} (${masked})`);
 }
 
 const pool = new Pool({

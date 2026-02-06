@@ -5,12 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { getSupabase } from '@/lib/supabase/client';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface OrderItem {
     id: string;
-    product_name: string;
-    product_sku: string;
+    name: string;
+    sku: string | null;
     quantity: number;
     unit_price: number;
     total_price: number;
@@ -26,20 +26,20 @@ interface Order {
     status: string;
     subtotal: number;
     shipping_fee: number;
-    total: number;
+    total_amount: number;
     deposit_amount: number;
     deposit_paid: boolean;
     shipping_address: {
-        name: string;
+        full_name: string;
         phone: string;
-        address: string;
-        ward: string;
+        address_line: string;
+        ward?: string;
         district: string;
         province: string;
     } | null;
     shipping_code: string | null;
-    customer_note: string | null;
-    admin_note: string | null;
+    notes: string | null;
+    admin_notes: string | null;
     created_at: string;
     paid_at: string | null;
     shipped_at: string | null;
@@ -81,11 +81,16 @@ const statusLabels: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    pending_confirmation: 'bg-orange-500/20 text-orange-400',
+    confirmed: 'bg-green-500/20 text-green-400',
     paid: 'bg-emerald-500/20 text-emerald-400',
     processing: 'bg-blue-500/20 text-blue-400',
     designing: 'bg-purple-500/20 text-purple-400',
     review: 'bg-amber-500/20 text-amber-400',
+    revising: 'bg-pink-500/20 text-pink-400',
     approved: 'bg-cyan-500/20 text-cyan-400',
+    production_pending: 'bg-indigo-500/20 text-indigo-400',
+    producing: 'bg-indigo-500/20 text-indigo-400',
     printing: 'bg-indigo-500/20 text-indigo-400',
     shipping: 'bg-orange-500/20 text-orange-400',
     delivered: 'bg-green-500/20 text-green-400',
@@ -118,14 +123,14 @@ export default function AccountOrderDetailPage() {
                 // Approve: POST to /api/orders/[id]/approve-demo
                 res = await fetch(`/api/orders/${order.id}/approve-demo`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 });
             } else {
                 // Reject: DELETE with feedback
                 const feedback = prompt('Nhập lý do cần chỉnh sửa:') || 'Cần chỉnh sửa thêm';
                 res = await fetch(`/api/orders/${order.id}/approve-demo`, {
                     method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ feedback }),
                 });
             }
@@ -174,15 +179,15 @@ export default function AccountOrderDetailPage() {
                 order_code: data.order_code,
                 order_type: data.order_type || 'custom',
                 status: data.status,
-                subtotal: data.total,
+                subtotal: data.total || data.total_amount || 0,
                 shipping_fee: 0,
-                total: data.total,
-                deposit_amount: data.deposit_amount || Math.round(data.total * 0.5),
+                total_amount: data.total || data.total_amount || 0,
+                deposit_amount: data.deposit_amount || Math.round((data.total || data.total_amount || 0) * 0.5),
                 deposit_paid: data.payment_status === 'paid' || data.payment_status === 'deposit_paid',
                 shipping_address: data.shipping_address,
                 shipping_code: null,
-                customer_note: null,
-                admin_note: null,
+                notes: data.notes || null,
+                admin_notes: data.admin_notes || null,
                 created_at: data.created_at,
                 paid_at: null,
                 shipped_at: null,
@@ -219,7 +224,8 @@ export default function AccountOrderDetailPage() {
         let currentLevel = 0;
         const s = order.status;
 
-        if (s === 'delivered') currentLevel = 4;
+        if (s === 'pending_confirmation') currentLevel = 0;
+        else if (s === 'delivered') currentLevel = 4;
         else if (s === 'shipping') currentLevel = 3;
         else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising'].includes(s)) currentLevel = 2;
         else if (s === 'confirmed' || order.deposit_paid || (s !== 'pending' && s !== 'cancelled')) currentLevel = 1;
@@ -286,7 +292,7 @@ export default function AccountOrderDetailPage() {
         );
     }
 
-    const remaining = order.total - order.deposit_amount;
+    const remaining = order.total_amount - order.deposit_amount;
     const timeline = getTimeline();
 
     return (
@@ -362,9 +368,9 @@ export default function AccountOrderDetailPage() {
                                             📦
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-white font-medium">{item.product_name}</p>
+                                            <p className="text-white font-medium">{item.name}</p>
                                             <p className="text-white/50 text-sm">
-                                                {item.configuration?.size || item.product_sku} × {item.quantity}
+                                                {item.configuration?.size || item.sku} × {item.quantity}
                                             </p>
                                         </div>
                                         <p className="text-white font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
@@ -576,10 +582,10 @@ export default function AccountOrderDetailPage() {
                         >
                             <h2 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h2>
                             <div className="space-y-2">
-                                <p className="text-white">{order.shipping_address.name}</p>
+                                <p className="text-white">{order.shipping_address.full_name}</p>
                                 <p className="text-white/70">{order.shipping_address.phone}</p>
                                 <p className="text-white/50">
-                                    {order.shipping_address.address}, {order.shipping_address.ward}, {order.shipping_address.district}, {order.shipping_address.province}
+                                    {order.shipping_address.address_line}, {order.shipping_address.ward}, {order.shipping_address.district}, {order.shipping_address.province}
                                 </p>
                             </div>
                         </motion.div>
@@ -596,11 +602,11 @@ export default function AccountOrderDetailPage() {
                         <div className="space-y-3">
                             <div className="flex justify-between">
                                 <span className="text-white/70">Tạm tính</span>
-                                <span className="text-white">{(order.subtotal || order.total || 0).toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white">{(order.subtotal || order.total_amount || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white font-medium">Tổng cộng</span>
-                                <span className="text-white font-bold">{(order.total || 0).toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white font-bold">{(order.total_amount || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
                             {order.deposit_amount !== undefined && order.deposit_amount > 0 && (
                                 <div className="flex justify-between text-green-400">
@@ -618,7 +624,7 @@ export default function AccountOrderDetailPage() {
                     </motion.div>
 
                     {/* Customer Note */}
-                    {order.customer_note && (
+                    {order.notes && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -626,7 +632,7 @@ export default function AccountOrderDetailPage() {
                             className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                         >
                             <h2 className="text-lg font-semibold text-white mb-4">Ghi chú</h2>
-                            <p className="text-white/70">{order.customer_note}</p>
+                            <p className="text-white/70">{order.notes}</p>
                         </motion.div>
                     )}
 

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface Order {
     id: string;
@@ -126,7 +127,7 @@ export default function AdminCustomDetailPage() {
         try {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ status: newStatus }),
             });
             await fetchOrder();
@@ -142,7 +143,7 @@ export default function AdminCustomDetailPage() {
         try {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ admin_note: adminNote }),
             });
         } catch (error) {
@@ -157,8 +158,14 @@ export default function AdminCustomDetailPage() {
         try {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'paid' }),
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                    deposit_paid: true,
+                    payment_status: 'deposit_paid',
+                    status: 'confirmed',
+                    confirmed_at: new Date().toISOString(),
+                    paid_at: new Date().toISOString(),
+                }),
             });
             await fetchOrder();
         } catch (error) {

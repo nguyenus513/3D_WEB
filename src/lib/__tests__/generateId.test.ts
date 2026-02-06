@@ -9,9 +9,9 @@ import { generateId, validateId, getOrderTypeFromId } from '@/lib/generateId';
 
 describe('generateId', () => {
     describe('order()', () => {
-        it('should generate order ID with PDC prefix', () => {
+        it('should generate order ID with hex format', () => {
             const id = generateId.order();
-            expect(id).toMatch(/^PDC-[0-9A-HJ-NP-Z]{8}$/);
+            expect(id).toMatch(/^[0-9A-F]{10}$/);
         });
 
         it('should generate unique IDs', () => {
@@ -24,71 +24,69 @@ describe('generateId', () => {
     });
 
     describe('user()', () => {
-        it('should generate user ID with USR prefix', () => {
+        it('should generate user ID with hex format', () => {
             const id = generateId.user();
-            expect(id).toMatch(/^USR-[0-9A-HJ-NP-Z]{8}$/);
+            expect(id).toMatch(/^[0-9A-F]{10}$/);
         });
     });
 
     describe('product()', () => {
-        it('should generate product ID with PDC prefix', () => {
+        it('should generate product ID with hex format', () => {
             const id = generateId.product();
-            expect(id).toMatch(/^PDC-[0-9A-HJ-NP-Z]{8}$/);
+            expect(id).toMatch(/^[0-9A-F]{10}$/);
         });
     });
 
     describe('custom()', () => {
-        it('should generate custom order ID with CUS prefix', () => {
+        it('should generate custom order ID with hex format', () => {
             const id = generateId.custom();
-            expect(id).toMatch(/^CUS-[0-9A-HJ-NP-Z]{8}$/);
+            expect(id).toMatch(/^[0-9A-F]{10}$/);
         });
     });
 
     describe('printing()', () => {
-        it('should generate 3D printing ID with 3DP prefix', () => {
+        it('should generate 3D printing ID with hex format', () => {
             const id = generateId.printing();
-            expect(id).toMatch(/^3DP-[0-9A-HJ-NP-Z]{8}$/);
+            expect(id).toMatch(/^[0-9A-F]{10}$/);
         });
     });
 
     describe('sku()', () => {
-        it('should generate SKU with PRD prefix', () => {
+        it('should generate SKU with hex format', () => {
             const id = generateId.sku();
-            expect(id).toMatch(/^PRD-[0-9A-HJ-NP-Z]{8}$/);
+            expect(id).toMatch(/^[0-9A-F]{8}$/);
         });
     });
 
     describe('raw()', () => {
-        it('should generate 8-character code without prefix', () => {
-            const id = generateId.raw();
-            expect(id).toMatch(/^[0-9A-HJ-NP-Z]{8}$/);
+        it('should generate 8-character hex code when length provided', () => {
+            const id = generateId.raw(8);
+            expect(id).toMatch(/^[0-9A-F]{8}$/);
         });
     });
 });
 
 describe('validateId', () => {
     it('should validate custom order ID', () => {
-        expect(validateId.custom('CUS-A7K3M9B2')).toBe(true);
-        expect(validateId.custom('PDC-A7K3M9B2')).toBe(false);
+        expect(validateId.custom('A7B3C9D1E2')).toBe(true);
+        expect(validateId.custom('CUS-A7K3M9B2')).toBe(false);
     });
 
     it('should validate product ID', () => {
-        expect(validateId.product('PDC-B2N8P4K5')).toBe(true);
-        expect(validateId.product('CUS-B2N8P4K5')).toBe(false);
+        expect(validateId.product('B2C8D4E5F6')).toBe(true);
+        expect(validateId.product('PDC-B2N8P4K5')).toBe(false);
     });
 
     it('should validate any valid ID format', () => {
-        expect(validateId.any('USR-K5J2H8M4')).toBe(true);
-        expect(validateId.any('3DP-M4R7S2N9')).toBe(true);
+        expect(validateId.any('A1B2C3D4E5')).toBe(true);
+        expect(validateId.any('F1E2D3C4B5')).toBe(true);
         expect(validateId.any('invalid')).toBe(false);
     });
 });
 
 describe('getOrderTypeFromId', () => {
-    it('should return correct order type from ID prefix', () => {
-        expect(getOrderTypeFromId('CUS-A7K3M9B2')).toBe('custom');
-        expect(getOrderTypeFromId('PDC-B2N8P4K5')).toBe('product');
-        expect(getOrderTypeFromId('3DP-M4R7S2N9')).toBe('printing');
-        expect(getOrderTypeFromId('XXX-12345678')).toBe('unknown');
+    it('should return master for 12-char hex and unknown for 10-char hex', () => {
+        expect(getOrderTypeFromId('A1B2C3D4E5F6')).toBe('master');
+        expect(getOrderTypeFromId('A7B3C9D1E2')).toBe('unknown');
     });
 });

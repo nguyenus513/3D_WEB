@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { saveTokens } from '@/lib/google-drive-oauth';
+import { requireCsrf } from '@/lib/security/csrf';
 
 /**
  * POST /api/admin/drive/set-token
@@ -16,6 +17,11 @@ export async function POST(request: NextRequest) {
         // Check finding: src/app/api/drive/auth/route.ts uses it.
         const { authorized, response } = await requireAdmin(request);
         if (!authorized) return response;
+
+        const csrf = await requireCsrf(request);
+        if (!csrf.valid) {
+            return csrf.error!;
+        }
 
         const body = await request.json();
         const { refreshToken, accessToken, expiry } = body;

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { requireCsrf } from '@/lib/security/csrf';
 
 export async function POST(
     request: NextRequest,
@@ -27,6 +28,11 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const csrf = await requireCsrf(request);
+        if (!csrf.valid) {
+            return csrf.error!;
+        }
+
         // 2. Initialize Admin Client
         let supabase;
         try {
@@ -36,45 +42,24 @@ export async function POST(
             return NextResponse.json({ error: 'Server Configuration Error' }, { status: 500 });
         }
 
-        // 3. Find order (Multi-table lookup)
-        let targetTable = '';
-        let order: any = null;
-
-        // Check custom_orders
-        const { data: customOrder } = await supabase
-            .from('custom_orders')
+        // 3. Find order (Unified Table)
+        const { data: order, error: fetchError } = await supabase
+            .from('orders')
             .select('*')
             .eq('id', orderId)
             .maybeSingle();
 
-        if (customOrder) {
-            targetTable = 'custom_orders';
-            order = customOrder;
-        } else {
-            console.log('[ApproveDemo] Not found in custom_orders, trying print_orders...');
-            const { data: printOrder } = await supabase
-                .from('print_orders')
-                .select('*')
-                .eq('id', orderId)
-                .maybeSingle();
-
-            if (printOrder) {
-                targetTable = 'print_orders';
-                order = printOrder;
-            } else {
-                console.log('[ApproveDemo] Not found in print_orders, trying orders...');
-                const { data: regularOrder } = await supabase
-                    .from('orders')
-                    .select('*')
-                    .eq('id', orderId)
-                    .maybeSingle();
-
-                if (regularOrder) {
-                    targetTable = 'orders';
-                    order = regularOrder;
-                }
-            }
+        if (fetchError) {
+            console.error('[ApproveDemo] DB Error:', fetchError);
+            return NextResponse.json({ error: 'Database error' }, { status: 500 });
         }
+
+        if (!order) {
+            console.error('[ApproveDemo] Error: Order not found ID:', orderId);
+            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        }
+
+        const targetTable = 'orders';
 
         if (!order) {
             console.error('[ApproveDemo] Error: Order not found ID:', orderId);
@@ -89,7 +74,12 @@ export async function POST(
 
         console.log(`[ApproveDemo] Found order in '${targetTable}' with status '${order.status}'`);
 
-        if (order.status !== 'review') {
+        // Virtual Status Logic: Treat as 'review' if demo_image_url exists
+        // matching the logic in AdminOrderController and lookup/route.ts
+        if (order.demo_image_url && ['pending', 'confirmed', 'designing'].includes(order.status)) {
+            console.log('[ApproveDemo] Virtual Status override: processing as review');
+            // Allow to proceed
+        } else if (order.status !== 'review') {
             if (order.status === 'approved') {
                 console.log('[ApproveDemo] Order already approved. Returning success.');
                 return NextResponse.json({ success: true, message: 'Already approved', new_status: 'approved' });
@@ -101,18 +91,10 @@ export async function POST(
         // 4. Update status
         let newStatus = 'production_pending';
 
-        // Check if payment is pending or failed (requires payment first)
-        // If paid or deposit_paid, we proceed to production_pending
-        console.log(`[ApproveDemo] Payment Status: ${order.payment_status}`); // Debug log
-
-        // LOGIC MỚI: Chỉ bắt thanh toán nếu đang nợ (pending/failed)
-        // Các trạng thái 'paid' (đủ) hoặc 'deposit_paid' (cọc) đều cho qua.
-        // Bao gồm: paid, deposit_paid, hoặc undefined (nếu lỗi) thì cứ cho sản xuất để tránh tắc nghẽn
-        if (order.payment_status === 'pending' || order.payment_status === 'failed') {
-            newStatus = 'awaiting_payment';
-        } else {
-            newStatus = 'production_pending';
-        }
+        // LOGIC MỚI: Luôn chuyển sang 'production_pending' khi khách duyệt
+        // Bỏ check thanh toán ở đây vì khách muốn qua giai đoạn sản xuất luôn 
+        // (Admin có thể check lại tiền cọc ở trang quản lý sau)
+        newStatus = 'production_pending';
 
         console.log(`[ApproveDemo] Payment Status: ${order.payment_status} -> New Status: ${newStatus}`);
         console.log(`[ApproveDemo] Updating status to '${newStatus}' in ${targetTable}...`);
@@ -166,25 +148,29 @@ export async function DELETE(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const csrf = await requireCsrf(request);
+        if (!csrf.valid) {
+            return csrf.error!;
+        }
+
         const body = await request.json().catch(() => ({}));
         const feedback = body.feedback || 'User requested revision';
 
         const supabase = getAdminSupabase();
 
-        let targetTable = '';
-        let order: any = null;
+        // Lookup logic (Unified)
+        const { data: order, error: fetchError } = await supabase
+            .from('orders')
+            .select('id, user_id, status, notes')
+            .eq('id', orderId)
+            .maybeSingle();
 
-        // Lookup logic same as POST
-        const { data: customOrder } = await supabase.from('custom_orders').select('id, user_id, status').eq('id', orderId).maybeSingle();
-        if (customOrder) { targetTable = 'custom_orders'; order = customOrder; }
-        else {
-            const { data: printOrder } = await supabase.from('print_orders').select('id, user_id, status').eq('id', orderId).maybeSingle();
-            if (printOrder) { targetTable = 'print_orders'; order = printOrder; }
-            else {
-                const { data: regularOrder } = await supabase.from('orders').select('id, user_id, status').eq('id', orderId).maybeSingle();
-                if (regularOrder) { targetTable = 'orders'; order = regularOrder; }
-            }
+        if (fetchError) {
+            console.error('[RejectDemo] DB Error:', fetchError);
+            return NextResponse.json({ error: 'Database error' }, { status: 500 });
         }
+
+        const targetTable = 'orders';
 
         if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
@@ -197,7 +183,9 @@ export async function DELETE(
             .from(targetTable)
             .update({
                 status: 'revising',
-                customer_note: feedback,
+                notes: order?.notes
+                    ? `${order.notes}\n[Revision Request] ${feedback}`
+                    : `[Revision Request] ${feedback}`,
                 revising_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { isRateLimited, rateLimitedResponse } from '@/lib/security';
+import { fetchPrintingPricing, calculatePrintingMetrics } from '@/lib/services/pricingService';
 
 /**
  * STL Analysis API
@@ -13,31 +14,11 @@ import { isRateLimited, rateLimitedResponse } from '@/lib/security';
  * Uses node-stl library for parsing binary/ASCII STL files
  */
 
-// Material density (g/cm³)
-// PLA: 1.24 g/cm³, Standard Resin: 1.1-1.2 g/cm³
-const DENSITY: Record<string, number> = {
-    fdm: 1.24,
-    resin: 1.1,
-};
+// Pricing rates are loaded dynamically from DB (no hardcoded constants)
 
-// Shell factor for FDM
-const SHELL_FACTOR = 1.2;
-// Support/Waste factor for Resin
-const RESIN_FACTOR = 1.25;
 
-// Infill factor - FDM uses ~20% infill (shell + infill ≈ 30% of solid volume)
-// Resin is always 100% solid
-// Infill percentage (0-1)
-const INFILL_RATIO: Record<string, number> = {
-    fdm: 0.20,   // Default 20% for initial analysis
-    resin: 1.0,
-};
 
-// Average print speed (g/hour) - actual material printed per hour
-const PRINT_SPEED: Record<string, number> = {
-    fdm: 12,     // ~12g/hour for FDM (with infill)
-    resin: 6,    // ~6g/hour for Resin (solid, slower)
-};
+
 
 /**
  * Parse STL file and calculate volume
@@ -188,14 +169,16 @@ export async function POST(request: NextRequest) {
         }
 
         // SECURITY: Strict rate limit for compute-heavy endpoint
-        const rateCheck = isRateLimited(request);
+        const rateCheck = await isRateLimited(request);
         if (rateCheck.limited) {
             return rateLimitedResponse(rateCheck.resetIn);
         }
 
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const printType = (formData.get('type') as string) || 'fdm';
+        const printType = ((formData.get('type') as string) || 'fdm') as 'fdm' | 'resin';
+        const requestedInfill = (formData.get('infill') as string | null) || undefined;
+        const requestedLayerHeight = (formData.get('layerHeight') as string | null) || undefined;
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -250,43 +233,35 @@ export async function POST(request: NextRequest) {
         // Volume in cm³ (STL is typically in mm, so divide by 1000)
         const volumeCm3 = result.volume / 1000;
 
-        // Calculate weight based on new formula
-        const density = DENSITY[printType] || DENSITY.fdm;
-        let grams: number;
-
-        if (printType === 'fdm') {
-            const infillRatio = INFILL_RATIO.fdm;
-            // Formula: Vin = Vmodel * (shell_factor + infill)
-            // Mass = Vin * density
-            const vIn = volumeCm3 * (SHELL_FACTOR + infillRatio);
-            grams = vIn * density;
-        } else {
-            // Formula: Vreal = Vmodel * k (k=1.25)
-            // Mass = Vreal * density
-            const vReal = volumeCm3 * RESIN_FACTOR;
-            grams = vReal * density;
+        // Calculate metrics using DB pricing (if available)
+        let metrics: { grams: number; hours: number; price: number } | null = null;
+        try {
+            const pricingList = await fetchPrintingPricing();
+            const pricing = pricingList.find((p) => p.print_type === printType) || pricingList[0];
+            if (pricing) {
+                const fallbackInfill = Object.keys(pricing.infill_factors || {})[0] || '20%';
+                const fallbackLayer = Object.keys(pricing.layer_multipliers || {})[0] || '0.2';
+                metrics = calculatePrintingMetrics({
+                    volumeCm3,
+                    printType,
+                    infill: requestedInfill || fallbackInfill,
+                    layerHeight: requestedLayerHeight || fallbackLayer,
+                    pricing,
+                });
+            }
+        } catch (pricingError) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn('[Analyze STL] Pricing lookup failed:', pricingError);
+            }
         }
-
-        // Estimate print time based on weight and print speed
-        const speed = PRINT_SPEED[printType] || PRINT_SPEED.fdm;
-        const hours = grams / speed;
-
-        // Calculate price
-        let price: number;
-        if (printType === 'fdm') {
-            // FDM: 600 × gram + 3000 × hour
-            price = 600 * grams + 3000 * hours;
-        } else {
-            // Resin: 3000 × hour + 3000 × gram
-            price = 3000 * hours + 3000 * grams;
-        }
-
         return NextResponse.json({
             success: true,
             volume: Math.round(volumeCm3 * 100) / 100,  // Round to 2 decimals
-            grams: Math.round(grams),
-            hours: Math.round(hours * 10) / 10,          // Round to 1 decimal
-            price: Math.round(price),
+            ...(metrics && {
+                grams: metrics.grams,
+                hours: metrics.hours,
+                price: metrics.price,
+            }),
             boundingBox: {
                 x: Math.round(result.boundingBox.x * 10) / 10,
                 y: Math.round(result.boundingBox.y * 10) / 10,

@@ -36,10 +36,13 @@ export type OrderStatusType = z.infer<typeof OrderStatus>;
 // =============================================================================
 
 export const OrderItemSchema = z.object({
-    product_id: z.string().uuid(),
+    product_id: z.string().uuid().optional().nullable(),
+    name: z.string().min(1).optional(),
     quantity: z.number().int().min(1).max(100),
     price: z.number().positive(),
     customization: z.record(z.string(), z.unknown()).optional(),
+}).refine((data) => data.product_id || data.name, {
+    message: 'product_id or name is required',
 });
 
 export type OrderItemInput = z.infer<typeof OrderItemSchema>;
@@ -48,19 +51,29 @@ export type OrderItemInput = z.infer<typeof OrderItemSchema>;
 // Create Order Schema
 // =============================================================================
 
+const ShippingAddressSchema = z.object({
+    full_name: z.string().min(1).max(100).optional(),
+    name: z.string().min(1).max(100).optional(),
+    phone: z.string().min(9).max(15),
+    address_line: z.string().min(5).max(500).optional(),
+    address: z.string().min(5).max(500).optional(),
+    ward: z.string().max(100).optional(),
+    district: z.string().max(100).optional(),
+    province: z.string().min(1).max(100).optional(),
+    city: z.string().min(1).max(100).optional(),
+    postal_code: z.string().max(20).optional(),
+}).refine((data) => {
+    return !!(data.full_name || data.name) &&
+        !!(data.address_line || data.address) &&
+        !!(data.province || data.city);
+}, {
+    message: 'Missing required shipping address fields',
+});
+
 export const CreateOrderSchema = z.object({
     items: z.array(OrderItemSchema).min(1, 'Order must have at least one item'),
     shipping_address_id: z.string().uuid().optional(),
-    shipping_address: z
-        .object({
-            name: z.string().min(1).max(100),
-            phone: z.string().min(10).max(15),
-            address: z.string().min(5).max(500),
-            city: z.string().min(1).max(100),
-            district: z.string().min(1).max(100).optional(),
-            postal_code: z.string().max(20).optional(),
-        })
-        .optional(),
+    shipping_address: ShippingAddressSchema.optional(),
     payment_method: z.enum(['bank_transfer', 'cod', 'momo', 'vnpay']).default('bank_transfer'),
     notes: z.string().max(1000).optional(),
 });

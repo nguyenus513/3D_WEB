@@ -23,6 +23,9 @@ function getEncryptionKey(): Buffer | null {
 
     if (!keyHex || keyHex.length !== 64) {
         // Key should be 32 bytes = 64 hex chars
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('TOKEN_ENCRYPTION_KEY is required in production');
+        }
         console.warn('[Security] TOKEN_ENCRYPTION_KEY not configured. Tokens stored in plaintext.');
         return null;
     }

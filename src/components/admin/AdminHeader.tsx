@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAdminPath } from '@/hooks/useAdminPath';
+import { useUiLabels } from '@/hooks/useUiLabels';
 
 interface Notification {
     id: string;
@@ -13,27 +14,41 @@ interface Notification {
     created_at: string;
 }
 
-const typeLabels: Record<string, string> = {
-    ready_made: 'Sản phẩm',
-    custom: 'Custom',
-    printing: 'In 3D',
-};
+interface AdminHeaderLabels {
+    searchPlaceholder?: string;
+    notifications?: {
+        title?: string;
+        pendingLabel?: string;
+        empty?: string;
+        viewAll?: string;
+    };
+    status?: {
+        pending?: string;
+        paid?: string;
+    };
+    orderTypes?: Record<string, string>;
+    time?: {
+        justNow?: string;
+        minutesAgo?: string;
+        hoursAgo?: string;
+        daysAgo?: string;
+    };
+}
 
 export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     const { adminRoot } = useAdminPath();
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
+    const { t, formatLabel } = useUiLabels(['admin.header', 'admin.common']);
+    const labels = t<AdminHeaderLabels>('labels', {}) as AdminHeaderLabels;
 
     useEffect(() => {
-        // Fetch on mount
         fetchNotifications();
-        // Refresh every 5 seconds (reduced from 1s to avoid spam)
         const interval = setInterval(fetchNotifications, 5000);
         return () => clearInterval(interval);
     }, []);
 
-    // Also fetch when dropdown opens
     useEffect(() => {
         if (showNotifications) {
             fetchNotifications();
@@ -59,20 +74,19 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         const diffMs = now.getTime() - date.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffMins < 1) return labels.time?.justNow || '';
+        if (diffMins < 60) return formatLabel(labels.time?.minutesAgo || '', { count: diffMins });
 
         const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffHours < 24) return formatLabel(labels.time?.hoursAgo || '', { count: diffHours });
 
         const diffDays = Math.floor(diffHours / 24);
-        return `${diffDays} ngày trước`;
+        return formatLabel(labels.time?.daysAgo || '', { count: diffDays });
     };
 
     const pendingCount = notifications.filter(n => n.status === 'pending').length;
 
     return (
-        // Updated to matching Miniver theme #1D1D1F
         <header className="sticky top-0 z-40 bg-[#1D1D1F] border-b border-white/5">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
                 {/* Mobile menu button */}
@@ -93,7 +107,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                         </svg>
                         <input
                             type="text"
-                            placeholder="Tìm kiếm..."
+                            placeholder={labels.searchPlaceholder}
                             className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
                         />
                     </div>
@@ -110,7 +124,6 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                             <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                             </svg>
-                            {/* Badge - only show if there are pending orders */}
                             {pendingCount > 0 && (
                                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-medium rounded-full flex items-center justify-center px-1">
                                     {pendingCount > 9 ? '9+' : pendingCount}
@@ -122,10 +135,10 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                         {showNotifications && (
                             <div className="absolute right-0 mt-2 w-96 bg-[#1D1D1F] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]">
                                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                                    <h3 className="text-white font-semibold">Thông báo</h3>
+                                    <h3 className="text-white font-semibold">{labels.notifications?.title}</h3>
                                     {pendingCount > 0 && (
                                         <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
-                                            {pendingCount} chờ thanh toán
+                                            {formatLabel(labels.notifications?.pendingLabel || '', { count: pendingCount })}
                                         </span>
                                     )}
                                 </div>
@@ -136,7 +149,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         </div>
                                     ) : notifications.length === 0 ? (
                                         <div className="p-8 text-center text-white/50">
-                                            Không có thông báo mới
+                                            {labels.notifications?.empty}
                                         </div>
                                     ) : (
                                         notifications.map((n) => (
@@ -158,13 +171,13 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                             <span className="text-white text-sm font-medium">{n.order_code}</span>
                                                             <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
                                                                 }`}>
-                                                                {n.status === 'pending' ? 'Chờ TT' : 'Đã TT'}
+                                                                {n.status === 'pending' ? labels.status?.pending : labels.status?.paid}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-white/50 text-xs">{typeLabels[n.order_type] || n.order_type}</span>
-                                                            <span className="text-white/30">•</span>
-                                                            <span className="text-white/50 text-xs">{Number(n.total).toLocaleString('vi-VN')}đ</span>
+                                                            <span className="text-white/50 text-xs">{labels.orderTypes?.[n.order_type] || n.order_type}</span>
+                                                            <span className="text-white/30">�</span>
+                                                            <span className="text-white/50 text-xs">{Number(n.total).toLocaleString('vi-VN')}d</span>
                                                         </div>
                                                         <p className="text-white/40 text-xs mt-1">{formatTime(n.created_at)}</p>
                                                     </div>
@@ -179,7 +192,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         onClick={() => setShowNotifications(false)}
                                         className="block text-center text-sm text-white/70 hover:text-white transition-colors"
                                     >
-                                        Xem tất cả đơn hàng
+                                        {labels.notifications?.viewAll}
                                     </Link>
                                 </div>
                             </div>

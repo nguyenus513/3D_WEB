@@ -6,17 +6,31 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 type OrderType = 'single' | 'couple' | 'group';
 
 interface FileInfo {
-    id: string;
+    id?: string;
+    key?: string;
     name: string;
     url: string;
     thumbnail: string;
+}
+
+interface PricingCustomType {
+    type: OrderType;
+    label: string;
+    base_price: number;
+    deposit_percent: number;
+}
+
+interface PricingCustomSize {
+    size_code: string;
+    label: string;
+    multiplier: number;
 }
 
 interface OrderData {
@@ -33,48 +47,35 @@ const steps = [
     { id: 4, title: 'Xác nhận', desc: 'Kiểm tra đơn hàng' },
 ];
 
-const orderTypes = [
-    {
-        id: 'single' as OrderType,
+const orderTypeMeta: Record<OrderType, { name: string; desc: string; icon: JSX.Element }> = {
+    single: {
         name: 'Single',
         desc: '1 người',
-        price: 350000,
         icon: (
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
         )
     },
-    {
-        id: 'couple' as OrderType,
+    couple: {
         name: 'Couple',
         desc: '2 người',
-        price: 550000,
         icon: (
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
         )
     },
-    {
-        id: 'group' as OrderType,
+    group: {
         name: 'Group',
         desc: '3+ người',
-        price: 750000,
         icon: (
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
         )
     },
-];
-
-const sizes = [
-    { id: 'S', name: 'S (10cm)', multiplier: 1 },
-    { id: 'M', name: 'M (15cm)', multiplier: 1.3 },
-    { id: 'L', name: 'L (20cm)', multiplier: 1.6 },
-    { id: 'XL', name: 'XL (25cm)', multiplier: 2 },
-];
+};
 
 export default function CustomPage() {
     const router = useRouter();
@@ -83,6 +84,9 @@ export default function CustomPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [pricing, setPricing] = useState<{ types: PricingCustomType[]; sizes: PricingCustomSize[] } | null>(null);
+    const [pricingLoading, setPricingLoading] = useState(true);
+    const [pricingError, setPricingError] = useState('');
 
     const [currentStep, setCurrentStep] = useState(1);
     const [orderData, setOrderData] = useState<OrderData>({
@@ -94,12 +98,72 @@ export default function CustomPage() {
     const [dragActive, setDragActive] = useState(false);
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
 
-    const basePrice = orderTypes.find(t => t.id === orderData.type)?.price || 350000;
-    const sizeMultiplier = sizes.find(s => s.id === orderData.size)?.multiplier || 1;
+    const orderTypes = (pricing?.types || []).map((type) => ({
+        id: type.type,
+        name: type.label || orderTypeMeta[type.type]?.name || type.type,
+        desc: orderTypeMeta[type.type]?.desc || '',
+        price: Number(type.base_price || 0),
+        deposit_percent: Number(type.deposit_percent || 0),
+        icon: orderTypeMeta[type.type]?.icon,
+    }));
+
+    const sizes = (pricing?.sizes || []).map((size) => ({
+        id: size.size_code,
+        name: size.label,
+        multiplier: Number(size.multiplier || 1),
+    }));
+
+    const selectedType = orderTypes.find(t => t.id === orderData.type);
+    const selectedSize = sizes.find(s => s.id === orderData.size);
+    const basePrice = selectedType?.price ?? 0;
+    const sizeMultiplier = selectedSize?.multiplier ?? 1;
+    const depositPercent = selectedType?.deposit_percent ?? 50;
     const totalPrice = Math.round(basePrice * sizeMultiplier);
-    const depositAmount = Math.round(totalPrice * 0.5); // 50% deposit for custom
+    const depositAmount = Math.round(totalPrice * (depositPercent / 100));
 
     const { data: session, status } = useSession();
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchPricing = async () => {
+            try {
+                const res = await fetch('/api/pricing', { cache: 'no-store' });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to load pricing');
+                }
+                if (mounted) {
+                    setPricing(data.custom || { types: [], sizes: [] });
+                }
+            } catch (e) {
+                if (mounted) {
+                    setPricingError((e as Error).message);
+                }
+            } finally {
+                if (mounted) {
+                    setPricingLoading(false);
+                }
+            }
+        };
+        fetchPricing();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!pricing) return;
+        setOrderData(prev => {
+            const nextType = pricing.types.find((t) => t.type === prev.type)?.type
+                || pricing.types[0]?.type
+                || prev.type;
+            const nextSize = pricing.sizes.find((s) => s.size_code === prev.size)?.size_code
+                || pricing.sizes[0]?.size_code
+                || prev.size;
+            if (nextType === prev.type && nextSize === prev.size) return prev;
+            return { ...prev, type: nextType, size: nextSize };
+        });
+    }, [pricing]);
 
     // Auth check on mount
     useEffect(() => {
@@ -153,7 +217,11 @@ export default function CustomPage() {
             formData.append('personCount', String(personCount));
             formData.append('photoCategory', 'main');
 
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                headers: addCsrfToRequest(),
+                body: formData
+            });
             const data = await res.json();
 
             if (!res.ok || data.success === false) {
@@ -167,7 +235,10 @@ export default function CustomPage() {
             if (!fileData) {
                 throw new Error('Invalid upload response');
             }
-            uploadedImages.push(fileData);
+            uploadedImages.push({
+                ...fileData,
+                key: fileData.key || fileData.id,
+            });
         }
 
         return uploadedImages;
@@ -195,7 +266,7 @@ export default function CustomPage() {
             // Create order via API (bypasses RLS)
             const res = await fetch('/api/orders/custom', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     type: orderData.type,
                     size: orderData.size,
@@ -209,7 +280,7 @@ export default function CustomPage() {
                         province: shippingAddress.province,
                     },
                     images: images.map(img => ({
-                        id: img.id,
+                        key: img.key || img.id || '',
                         name: img.name,
                     })),
                 }),
@@ -225,8 +296,9 @@ export default function CustomPage() {
             sessionStorage.setItem('checkout_order_type', 'custom');
             sessionStorage.setItem('checkout_order_id', result.data.id);
 
-            // Redirect to success page
-            router.push('/checkout/success/' + result.data.order_code);
+            // Redirect to unified checkout
+            const redirectCode = result.data.order_code || result.data.id;
+            router.push(`/checkout?orderId=${redirectCode}`);
         } catch (err) {
             setError((err as Error).message);
             setSubmitting(false);
@@ -273,7 +345,8 @@ export default function CustomPage() {
     const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
     // Loading state
-    if (loading) {
+    if (loading || pricingLoading) {
+
         return (
             <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
                 <div className="text-center">
@@ -283,6 +356,17 @@ export default function CustomPage() {
             </div>
         );
     }
+    if (pricingError) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
+                <div className="text-center max-w-md">
+                    <p className="text-red-400 mb-4">Không thể tải bảng giá. Vui lòng thử lại.</p>
+                    <p className="text-white/40 text-sm">{pricingError}</p>
+                </div>
+            </div>
+        );
+    }
+
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">

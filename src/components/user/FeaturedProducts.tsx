@@ -15,10 +15,22 @@ interface FeaturedProduct {
     short_description: string | null;
 }
 
-export function FeaturedProducts() {
+interface FeaturedBlockData {
+    heading?: string;
+    subheading?: string;
+    viewAllLabel?: string;
+    quickViewLabel?: string;
+}
+
+export function FeaturedProducts({ data }: { data?: FeaturedBlockData }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [products, setProducts] = useState<FeaturedProduct[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const heading = data?.heading || '';
+    const subheading = data?.subheading || '';
+    const viewAllLabel = data?.viewAllLabel || '';
+    const quickViewLabel = data?.quickViewLabel || '';
 
     const { scrollYProgress } = useScroll({
         target: containerRef,
@@ -31,8 +43,8 @@ export function FeaturedProducts() {
         const fetchFeaturedProducts = async () => {
             try {
                 const response = await fetch('/api/featured-products');
-                const data = await response.json();
-                setProducts(data.products || []);
+                const dataResponse = await response.json();
+                setProducts(dataResponse.products || []);
             } catch (error) {
                 console.error('Error fetching featured products:', error);
             }
@@ -49,7 +61,6 @@ export function FeaturedProducts() {
         return null;
     };
 
-    // Don't render section if no products
     if (!loading && products.length === 0) {
         return null;
     }
@@ -60,10 +71,10 @@ export function FeaturedProducts() {
                 {/* Section Header */}
                 <AnimatedSection className="text-center mb-16">
                     <h2 className="text-4xl md:text-6xl font-bold text-[#1D1D1F] mb-4 tracking-tight">
-                        Sản Phẩm Nổi Bật
+                        {heading}
                     </h2>
                     <p className="text-lg text-[#6E6E73] max-w-xl mx-auto">
-                        Những sản phẩm được yêu thích nhất
+                        {subheading}
                     </p>
                 </AnimatedSection>
 
@@ -116,7 +127,7 @@ export function FeaturedProducts() {
                                             {/* Quick View Overlay */}
                                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                                                 <span className="text-white text-sm font-medium px-4 py-2 rounded-full border border-white/50">
-                                                    Xem chi tiết
+                                                    {quickViewLabel}
                                                 </span>
                                             </div>
                                         </div>
@@ -128,11 +139,11 @@ export function FeaturedProducts() {
                                             </h3>
                                             <div className="flex items-center gap-2">
                                                 <p className="text-[#1D1D1F] font-medium">
-                                                    {(product.sale_price || product.base_price).toLocaleString('vi-VN')}đ
+                                                    {(product.sale_price || product.base_price).toLocaleString('vi-VN')}d
                                                 </p>
                                                 {product.sale_price && (
                                                     <p className="text-[#6E6E73] text-sm line-through">
-                                                        {product.base_price.toLocaleString('vi-VN')}đ
+                                                        {product.base_price.toLocaleString('vi-VN')}d
                                                     </p>
                                                 )}
                                             </div>
@@ -151,7 +162,7 @@ export function FeaturedProducts() {
                         className="inline-flex items-center gap-2 text-[#1D1D1F] font-medium text-lg hover:gap-4 transition-all underline underline-offset-4"
                         data-cursor
                     >
-                        Xem tất cả sản phẩm
+                        {viewAllLabel}
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                         </svg>

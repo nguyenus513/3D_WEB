@@ -1,13 +1,14 @@
-/**
+﻿/**
  * QR Payment Webhook Handler
  * POST /api/webhooks/qr
- * 
+ *
  * Receives payment confirmation from gateway or admin
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
 import { SecurityLogger } from '@/lib/security';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -16,109 +17,124 @@ const supabaseAdmin = createClient(
 );
 
 interface WebhookPayload {
-    reference_code: string;      // code_child or code_parent
+    reference_code: string;
     status: 'paid' | 'failed' | 'expired';
     amount?: number;
     timestamp?: string;
-    signature?: string;          // For HMAC verification if needed
+    signature?: string;
+}
+
+function verifySignature(rawBody: string, signature: string, secret: string): boolean {
+    const normalized = signature.startsWith('sha256=') ? signature.slice(7) : signature;
+    const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    const providedBuf = Buffer.from(normalized, 'utf8');
+    if (expectedBuf.length !== providedBuf.length) return false;
+
+    return timingSafeEqual(expectedBuf, providedBuf);
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const body: WebhookPayload = await request.json();
+        const rawBody = await request.text();
+        const body: WebhookPayload = JSON.parse(rawBody);
+
+        const secret = process.env.QR_WEBHOOK_SECRET;
+        if (secret) {
+            const signature = request.headers.get('x-webhook-signature') || body.signature || '';
+            if (!signature || !verifySignature(rawBody, signature, secret)) {
+                return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+            }
+        } else if (process.env.NODE_ENV === 'production') {
+            return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
+        }
+
         const { reference_code, status, amount, timestamp } = body;
 
         if (!reference_code || !status) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Find payment record by reference code
-        const { data: payment, error: paymentError } = await supabaseAdmin
-            .from('payment')
+        let { data: payment } = await supabaseAdmin
+            .from('payments')
             .select('*')
-            .eq('reference_code', reference_code)
-            .single();
+            .eq('transaction_code', reference_code)
+            .maybeSingle();
 
-        if (paymentError || !payment) {
+        if (!payment) {
+            const { data: altPayment } = await supabaseAdmin
+                .from('payments')
+                .select('*')
+                .eq('gateway_response->>reference_code', reference_code)
+                .maybeSingle();
+
+            if (altPayment) payment = altPayment;
+        }
+
+        if (!payment) {
             console.error('[Webhook] Payment not found:', reference_code);
             return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
         }
 
-        // Verify amount if provided
         if (amount && amount !== payment.amount) {
             console.warn('[Webhook] Amount mismatch:', { expected: payment.amount, received: amount });
         }
 
-        // Update payment status
         const updateData: Record<string, unknown> = {
             status,
             updated_at: new Date().toISOString(),
         };
 
         if (status === 'paid') {
-            updateData.paid_at = timestamp || new Date().toISOString();
+            const currentGatewayResponse = payment.gateway_response || {};
+            updateData.gateway_response = {
+                ...currentGatewayResponse,
+                paid_at: timestamp || new Date().toISOString(),
+                webhook_payload: body
+            };
         }
 
         await supabaseAdmin
-            .from('payment')
+            .from('payments')
             .update(updateData)
             .eq('id', payment.id);
 
-        // Update corresponding order
-        if (payment.order_type === 'direct_child' || payment.order_type === 'child') {
-            await supabaseAdmin
-                .from('order_child')
-                .update({ status: status === 'paid' ? 'paid' : status })
-                .eq('id', payment.order_id);
+        if (payment.order_id) {
+            const { data: order } = await supabaseAdmin
+                .from('orders')
+                .select('id, order_type, status')
+                .eq('id', payment.order_id)
+                .maybeSingle();
 
-            // If this is a child order with parent, check if all children are paid
-            if (payment.order_type === 'child') {
-                const { data: childOrder } = await supabaseAdmin
-                    .from('order_child')
-                    .select('parent_id')
-                    .eq('id', payment.order_id)
-                    .single();
+            const orderUpdate: any = {
+                updated_at: new Date().toISOString()
+            };
 
-                if (childOrder?.parent_id && status === 'paid') {
-                    // Check if all siblings are paid
-                    const { data: allChildren } = await supabaseAdmin
-                        .from('order_child')
-                        .select('status')
-                        .eq('parent_id', childOrder.parent_id);
+            if (status === 'paid') {
+                orderUpdate.payment_status = 'paid';
+                orderUpdate.paid_at = timestamp || new Date().toISOString();
 
-                    const allPaid = allChildren?.every(c => c.status === 'paid');
-
-                    if (allPaid) {
-                        await supabaseAdmin
-                            .from('order_parent')
-                            .update({ status: 'completed' })
-                            .eq('id', childOrder.parent_id);
+                if (order && ['pending', 'pending_confirmation'].includes(order.status)) {
+                    if (order.order_type === 'printing') {
+                        orderUpdate.status = 'printing';
+                    } else if (order.order_type === 'custom') {
+                        orderUpdate.status = 'confirmed';
+                        orderUpdate.confirmed_at = new Date().toISOString();
                     } else {
-                        // At least one paid, mark as processing
-                        await supabaseAdmin
-                            .from('order_parent')
-                            .update({ status: 'processing' })
-                            .eq('id', childOrder.parent_id);
+                        orderUpdate.status = 'processing';
                     }
                 }
+            } else if (status === 'failed') {
+                orderUpdate.payment_status = 'failed';
             }
-        } else if (payment.order_type === 'parent') {
-            // Direct parent payment (total QR)
-            await supabaseAdmin
-                .from('order_parent')
-                .update({ status: status === 'paid' ? 'completed' : status })
-                .eq('id', payment.order_id);
 
-            // Also mark all children as paid
-            if (status === 'paid') {
-                await supabaseAdmin
-                    .from('order_child')
-                    .update({ status: 'paid' })
-                    .eq('parent_id', payment.order_id);
-            }
+            await supabaseAdmin
+                .from('orders')
+                .update(orderUpdate)
+                .eq('id', payment.order_id);
         }
 
-        // Log the webhook event
         await SecurityLogger.log({
             event_type: 'ADMIN_ACTION',
             severity: 'INFO',
@@ -129,7 +145,8 @@ export async function POST(request: NextRequest) {
                 reference_code,
                 status,
                 amount,
-                order_type: payment.order_type,
+                payment_id: payment.id,
+                order_id: payment.order_id
             },
         });
 
@@ -149,19 +166,29 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Code required' }, { status: 400 });
     }
 
-    const { data: payment } = await supabaseAdmin
-        .from('payment')
-        .select('status, amount, paid_at')
-        .eq('reference_code', code)
-        .single();
+    let { data: payment } = await supabaseAdmin
+        .from('payments')
+        .select('status, amount, gateway_response')
+        .eq('transaction_code', code)
+        .maybeSingle();
+
+    if (!payment) {
+        const { data: altPayment } = await supabaseAdmin
+            .from('payments')
+            .select('status, amount, gateway_response')
+            .eq('gateway_response->>reference_code', code)
+            .maybeSingle();
+        if (altPayment) payment = altPayment;
+    }
 
     if (!payment) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
+    const meta = payment.gateway_response || {};
     return NextResponse.json({
         status: payment.status,
         amount: payment.amount,
-        paidAt: payment.paid_at,
+        paidAt: meta.paid_at || null,
     });
 }

@@ -221,19 +221,19 @@ export default function EmailPreviewPage() {
     const mockData = {
         payment: {
             customerName: 'Nguyễn Nhật Minh',
-            orderCode: 'ORD-2026-X8B2',
+            orderCode: 'A1B2C3D4E5',
             orderType: 'custom',
             depositAmount: 500000,
             total: 1000000
         },
         completion: {
             customerName: 'Nguyễn Nhật Minh',
-            orderCode: 'ORD-2026-X8B2',
+            orderCode: 'A1B2C3D4E5',
             demoImageUrl: 'https://images.unsplash.com/photo-1615655406736-b37c4fabf923?auto=format&fit=crop&q=80&w=600'
         },
         shipping: {
             customerName: 'Nguyễn Nhật Minh',
-            orderCode: 'ORD-2026-X8B2',
+            orderCode: 'A1B2C3D4E5',
             shippingCode: 'VTP123456789',
             carrier: 'Viettel Post'
         }

@@ -10,6 +10,9 @@ import { BaseController, UnauthorizedError, RateLimitError } from '@/lib/core/Ba
 import { UploadService } from '@/services/UploadService';
 import { UploadRequestSchema } from '@/validators/upload.schema';
 import { checkUploadRateLimit } from '@/lib/security/rate-limit';
+import { debugLog } from '@/lib/utils/debugLog';
+import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getProfileId } from '@/lib/utils/getProfileId';
 
 // =============================================================================
 // Upload Controller
@@ -70,8 +73,24 @@ export class UploadController extends BaseController {
                 isReview: formData.get('isReview'),
             };
 
+            // Always derive customer code from authenticated profile (prevent spoofing)
+            try {
+                const supabase = getAdminSupabase();
+                const profileId = await getProfileId(session.user, supabase);
+                if (profileId) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('customer_code')
+                        .eq('id', profileId)
+                        .single();
+                    rawParams.customerCode = profile?.customer_code || rawParams.customerCode;
+                }
+            } catch (profileError) {
+                console.warn('[Upload] Failed to resolve customer_code:', profileError);
+            }
+
             // Debug log to see what's being sent
-            console.log('[Upload] Raw params received:', JSON.stringify(rawParams, null, 2));
+            debugLog('[Upload] Raw params received:', JSON.stringify(rawParams, null, 2));
 
             // Parse and validate upload params with safeParse for better error handling
             const parseResult = UploadRequestSchema.safeParse(rawParams);
@@ -89,7 +108,7 @@ export class UploadController extends BaseController {
             const buffer = Buffer.from(arrayBuffer);
 
             // Upload file
-            console.log('[Upload] Calling uploadService.uploadFile with:', {
+            debugLog('[Upload] Calling uploadService.uploadFile with:', {
                 filename: file.name,
                 size: file.size,
                 type: params.type,
@@ -107,7 +126,7 @@ export class UploadController extends BaseController {
                     userId,
                     isAdmin
                 );
-                console.log('[Upload] Upload success:', result.storage);
+                debugLog('[Upload] Upload success:', result.storage);
                 return this.handleSuccess(result);
             } catch (uploadError) {
                 console.error('[Upload] Upload FAILED:', uploadError);

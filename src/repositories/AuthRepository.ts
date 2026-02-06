@@ -6,6 +6,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { generateId } from '@/lib/generateId';
 
 // =============================================================================
 // Types
@@ -42,7 +43,7 @@ export class AuthRepository {
         instagram?: string;
     }): Promise<{ id: string; customer_code: string }> {
         const userId = crypto.randomUUID();
-        const customerCode = 'USR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        const customerCode = generateId.user();
 
         const { data: user, error } = await this.db
             .from('profiles')

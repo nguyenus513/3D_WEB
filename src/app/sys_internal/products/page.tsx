@@ -3,9 +3,9 @@
 import { useState, useEffect, Fragment } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
 import { useAdminPath } from '@/hooks/useAdminPath';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface ProductWithStats extends Product {
     sold_count: number;
@@ -71,17 +71,22 @@ export default function AdminProductsPage() {
         if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
 
         setDeleting(id);
-        const supabase = getSupabase();
+        try {
+            const res = await fetch(`/api/admin/products?id=${id}`, {
+                method: 'DELETE',
+                headers: addCsrfToRequest(),
+            });
+            const data = await res.json();
 
-        const { error } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            alert('Không thể xóa sản phẩm: ' + error.message);
-        } else {
-            setProducts(products.filter(p => p.id !== id));
+            if (!res.ok || !data.success) {
+                const msg = data.error?.message || data.error || 'Không thể xóa sản phẩm';
+                alert(msg);
+            } else {
+                setProducts(products.filter(p => p.id !== id));
+            }
+        } catch (error) {
+            alert('Không thể xóa sản phẩm');
+            console.error('Delete product error:', error);
         }
         setDeleting(null);
     };

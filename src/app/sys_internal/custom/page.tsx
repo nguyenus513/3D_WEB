@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 import type { Order } from '@/types/database';
 
 const statusColors: Record<string, string> = {
@@ -88,7 +89,7 @@ export default function AdminCustomPage() {
         try {
             await fetch(`/api/admin/orders/${orderId}`, { // Adjusted path if needed
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ status: newStatus }),
             });
             fetchOrders();

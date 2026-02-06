@@ -6,18 +6,19 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
-import { getSupabase } from '@/lib/supabase/client';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { useCart } from '@/lib/store/cart';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 type PrintType = 'fdm' | 'resin';
 
 interface FileInfo {
-    id: string;
+    id?: string;
     name: string;
     url: string;
     thumbnail: string;
+    key?: string;
 }
 
 interface AnalysisResult {
@@ -45,56 +46,24 @@ interface PrintOrder {
     notes: string;
 }
 
-const printTypes = [
-    {
-        id: 'fdm' as PrintType,
-        name: 'FDM',
-        desc: 'Nhựa PETG - Bền, chịu nhiệt tốt',
-    },
-    {
-        id: 'resin' as PrintType,
-        name: 'SLA (Resin)',
-        desc: 'Chi tiết cao, mịn màng',
-    },
-];
+interface PrintingPricing {
+    print_type: PrintType;
+    label: string;
+    density: number;
+    speed: number;
+    shell_factor: number;
+    resin_factor: number;
+    deposit_percent: number;
+    rate_gram: number;
+    rate_hour: number;
+    infill_factors: Record<string, number>;
+    layer_multipliers: Record<string, number>;
+    colors: Array<{ id: string; name: string; hex: string }>;
+}
 
-// Colors per print type
-const FDM_COLORS = [
-    { id: 'white', name: 'Trắng', hex: '#FFFFFF' },
-    { id: 'black', name: 'Đen', hex: '#1D1D1F' },
-    { id: 'transparent', name: 'Trong suốt', hex: '#E5E5EA' },
-];
-
-const RESIN_COLORS = [
-    { id: 'white', name: 'Trắng', hex: '#FFFFFF' },
-];
-
-// Constants for calculation
-const DENSITY: Record<string, number> = {
-    fdm: 1.24,
-
-    resin: 1.1,
-};
-
-const PRINT_SPEED: Record<string, number> = {
-    fdm: 12, // g/hour
-    resin: 6,
-};
-
-const SHELL_FACTOR = 1.2;
-const RESIN_FACTOR = 1.25; // 25% extra for supports and waste
-
-const INFILL_FACTORS: Record<string, number> = {
-    '15%': 0.15,
-    '20%': 0.20,
-    '30%': 0.30,
-    '50%': 0.50,
-};
-
-const LAYER_TIME_MULT: Record<string, number> = {
-    '0.2': 1,
-    '0.12': 2,
-    '0.08': 4,
+const printTypeMeta: Record<PrintType, { desc: string }> = {
+    fdm: { desc: 'Nhựa PETG - Bền, chịu nhiệt tốt' },
+    resin: { desc: 'Chi tiết cao, mịn màng' },
 };
 
 export default function PrintingPage() {
@@ -105,6 +74,9 @@ export default function PrintingPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [pricing, setPricing] = useState<PrintingPricing[]>([]);
+    const [pricingLoading, setPricingLoading] = useState(true);
+    const [pricingError, setPricingError] = useState('');
 
     const [order, setOrder] = useState<PrintOrder>({
         items: [],
@@ -127,6 +99,79 @@ export default function PrintingPage() {
     const isAnalyzing = order.items.some(item => item.analyzing);
 
     const { data: session, status } = useSession();
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchPricing = async () => {
+            try {
+                const res = await fetch('/api/pricing', { cache: 'no-store' });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to load pricing');
+                }
+                if (mounted) {
+                    setPricing((data.printing || []) as PrintingPricing[]);
+                }
+            } catch (e) {
+                if (mounted) {
+                    setPricingError((e as Error).message);
+                }
+            } finally {
+                if (mounted) {
+                    setPricingLoading(false);
+                }
+            }
+        };
+        fetchPricing();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const printTypes = pricing.map((type) => ({
+        id: type.print_type,
+        name: type.label || type.print_type.toUpperCase(),
+        desc: printTypeMeta[type.print_type]?.desc || '',
+    }));
+
+    const activePricing = pricing.find((p) => p.print_type === order.type) || pricing[0];
+    const colorOptions = activePricing?.colors?.length ? activePricing.colors : [];
+    const infillOptions = activePricing?.infill_factors ? Object.keys(activePricing.infill_factors) : [];
+    const layerOptions = activePricing?.layer_multipliers ? Object.keys(activePricing.layer_multipliers) : [];
+    const depositPercent = Number(activePricing?.deposit_percent ?? 100);
+    const formatInfillLabel = (value: string) => value.includes('%') ? value : `${value}%`;
+    const formatLayerLabel = (value: string) => `${value}mm`;
+
+    useEffect(() => {
+        if (!pricing.length) return;
+        setOrder(prev => {
+            const nextType = pricing.find((p) => p.print_type === prev.type)?.print_type || pricing[0].print_type;
+            const pricingForType = pricing.find((p) => p.print_type === nextType) || pricing[0];
+            const nextColor = pricingForType.colors?.some((c) => c.id === prev.color)
+                ? prev.color
+                : (pricingForType.colors?.[0]?.id || prev.color);
+            const infillKeys = Object.keys(pricingForType.infill_factors || {});
+            const layerKeys = Object.keys(pricingForType.layer_multipliers || {});
+            const nextInfill = infillKeys.includes(prev.infill) ? prev.infill : (infillKeys[0] || prev.infill);
+            const nextLayer = layerKeys.includes(prev.layerHeight) ? prev.layerHeight : (layerKeys[0] || prev.layerHeight);
+
+            if (
+                nextType === prev.type
+                && nextColor === prev.color
+                && nextInfill === prev.infill
+                && nextLayer === prev.layerHeight
+            ) {
+                return prev;
+            }
+            return {
+                ...prev,
+                type: nextType,
+                color: nextColor,
+                infill: nextInfill,
+                layerHeight: nextLayer,
+            };
+        });
+    }, [pricing]);
 
     // Auth check on mount
     useEffect(() => {
@@ -172,6 +217,10 @@ export default function PrintingPage() {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('type', order.type);
+            if (order.type === 'fdm') {
+                formData.append('infill', order.infill);
+                formData.append('layerHeight', order.layerHeight);
+            }
 
             const res = await fetch('/api/analyze-stl', {
                 method: 'POST',
@@ -221,42 +270,48 @@ export default function PrintingPage() {
 
     // Recalculate metrics based on current settings
     const calculateMetrics = useCallback((volume: number, type: PrintType, infill: string, layerHeight: string) => {
-        const density = DENSITY[type];
-        let grams = 0;
+        const pricingForType = pricing.find((p) => p.print_type === type);
+        if (!pricingForType) {
+            return { grams: 0, hours: 0, price: 0 };
+        }
 
+        const density = Number(pricingForType.density || 0);
+        const speed = Number(pricingForType.speed || 1);
+        const shellFactor = Number(pricingForType.shell_factor || 0);
+        const resinFactor = Number(pricingForType.resin_factor || 1);
+        const rateGram = Number(pricingForType.rate_gram || 0);
+        const rateHour = Number(pricingForType.rate_hour || 0);
+
+        let grams = 0;
         if (type === 'fdm') {
-            const infillPercent = INFILL_FACTORS[infill] || 0.20; // Default 20%
-            // Formula: Vin = Vmodel * (shell_factor + infill)
-            // Mass = Vin * density
-            const vIn = volume * (SHELL_FACTOR + infillPercent);
+            const normalized = infill.replace('%', '');
+            const infillRatio = Number(
+                (pricingForType.infill_factors || {})[infill]
+                ?? (pricingForType.infill_factors || {})[`${normalized}%`]
+                ?? (pricingForType.infill_factors || {})[normalized]
+                ?? 0.2
+            );
+            const vIn = volume * (shellFactor + infillRatio);
             grams = vIn * density;
         } else {
-            // Formula: Vreal = Vmodel * k (k=1.25 for standard supports/waste)
-            // Mass = Vreal * density
-            const vReal = volume * RESIN_FACTOR;
+            const vReal = volume * resinFactor;
             grams = vReal * density;
         }
 
-        const speed = PRINT_SPEED[type];
         let hours = grams / speed;
-
         if (type === 'fdm') {
-            hours = hours * (LAYER_TIME_MULT[layerHeight] || 1);
+            const layerMult = Number((pricingForType.layer_multipliers || {})[layerHeight] ?? 1);
+            hours = hours * layerMult;
         }
 
-        let price = 0;
-        if (type === 'fdm') {
-            price = 600 * grams + 3000 * hours;
-        } else {
-            price = 3000 * hours + 3000 * grams;
-        }
+        const price = rateGram * grams + rateHour * hours;
 
         return {
             grams: Math.round(grams),
             hours: Math.round(hours * 10) / 10,
             price: Math.round(price),
         };
-    }, []);
+    }, [pricing]);
 
     // Re-calculate all items when print settings change
     useEffect(() => {
@@ -306,14 +361,26 @@ export default function PrintingPage() {
                 formData.append('color', order.color); // 'white', 'black', 'transparent'
             }
 
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                headers: addCsrfToRequest(),
+                body: formData,
+            });
             const data = await res.json();
 
-            if (!res.ok) {
+            if (!res.ok || data.success === false) {
                 throw new Error(data.error || 'Upload failed');
             }
 
-            uploadedFiles.push(data.file);
+            const fileData = data.data?.file || data.file;
+            if (!fileData) {
+                throw new Error('Invalid upload response');
+            }
+
+            uploadedFiles.push({
+                ...fileData,
+                key: fileData.key || fileData.id,
+            });
         }
 
         return uploadedFiles;
@@ -335,35 +402,37 @@ export default function PrintingPage() {
         setError('');
 
         try {
-            const supabase = getSupabase();
             const orderCode = generateId.printing();
 
-            // Upload files to Drive
+            // Upload files to Drive/R2
             const files = await uploadFiles(orderCode);
 
-            // Build customer note with all items
-            const itemsNote = order.items.map((item, idx) =>
-                `${item.file.name} x${item.quantity}`
-            ).join('\n');
-            const settingsNote = order.type === 'fdm'
-                ? `Infill: ${order.infill} | Layer: ${order.layerHeight}mm`
-                : '';
-            const customerNote = [settingsNote, itemsNote, order.notes].filter(Boolean).join('\n');
+            // Build items payload with uploaded files
+            const itemsPayload = order.items.map((item, index) => ({
+                name: item.file.name,
+                quantity: item.quantity,
+                unit_price: item.analysis?.price || 0,
+                analysis: item.analysis || undefined,
+                file: files[index] ? {
+                    key: files[index].key || files[index].id || '',
+                    name: files[index].name,
+                } : undefined,
+            }));
 
-            // Create order in Supabase
-            const { data: orderData, error: orderError } = await supabase
-                .from('orders')
-                .insert({
-                    order_code: orderCode,
-                    user_id: user.id,
-                    order_type: 'printing',
-                    status: 'pending',
-                    subtotal: totalPrice,
-                    shipping_fee: 0,
-                    total: grandTotal,
-                    deposit_amount: grandTotal, // 100% for printing
-                    customer_note: customerNote || null,
-                    shipping_address: {
+            const res = await fetch('/api/orders/printing', {
+                method: 'POST',
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                    orderCode,
+                    items: itemsPayload,
+                    printingConfig: {
+                        type: order.type,
+                        color: order.color,
+                        infill: order.infill,
+                        layerHeight: order.layerHeight,
+                        notes: order.notes,
+                    },
+                    shippingAddress: {
                         full_name: shippingAddress.full_name,
                         phone: shippingAddress.phone,
                         address_line: shippingAddress.address_line,
@@ -371,47 +440,17 @@ export default function PrintingPage() {
                         district: shippingAddress.district || '',
                         province: shippingAddress.province,
                     },
-                })
-                .select()
-                .single();
+                }),
+            });
 
-            if (orderError) {
-                throw new Error(orderError.message);
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Không thể tạo đơn in 3D');
             }
 
-            // Insert config for each item into order_configs
-            for (const item of order.items) {
-                if (item.analysis) {
-                    await supabase.from('order_configs').insert({
-                        order_id: orderData.id,
-                        print_tech: order.type,
-                        material: order.type === 'resin' ? 'standard_resin' : 'pla',
-                        color: order.color,
-                        quantity: item.quantity,
-                        print_volume: item.analysis.volume,
-                        print_weight: item.analysis.grams,
-                        print_time: item.analysis.hours,
-                    });
-                }
-            }
-
-            // Insert files into order_files (normalized)
-            if (files && files.length > 0) {
-                const orderFiles = files.map((f: FileInfo) => ({
-                    order_id: orderData.id,
-                    file_id: f.id,
-                    file_type: 'stl',
-                    file_name: f.name || null,
-                }));
-                await supabase.from('order_files').insert(orderFiles);
-            }
-
-            // Store order type for payment page
-            sessionStorage.setItem('checkout_order_type', 'printing');
-            sessionStorage.setItem('checkout_order_id', orderData.id);
-
-            // Redirect to payment
-            router.push('/checkout/payment?orderId=' + orderData.id);
+            // Redirect to unified checkout
+            const redirectCode = data.data?.orderCode || orderCode;
+            router.push(`/checkout?orderId=${redirectCode}`);
         } catch (err) {
             setError((err as Error).message);
             setSubmitting(false);
@@ -539,7 +578,7 @@ export default function PrintingPage() {
     };
 
     // Loading state
-    if (loading) {
+    if (loading || pricingLoading) {
         return (
             <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
                 <div className="text-center">
@@ -549,6 +588,17 @@ export default function PrintingPage() {
             </div>
         );
     }
+    if (pricingError) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
+                <div className="text-center max-w-md">
+                    <p className="text-red-400 mb-4">Không thể tải bảng giá. Vui lòng thử lại.</p>
+                    <p className="text-white/40 text-sm">{pricingError}</p>
+                </div>
+            </div>
+        );
+    }
+
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
@@ -733,21 +783,25 @@ export default function PrintingPage() {
                                 <div className="bg-[#1D1D1F] rounded-3xl p-8">
                                     <h2 className="text-xl font-semibold text-white mb-6">Độ đậm đặc (Infill)</h2>
                                     <div className="flex flex-wrap gap-3">
-                                        {['15%', '20%', '30%', '50%'].map((val) => (
-                                            <button
-                                                key={val}
-                                                onClick={() => setOrder(prev => ({ ...prev, infill: val }))}
-                                                className={`
+                                        {infillOptions.length === 0 ? (
+                                            <span className="text-white/40 text-sm">Không có tùy chọn infill</span>
+                                        ) : (
+                                            infillOptions.map((val) => (
+                                                <button
+                                                    key={val}
+                                                    onClick={() => setOrder(prev => ({ ...prev, infill: val }))}
+                                                    className={`
                             px-6 py-3 rounded-full transition-all text-sm font-medium
                             ${order.infill === val
-                                                        ? 'bg-white text-black'
-                                                        : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
-                                                    }
+                                                            ? 'bg-white text-black'
+                                                            : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                        }
                           `}
-                                            >
-                                                {val}
-                                            </button>
-                                        ))}
+                                                >
+                                                    {formatInfillLabel(val)}
+                                                </button>
+                                            ))
+                                        )}
                                     </div>
                                     <p className="text-white/40 text-sm mt-4">
                                         *Độ infill càng cao, vật thể càng đặc và cứng hơn
@@ -762,28 +816,31 @@ export default function PrintingPage() {
                             <div className="mt-6">
                                 <div className="bg-[#1D1D1F] rounded-3xl p-8">
                                     <h2 className="text-xl font-semibold text-white mb-6">Độ mịn (Layer Height)</h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        {[
-                                            { val: '0.2', label: '0.2mm - Chuẩn', time: 'x1' },
-                                            { val: '0.12', label: '0.12mm - Mịn', time: 'x2' },
-                                            { val: '0.08', label: '0.08mm - Siêu mịn', time: 'x4' }
-                                        ].map((opt) => (
-                                            <button
-                                                key={opt.val}
-                                                onClick={() => setOrder(prev => ({ ...prev, layerHeight: opt.val }))}
-                                                className={`
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {layerOptions.length === 0 ? (
+                                        <span className="text-white/40 text-sm">Không có tùy chọn layer</span>
+                                    ) : (
+                                        layerOptions.map((val) => {
+                                            const multiplier = Number(activePricing?.layer_multipliers?.[val] ?? 1);
+                                            return (
+                                                <button
+                                                    key={val}
+                                                    onClick={() => setOrder(prev => ({ ...prev, layerHeight: val }))}
+                                                    className={`
                             p-4 rounded-xl text-left transition-all
-                            ${order.layerHeight === opt.val
-                                                        ? 'bg-white text-black'
-                                                        : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
-                                                    }
+                            ${order.layerHeight === val
+                                                            ? 'bg-white text-black'
+                                                            : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                        }
                           `}
-                                            >
-                                                <div className="font-semibold">{opt.label}</div>
-                                                <div className="text-xs opacity-70 mt-1">{opt.time}</div>
-                                            </button>
-                                        ))}
-                                    </div>
+                                                >
+                                                    <div className="font-semibold">{formatLayerLabel(val)}</div>
+                                                    <div className="text-xs opacity-70 mt-1">x{multiplier}</div>
+                                                </button>
+                                            );
+                                        })
+                                    )}
+                                </div>
                                 </div>
                             </div>
                         )}
@@ -793,7 +850,7 @@ export default function PrintingPage() {
                             <div className="bg-[#1D1D1F] rounded-3xl p-8">
                                 <h2 className="text-xl font-semibold text-white mb-6">Màu sắc</h2>
                                 <div className="flex flex-wrap gap-3">
-                                    {(order.type === 'fdm' ? FDM_COLORS : RESIN_COLORS).map((color) => (
+                                    {colorOptions.map((color) => (
                                         <button
                                             key={color.id}
                                             onClick={() => setOrder(prev => ({ ...prev, color: color.id }))}
@@ -866,7 +923,7 @@ export default function PrintingPage() {
                                     <div className="flex justify-between">
                                         <span className="text-white/60">Màu sắc</span>
                                         <span className="text-white">
-                                            {(order.type === 'fdm' ? FDM_COLORS : RESIN_COLORS).find(c => c.id === order.color)?.name}
+                                            {colorOptions.find(c => c.id === order.color)?.name}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
@@ -891,8 +948,8 @@ export default function PrintingPage() {
                                                     {totalPrice.toLocaleString('vi-VN')}đ
                                                     {order.type === 'fdm' && (
                                                         <div className="text-xs text-right text-white/40 mt-1 space-y-1">
-                                                            <span className="block">Infill: {order.infill}</span>
-                                                            <span className="block">Layer: {order.layerHeight}mm</span>
+                                                            <span className="block">Infill: {formatInfillLabel(order.infill)}</span>
+                                                            <span className="block">Layer: {formatLayerLabel(order.layerHeight)}</span>
                                                         </div>
                                                     )}
                                                 </span>
@@ -904,7 +961,7 @@ export default function PrintingPage() {
                                                 </span>
                                             </div>
                                             <p className="text-amber-400 text-xs">
-                                                *Thanh toán 100% cho dịch vụ in 3D
+                                                *Thanh toán {depositPercent}% cho dịch vụ in 3D
                                             </p>
                                         </div>
                                     ) : (

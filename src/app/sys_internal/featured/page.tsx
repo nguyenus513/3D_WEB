@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
 import { useAdminPath } from '@/hooks/useAdminPath';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface FeaturedProduct extends Product {
     // Extend if needed, but respect base types.
@@ -65,7 +66,7 @@ export default function AdminFeaturedPage() {
         try {
             const response = await fetch('/api/admin/products', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ id: productId, is_featured: true }),
             });
 
@@ -86,7 +87,7 @@ export default function AdminFeaturedPage() {
         try {
             const response = await fetch('/api/admin/products', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ id: productId, is_featured: false }),
             });
 

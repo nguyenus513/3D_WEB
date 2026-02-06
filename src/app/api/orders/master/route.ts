@@ -3,23 +3,23 @@ import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/generateId';
 import { z } from 'zod';
+import { config } from '@/config/unifiedConfig';
 
 // Supabase admin client
 const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    config.supabase.url,
+    config.supabase.serviceRoleKey,
     { auth: { persistSession: false } }
 );
 
-// Cart item schema for validation - extremely flexible to handle all cart item formats
+// Cart item schema for validation
 const CartItemSchema = z.object({
     id: z.string(),
     type: z.enum(['product', 'custom', 'print']),
     name: z.string(),
     price: z.number(),
     quantity: z.number().int().positive(),
-    // All other fields are optional and accept any value
-}).passthrough(); // Accept any additional fields
+}).passthrough();
 
 const CreateMasterOrderSchema = z.object({
     addressId: z.string().uuid(),
@@ -30,56 +30,32 @@ const CreateMasterOrderSchema = z.object({
 
 export async function POST(request: NextRequest) {
     try {
-        // Check authentication
         const session = await auth();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Parse request body
         const body = await request.json();
 
-        // Defensive: normalize item types before validation
-        // This handles legacy cart items with incorrect types
+        // Normalize legacy types
         if (body.items && Array.isArray(body.items)) {
             body.items = body.items.map((item: Record<string, unknown>) => {
-                const originalType = item.type as string;
-                let type = originalType;
-
-                // Normalize ALL possible legacy types to schema-valid types
                 const typeMap: Record<string, string> = {
                     'printing': 'print',
                     'ready_made': 'product',
                     'custom_single': 'custom',
                     'custom_couple': 'custom',
                     'custom_group': 'custom',
-                    'custom_main': 'custom',
-                    'custom_accessory': 'custom',
-                    'custom_preview': 'custom',
                 };
-
-                if (typeMap[type]) {
-                    type = typeMap[type];
-                }
-
-                // Log if type was changed for debugging
-                if (originalType !== type) {
-                    console.log(`[Master Order] Normalized item type: ${originalType} -> ${type}`);
-                }
-
+                let type = item.type as string;
+                if (typeMap[type]) type = typeMap[type];
                 return { ...item, type };
             });
         }
 
-        // Validate with normalized data
         const validation = CreateMasterOrderSchema.safeParse(body);
 
         if (!validation.success) {
-            // Log the actual items for debugging
-            console.error('Master order validation failed:', JSON.stringify({
-                issues: validation.error.issues,
-                itemTypes: body.items?.map((i: { type?: string; name?: string }) => ({ type: i.type, name: i.name }))
-            }, null, 2));
             return NextResponse.json(
                 { error: 'Invalid request', details: validation.error.issues },
                 { status: 400 }
@@ -88,7 +64,7 @@ export async function POST(request: NextRequest) {
 
         const { addressId, items, note, shipping } = validation.data;
 
-        // Get user from database
+        // Get user
         const { data: user, error: userError } = await supabaseAdmin
             .from('profiles')
             .select('id')
@@ -99,229 +75,214 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        // Verify address belongs to user
-        const { data: address, error: addressError } = await supabaseAdmin
+        // Verify address
+        const { data: address } = await supabaseAdmin
             .from('addresses')
-            .select('id')
+            .select('*') // Get full address logic if needed for snapshot
             .eq('id', addressId)
             .eq('user_id', user.id)
             .single();
 
-        if (addressError || !address) {
+        if (!address) {
             return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
         }
 
-        // Calculate totals
         const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
         const total = subtotal + shipping;
+        const masterOrderCode = generateId.master();
 
-        // Generate master order number
-        const masterOrderNumber = generateId.master();
-
-        // Create master order
-        const { data: masterOrder, error: masterError } = await supabaseAdmin
-            .from('master_orders')
+        // 1. Create PARENT Order (Master) in 'orders' table
+        console.log('[MasterAPI] Creating Parent Order:', masterOrderCode);
+        const { data: parentOrder, error: parentError } = await supabaseAdmin
+            .from('orders')
             .insert({
-                order_number: masterOrderNumber,
+                order_code: masterOrderCode,
                 user_id: user.id,
-                address_id: addressId,
+                // No address_id fk required strictly if using snapshot, but good for ref
+                shipping_address_snapshot: {
+                    full_name: address.full_name,
+                    phone: address.phone,
+                    province: address.province,
+                    district: address.district,
+                    ward: address.ward,
+                    address_line: address.address_line
+                },
                 subtotal,
-                shipping,
-                total,
+                shipping_fee: shipping,
+                total_amount: total,
+                deposit_amount: 0, // Master usually aggregate
                 status: 'pending',
                 payment_status: 'pending',
-                note,
+                order_type: 'master', // New type for parent
+                notes: note,
             })
             .select()
             .single();
 
-        if (masterError) {
-            console.error('Failed to create master order:', masterError);
-            return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+        if (parentError) {
+            console.error('[MasterAPI] Failed to create parent order:', parentError);
+            return NextResponse.json({ error: 'Failed to create parent order' }, { status: 500 });
         }
 
-        // Group items by type
+        // 2. Create CHILD Orders
         const productItems = items.filter(i => i.type === 'product');
         const printItems = items.filter(i => i.type === 'print');
         const customItems = items.filter(i => i.type === 'custom');
-
         const subOrders: { type: string; orderNumber: string }[] = [];
 
-        // Create product order if there are product items
+        // A. Product Sub-Order
         if (productItems.length > 0) {
-            const productOrderNumber = generateId.product();
             const productTotal = productItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const productOrderCode = generateId.product();
 
-            const { data: productOrder, error: productError } = await supabaseAdmin
+            const { data: childOrder, error: childError } = await supabaseAdmin
                 .from('orders')
                 .insert({
-                    order_number: productOrderNumber,
-                    master_order_id: masterOrder.id,
+                    order_code: productOrderCode,
+                    parent_order_id: parentOrder.id, // Link to parent
                     user_id: user.id,
-                    address_id: addressId,
                     subtotal: productTotal,
-                    shipping: 0,
-                    total: productTotal,
+                    shipping_fee: 0, // Shipping usually on parent
+                    total_amount: productTotal,
                     status: 'pending',
                     payment_status: 'pending',
-                    note,
+                    order_type: 'ready_made',
+                    notes: note,
+                    shipping_address_snapshot: parentOrder.shipping_address_snapshot
                 })
                 .select()
                 .single();
 
-            if (productError) {
-                console.error('Failed to create product order:', productError);
-            } else {
-                subOrders.push({ type: 'product', orderNumber: productOrderNumber });
-
-                // Create order items
+            if (!childError) {
+                subOrders.push({ type: 'product', orderNumber: productOrderCode });
+                // Add items
                 const orderItems = productItems.map(item => ({
-                    order_id: productOrder.id,
+                    order_id: childOrder.id,
                     product_id: item.productId,
                     sku: item.sku,
                     name: item.name,
-                    price: item.price,
+                    unit_price: item.price,
                     quantity: item.quantity,
-                    size: item.size,
-                    subtotal: item.price * item.quantity,
+                    total_price: item.price * item.quantity,
+                    configuration: { size: item.size }
                 }));
-
                 await supabaseAdmin.from('order_items').insert(orderItems);
             }
         }
 
-        // Create print orders
-        if (printItems.length > 0) {
-            for (const item of printItems) {
-                const printOrderNumber = generateId.printing();
-                // Use type assertions for optional fields from flexible schema
-                const itemAny = item as Record<string, unknown>;
-                const printOptions = itemAny.printOptions as Record<string, unknown> | undefined;
+        // B. Custom Sub-Orders
+        for (const item of customItems) {
+            const customOrderCode = generateId.custom();
+            const totalPrice = item.price * item.quantity;
 
-                const { error: printError } = await supabaseAdmin
-                    .from('print_orders')
-                    .insert({
-                        order_number: printOrderNumber,
-                        master_order_id: masterOrder.id,
-                        user_id: user.id,
-                        print_type: printOptions?.type || 'fdm',
-                        color: printOptions?.color,
-                        infill: printOptions?.infill,
-                        layer_height: printOptions?.layerHeight,
-                        files: itemAny.printFiles || [],
-                        total_price: item.price * item.quantity,
-                        quantity: item.quantity,
-                        status: 'pending',
-                        notes: note,
-                    });
-
-                if (printError) {
-                    console.error('Failed to create print order:', printError);
-                } else {
-                    subOrders.push({ type: 'print', orderNumber: printOrderNumber });
-                }
-            }
-        }
-
-        // Create custom orders
-        if (customItems.length > 0) {
-            for (const item of customItems) {
-                const customOrderNumber = generateId.custom();
-
-                const { error: customError } = await supabaseAdmin
-                    .from('custom_orders')
-                    .insert({
-                        order_number: customOrderNumber,
-                        master_order_id: masterOrder.id,
-                        user_id: user.id,
+            const { error: customError } = await supabaseAdmin
+                .from('orders')
+                .insert({
+                    order_code: customOrderCode,
+                    parent_order_id: parentOrder.id,
+                    user_id: user.id,
+                    subtotal: totalPrice,
+                    total_amount: totalPrice,
+                    status: 'pending',
+                    payment_status: 'pending',
+                    order_type: 'custom',
+                    custom_config: {
                         description: item.description || item.name,
                         files: item.customFiles || [],
-                        estimated_price: item.price * item.quantity,
-                        quantity: item.quantity,
-                        status: 'pending',
-                    });
+                        quantity: item.quantity
+                    },
+                    items_config: { // Redundant backup
+                        custom: { description: item.description || item.name, files: item.customFiles }
+                    },
+                    shipping_address_snapshot: parentOrder.shipping_address_snapshot
+                });
 
-                if (customError) {
-                    console.error('Failed to create custom order:', customError);
-                } else {
-                    subOrders.push({ type: 'custom', orderNumber: customOrderNumber });
-                }
-            }
+            if (!customError) subOrders.push({ type: 'custom', orderNumber: customOrderCode });
+        }
+
+        // C. Print Sub-Orders
+        for (const item of printItems) {
+            const printOrderCode = generateId.printing();
+            const totalPrice = item.price * item.quantity;
+            const itemAny = item as any;
+            const printOptions = itemAny.printOptions || {};
+
+            const { error: printError } = await supabaseAdmin
+                .from('orders')
+                .insert({
+                    order_code: printOrderCode,
+                    parent_order_id: parentOrder.id,
+                    user_id: user.id,
+                    subtotal: totalPrice,
+                    total_amount: totalPrice,
+                    status: 'pending',
+                    payment_status: 'pending',
+                    order_type: 'printing',
+                    printing_config: {
+                        type: printOptions.type || 'fdm',
+                        color: printOptions.color,
+                        files: itemAny.printFiles || [],
+                        quantity: item.quantity
+                    },
+                    items_config: {
+                        printing: { type: printOptions.type, files: itemAny.printFiles }
+                    },
+                    shipping_address_snapshot: parentOrder.shipping_address_snapshot
+                });
+
+            if (!printError) subOrders.push({ type: 'print', orderNumber: printOrderCode });
         }
 
         return NextResponse.json({
             success: true,
-            masterOrderId: masterOrder.id,
-            masterOrderNumber,
+            masterOrderId: parentOrder.id,
+            masterOrderNumber: masterOrderCode,
             subOrders,
             total,
         });
 
     } catch (error) {
         console.error('Master order creation error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
-// GET - Fetch master orders for current user
+// GET - Fetch master orders (Parents)
 export async function GET() {
     try {
         const session = await auth();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        // Get user
         const { data: user } = await supabaseAdmin
             .from('profiles')
             .select('id')
             .eq('email', session.user.email.toLowerCase())
             .single();
 
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
+        if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-        // Get master orders with related sub-orders
-        // Use try-catch for relation queries that might fail if tables don't exist
-        let masterOrders = null;
-        let fetchError = null;
+        // Fetch orders that are PARENTS (order_type = 'master' OR generic parent logic if desired)
+        // Or fetch all and let frontend group? 
+        // Strategy: Fetch only 'master' type orders
 
-        try {
-            const result = await supabaseAdmin
-                .from('master_orders')
-                .select(`
-                    *,
-                    address:addresses(*),
-                    orders(id, order_code, status, total_amount),
-                    print_orders(id, order_number, status, total_price),
-                    custom_orders(id, order_number, status, estimated_price)
-                `)
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+        const { data: masterOrders, error } = await supabaseAdmin
+            .from('orders')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('order_type', 'master')
+            .order('created_at', { ascending: false });
 
-            masterOrders = result.data;
-            fetchError = result.error;
-        } catch (e) {
-            console.error('Master orders query exception:', e);
-            // Try simpler query without relations
-            const simpleResult = await supabaseAdmin
-                .from('master_orders')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+        if (error) throw error;
 
-            masterOrders = simpleResult.data;
-            fetchError = simpleResult.error;
-        }
+        // If we want to return children structure as well, we'd need a join or separate query.
+        // For simple list, we return the parents. Frontend can expand details by fetching children via parent_order_id 
+        // OR we can fetch children here.
 
-        if (fetchError) {
-            console.error('Failed to fetch master orders:', fetchError);
-            return NextResponse.json({ error: 'Failed to fetch orders', details: fetchError.message }, { status: 500 });
-        }
+        // Let's attach children for fullness if volume is low, or keep simple.
+        // Keeping simple for now to align with 'my-orders' which shows flat list.
+        // BUT 'my-orders' unified route might show duplicates if we show both Master and Children.
+        // The previous 'my-orders' route fetches ALL. 
+        // This route specifically asked for MASTER orders.
 
         return NextResponse.json({ orders: masterOrders || [] });
 

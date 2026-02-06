@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { CsrfProvider } from "@/lib/security/csrf-client";
 
 const beVietnamPro = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
@@ -24,16 +25,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="vi">
+      <head>
+        <meta name="csrf-token" content="" />
+      </head>
       <body className={`${beVietnamPro.variable} antialiased font-sans`} style={{ background: 'var(--bg-void)', color: 'var(--text-primary)' }}>
         <AuthProvider>
-          <LayoutWrapper>{children}</LayoutWrapper>
+          <CsrfProvider>
+            <LayoutWrapper>{children}</LayoutWrapper>
+          </CsrfProvider>
         </AuthProvider>
       </body>
     </html>

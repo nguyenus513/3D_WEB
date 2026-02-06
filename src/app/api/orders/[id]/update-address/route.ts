@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
+import { requireCsrf } from '@/lib/security/csrf';
 
 export async function PATCH(
     request: NextRequest,
@@ -20,6 +21,11 @@ export async function PATCH(
                 { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } },
                 { status: 401 }
             );
+        }
+
+        const csrf = await requireCsrf(request);
+        if (!csrf.valid) {
+            return csrf.error!;
         }
 
         const { id } = await params;
@@ -36,7 +42,7 @@ export async function PATCH(
 
         // Parse request body
         const body = await request.json();
-        const { shipping_address, shipping_fee, total } = body;
+        const { shipping_address, shipping_fee, total_amount } = body;
 
         // Verify order ownership
         const { data: order, error: fetchError } = await supabase
@@ -61,9 +67,9 @@ export async function PATCH(
 
         // Build update object
         const updates: Record<string, unknown> = {};
-        if (shipping_address) updates.shipping_address = shipping_address;
+        if (shipping_address) updates.shipping_address_snapshot = shipping_address;
         if (typeof shipping_fee === 'number') updates.shipping_fee = shipping_fee;
-        if (typeof total === 'number') updates.total = total;
+        if (typeof total_amount === 'number') updates.total_amount = total_amount;
         updates.updated_at = new Date().toISOString();
 
         // Update order

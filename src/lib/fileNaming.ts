@@ -1,7 +1,7 @@
 /**
  * File Naming Conventions for 3D_Web Orders
  * 
- * Custom Orders (CUS-XXXXXXXX):
+ * Custom Orders (HEX):
  *   User photos: {orderCode}-{x}.{y}.{z}.{ext}
  *     x: 1=single, 2=couple, 3+=group
  *     y: 1=main, 2=accessory
@@ -9,7 +9,7 @@
  *   Admin review: {orderCode}-0.{b}.{ext}
  *     0=admin review, b=sequence
  * 
- * Printing Orders (PRT-XXXXXXXX):
+ * Printing Orders (HEX):
  *   Resin: {orderCode}-1.{n}.{ext}
  *     n=file sequence
  *   FDM: {orderCode}-2.{n}.{p}.{q}.{r}.{ext}
@@ -86,7 +86,7 @@ function getColorCode(color: FDMColor): number {
 
 /**
  * Generate file name for Custom order user uploads
- * Example: CUS-A1B2C3D4-2.1.1.jpg
+ * Example: A1B2C3D4E5-2.1.1.jpg
  */
 export function generateCustomFileName(params: CustomFileParams): string {
     const { orderCode, customType, personCount, photoCategory, photoIndex, extension } = params;
@@ -99,8 +99,8 @@ export function generateCustomFileName(params: CustomFileParams): string {
 
 /**
  * Generate file name for Printing order uploads
- * Resin: PRT-A1B2C3D4-1.1.stl
- * FDM: PRT-A1B2C3D4-2.1.20.20.1.stl
+ * Resin: A1B2C3D4E5-1.1.stl
+ * FDM: A1B2C3D4E5-2.1.20.20.1.stl
  */
 export function generatePrintingFileName(params: PrintingFileParams): string {
     const { orderCode, tech, fileIndex, infill, layerHeight, color, extension } = params;
@@ -120,7 +120,7 @@ export function generatePrintingFileName(params: PrintingFileParams): string {
 
 /**
  * Generate file name for Admin review/demo uploads
- * Example: CUS-A1B2C3D4-0.1.jpg
+ * Example: A1B2C3D4E5-0.1.jpg
  */
 export function generateReviewFileName(params: ReviewFileParams): string {
     const { orderCode, index, extension } = params;

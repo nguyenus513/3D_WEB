@@ -7,6 +7,7 @@
 import { ProfileRepository, Profile } from '@/repositories/ProfileRepository';
 import { NotFoundError } from '@/lib/core/BaseController';
 import { UpdateProfileInput } from '@/validators/profile.schema';
+import { debugLog } from '@/lib/utils/debugLog';
 
 // =============================================================================
 // Profile Service
@@ -46,7 +47,7 @@ export class ProfileService {
 
         if (existing) {
             // Update existing profile
-            console.log('[ProfileService] Updating existing profile:', existing.id);
+            debugLog('[ProfileService] Updating existing profile:', existing.id);
             return this.profileRepo.update(existing.id, {
                 full_name: input.name,
                 phone: input.phone,
@@ -54,7 +55,7 @@ export class ProfileService {
             });
         } else {
             // Create new profile with Auth ID
-            console.log('[ProfileService] Creating new profile for:', normalizedEmail, 'ID:', userId);
+            debugLog('[ProfileService] Creating new profile for:', normalizedEmail, 'ID:', userId);
             return this.profileRepo.create({
                 id: userId,
                 email: normalizedEmail,

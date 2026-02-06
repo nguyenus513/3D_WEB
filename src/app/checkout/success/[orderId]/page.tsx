@@ -6,7 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
-import { getBankConfig, BANK_INFO, type BankCode } from '@/lib/vietqr';
+import { BANK_INFO, type BankCode } from '@/lib/vietqr';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface SubOrder {
     type: string;
@@ -24,6 +25,15 @@ interface MasterOrder {
     status: string;
     payment_status: string;
     created_at: string;
+    deposit_amount?: number;
+    payment?: {
+        bank_id?: string | null;
+        account_no?: string | null;
+        account_name?: string | null;
+        transfer_content?: string | null;
+        qr_url?: string | null;
+        amount?: number | null;
+    };
     address: {
         full_name: string;
         phone: string;
@@ -88,6 +98,24 @@ const getTypeColor = (type: string) => {
     }
 };
 
+const statusLabels: Record<string, string> = {
+    pending_confirmation: 'Chờ xác nhận',
+    confirmed: 'Đã xác nhận',
+    paid: 'Đã thanh toán',
+    processing: 'Đang xử lý',
+    designing: 'Đang thiết kế',
+    review: 'Chờ duyệt demo',
+    revising: 'Đang chỉnh sửa',
+    approved: 'Đã duyệt',
+    production_pending: 'Chờ sản xuất',
+    producing: 'Đang sản xuất',
+    printing: 'Đang in',
+    shipping: 'Đang giao',
+    delivered: 'Đã giao',
+    completed: 'Hoàn thành',
+    cancelled: 'Đã hủy',
+};
+
 export default function CheckoutSuccessPage() {
     const params = useParams();
     const orderId = params.orderId as string;
@@ -95,6 +123,8 @@ export default function CheckoutSuccessPage() {
     const [loading, setLoading] = useState(true);
     const [subOrders, setSubOrders] = useState<SubOrder[]>([]);
     const [hasConfirmedPayment, setHasConfirmedPayment] = useState(false);
+    const [confirmingPayment, setConfirmingPayment] = useState(false);
+    const [confirmError, setConfirmError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -120,10 +150,31 @@ export default function CheckoutSuccessPage() {
                             payment: orderData.payment,
                         } as any);
 
-                        // If already paid, skip payment view
-                        if (orderData.payment_status === 'paid' || orderData.deposit_paid) {
-                            setHasConfirmedPayment(true);
-                        }
+                        // If already paid/confirmed or progressed, skip payment view
+                        const confirmedStatuses = new Set([
+                            'pending_confirmation',
+                            'confirmed',
+                            'paid',
+                            'processing',
+                            'designing',
+                            'review',
+                            'revising',
+                            'approved',
+                            'production_pending',
+                            'producing',
+                            'printing',
+                            'shipping',
+                            'delivered',
+                            'completed',
+                            'cancelled',
+                        ]);
+
+                        const hasConfirmed = orderData.payment_status === 'paid'
+                            || orderData.payment_status === 'deposit_paid'
+                            || orderData.deposit_paid
+                            || confirmedStatuses.has(orderData.status);
+
+                        setHasConfirmedPayment(hasConfirmed);
 
                         // Set sub-orders based on order type
                         setSubOrders([{
@@ -144,9 +195,34 @@ export default function CheckoutSuccessPage() {
         }
     }, [orderId]);
 
-    const handleConfirmPayment = () => {
-        setHasConfirmedPayment(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    const handleConfirmPayment = async () => {
+        if (!order?.id) {
+            setConfirmError('Không tìm thấy mã đơn để xác nhận.');
+            return;
+        }
+
+        setConfirmingPayment(true);
+        setConfirmError(null);
+
+        try {
+            const res = await fetch(`/api/orders/${order.id}/payment-confirmation`, {
+                method: 'POST',
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Không thể xác nhận thanh toán');
+            }
+
+            setHasConfirmedPayment(true);
+            setOrder(prev => prev ? { ...prev, status: 'pending_confirmation' } : prev);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (err) {
+            setConfirmError((err as Error).message);
+        } finally {
+            setConfirmingPayment(false);
+        }
     };
 
     if (loading) {
@@ -179,11 +255,29 @@ export default function CheckoutSuccessPage() {
         const orderAny = order as any;
         const payment = orderAny?.payment;
         const depositAmount = orderAny?.deposit_amount || Math.round(order.total * 0.5);
-        const qrUrl = payment?.qr_url || `https://img.vietqr.io/image/MB-0359123456-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(`MINWSUN_${orderId}`)}`;
-        const transferContent = payment?.transfer_content || `MINWSUN_${orderId}`;
-        const bankName = payment?.bank_id ? (BANK_INFO[payment.bank_id as BankCode]?.shortName || payment.bank_id) : 'MB Bank';
-        const accountNo = payment?.account_no || '0359123456';
-        const accountName = payment?.account_name || 'MINWSUN';
+        const qrUrl = payment?.qr_url || '';
+        const transferContent = payment?.transfer_content || order.order_code || orderId;
+        const bankName = payment?.bank_id ? (BANK_INFO[payment.bank_id as BankCode]?.shortName || payment.bank_id) : '';
+        const accountNo = payment?.account_no || '';
+        const accountName = payment?.account_name || '';
+        const isPrinting = subOrders[0]?.type === 'print';
+
+
+        if (!qrUrl || !accountNo || !accountName || !bankName) {
+            return (
+                <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+                    <div className="max-w-[600px] mx-auto px-6">
+                        <AnimatedSection className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-white mb-2">Payment info missing</h1>
+                            <p className="text-white/60">Please contact admin for help.</p>
+                        </AnimatedSection>
+                        <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
+                            <p className="text-red-400">Missing bank config or QR.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
         return (
             <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
@@ -248,9 +342,13 @@ export default function CheckoutSuccessPage() {
                                 size="lg"
                                 className="w-full h-14 text-lg font-medium shadow-lg shadow-primary/20"
                                 onClick={handleConfirmPayment}
+                                disabled={confirmingPayment}
                             >
-                                Tôi đã chuyển khoản xong
+                                {confirmingPayment ? 'Đang xác nhận...' : 'Tôi đã chuyển khoản xong'}
                             </Button>
+                            {confirmError && (
+                                <p className="mt-3 text-center text-red-400 text-sm">{confirmError}</p>
+                            )}
                         </div>
 
                         <div className="text-center">
@@ -268,6 +366,11 @@ export default function CheckoutSuccessPage() {
     }
 
     // 2. SUCCESS VIEW (Shown after confirmation)
+    const statusLabel = statusLabels[order.status] || 'Đang xử lý';
+    const statusMessage = order.status === 'pending_confirmation'
+        ? 'Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang chờ xác nhận thanh toán.'
+        : `Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang ở trạng thái "${statusLabel}".`;
+
     return (
         <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
             <div className="max-w-[800px] mx-auto px-6">
@@ -285,7 +388,7 @@ export default function CheckoutSuccessPage() {
                         Đặt Hàng Thành Công!
                     </h1>
                     <p className="text-white/60">
-                        Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang chờ xác nhận thanh toán.
+                        {statusMessage}
                     </p>
                 </AnimatedSection>
 
@@ -295,10 +398,10 @@ export default function CheckoutSuccessPage() {
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <p className="text-white/50 text-sm">Mã đơn hàng</p>
-                                <p className="text-2xl font-bold text-white font-mono">{orderId}</p>
+                                <p className="text-2xl font-bold text-white font-mono">{order.order_code || orderId}</p>
                             </div>
                             <div className="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-xl text-sm font-medium">
-                                Chờ xác nhận
+                                {statusLabel}
                             </div>
                         </div>
 

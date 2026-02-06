@@ -6,9 +6,9 @@ import { OrderStatus } from '@/types/database';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 // Force dynamic rendering and disable caching for this page
 // Note: 'dynamic' and 'revalidate' exports don't work in Client Components
@@ -16,20 +16,17 @@ import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
 
 interface CustomConfig {
     type?: 'single' | 'couple' | 'group';
-    photos?: { drive_file_id: string; file_name: string; web_view_link?: string }[];
+    images?: { url: string; thumbnail?: string; name?: string; key?: string }[];
     style?: string;
     size?: string;
-    demo_photo?: { drive_file_id: string; file_name: string; web_view_link?: string };
-    customer_approved?: boolean;
 }
 
 interface PrintingConfig {
-    stl_file?: { drive_file_id: string; file_name: string; web_view_link?: string };
-    print_type?: 'FDM' | 'Resin';
-    material?: string;
+    type?: 'fdm' | 'resin' | string;
     color?: string;
-    infill?: number;
-    layer_height?: number;
+    infill?: string;
+    layerHeight?: string;
+    files?: { url: string; name: string; key?: string }[];
 }
 
 interface OrderItem {
@@ -50,6 +47,7 @@ interface Order {
     order_code: string;
     order_type: 'ready_made' | 'custom' | 'printing';
     status: string;
+    payment_status?: string;
     subtotal: number;
     shipping_fee: number;
     total: number;
@@ -147,6 +145,7 @@ export default function AdminOrderDetailPage() {
     const [uploadingDemo, setUploadingDemo] = useState(false);
     const [archiving, setArchiving] = useState(false);
     const [archiveError, setArchiveError] = useState('');
+    const [brokenPhotoIds, setBrokenPhotoIds] = useState<Record<string, boolean>>({});
     // Lock fetches while optimistic update is in progress
     const isOptimisticUpdate = useRef(false);
     // Explicit UI override state
@@ -155,20 +154,28 @@ export default function AdminOrderDetailPage() {
     // Archive order files (R2 → Google Drive)
     const handleArchiveFiles = async () => {
         if (!order) return;
+        const confirmed = window.confirm('Xác nhận lưu trữ file đơn hàng? Sau khi lưu trữ, user sẽ không xem lại được.');
+        if (!confirmed) return;
         setArchiving(true);
         setArchiveError('');
 
         try {
             const res = await fetch(`/api/admin/orders/${order.id}/archive`, {
                 method: 'POST',
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
             });
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error?.message || data.error || 'Archive failed');
+                const missing = data.missingOnDrive?.length ? `Missing on Drive: ${data.missingOnDrive.join(', ')}` : '';
+                throw new Error(data.error?.message || data.error || missing || 'Archive failed');
             }
 
-            alert(`✅ Đã lưu trữ ${data.archived} file sang Google Drive`);
+            if (data.alreadyArchived) {
+                alert('✅ Đơn hàng đã được lưu trữ trước đó');
+            } else {
+                alert(`✅ Đã lưu trữ ${data.archived} file sang Google Drive`);
+            }
             fetchOrder(); // Refresh to show updated admin_note
         } catch (error) {
             const msg = error instanceof Error ? error.message : 'Archive failed';
@@ -188,7 +195,6 @@ export default function AdminOrderDetailPage() {
         const orderId = params.id;
         // Skip fetch if optimistic update is locked
         if (isOptimisticUpdate.current) {
-            console.log("Skipping fetch due to optimistic lock");
             return;
         }
 
@@ -274,26 +280,29 @@ export default function AdminOrderDetailPage() {
     const handleConfirmPayment = async () => {
         if (!order) return;
         setUpdating(true);
+        const paymentStatus = order.order_type === 'ready_made' ? 'paid' : 'deposit_paid';
 
         try {
             const res = await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     deposit_paid: true,
+                    payment_status: paymentStatus,
                     status: 'confirmed',
+                    confirmed_at: new Date().toISOString(),
                     paid_at: new Date().toISOString(),
                 }),
             });
 
             if (res.ok) {
-                setOrder({ ...order, deposit_paid: true, status: 'confirmed' });
+                setOrder({ ...order, deposit_paid: true, payment_status: paymentStatus as any, status: 'confirmed' });
 
                 // Auto-send confirmation email
                 if (order.profiles?.email) {
                     await fetch('/api/send-email', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                         body: JSON.stringify({
                             type: 'confirmed',
                             data: {
@@ -349,7 +358,7 @@ export default function AdminOrderDetailPage() {
         try {
             const res = await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(updates),
             });
 
@@ -375,7 +384,7 @@ export default function AdminOrderDetailPage() {
 
                     await fetch('/api/send-email', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                         body: JSON.stringify({ type: newStatus, data: emailData }),
                     });
                 }
@@ -394,8 +403,8 @@ export default function AdminOrderDetailPage() {
         try {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ admin_note: adminNote }),
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ admin_notes: adminNote }),
             });
         } catch (error) {
             console.error('Save note error:', error);
@@ -413,6 +422,7 @@ export default function AdminOrderDetailPage() {
 
             const res = await fetch(`/api/admin/orders/${order.id}/demo-image`, {
                 method: 'POST',
+                headers: addCsrfToRequest(),
                 body: formData,
             });
 
@@ -465,7 +475,7 @@ export default function AdminOrderDetailPage() {
 
     const getNextStatuses = () => {
         if (!order) return [];
-        const currentStatus = order.status;
+        const currentStatus = order.status === 'pending_confirmation' ? 'pending' : order.status;
 
         if (order.order_type === 'ready_made') {
             const flow = ['pending', 'confirmed', 'processing', 'shipping', 'delivered'];
@@ -879,8 +889,8 @@ export default function AdminOrderDetailPage() {
                                 const config = item.configuration as CustomConfig | PrintingConfig | undefined;
                                 const isCustom = order.order_type === 'custom';
                                 const isPrinting = order.order_type === 'printing';
-                                const customConfig = isCustom ? config as CustomConfig : null;
-                                const printingConfig = isPrinting ? config as PrintingConfig : null;
+                                const customConfig = isCustom ? (order.custom_config as CustomConfig || config as CustomConfig) : null;
+                                const printingConfig = isPrinting ? (order.printing_config as PrintingConfig || config as PrintingConfig) : null;
 
                                 return (
                                     <div key={item.id || idx} className="p-4 bg-white/5 rounded-xl space-y-4">
@@ -940,74 +950,65 @@ export default function AdminOrderDetailPage() {
                                                     </div>
 
                                                     {/* Uploaded photos */}
-                                                    {customConfig.photos && customConfig.photos.length > 0 && (
+                                                    {customConfig.images && customConfig.images.length > 0 && (
                                                         <div>
-                                                            <p className="text-white/50 text-xs mb-2">📸 Ảnh khách gửi ({customConfig.photos.length})</p>
+                                                            <p className="text-white/50 text-xs mb-2">Ảnh khách gửi ({customConfig.images.length})</p>
                                                             <div className="flex flex-wrap gap-2">
-                                                                {customConfig.photos.map((photo, idx) => (
-                                                                    <a
-                                                                        key={idx}
-                                                                        href={photo.web_view_link || `https://drive.google.com/file/d/${photo.drive_file_id}/view`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-cyan-500 transition-all"
-                                                                    >
-                                                                        <img
-                                                                            src={`https://lh3.googleusercontent.com/d/${photo.drive_file_id}=w200`}
-                                                                            alt={photo.file_name}
-                                                                            className="w-full h-full object-cover"
-                                                                            onError={(e) => {
-                                                                                e.currentTarget.src = '';
-                                                                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/30"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>';
-                                                                            }}
-                                                                        />
-                                                                    </a>
-                                                                ))}
+                                                                {customConfig.images.map((photo, idx) => {
+                                                                    const photoKey = photo.key || photo.url || String(idx);
+                                                                    const isBroken = !!brokenPhotoIds[photoKey];
+
+                                                                    return (
+                                                                        <a
+                                                                            key={photoKey}
+                                                                            href={photo.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-cyan-500 transition-all"
+                                                                        >
+                                                                            {isBroken ? (
+                                                                                <div className="w-full h-full flex items-center justify-center text-white/30">
+                                                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                                    </svg>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <img
+                                                                                    src={photo.thumbnail || photo.url}
+                                                                                    alt={photo.name || `Ảnh ${idx + 1}`}
+                                                                                    className="w-full h-full object-cover"
+                                                                                    onError={() => {
+                                                                                        setBrokenPhotoIds(prev => ({ ...prev, [photoKey]: true }));
+                                                                                    }}
+                                                                                />
+                                                                            )}
+                                                                        </a>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                                        </a>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     )}
 
                                                     {/* Demo photo if approved */}
-                                                    {customConfig.demo_photo && (
-                                                        <div>
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <p className="text-white/50 text-xs">🎨 Demo</p>
-                                                                {customConfig.customer_approved && (
-                                                                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">✓ Đã duyệt</span>
-                                                                )}
-                                                            </div>
-                                                            <a
-                                                                href={customConfig.demo_photo.web_view_link || `https://drive.google.com/file/d/${customConfig.demo_photo.drive_file_id}/view`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-block w-24 h-24 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-emerald-500 transition-all"
-                                                            >
-                                                                <img
-                                                                    src={`https://lh3.googleusercontent.com/d/${customConfig.demo_photo.drive_file_id}=w200`}
-                                                                    alt="Demo"
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            </a>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             )
                                         }
 
-                                        {/* Printing Order: STL file & specs */}
+                                        {/* Printing Order: Files & specs */}
                                         {
                                             isPrinting && printingConfig && (
                                                 <div className="pt-4 border-t border-white/10 space-y-3">
                                                     {/* Print specs */}
                                                     <div className="flex flex-wrap gap-2">
-                                                        {printingConfig.print_type && (
+                                                        {(printingConfig.type || (printingConfig as any).print_tech) && (
                                                             <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full">
-                                                                {printingConfig.print_type}
-                                                            </span>
-                                                        )}
-                                                        {printingConfig.material && (
-                                                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
-                                                                {printingConfig.material}
+                                                                {printingConfig.type || (printingConfig as any).print_tech}
                                                             </span>
                                                         )}
                                                         {printingConfig.color && (
@@ -1019,34 +1020,39 @@ export default function AdminOrderDetailPage() {
                                                     </div>
 
                                                     {/* Technical specs */}
-                                                    {(printingConfig.infill || printingConfig.layer_height) && (
+                                                    {(printingConfig.infill || printingConfig.layerHeight) && (
                                                         <div className="flex gap-4 text-xs text-white/50">
-                                                            {printingConfig.infill && <span>Infill: {printingConfig.infill}%</span>}
-                                                            {printingConfig.layer_height && <span>Layer: {printingConfig.layer_height}mm</span>}
+                                                            {printingConfig.infill && <span>Infill: {printingConfig.infill}</span>}
+                                                            {printingConfig.layerHeight && <span>Layer: {printingConfig.layerHeight}mm</span>}
                                                         </div>
                                                     )}
 
-                                                    {/* STL File */}
-                                                    {printingConfig.stl_file && (
-                                                        <a
-                                                            href={printingConfig.stl_file.web_view_link || `https://drive.google.com/file/d/${printingConfig.stl_file.drive_file_id}/view`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                                                        >
-                                                            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                                                                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                                </svg>
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-white text-sm truncate">{printingConfig.stl_file.file_name}</p>
-                                                                <p className="text-white/40 text-xs">File STL • Click để xem</p>
-                                                            </div>
-                                                            <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                            </svg>
-                                                        </a>
+                                                    {/* Files */}
+                                                    {printingConfig.files && printingConfig.files.length > 0 && (
+                                                        <div className="space-y-2">
+                                                            {printingConfig.files.map((file, idx) => (
+                                                                <a
+                                                                    key={file.key || `${file.url}-${idx}`}
+                                                                    href={file.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                                                                >
+                                                                    <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                                                                        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-white text-sm truncate">{file.name}</p>
+                                                                        <p className="text-white/40 text-xs">File 3D • Click để xem</p>
+                                                                    </div>
+                                                                    <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                    </svg>
+                                                                </a>
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </div>
                                             )
@@ -1198,15 +1204,15 @@ export default function AdminOrderDetailPage() {
                                 <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-white/70">Tổng sản phẩm</span>
-                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white/70">Phí vận chuyển</span>
+                                <span className="text-white">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white font-medium">Tổng cộng</span>
                                 <span className="text-white font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className={`flex justify-between ${order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                                <span>Tiền cọc {order.deposit_paid ? '(đã nhận)' : '(chờ)'}</span>
+                                <span>Tiền cọc {order.deposit_paid ? '(đã nhận)' : '(chưa)'}</span>
                                 <span>{order.deposit_amount.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between text-white/50">

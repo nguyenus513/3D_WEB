@@ -5,6 +5,7 @@ export type UserRole = 'customer' | 'admin' | 'staff';
 
 export type OrderStatus =
     | 'pending'
+    | 'pending_confirmation'
     | 'confirmed'
     | 'paid'
     | 'processing'
@@ -19,6 +20,8 @@ export type OrderStatus =
     | 'delivered'
     | 'completed'
     | 'cancelled'
+    | 'expired'
+    | 'payment_failed'
     | 'refunded';
 
 export type PaymentStatus = 'pending' | 'partial' | 'deposit_paid' | 'paid' | 'refunded' | 'failed';
@@ -82,6 +85,7 @@ export interface Product {
     id: string;
     category_id: string | null;
     sku: string | null;
+    size?: string | null;
     name: string;
     slug: string;
     type: ProductType;
@@ -128,6 +132,13 @@ export interface Order {
     discount: number;
     total_amount: number;
     deposit_amount: number;
+    deposit_paid?: boolean;
+    order_type?: OrderType | string;
+    parent_order_id?: string | null;
+    master_order_id?: string | null;
+    order_number?: string | null;
+    shipping_code?: string | null;
+    shipping_status?: string | null;
     status: OrderStatus;
     payment_status: PaymentStatus;
     shipping_address_snapshot: ShippingAddressSnapshot | null;
@@ -136,8 +147,21 @@ export interface Order {
     created_at: string;
     updated_at: string;
     confirmed_at: string | null;
+    processing_at?: string | null;
+    designing_at?: string | null;
     paid_at: string | null;
+    producing_at?: string | null;
+    printing_at?: string | null;
+    shipped_at?: string | null;
+    delivered_at?: string | null;
     completed_at: string | null;
+    approved_at?: string | null;
+    revising_at?: string | null;
+    review_at?: string | null;
+    demo_image_url?: string | null;
+    custom_config?: Record<string, unknown> | null;
+    printing_config?: Record<string, unknown> | null;
+    archived_at?: string | null;
     // Relations
     items?: OrderItem[];
     payments?: Payment[];
@@ -169,11 +193,13 @@ export interface OrderItem {
     product_id: string | null;
     name: string;
     sku: string | null;
+    size?: string | null;
     quantity: number;
     unit_price: number;
     total_price: number;
     configuration: OrderItemConfiguration;
     created_at: string;
+    updated_at?: string;
     // Relations
     product?: Product;
     order?: Order;
@@ -189,6 +215,7 @@ export interface Payment {
     status: PaymentStatus;
     gateway_response: Record<string, unknown> | null;
     created_at: string;
+    updated_at?: string;
     // Relations
     order?: Order;
 }
@@ -209,6 +236,17 @@ export interface CartItem {
     product_id: string;
     quantity: number;
     configuration: OrderItemConfiguration;
+    item_type?: string | null;
+    name?: string | null;
+    price?: number | null;
+    image_url?: string | null;
+    product_sku?: string | null;
+    size?: string | null;
+    original_price?: number | null;
+    print_options?: Record<string, unknown> | null;
+    print_files?: Record<string, unknown>[] | null;
+    description?: string | null;
+    custom_files?: Record<string, unknown>[] | null;
     created_at: string;
     updated_at: string;
     // Relations
@@ -220,6 +258,7 @@ export interface SecurityLog {
     id: string;
     user_id: string | null;
     event_type: string;
+    severity?: string;
     ip_address: string | null;
     user_agent: string | null;
     details: Record<string, unknown> | null;
@@ -232,12 +271,18 @@ export interface RefreshToken {
     token: string;
     expires_at: string;
     revoked: boolean;
+    token_hash?: string | null;
+    session_id?: string | null;
+    family_id?: string | null;
+    is_revoked?: boolean;
+    revoked_at?: string | null;
+    revoked_reason?: string | null;
     created_at: string;
 }
 
 // ==================== LEGACY COMPATIBILITY ====================
 // These types can be removed after full migration
-export type OrderType = 'ready_made' | 'custom' | 'printing';
+export type OrderType = 'ready_made' | 'custom' | 'printing' | 'master';
 
 // ==================== SETTINGS (Not in DB, for app use) ====================
 export interface StoreSettings {

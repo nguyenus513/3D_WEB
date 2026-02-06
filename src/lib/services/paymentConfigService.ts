@@ -74,7 +74,7 @@ export function getDefaultPaymentConfig(): PaymentConfig | null {
 
 /**
  * Fetch customer_code from profiles table
- * Format: KH-XXXXXXXX or USR-XXXXXXXX
+ * Format: 10-char HEX
  * Supports email fallback for corrupted session IDs
  */
 export async function getCustomerCode(userId: string, email?: string | null): Promise<string | null> {
@@ -98,7 +98,9 @@ export async function getCustomerCode(userId: string, email?: string | null): Pr
             .single();
 
         if (emailData?.customer_code) {
-            console.log('[PaymentConfig] Using email fallback for customer_code lookup');
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('[PaymentConfig] Using email fallback for customer_code lookup');
+            }
             return emailData.customer_code;
         }
     }
@@ -111,7 +113,7 @@ export async function getCustomerCode(userId: string, email?: string | null): Pr
 
 /**
  * Generate fallback customer code from user ID if DB lookup fails
- * Format: USR-{first 8 chars of UUID}
+ * Format: 10-char HEX from UUID
  */
 export function generateFallbackCustomerCode(userId: string): string {
     // Return first 10 hex chars of UUID
@@ -120,8 +122,8 @@ export function generateFallbackCustomerCode(userId: string): string {
 
 /**
  * Generate transfer content
- * Format: {customer_code}-{order_code}
- * Example: KH-A1B2C3D4-7EABAC26B624
+ * Format: {customer_code}{order_code}
+ * Example: A1B2C3D4E57EABAC26B6
  */
 export function generateTransferContent(customerCode: string, orderCode: string): string {
     return `${customerCode}${orderCode}`;
@@ -173,7 +175,7 @@ export async function getPaymentSetup(
         throw new Error(`Payment config không tồn tại cho loại đơn hàng: ${orderType}. Vui lòng liên hệ admin.`);
     }
 
-    // Generate transfer content: {customer_code}-{order_code}
+    // Generate transfer content: {customer_code}{order_code}
     const transferContent = generateTransferContent(customerCode, orderCode);
 
     // Generate QR URL

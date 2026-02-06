@@ -77,7 +77,7 @@ function CartItemRow({ item, onUpdate, onRemove }: {
         >
             {/* Image/Icon */}
             <div className="w-24 h-24 rounded-xl bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-                {item.image ? (
+                {item.image && !item.image.includes('[object Object]') ? (
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                 ) : item.type === 'print' ? (
                     <PrintIcon />
@@ -167,7 +167,7 @@ export default function CartPage() {
         }
 
         // Go to checkout page which handles address + QR display
-        router.push('/checkout?mode=cart');
+        router.push('/checkout');
     };
 
     // Filter items based on active tab

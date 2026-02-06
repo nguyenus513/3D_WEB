@@ -32,7 +32,7 @@ export async function GET(
         // Fetch from unified orders table
         const { data: order, error } = await supabase
             .from('orders')
-            .select('*, items:order_items(*)')
+            .select('*, order_items(*)')
             .eq('id', id)
             .eq('user_id', userId)
             .single();
@@ -41,7 +41,7 @@ export async function GET(
             // Try by order_code if ID didn't match
             const { data: orderByCode, error: codeError } = await supabase
                 .from('orders')
-                .select('*, items:order_items(*)')
+                .select('*, order_items(*)')
                 .eq('order_code', id)
                 .eq('user_id', userId)
                 .single();
@@ -62,7 +62,9 @@ export async function GET(
 
 // Transform order to frontend format
 function transformOrder(order: Record<string, unknown>) {
-    const items = (order.items as Record<string, unknown>[]) || [];
+    const dbItems = (order as any).order_items as Record<string, unknown>[] | undefined;
+    const jsonItems = (order as any).items as Record<string, unknown>[] | undefined;
+    const items = (dbItems && dbItems.length > 0) ? dbItems : (jsonItems || []);
 
     return {
         id: order.id,
@@ -72,13 +74,15 @@ function transformOrder(order: Record<string, unknown>) {
         subtotal: order.subtotal,
         shipping_fee: order.shipping_fee,
         discount: order.discount,
-        total: order.total,
+        total: order.total_amount ?? order.total,
+        total_amount: order.total_amount ?? order.total,
         deposit_amount: order.deposit_amount,
+        deposit_paid: (order as any).deposit_paid ?? false,
         status: order.status,
         payment_status: order.payment_status,
-        shipping_address: order.shipping_address,
-        customer_note: order.customer_note,
-        admin_note: order.admin_note,
+        shipping_address: order.shipping_address_snapshot,
+        customer_note: order.notes,
+        admin_note: order.admin_notes,
         created_at: order.created_at,
         updated_at: order.updated_at,
         confirmed_at: order.confirmed_at,

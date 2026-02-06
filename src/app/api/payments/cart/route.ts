@@ -5,7 +5,7 @@
  * Features:
  * - Uses payment_configs table for bank account info
  * - Gets customer_code from profiles table
- * - Transfer content format: {customer_code}-{order_code}
+ * - Transfer content format: {customer_code}{order_code}
  * - Idempotency key support
  * - Correlation ID for request tracing
  */
@@ -13,23 +13,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
-import { generateHexCode } from '@/lib/utils/generateHexCode';
 import {
     generateParentCode,
-    generateChildCode,
     generateTransferContent,
     generateCustomerCode,
-    isValidCustomerCode,
-    isValidHex
+    isValidCustomerCode
 } from '@/lib/orderCodeGenerator';
 import { getCorrelationId, CorrelatedLogger } from '@/lib/utils/correlationId';
 import { createSuccessResponse, createErrorResponse, ERROR_MESSAGES } from '@/lib/utils/apiResponse';
 import {
     getPaymentSetup,
     getCustomerCode,
-    generateFallbackCustomerCode,
 } from '@/lib/services/paymentConfigService';
 import { BANK_INFO } from '@/lib/vietqr';
+import { getProfileId } from '@/lib/utils/getProfileId';
+import { stripHtml } from '@/lib/security/sanitize';
+import { requireCsrf } from '@/lib/security/csrf';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -75,38 +74,53 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        logger.info('Processing cart payment request', { userId: session.user.id, idempotencyKey });
+        const csrf = await requireCsrf(request);
+        if (!csrf.valid) {
+            return csrf.error!;
+        }
 
-        // Check idempotency for cart payment
+        const profileId = await getProfileId(session.user, supabaseAdmin);
+        if (!profileId) {
+            logger.warn('Profile not found for session');
+            return NextResponse.json(
+                createErrorResponse('PROFILE_NOT_FOUND', 'Profile not found', { correlationId }),
+                { status: 400 }
+            );
+        }
+
+        logger.info('Processing cart payment request', { userId: profileId, idempotencyKey });
+
+        // Check idempotency for cart payment in 'payments' table
         if (idempotencyKey) {
-            const { data: existingParent } = await supabaseAdmin
-                .from('order_parent')
+            const { data: existingPayment } = await supabaseAdmin
+                .from('payments')
                 .select('*')
-                .eq('note', `idempotency:${idempotencyKey}`)
+                .eq('gateway_response->>idempotency_key', idempotencyKey)
                 .single();
 
-            if (existingParent) {
+            if (existingPayment) {
                 logger.info('Returning cached idempotent cart response', { idempotencyKey });
-                const { data: children } = await supabaseAdmin
-                    .from('order_child')
-                    .select('*')
-                    .eq('parent_id', existingParent.id);
-
+                // Reconstruct response from saved payment
+                const meta = existingPayment.gateway_response || {};
                 return NextResponse.json(createSuccessResponse({
-                    parentId: existingParent.id,
-                    codeParent: existingParent.code_parent,
-                    totalAmount: existingParent.total_amount,
-                    items: children?.map(c => ({
-                        orderId: c.id,
-                        codeChild: c.code_child,
-                        productName: c.product_name,
-                        amount: c.total_price,
-                        qrUrl: c.payment_qr_url,
-                    })) || [],
-                    cached: true,
+                    orderId: existingPayment.order_id,
+                    orderCode: meta.reference_code,
+                    totalAmount: existingPayment.amount,
+                    totalQrUrl: meta.qr_url,
+                    totalTransferContent: existingPayment.transaction_code, // stored here
+                    cached: true
                 }));
             }
         }
+
+        // Check idempotency for cart payment in 'payments' table (not order_parent)
+        /* Idempotency logic for cart:
+           We can store the idempotency key in the 'payments' record.
+           If we find a payment with this key, we return the existing order. 
+           (Ignoring for now to strictly follow refactoring of creation logic, but good to keep in mind)
+        */
+
+        // ... (Skipping idempotency check rewrite inside this block for brevity, focusing on creation)
 
         const body: CartPayRequest = await request.json();
         const { items, shippingAddress, note } = body;
@@ -130,193 +144,234 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const sanitizedNote = note ? stripHtml(note).slice(0, 500) : null;
+
+        // Validate and normalize cart items (server-side pricing for ready-made products)
+        const productIds = items
+            .filter(item => item.productType === 'product' && item.productId)
+            .map(item => item.productId) as string[];
+
+        let productMap = new Map<string, any>();
+        if (productIds.length > 0) {
+            const { data: products, error: productError } = await supabaseAdmin
+                .from('products')
+                .select('id, name, sku, base_price, sale_price, sizes')
+                .in('id', productIds);
+
+            if (productError) {
+                logger.error('Product lookup failed', productError);
+                return NextResponse.json(
+                    createErrorResponse('PRODUCT_LOOKUP_FAILED', 'Không thể kiểm tra sản phẩm', { correlationId }),
+                    { status: 500 }
+                );
+            }
+
+            productMap = new Map((products || []).map(p => [p.id, p]));
+        }
+
+        const normalizedItems: CartItem[] = [];
+        for (const item of items) {
+            if (!item.quantity || item.quantity <= 0) {
+                return NextResponse.json(
+                    createErrorResponse('VALIDATION_ERROR', 'Số lượng không hợp lệ', { correlationId }),
+                    { status: 400 }
+                );
+            }
+
+            if (item.productType === 'product' && item.productId) {
+                const product = productMap.get(item.productId);
+                if (!product) {
+                    return NextResponse.json(
+                        createErrorResponse('PRODUCT_NOT_FOUND', 'Sản phẩm không tồn tại', { correlationId }),
+                        { status: 404 }
+                    );
+                }
+
+                const sizeName = typeof item.metadata?.size === 'string' ? item.metadata.size : undefined;
+                let unitPrice = product.sale_price ?? product.base_price ?? 0;
+
+                if (sizeName && Array.isArray(product.sizes)) {
+                    const sizeObj = product.sizes.find((s: any) => s?.name === sizeName);
+                    if (sizeObj && typeof sizeObj.price === 'number') {
+                        unitPrice = sizeObj.price;
+                    }
+                }
+
+                normalizedItems.push({
+                    ...item,
+                    productName: product.name,
+                    productSku: product.sku,
+                    unitPrice,
+                });
+                continue;
+            }
+
+            if (!item.unitPrice || item.unitPrice <= 0) {
+                return NextResponse.json(
+                    createErrorResponse('VALIDATION_ERROR', 'Đơn giá không hợp lệ', { correlationId }),
+                    { status: 400 }
+                );
+            }
+
+            normalizedItems.push(item);
+        }
+
         const shippingFee = 0;
-        const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+        const subtotal = normalizedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
         const totalAmount = subtotal + shippingFee;
 
-        // 1. Get or Generate Customer Code (10 hex)
-        // Try to get from profile first
-        const rawCustomerCode = await getCustomerCode(session.user.id, session.user.email);
+        const typeSet = new Set(normalizedItems.map(item => item.productType));
+        let orderType: 'ready_made' | 'custom' | 'printing' = 'ready_made';
+        if (typeSet.size === 1) {
+            const onlyType = Array.from(typeSet)[0];
+            if (onlyType === 'printing') orderType = 'printing';
+            if (onlyType === 'custom') orderType = 'custom';
+        }
+
+        // 1. Get/Generate Customer Code
+        const rawCustomerCode = await getCustomerCode(profileId, session.user.email);
         let customerCode: string;
 
-        // Validate if existing code is 10-hex
         const isCustomerCodeValid = rawCustomerCode ? isValidCustomerCode(rawCustomerCode) : false;
 
         if (isCustomerCodeValid && rawCustomerCode) {
             customerCode = rawCustomerCode;
         } else {
-            // Generate new random 10-hex code
             customerCode = generateCustomerCode();
-            logger.info('Generated new 10-hex customer code', { customerCode });
-
-            // Save to profile for future use
-            const { error: profileError } = await supabaseAdmin
-                .from('profiles')
-                .update({ customer_code: customerCode })
-                .eq('id', session.user.id);
-
-            if (profileError) {
-                logger.warn('Failed to save new customer code to profile', { error: profileError.message });
-                // Proceed anyway with the generated code for this order
-            }
+            await supabaseAdmin.from('profiles').update({ customer_code: customerCode }).eq('id', profileId);
         }
 
-        logger.info('Using customer code', { customerCode });
+        // 2. Generate Order Code (using Parent Code format for cart as it's the main code)
+        const orderCode = generateParentCode();
 
-        // Generate parent code (8 hex)
-        const codeParent = generateParentCode();
+        // 3. Generate Transfer Content
+        const transferContent = generateTransferContent(customerCode, orderCode);
 
-        // Generate transfer content for QR (customer 10 + parent 8 = 18 chars)
-        const transferContent = generateTransferContent(customerCode, codeParent);
+        // 4. Prepare Items for JSONB
+        const orderItems = normalizedItems.map(item => ({
+            id: crypto.randomUUID(),
+            product_id: item.productId || null,
+            name: item.productName,
+            sku: item.productSku || null,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            total_price: item.unitPrice * item.quantity,
+            configuration: item.metadata || {},
+            type: item.productType
+        }));
 
-        logger.info('Generated parent code', { codeParent, customerCode, transferContent });
+        // 5. Create Single Order
+        // For Cart, we use 'orders' table.
+        // We might want to store 'note' in 'notes' column.
 
-        // Create parent order
-        const { data: parentOrder, error: parentError } = await supabaseAdmin
-            .from('order_parent')
+        const { data: order, error: orderError } = await supabaseAdmin
+            .from('orders')
             .insert({
-                code_parent: codeParent,
-                user_id: session.user.id,
+                order_code: orderCode, // 8-char code
+                user_id: profileId,
+                order_type: orderType,
+                subtotal: subtotal,
+                shipping_fee: shippingFee,
                 total_amount: totalAmount,
                 status: 'pending',
-                shipping_address: shippingAddress,
-                shipping_fee: shippingFee,
-                note: idempotencyKey ? `idempotency:${idempotencyKey}` : note,
-                metadata: {
+                payment_status: 'pending', // Waiting for payment
+                shipping_address_snapshot: shippingAddress,
+                notes: sanitizedNote,
+                items: orderItems, // JSONB
+                admin_notes: JSON.stringify({
                     customer_code: customerCode,
                     transfer_content: transferContent,
-                },
+                    correlation_id: correlationId,
+                    source: 'cart'
+                })
             })
             .select()
             .single();
 
-        if (parentError || !parentOrder) {
-            logger.error('Parent order creation failed', parentError);
+        if (orderError || !order) {
+            logger.error('Order creation failed', orderError);
             return NextResponse.json(
                 createErrorResponse('ORDER_CREATE_FAILED', ERROR_MESSAGES.ORDER_CREATE_FAILED, {
                     correlationId,
-                    reason: parentError?.message
+                    reason: orderError?.message
                 }),
                 { status: 500 }
             );
         }
 
-        logger.info('Parent order created', { parentId: parentOrder.id });
-
-        // Create child orders
-        const childOrders = [];
-
-        for (const item of items) {
-            // Determine SKU suffix (use if 4-hex valid)
-            let skuSuffix: string | undefined = undefined;
-            if (item.productSku && item.productSku.length === 8 && isValidHex(item.productSku)) {
-                skuSuffix = item.productSku;
-            }
-
-            // Generate child code (parent 8 + suffix 4 = 12 hex)
-            const codeChild = generateChildCode(codeParent, skuSuffix);
-
-            const itemTotal = item.unitPrice * item.quantity;
-
-            // Get payment setup for this item
-            const paymentSetup = await getPaymentSetup(
-                session.user.id,
-                item.productType,
-                codeChild,
-                itemTotal
-            );
-
-            const { data: childOrder, error: childError } = await supabaseAdmin
-                .from('order_child')
-                .insert({
-                    parent_id: parentOrder.id,
-                    code_child: codeChild,
-                    product_sku: item.productSku || null,
-                    user_id: session.user.id,
-                    product_id: item.productId || null,
-                    product_type: item.productType,
-                    product_name: item.productName,
-                    quantity: item.quantity,
-                    unit_price: item.unitPrice,
-                    total_price: itemTotal,
-                    status: 'pending',
-                    payment_qr_url: paymentSetup.qrUrl,
-                    metadata: {
-                        ...item.metadata,
-                        parent_code: codeParent,
-                        customer_code: customerCode,
-                        transfer_content: transferContent,
-                        correlation_id: correlationId,
-                    },
-                })
-                .select()
-                .single();
-
-            if (childError) {
-                logger.error('Child order creation failed', childError, { productName: item.productName });
-                continue;
-            }
-
-            // Create payment record
-            const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-            await supabaseAdmin.from('payment').insert({
-                order_type: 'child',
-                order_id: childOrder.id,
-                reference_code: codeChild,
-                amount: itemTotal,
-                status: 'pending',
-                method: 'QR',
-                qr_url: paymentSetup.qrUrl,
-                bank_code: paymentSetup.bankInfo.bank_code,
-                account_no: paymentSetup.bankInfo.account_no,
-                account_name: paymentSetup.bankInfo.account_name,
-                expires_at: expiresAt.toISOString(),
-                correlation_id: correlationId,
-            });
-
-            childOrders.push({
-                orderId: childOrder.id,
-                codeChild,
-                productName: item.productName,
-                productType: item.productType,
+        // Insert normalized order_items for relational access
+        const { error: orderItemsError } = await supabaseAdmin
+            .from('order_items')
+            .insert(orderItems.map((item) => ({
+                order_id: order.id,
+                product_id: item.product_id,
+                name: item.name,
+                sku: item.sku,
+                size: typeof item.configuration?.size === 'string' ? item.configuration.size : null,
                 quantity: item.quantity,
-                amount: itemTotal,
-                qrUrl: paymentSetup.qrUrl,
-                transferContent: paymentSetup.transferContent,
-            });
+                unit_price: item.unit_price,
+                total_price: item.total_price,
+                configuration: item.configuration || {},
+            })));
+
+        if (orderItemsError) {
+            logger.warn('Order items insert failed (non-fatal)', { error: orderItemsError });
         }
 
-        // Total QR for entire order
-        const totalPaymentSetup = await getPaymentSetup(
-            session.user.id,
-            'product', // Use ready_made config for total
-            codeParent,
+        // 6. Payment Setup (Total Amount)
+        // Use 'product' type config or default for cart total
+        const paymentSetup = await getPaymentSetup(
+            profileId,
+            'product',
+            orderCode,
             totalAmount
         );
 
-        logger.info('Cart payment completed', {
-            parentId: parentOrder.id,
-            childCount: childOrders.length,
-            totalAmount,
-            customerCode,
-            totalTransferContent: totalPaymentSetup.transferContent
-        });
+        // 7. Create Payment Record (payments table)
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        const { error: paymentError } = await supabaseAdmin
+            .from('payments')
+            .insert({
+                order_id: order.id,
+                transaction_code: transferContent,
+                amount: totalAmount,
+                status: 'pending',
+                method: 'QR',
+                gateway_response: {
+                    qr_url: paymentSetup.qrUrl,
+                    bank_code: paymentSetup.bankInfo.bank_code,
+                    account_no: paymentSetup.bankInfo.account_no,
+                    account_name: paymentSetup.bankInfo.account_name,
+                    expires_at: expiresAt.toISOString(),
+                    idempotency_key: idempotencyKey || null,
+                    correlation_id: correlationId,
+                    reference_code: orderCode // Using order_code as reference
+                }
+            });
+
+        if (paymentError) {
+            logger.error('Payment record creation failed', paymentError);
+        }
 
         return NextResponse.json(createSuccessResponse({
-            parentId: parentOrder.id,
-            codeParent,
+            orderId: order.id,
+            orderCode: orderCode, // Previously codeParent
             customerCode,
             totalAmount,
             shippingFee,
-            totalQrUrl: totalPaymentSetup.qrUrl,
-            totalTransferContent: totalPaymentSetup.transferContent,
+            totalQrUrl: paymentSetup.qrUrl,
+            totalTransferContent: transferContent, // Previously totalTransferContent
             correlationId,
-            items: childOrders,
+            items: orderItems.map(i => ({
+                productName: i.name,
+                quantity: i.quantity,
+                amount: i.total_price
+            })),
             bankInfo: {
-                bankCode: totalPaymentSetup.bankInfo.bank_code,
-                accountNo: totalPaymentSetup.bankInfo.account_no,
-                accountName: totalPaymentSetup.bankInfo.account_name,
-                bankName: BANK_INFO[totalPaymentSetup.bankInfo.bank_code as keyof typeof BANK_INFO]?.shortName || totalPaymentSetup.bankInfo.bank_code,
+                bankCode: paymentSetup.bankInfo.bank_code,
+                accountNo: paymentSetup.bankInfo.account_no,
+                accountName: paymentSetup.bankInfo.account_name,
+                bankName: BANK_INFO[paymentSetup.bankInfo.bank_code as keyof typeof BANK_INFO]?.shortName || paymentSetup.bankInfo.bank_code,
             },
         }));
     } catch (error) {

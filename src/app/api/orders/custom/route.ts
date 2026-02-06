@@ -9,7 +9,9 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { generateId } from '@/lib/generateId';
-import { dbRequest } from '@/lib/db-direct';
+import { stripHtml } from '@/lib/security/sanitize';
+import { requireCsrf } from '@/lib/security/csrf';
+import { fetchCustomPricing, calculateCustomPrice } from '@/lib/services/pricingService';
 
 interface CustomOrderRequest {
     type: 'single' | 'couple' | 'group';
@@ -24,25 +26,11 @@ interface CustomOrderRequest {
         province: string;
     };
     images: Array<{
-        id: string;
+        key: string;
         name: string;
-        url?: string;
     }>;
 }
 
-// Price configuration
-const BASE_PRICES: Record<string, number> = {
-    single: 350000,
-    couple: 550000,
-    group: 750000,
-};
-
-const SIZE_MULTIPLIERS: Record<string, number> = {
-    S: 1,
-    M: 1.3,
-    L: 1.6,
-    XL: 2,
-};
 
 export async function POST(request: NextRequest) {
     try {
@@ -53,6 +41,11 @@ export async function POST(request: NextRequest) {
                 { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } },
                 { status: 401 }
             );
+        }
+
+        const csrf = await requireCsrf(request);
+        if (!csrf.valid) {
+            return csrf.error!;
         }
 
         const supabase = getAdminSupabase();
@@ -69,6 +62,7 @@ export async function POST(request: NextRequest) {
         // Parse request body
         const body: CustomOrderRequest = await request.json();
         const { type, size, notes, shippingAddress, images } = body;
+        const sanitizedNotes = notes ? stripHtml(notes).slice(0, 500) : null;
 
         // Validate required fields
         if (!type || !shippingAddress?.full_name || !shippingAddress?.phone || !shippingAddress?.province) {
@@ -78,48 +72,38 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Calculate prices
-        const basePrice = BASE_PRICES[type] || 350000;
-        const sizeMultiplier = SIZE_MULTIPLIERS[size] || 1;
-        const totalPrice = Math.round(basePrice * sizeMultiplier);
-        const depositAmount = Math.round(totalPrice * 0.5); // 50% deposit
+        const pricing = await fetchCustomPricing();
+        const typeRow = pricing.types.find((t) => t.type === type);
+        const sizeRow = pricing.sizes.find((s) => s.size_code === size);
+        if (!typeRow || !sizeRow) {
+            return NextResponse.json(
+                { success: false, error: { code: 'PRICING_NOT_FOUND', message: 'Pricing not configured' } },
+                { status: 400 }
+            );
+        }
+
+        const priceResult = calculateCustomPrice(pricing, type, size);
+        const totalPrice = priceResult.total;
+        const depositAmount = priceResult.depositAmount;
 
         // Generate order code
         const orderCode = generateId.custom();
 
-        // DEBUG: Verify Service Role Key
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-        try {
-            const payloadPart = serviceKey.split('.')[1];
-            if (payloadPart) {
-                // Fix base64 padding if needed
-                const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = Buffer.from(base64, 'base64').toString('utf-8');
-                const parsed = JSON.parse(jsonPayload);
-                console.log('[Custom Order API] Service Key Role:', parsed.role); // MUST be 'service_role'
-                console.log('[Custom Order API] Key exp:', new Date(parsed.exp * 1000).toISOString());
-            }
-        } catch (e) {
-            console.error('[Custom Order API] Failed to parse key:', e);
-        }
-
-        // FRESH TABLE STRATEGY: Using brand new 'custom_orders' table
-        // PostgREST cache is frozen for 'orders' table, so we insert into a new table
-        console.log('[Custom Order API] Inserting into custom_orders (fresh table)...');
+        // UNIFIED TABLE STRATEGY: Insert into 'orders' table
 
         const { data: order, error: orderError } = await supabase
-            .from('custom_orders')
+            .from('orders')
             .insert({
-                order_number: orderCode, // Required by DB schema (NOT NULL)
                 order_code: orderCode,
                 user_id: userId,
                 order_type: 'custom',
                 status: 'pending',
+                payment_status: 'pending',
                 subtotal: totalPrice,
                 shipping_fee: 0,
-                total: totalPrice,
+                total_amount: totalPrice,
                 deposit_amount: depositAmount,
-                shipping_address: {
+                shipping_address_snapshot: {
                     full_name: shippingAddress.full_name,
                     phone: shippingAddress.phone,
                     address_line: shippingAddress.address_line || '',
@@ -127,9 +111,16 @@ export async function POST(request: NextRequest) {
                     district: shippingAddress.district || '',
                     province: shippingAddress.province,
                 },
-                custom_config: { type, size },
-                customer_note: notes || null,
-                admin_note: notes ? `[User Note]: ${notes}` : null,
+                custom_config: {
+                    type,
+                    size,
+                    image_keys: (images || []).map((img) => ({ key: img.key, name: img.name })),
+                },
+                items_config: {
+                    custom: { type, size }
+                },
+                notes: sanitizedNotes,
+                admin_notes: sanitizedNotes ? `[User Note]: ${sanitizedNotes}` : null,
             })
             .select()
             .single();
@@ -157,9 +148,30 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Note: order_configs and order_files tables don't exist
-        // Custom config is stored in custom_config jsonb column
-        // Files info is stored in the images array in custom_config
+        // Attach uploaded files to this order (order_files)
+        if (images && images.length > 0) {
+            await supabase
+                .from('order_files')
+                .update({
+                    order_id: (order as any).id,
+                    order_code: (order as any).order_code,
+                })
+                .eq('order_code', (order as any).order_code)
+                .is('order_id', null)
+                .eq('owner_id', userId);
+        }
+
+        // Insert a normalized order item for consistent UI (optional but recommended)
+        await supabase.from('order_items').insert({
+            order_id: (order as any).id,
+            product_id: null,
+            name: `Custom ${type.toUpperCase()}`,
+            sku: null,
+            quantity: 1,
+            unit_price: totalPrice,
+            total_price: totalPrice,
+            configuration: { type, size },
+        });
 
         // Return success response
         return NextResponse.json({
@@ -167,8 +179,8 @@ export async function POST(request: NextRequest) {
             data: {
                 id: (order as any).id,
                 order_code: (order as any).order_code,
-                order_number: (order as any).order_number, // For checkout success lookup
-                total: (order as any).total,
+                order_number: (order as any).order_number,
+                total: (order as any).total_amount ?? (order as any).total,
                 deposit_amount: (order as any).deposit_amount,
                 status: (order as any).status,
             },

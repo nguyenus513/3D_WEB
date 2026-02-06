@@ -15,15 +15,14 @@ import {
     isR2Configured,
     uploadToR2,
 } from '@/lib/storage/r2';
-import {
-    generateUnifiedKey,
-    generateProductKey,
-    type FileType
-} from '@/lib/storage/unified-keys';
+import { generateProductKey } from '@/lib/storage/unified-keys';
+import { buildOrderStorageKey, type OrderFileCategory, getTodayDate } from '@/lib/storage/order-storage';
+import { generateCustomFileName, generatePrintingFileName, generateReviewFileName } from '@/lib/fileNaming';
 import { validateUploadedFile, sanitizeFilename } from '@/lib/security/file-validation';
 import { trackFileUpload } from '@/lib/security/file-access';
 import { BadRequestError, ForbiddenError } from '@/lib/core/BaseController';
 import { UploadRequestInput } from '@/validators/upload.schema';
+import { debugLog } from '@/lib/utils/debugLog';
 
 // =============================================================================
 // Types
@@ -105,13 +104,8 @@ export class UploadService {
         // This prevents checkout failures due to Drive token expiration.
 
         // return this.uploadToR2Storage(buffer, file, params, userId);
-        try {
-            console.log('[UploadService] Starting upload:', { type: params.type, filename: file.name, size: file.size });
-            return await this.uploadToR2Storage(buffer, file, params, userId);
-        } catch (error) {
-            console.error('[UploadService] Upload failed:', error);
-            throw error;
-        }
+        debugLog('[UploadService] Starting upload:', { type: params.type, filename: file.name, size: file.size });
+        return this.uploadToR2Storage(buffer, file, params, userId);
     }
 
     /**
@@ -128,7 +122,7 @@ export class UploadService {
         }
 
         // Map upload types to Drive folder types
-        // uploadWithNaming only accepts: product, printing, custom_main, custom_accessory, custom_preview
+        // uploadWithNaming accepts: product, printing, custom_main, custom_accessory, custom_preview
         const driveTypeMap: Record<string, 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview'> = {
             'product': 'product',
             'product-size': 'product',
@@ -137,6 +131,7 @@ export class UploadService {
             'custom_single': 'custom_main',
             'custom_couple': 'custom_main',
             'custom_group': 'custom_main',
+            'custom_preview': 'custom_preview',
         };
         const driveType = driveTypeMap[params.type] || 'custom_main';
 
@@ -146,6 +141,10 @@ export class UploadService {
             sku: params.sku ?? undefined,
             customerCode: params.customerCode ?? undefined,
             orderCode: params.orderCode ?? undefined,
+            tech: params.tech ?? undefined,
+            customType: params.customType ?? undefined,
+            personCount: params.personCount ?? undefined,
+            photoCategory: params.photoCategory ?? undefined,
         };
 
         const result = await uploadWithNaming(
@@ -183,13 +182,18 @@ export class UploadService {
                 throw new Error('R2 not configured');
             }
 
-            const identifier = (params.type === 'product' || params.type === 'product-size') ? params.sku : params.orderCode;
+            const isProduct = params.type === 'product' || params.type === 'product-size';
+            const identifier = isProduct ? params.sku : params.orderCode;
             if (!identifier) {
                 throw new BadRequestError(
-                    (params.type === 'product' || params.type === 'product-size')
+                    isProduct
                         ? 'SKU is required for product uploads'
                         : 'Order code is required for order uploads'
                 );
+            }
+            const customerCode = params.customerCode;
+            if (!isProduct && !customerCode) {
+                throw new BadRequestError('Customer code is required for order uploads');
             }
 
             // Get file extension
@@ -203,7 +207,7 @@ export class UploadService {
                 'upload-type': params.type,
                 'original-name': file.name,
             };
-            if ((params.type === 'product' || params.type === 'product-size') && params.sku) {
+            if (isProduct && params.sku) {
                 metadata.sku = params.sku;
             } else {
                 if (params.orderCode) metadata.orderCode = params.orderCode;
@@ -217,11 +221,13 @@ export class UploadService {
             await trackFileUpload(
                 key,
                 userId,
-                params.orderCode || undefined,
                 {
+                    orderId: undefined,
+                    orderCode: params.orderCode || undefined,
                     isPublic: params.type === 'product',
                     fileName: file.name,
                     fileType: file.type,
+                    storageProvider: 'r2',
                 }
             );
 
@@ -287,36 +293,58 @@ export class UploadService {
             });
         }
 
-        // 2. Order Uploads
-        // Note: During upload, we might not have the Master Order Code (parentOrderCode).
-        // Unified Keys allow omitting parentOrderCode (defaults to childOrderCode).
-        // The file will be migrated to the correct Master Order folder later by migrate-to-drive.ts.
+        // 2. Order Uploads (Customer -> Date -> Order -> Type)
+        const safeCustomer = customerCode || 'GUEST';
+        const safeOrder = orderCode || identifier;
 
-        let fileType: FileType = 'main';
+        let category: OrderFileCategory = 'custom_main';
 
-        // Map upload type to FileType
         if (type === 'printing') {
-            fileType = params.tech === 'resin' ? 'resin' : 'fdm';
+            category = params.tech === 'resin' ? 'printing_resin' : 'printing_fdm';
+        } else if (type === 'custom_preview') {
+            category = 'custom_preview';
         } else if (type.startsWith('custom_')) {
-            // Check photo category for custom orders
-            fileType = params.photoCategory === 'accessory' ? 'acc' : 'main';
+            category = params.photoCategory === 'accessory' ? 'custom_accessory' : 'custom_main';
         }
 
-        // Override if review flag is set
         if (isReview) {
-            fileType = 'review';
+            category = 'review';
         }
 
-        // Construct unified key params
-        // Use orderCode (Child Code) as identifier
-        return generateUnifiedKey({
-            customerCode: customerCode || 'GUEST',
-            // timestamp automatically generated
-            // parentOrderCode omitted -> will use childOrderCode as parent folder temporarily
-            childOrderCode: orderCode || identifier,
-            fileType: fileType,
-            index: index,
-            ext: ext
+        let fileName = filename;
+        if (category.startsWith('custom_')) {
+            fileName = generateCustomFileName({
+                orderCode: safeOrder,
+                customType: params.customType || 'single',
+                personCount: params.personCount || (params.customType === 'couple' ? 2 : 1),
+                photoCategory: params.photoCategory || 'main',
+                photoIndex: index || 1,
+                extension: ext,
+            });
+        } else if (category.startsWith('printing_')) {
+            fileName = generatePrintingFileName({
+                orderCode: safeOrder,
+                tech: params.tech || 'fdm',
+                fileIndex: index || 1,
+                infill: params.infill || 20,
+                layerHeight: params.layerHeight || '0.2',
+                color: params.color || 'white',
+                extension: ext,
+            });
+        } else if (category === 'review') {
+            fileName = generateReviewFileName({
+                orderCode: safeOrder,
+                index: index || 1,
+                extension: ext,
+            });
+        }
+
+        return buildOrderStorageKey({
+            customerCode: safeCustomer,
+            orderCode: safeOrder,
+            category,
+            fileName,
+            date: getTodayDate(),
         });
     }
 }

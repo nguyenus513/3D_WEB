@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 interface SystemSetting {
     key: string;
@@ -88,7 +89,7 @@ function SettingsContent() {
         try {
             const res = await fetch('/api/admin/settings', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     type: 'system_settings',
                     data: { key, value }
@@ -110,7 +111,10 @@ function SettingsContent() {
     const disconnectDrive = async () => {
         if (!confirm('Bạn có chắc muốn ngắt kết nối Google Drive?')) return;
         try {
-            await fetch('/api/drive/status', { method: 'DELETE' });
+            await fetch('/api/drive/status', {
+                method: 'DELETE',
+                headers: addCsrfToRequest(),
+            });
             setDriveConnected(false);
             setDriveMessage('Đã ngắt kết nối Google Drive');
         } catch (error) {

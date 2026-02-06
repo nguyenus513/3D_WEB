@@ -16,6 +16,7 @@ import {
 } from '@/validators/product.schema';
 import { config } from '@/config/unifiedConfig';
 import { requireAdmin } from '@/lib/security/admin-guard';
+import { debugLog } from '@/lib/utils/debugLog';
 
 // =============================================================================
 // Supabase Admin Client
@@ -69,9 +70,9 @@ export class ProductController extends BaseController {
                 status: searchParams.get('status'),
             });
 
-            console.log('[ProductController] List params:', params);
+            debugLog('[ProductController] List params:', params);
             const result = await this.productService.listProducts(params);
-            console.log('[ProductController] Found products:', result.total, 'items');
+            debugLog('[ProductController] Found products:', result.total, 'items');
 
             return this.handleSuccess({
                 products: result.products,
@@ -90,7 +91,7 @@ export class ProductController extends BaseController {
             if (!authorized) throw new UnauthorizedError('Admin access required');
 
             const body = await request.json();
-            console.log('[ProductController] Create product body:', JSON.stringify(body, null, 2));
+            debugLog('[ProductController] Create product body:', JSON.stringify(body, null, 2));
 
             const parseResult = CreateProductSchema.safeParse(body);
             if (!parseResult.success) {

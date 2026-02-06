@@ -9,6 +9,7 @@ import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import type { Product } from '@/types/database';
 import { generateId } from '@/lib/generateId';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 type PricingMode = 'original' | 'multi_size';
 
@@ -193,26 +194,32 @@ export default function AdminProductEditPage() {
 
         setUploadingImage(true);
         let currentIndex = formData.images.length;
+        const uploadSku = formData.sku || generateId.sku();
+        if (!formData.sku) {
+            setFormData(prev => ({ ...prev, sku: uploadSku }));
+        }
 
         for (const file of Array.from(files)) {
             currentIndex++;
             const formDataUpload = new FormData();
             formDataUpload.append('file', file);
             formDataUpload.append('type', 'product');
-            formDataUpload.append('sku', formData.sku || 'PROD-TEMP');
+            formDataUpload.append('sku', uploadSku);
             formDataUpload.append('index', String(currentIndex));
 
             try {
                 const res = await fetch('/api/upload', {
                     method: 'POST',
+                    headers: addCsrfToRequest(),
                     body: formDataUpload,
                 });
                 const result = await res.json();
 
-                if (result.success) {
+                if (result.success && (result.data?.file?.url || result.file?.url)) {
+                    const fileUrl = result.data?.file?.url || result.file?.url;
                     setFormData(prev => ({
                         ...prev,
-                        images: [...prev.images, { url: result.file.url }]
+                        images: [...prev.images, { url: fileUrl }]
                     }));
                 } else {
                     setError('Upload thất bại: ' + result.error);
@@ -274,21 +281,27 @@ export default function AdminProductEditPage() {
         newSizes[index].uploading = true;
         setFormData({ ...formData, sizes: newSizes });
 
+        const uploadSku = formData.sku || generateId.sku();
+        if (!formData.sku) {
+            setFormData(prev => ({ ...prev, sku: uploadSku }));
+        }
         const formDataUpload = new FormData();
         formDataUpload.append('file', file);
         formDataUpload.append('type', 'product-size');
-        formDataUpload.append('sku', formData.sku || 'PROD-SIZE');
+        formDataUpload.append('sku', uploadSku);
         formDataUpload.append('index', String(index));
 
         try {
             const res = await fetch('/api/upload', {
                 method: 'POST',
+                headers: addCsrfToRequest(),
                 body: formDataUpload,
             });
             const result = await res.json();
 
-            if (result.success) {
-                updateSize(index, 'image_url', result.file.url);
+            if (result.success && (result.data?.file?.url || result.file?.url)) {
+                const fileUrl = result.data?.file?.url || result.file?.url;
+                updateSize(index, 'image_url', fileUrl);
             } else {
                 setError('Upload ảnh size thất bại');
             }
