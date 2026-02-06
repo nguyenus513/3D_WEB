@@ -36,7 +36,7 @@ export type OrderStatusType = z.infer<typeof OrderStatus>;
 // =============================================================================
 
 export const OrderItemSchema = z.object({
-    product_id: z.string().uuid(),
+    product_id: z.string().uuid().nullable().optional(),
     quantity: z.number().int().min(1).max(100),
     price: z.number().positive(),
     customization: z.record(z.string(), z.unknown()).optional(),

@@ -226,9 +226,9 @@ export function CheckoutContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     items: items.map(item => ({
-                        // Use productId (UUID) from DB, fallback to item.id if missing (though item.id is likely not UUID)
-                        // If productId is missing for custom items, Backend validation might fail if it requires valid UUID product_id.
-                        product_id: item.productId || item.id,
+                        // Only use productId if it's a valid UUID (real product)
+                        // For print/custom items, productId is undefined, so send null
+                        product_id: item.productId || null,
                         quantity: item.quantity,
                         price: item.price,
                         customization: (item as any).customization || {}
