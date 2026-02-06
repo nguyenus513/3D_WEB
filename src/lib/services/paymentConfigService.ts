@@ -120,11 +120,11 @@ export function generateFallbackCustomerCode(userId: string): string {
 
 /**
  * Generate transfer content
- * Format: {customer_code}-{order_code}
- * Example: KH-A1B2C3D4-7EABAC26B624
+ * Format: {customer_code}_{order_code}
+ * Example: 1E08D23AA9_5C3C874218
  */
 export function generateTransferContent(customerCode: string, orderCode: string): string {
-    return `${customerCode}${orderCode}`;
+    return `${customerCode}_${orderCode}`;
 }
 
 /**
