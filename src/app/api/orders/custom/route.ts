@@ -103,22 +103,25 @@ export async function POST(request: NextRequest) {
             console.error('[Custom Order API] Failed to parse key:', e);
         }
 
-        // Insert into orders table with order_type='custom'
-        console.log('[Custom Order API] Inserting into orders table...');
+        // Insert into custom_orders table
+        console.log('[Custom Order API] Inserting into custom_orders table...');
 
         const { data: order, error: orderError } = await supabase
-            .from('orders')
+            .from('custom_orders')
             .insert({
-                order_number: orderCode,
                 order_code: orderCode,
                 user_id: userId,
-                order_type: 'custom',
-                status: 'pending',
-                deposit_paid: false,
+                custom_type: type,
+                custom_size: size,
+                reference_images: images || [],
+                description: notes || null,
                 subtotal: totalPrice,
                 shipping_fee: 0,
                 total_amount: totalPrice,
                 deposit_amount: depositAmount,
+                deposit_paid: false,
+                status: 'pending',
+                payment_status: 'pending',
                 shipping_address: {
                     full_name: shippingAddress.full_name,
                     phone: shippingAddress.phone,
@@ -127,9 +130,7 @@ export async function POST(request: NextRequest) {
                     district: shippingAddress.district || '',
                     province: shippingAddress.province,
                 },
-                custom_config: { type, size },
                 customer_note: notes || null,
-                admin_note: notes ? `[User Note]: ${notes}` : null,
             })
             .select()
             .single();

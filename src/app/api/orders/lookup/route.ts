@@ -123,7 +123,40 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 3a. Try orders table by order_code
+
+        // 3a. Try product_orders table by order_code
+        if (!order) {
+            const { data: productOrder } = await supabaseAdmin
+                .from('product_orders')
+                .select('*, items:product_order_items(*)')
+                .eq('user_id', userId)
+                .eq('order_code', orderId)
+                .maybeSingle();
+
+            if (productOrder) {
+                order = productOrder;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in product_orders by order_code');
+            }
+        }
+
+        // 3b. Try product_orders table by id (UUID)
+        if (!order) {
+            const { data: productById } = await supabaseAdmin
+                .from('product_orders')
+                .select('*, items:product_order_items(*)')
+                .eq('user_id', userId)
+                .eq('id', orderId)
+                .maybeSingle();
+
+            if (productById) {
+                order = productById;
+                orderType = 'ready_made';
+                console.log('[OrderLookup] Found in product_orders by id');
+            }
+        }
+
+        // 4a. Try legacy orders table by order_code (fallback)
         if (!order) {
             const { data: readyMadeOrder } = await supabaseAdmin
                 .from('orders')
@@ -139,7 +172,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 3b. Try orders table by id (UUID)
+        // 4b. Try legacy orders table by id (UUID) (fallback)
         if (!order) {
             const { data: ordersById } = await supabaseAdmin
                 .from('orders')
