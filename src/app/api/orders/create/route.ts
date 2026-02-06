@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
                 deposit_paid: false,
                 subtotal: totalPrice,
                 shipping_fee: shippingFee,
-                total: total,
+                total_amount: total,
                 shipping_address_id: shippingAddressId,
                 customer_note: sanitizedNote,
             })
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
             .from('orders')
             .update({
                 subtotal: calculatedSubtotal,
-                total: calculatedTotal
+                total_amount: calculatedTotal
             })
             .eq('id', order.id);
 
