@@ -131,7 +131,13 @@ export async function GET(request: NextRequest) {
         // 4. Fallback: Fetch from legacy 'orders' table (EXCLUDING migrated types)
         const { data: legacyOrders } = await supabaseAdmin
             .from('orders')
-            .select('*, items:order_items(*)')
+            .select(`
+                id, order_code, user_id, order_type,
+                subtotal, shipping_fee, discount, total_amount, deposit_amount,
+                status, payment_status, shipping_address, shipping_address_snapshot,
+                created_at, custom_config,
+                items:order_items(*)
+            `)
             .eq('user_id', userId)
             .neq('order_type', 'custom')
             .neq('order_type', 'printing')

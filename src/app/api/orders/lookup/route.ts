@@ -160,7 +160,13 @@ export async function GET(request: NextRequest) {
         if (!order) {
             const { data: readyMadeOrder } = await supabaseAdmin
                 .from('orders')
-                .select('*, items:order_items(*)')
+                .select(`
+                    id, order_code, user_id, 
+                    subtotal, shipping_fee, discount, total_amount, deposit_amount,
+                    status, payment_status, shipping_address, shipping_address_snapshot,
+                    created_at, custom_config,
+                    items:order_items(*)
+                `)
                 .eq('user_id', userId)
                 .eq('order_code', orderId)
                 .maybeSingle();
@@ -176,7 +182,13 @@ export async function GET(request: NextRequest) {
         if (!order) {
             const { data: ordersById } = await supabaseAdmin
                 .from('orders')
-                .select('*, items:order_items(*)')
+                .select(`
+                    id, order_code, user_id, 
+                    subtotal, shipping_fee, discount, total_amount, deposit_amount,
+                    status, payment_status, shipping_address, shipping_address_snapshot,
+                    created_at, custom_config,
+                    items:order_items(*)
+                `)
                 .eq('user_id', userId)
                 .eq('id', orderId)
                 .maybeSingle();
