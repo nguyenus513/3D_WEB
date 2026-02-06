@@ -127,17 +127,18 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
                 const mimeType = ext === 'png' ? 'image/png' :
                     ext === 'webp' ? 'image/webp' : 'image/jpeg';
 
-                // Upload to Drive
-                const uploadType = order.order_type === 'printing' ? 'printing' : 'custom_main';
+                // Upload to Drive (Order-Centric)
+                const category = ['stl', 'obj', '3mf', 'step', 'stp'].includes(ext) ? 'models' : 'images';
+
                 const driveResult = await uploadWithNaming(
                     buffer,
-                    `archived_${file.index}.${ext}`,
+                    file.url.split('/').pop() || `file_${file.index}.${ext}`, // Use original name if possible
                     mimeType,
                     {
-                        type: uploadType,
+                        type: 'order_centric',
                         index: file.index,
-                        customerCode,
                         orderCode: order.order_code,
+                        category: category // Optional subfolder: orders/{code}/models/ or orders/{code}/images/
                     }
                 );
 

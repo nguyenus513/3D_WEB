@@ -421,8 +421,17 @@ export const FolderPaths = {
         ['customers', customerCode, 'custom', orderCode, 'image-main'],
     customAccessory: (customerCode: string, orderCode: string) =>
         ['customers', customerCode, 'custom', orderCode, 'image-accessory'],
+    // Custom: customers/{cusCode}/custom/{orderCode}/preview/     # Custom preview
     customPreview: (customerCode: string, orderCode: string) =>
         ['customers', customerCode, 'custom', orderCode, 'preview'],
+
+    // NEW: Order-Centric: orders/{orderCode}/
+    orderCentric: (orderCode: string) =>
+        ['orders', orderCode],
+
+    // NEW: Order-Centric with Category: orders/{orderCode}/{category}/
+    orderCentricCategory: (orderCode: string, category: string) =>
+        ['orders', orderCode, category],
 };
 
 /**
@@ -440,61 +449,37 @@ export async function uploadToPath(
 
 /**
  * File naming conventions - SIMPLIFIED
- * 
- * Formats:
- * - Product: {SKU}_{index}.jpg → FIG-001_01.jpg
- * - Printing: {P3D-orderCode}_{index}.stl → P3D-2024-001_01.stl
- * - Custom main: {CUS-orderCode}_main_{index}.jpg
- * - Custom accessory: {CUS-orderCode}_acc_{index}.jpg
- * - Custom preview: {CUS-orderCode}_preview_{index}.jpg
  */
 export const FileNames = {
-    // Product: SKU_01.jpg
+    // ... (existing) ...
+    // Keep existing as helper
     product: (sku: string, index: number, ext: string) =>
         `${sku}_${String(index).padStart(2, '0')}.${ext}`,
-
-    // Printing: P3D-2024-001_01.stl
     printing: (orderCode: string, index: number, ext: string) =>
         `${orderCode}_${String(index).padStart(2, '0')}.${ext}`,
-
-    // Custom main: CUS-2024-001_main_01.jpg
     customMain: (orderCode: string, index: number, ext: string) =>
         `${orderCode}_main_${String(index).padStart(2, '0')}.${ext}`,
-
-    // Custom accessory: CUS-2024-001_acc_01.jpg
     customAccessory: (orderCode: string, index: number, ext: string) =>
         `${orderCode}_acc_${String(index).padStart(2, '0')}.${ext}`,
-
-    // Custom preview: CUS-2024-001_preview_01.jpg
     customPreview: (orderCode: string, index: number, ext: string) =>
         `${orderCode}_preview_${String(index).padStart(2, '0')}.${ext}`,
-
-    // Extract extension
+    simple: (name: string) => name,
     getExt: (filename: string) => {
         const parts = filename.split('.');
         return parts.length > 1 ? parts.pop()!.toLowerCase() : 'jpg';
     },
 };
 
-/**
- * Upload with automatic naming and folder path
- * 
- * Types:
- * - product: products/{SKU_01.jpg}
- * - printing: customers/{cusCode}/printing/{orderCode}/{P3D_01.stl}
- * - custom_main: customers/{cusCode}/custom/{orderCode}/image-main/{CUS_main_01.jpg}
- * - custom_accessory: customers/{cusCode}/custom/{orderCode}/image-accessory/{CUS_acc_01.jpg}
- * - custom_preview: customers/{cusCode}/custom/{orderCode}/preview/{CUS_preview_01.jpg}
- */
 export async function uploadWithNaming(
     file: Buffer,
     originalFilename: string,
     mimeType: string,
     options: {
-        type: 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview';
+        type: 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview' | 'order_centric';
         sku?: string;
         customerCode?: string;
         orderCode?: string;
+        category?: string; // For order_centric
         index: number;
     }
 ) {
@@ -507,27 +492,31 @@ export async function uploadWithNaming(
             fileName = FileNames.product(options.sku || 'PROD', options.index, ext);
             pathSegments = FolderPaths.product();
             break;
-
         case 'printing':
             fileName = FileNames.printing(options.orderCode || 'P3D', options.index, ext);
             pathSegments = FolderPaths.printing(options.customerCode || 'CUS', options.orderCode || 'P3D');
             break;
-
         case 'custom_main':
             fileName = FileNames.customMain(options.orderCode || 'CUS', options.index, ext);
             pathSegments = FolderPaths.customMain(options.customerCode || 'CUS', options.orderCode || 'CUS');
             break;
-
         case 'custom_accessory':
             fileName = FileNames.customAccessory(options.orderCode || 'CUS', options.index, ext);
             pathSegments = FolderPaths.customAccessory(options.customerCode || 'CUS', options.orderCode || 'CUS');
             break;
-
         case 'custom_preview':
             fileName = FileNames.customPreview(options.orderCode || 'CUS', options.index, ext);
             pathSegments = FolderPaths.customPreview(options.customerCode || 'CUS', options.orderCode || 'CUS');
             break;
-
+        case 'order_centric':
+            // Use original filename or constructed one
+            fileName = originalFilename;
+            if (options.category) {
+                pathSegments = FolderPaths.orderCentricCategory(options.orderCode || 'UNKNOWN', options.category);
+            } else {
+                pathSegments = FolderPaths.orderCentric(options.orderCode || 'UNKNOWN');
+            }
+            break;
         default:
             throw new Error('Invalid upload type');
     }
