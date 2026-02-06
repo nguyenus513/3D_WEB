@@ -98,23 +98,9 @@ export async function POST(
             return NextResponse.json({ error: 'Order is not in review status' }, { status: 400 });
         }
 
-        // 4. Update status
-        let newStatus = 'production_pending';
+        // 4. Update status to 'approved' - Admin will manually move to 'producing' when ready
+        const newStatus = 'approved';
 
-        // Check if payment is pending or failed (requires payment first)
-        // If paid or deposit_paid, we proceed to production_pending
-        console.log(`[ApproveDemo] Payment Status: ${order.payment_status}`); // Debug log
-
-        // LOGIC MỚI: Chỉ bắt thanh toán nếu đang nợ (pending/failed)
-        // Các trạng thái 'paid' (đủ) hoặc 'deposit_paid' (cọc) đều cho qua.
-        // Bao gồm: paid, deposit_paid, hoặc undefined (nếu lỗi) thì cứ cho sản xuất để tránh tắc nghẽn
-        if (order.payment_status === 'pending' || order.payment_status === 'failed') {
-            newStatus = 'awaiting_payment';
-        } else {
-            newStatus = 'production_pending';
-        }
-
-        console.log(`[ApproveDemo] Payment Status: ${order.payment_status} -> New Status: ${newStatus}`);
         console.log(`[ApproveDemo] Updating status to '${newStatus}' in ${targetTable}...`);
 
         const { error: updateError } = await supabase
