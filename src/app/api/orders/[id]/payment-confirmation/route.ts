@@ -61,12 +61,13 @@ export async function POST(
             // Fallback to legacy orders table
             const { data: legacyOrder } = await supabaseAdmin
                 .from('orders')
-                .select('id, user_id, order_code, status, total')
+                .select('id, user_id, order_code, status, total_amount')
                 .eq('id', orderId)
                 .single();
 
             if (legacyOrder) {
                 order = legacyOrder;
+                order.total = legacyOrder.total_amount;
                 orderTable = 'orders';
             }
         }
