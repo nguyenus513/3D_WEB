@@ -177,8 +177,35 @@ export async function getStoredTokens() {
  * 1. Service Account (if configured in env) - Recommended for server-side
  * 2. OAuth Token (if stored in DB) - Fallback for personal accounts
  */
-export async function getDriveClient() {
-    // 1. Try Service Account First
+export async function getDriveClient(options: { preferOAuth?: boolean } = {}) {
+    // 1. If preferOAuth is true, check OAuth tokens first
+    if (options.preferOAuth) {
+        const tokens = await getStoredTokens();
+        if (tokens && tokens.refresh_token) {
+            const oauth2Client = getOAuth2Client();
+            oauth2Client.setCredentials(tokens);
+
+            // Check refresh
+            if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
+                try {
+                    const { credentials } = await oauth2Client.refreshAccessToken();
+                    await saveTokens({
+                        access_token: credentials.access_token,
+                        refresh_token: credentials.refresh_token || tokens.refresh_token,
+                        expiry_date: credentials.expiry_date,
+                    });
+                    oauth2Client.setCredentials(credentials);
+                } catch (error) {
+                    console.warn('[DRIVE] Failed to refresh OAuth token:', error);
+                    // Fall through to Service Account if OAuth fails? Or throw?
+                    // If they PREFERRED OAuth, we should probably try SA as backup if configured.
+                }
+            }
+            return google.drive({ version: 'v3', auth: oauth2Client });
+        }
+    }
+
+    // 2. Try Service Account (Default Priority)
     const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
@@ -192,33 +219,35 @@ export async function getDriveClient() {
         return google.drive({ version: 'v3', auth });
     }
 
-    // 2. Fallback to OAuth (User Account)
-    const tokens = await getStoredTokens();
-
-    if (!tokens || !tokens.refresh_token) {
-        throw new Error('Google Drive not connected. Please configure Service Account in .env or connect in Admin Settings.');
-    }
-
-    const oauth2Client = getOAuth2Client();
-    oauth2Client.setCredentials(tokens);
-
-    // Check if token needs refresh
-    if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
-        try {
-            const { credentials } = await oauth2Client.refreshAccessToken();
-            await saveTokens({
-                access_token: credentials.access_token,
-                refresh_token: credentials.refresh_token || tokens.refresh_token,
-                expiry_date: credentials.expiry_date,
-            });
-            oauth2Client.setCredentials(credentials);
-        } catch (error) {
-            console.error('Failed to refresh token:', error);
-            throw new Error('Google Drive OAuth token expired. Please reconnect in Admin Settings.');
+    // 3. Fallback to OAuth (if not preferred but SA missing)
+    if (!options.preferOAuth) {
+        const tokens = await getStoredTokens();
+        if (!tokens || !tokens.refresh_token) {
+            throw new Error('Google Drive not connected. Please configure Service Account in .env or connect in Admin Settings.');
         }
+
+        const oauth2Client = getOAuth2Client();
+        oauth2Client.setCredentials(tokens);
+
+        // Check if token needs refresh
+        if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
+            try {
+                const { credentials } = await oauth2Client.refreshAccessToken();
+                await saveTokens({
+                    access_token: credentials.access_token,
+                    refresh_token: credentials.refresh_token || tokens.refresh_token,
+                    expiry_date: credentials.expiry_date,
+                });
+                oauth2Client.setCredentials(credentials);
+            } catch (error) {
+                console.error('Failed to refresh token:', error);
+                throw new Error('Google Drive OAuth token expired. Please reconnect in Admin Settings.');
+            }
+        }
+        return google.drive({ version: 'v3', auth: oauth2Client });
     }
 
-    return google.drive({ version: 'v3', auth: oauth2Client });
+    throw new Error('No valid Google Drive authentication method found.');
 }
 
 /**
@@ -276,35 +305,81 @@ export async function uploadFileOAuth(
     }
 
     // Upload file
-    const response = await drive.files.create({
-        requestBody: {
-            name: fileName,
-            parents: [targetFolder],
-        },
-        media: {
-            mimeType,
-            body: require('stream').Readable.from(file),
-        },
-        fields: 'id, name, webViewLink, webContentLink, thumbnailLink',
-        supportsAllDrives: true,
-    });
+    try {
+        const response = await drive.files.create({
+            requestBody: {
+                name: fileName,
+                parents: [targetFolder],
+            },
+            media: {
+                mimeType,
+                body: require('stream').Readable.from(file),
+            },
+            fields: 'id, name, webViewLink, webContentLink, thumbnailLink',
+            supportsAllDrives: true,
+        });
 
-    // Make file publicly accessible
-    await drive.permissions.create({
-        fileId: response.data.id!,
-        requestBody: {
-            role: 'reader',
-            type: 'anyone',
-        },
-    });
+        // Make file publicly accessible
+        await drive.permissions.create({
+            fileId: response.data.id!,
+            requestBody: {
+                role: 'reader',
+                type: 'anyone',
+            },
+        });
 
-    return {
-        fileId: response.data.id!,
-        fileName: response.data.name!,
-        webViewLink: response.data.webViewLink!,
-        webContentLink: response.data.webContentLink!,
-        thumbnailLink: response.data.thumbnailLink ?? undefined,
-    };
+        return {
+            fileId: response.data.id!,
+            fileName: response.data.name!,
+            webViewLink: response.data.webViewLink!,
+            webContentLink: response.data.webContentLink!,
+            thumbnailLink: response.data.thumbnailLink ?? undefined,
+        };
+    } catch (error: any) {
+        // Check for Service Account Quota Error (403)
+        // "Service Accounts do not have storage quota" or "The user's Drive storage quota has been exceeded"
+        const msg = error?.message || '';
+        const isQuotaError = (error.code === 403 || error.status === 403) &&
+            (msg.includes('storage quota') || msg.includes('quota'));
+
+        if (isQuotaError) {
+            console.warn('[DRIVE] Service Account quota exceeded. Retrying with User OAuth...');
+
+            // Retry with OAuth Priority
+            const oauthDrive = await getDriveClient({ preferOAuth: true });
+
+            const response = await oauthDrive.files.create({
+                requestBody: {
+                    name: fileName,
+                    parents: [targetFolder],
+                },
+                media: {
+                    mimeType,
+                    body: require('stream').Readable.from(file),
+                },
+                fields: 'id, name, webViewLink, webContentLink, thumbnailLink',
+                supportsAllDrives: true,
+            });
+
+            // Make file publicly accessible
+            await oauthDrive.permissions.create({
+                fileId: response.data.id!,
+                requestBody: {
+                    role: 'reader',
+                    type: 'anyone',
+                },
+            });
+
+            return {
+                fileId: response.data.id!,
+                fileName: response.data.name!,
+                webViewLink: response.data.webViewLink!,
+                webContentLink: response.data.webContentLink!,
+                thumbnailLink: response.data.thumbnailLink ?? undefined,
+            };
+        }
+        throw error;
+    }
 }
 
 /**
