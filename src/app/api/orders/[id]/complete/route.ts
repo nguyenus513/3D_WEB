@@ -2,11 +2,13 @@
  * Admin API: Complete Order
  * POST /api/orders/[id]/complete
  * Changes status: shipping → delivered
+ * Triggers R2 → Google Drive migration & cleanup
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { migrateOrderToArchive } from '@/lib/storage/migrate-to-drive';
 
 export async function POST(
     request: NextRequest,
@@ -53,6 +55,20 @@ export async function POST(
             return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
         }
 
+        // Migrate files from R2 to Google Drive & cleanup R2
+        // This runs in background to not block the response
+        migrateOrderToArchive(orderId)
+            .then((result) => {
+                if (result.success) {
+                    console.log(`[CompleteOrder] Migration complete: ${result.migratedFiles} files moved to Drive, R2 cleaned`);
+                } else {
+                    console.warn(`[CompleteOrder] Migration issues:`, result.errors);
+                }
+            })
+            .catch((err) => {
+                console.error('[CompleteOrder] Migration failed:', err);
+            });
+
         // Revalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
         revalidatePath('/sys_internal/orders', 'page');
@@ -60,7 +76,7 @@ export async function POST(
 
         return NextResponse.json({
             success: true,
-            message: 'Order completed',
+            message: 'Order completed, files migrating to archive',
             new_status: 'delivered'
         });
     } catch (error) {
@@ -68,3 +84,4 @@ export async function POST(
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
+
