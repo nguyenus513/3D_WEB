@@ -286,6 +286,7 @@ export async function uploadFileOAuth(
             body: require('stream').Readable.from(file),
         },
         fields: 'id, name, webViewLink, webContentLink, thumbnailLink',
+        supportsAllDrives: true,
     });
 
     // Make file publicly accessible
@@ -319,6 +320,8 @@ export async function createOrGetSubfolder(
     const existing = await drive.files.list({
         q: `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: 'files(id)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
     });
 
     if (existing.data.files && existing.data.files.length > 0) {
@@ -333,6 +336,7 @@ export async function createOrGetSubfolder(
             parents: [parentFolderId],
         },
         fields: 'id',
+        supportsAllDrives: true,
     });
 
     return response.data.id!;
