@@ -36,7 +36,6 @@ export const ProfileSchema = z.object({
     phone: z.string().nullable(),
     customer_code: z.string().nullable(),
     role: ProfileRole,
-    email_verified: z.boolean(),
     instagram: z.string().nullable().optional(),
     created_at: z.string(),
     updated_at: z.string().optional(),

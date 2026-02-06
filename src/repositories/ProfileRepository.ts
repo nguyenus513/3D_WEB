@@ -17,7 +17,6 @@ export interface Profile {
     phone?: string | null;
     customer_code?: string | null;
     role: 'customer' | 'admin';
-    email_verified?: boolean;
     instagram?: string | null;
     avatar_url?: string | null;
     created_at: string;
@@ -107,7 +106,6 @@ export class ProfileRepository {
                 phone: data.phone,
                 instagram: data.instagram,
                 customer_code: customerCode,
-                email_verified: true,
                 role: 'customer',
             })
             .select()

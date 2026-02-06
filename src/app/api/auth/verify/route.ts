@@ -56,16 +56,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Mark email as verified (using snake_case column name)
-        const { error: updateError } = await supabaseAdmin
-            .from('profiles')
-            .update({ email_verified: true })
-            .eq('email', email);
-
-        if (updateError) {
-            console.error('Profile update error:', updateError);
-            // Continue anyway
-        }
+        // Note: email_verified column does not exist in profiles table
+        // Verification is tracked via deletion of verification_tokens
 
         // Delete used token (verification complete)
         const { error: deleteError } = await supabaseAdmin

@@ -56,7 +56,6 @@ export class AuthRepository {
                 password: data.hashedPassword,
                 customer_code: customerCode,
                 role: 'customer',
-                email_verified: false,
             })
             .select('id, customer_code')
             .single();
@@ -153,14 +152,12 @@ export class AuthRepository {
     }
 
     /**
-     * Mark email as verified
+     * Mark email as verified (no-op: email_verified column does not exist)
      */
-    async markEmailVerified(email: string): Promise<void> {
-        const { error } = await this.db
-            .from('profiles')
-            .update({ email_verified: true })
-            .eq('email', email.toLowerCase());
-        if (error) throw error;
+    async markEmailVerified(_email: string): Promise<void> {
+        // Column email_verified does not exist in profiles table
+        // This method is kept for compatibility but does nothing
+        return;
     }
 
     /**

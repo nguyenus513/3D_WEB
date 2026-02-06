@@ -4,8 +4,8 @@
  * DELETE /api/auth/cleanup
  * 
  * Deletes accounts where:
- * - email_verified = false
- * - created_at > 15 minutes ago (OTP expired)
+ * - created_at > 15 minutes ago
+ * - have associated verification_tokens (indicating unverified)
  * 
  * Can be called by cron job or on login attempt
  */
@@ -27,11 +27,31 @@ export async function DELETE(request: NextRequest) {
         // Calculate cutoff time (accounts older than OTP expiration)
         const cutoffTime = new Date(Date.now() - OTP_EXPIRATION_MINUTES * 60 * 1000);
 
-        // Find unverified accounts that are past the expiration time
+        // Find expired verification tokens
+        const { data: expiredTokens, error: tokenError } = await supabaseAdmin
+            .from('verification_tokens')
+            .select('identifier')
+            .lt('expires', new Date().toISOString());
+
+        if (tokenError) {
+            console.error('Error finding expired tokens:', tokenError);
+            return NextResponse.json({ error: 'Database error' }, { status: 500 });
+        }
+
+        if (!expiredTokens || expiredTokens.length === 0) {
+            return NextResponse.json({
+                message: 'No expired unverified accounts found',
+                deleted: 0
+            });
+        }
+
+        const expiredEmails = expiredTokens.map(t => t.identifier);
+
+        // Find profiles with these emails that are old
         const { data: expiredAccounts, error: selectError } = await supabaseAdmin
             .from('profiles')
             .select('id, email, created_at')
-            .eq('email_verified', false)
+            .in('email', expiredEmails)
             .lt('created_at', cutoffTime.toISOString());
 
         if (selectError) {
@@ -40,8 +60,14 @@ export async function DELETE(request: NextRequest) {
         }
 
         if (!expiredAccounts || expiredAccounts.length === 0) {
+            // Just clean up tokens
+            await supabaseAdmin
+                .from('verification_tokens')
+                .delete()
+                .in('identifier', expiredEmails);
+
             return NextResponse.json({
-                message: 'No expired unverified accounts found',
+                message: 'Cleaned up expired tokens only',
                 deleted: 0
             });
         }
@@ -93,19 +119,18 @@ export async function GET(request: NextRequest) {
     try {
         const cutoffTime = new Date(Date.now() - OTP_EXPIRATION_MINUTES * 60 * 1000);
 
-        // Count unverified accounts that are expired
-        const { data: expiredAccounts, error } = await supabaseAdmin
-            .from('profiles')
-            .select('id, email, created_at')
-            .eq('email_verified', false)
-            .lt('created_at', cutoffTime.toISOString());
+        // Count expired verification tokens
+        const { data: expiredTokens, error } = await supabaseAdmin
+            .from('verification_tokens')
+            .select('identifier')
+            .lt('expires', new Date().toISOString());
 
         if (error) {
             return NextResponse.json({ error: 'Database error' }, { status: 500 });
         }
 
         return NextResponse.json({
-            expiredCount: expiredAccounts?.length || 0,
+            expiredCount: expiredTokens?.length || 0,
             expirationMinutes: OTP_EXPIRATION_MINUTES,
             cutoffTime: cutoffTime.toISOString()
         });
