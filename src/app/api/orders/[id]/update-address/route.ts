@@ -63,7 +63,7 @@ export async function PATCH(
         const updates: Record<string, unknown> = {};
         if (shipping_address) updates.shipping_address = shipping_address;
         if (typeof shipping_fee === 'number') updates.shipping_fee = shipping_fee;
-        if (typeof total === 'number') updates.total = total;
+        if (typeof total === 'number') updates.total_amount = total;
         updates.updated_at = new Date().toISOString();
 
         // Update order
