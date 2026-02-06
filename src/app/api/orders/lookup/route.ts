@@ -11,7 +11,7 @@ import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
 import { getProfileId } from '@/lib/utils/getProfileId';
-import { getBankConfig } from '@/lib/vietqr';
+import { getBankConfigForOrderTypeAsync, BANK_INFO, type BankCode } from '@/lib/vietqr';
 import { dbRequest } from '@/lib/db-direct';
 
 const supabaseAdmin = createClient(
@@ -192,10 +192,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        // Generate QR info
+        // Generate QR info - use async version to fetch from database
         const total = order.total || order.total_amount || order.total_price || order.estimated_price || 0;
         const depositAmount = order.deposit_amount || Math.round(total * 0.5);
-        const bankConfig = getBankConfig(orderType);
+        const bankConfig = await getBankConfigForOrderTypeAsync(orderType);
         const transferContent = `MINWSUN_${order.order_number || order.order_code || orderId}`;
         const qrUrl = `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
 
