@@ -63,7 +63,7 @@ function OrderItem({ item }: { item: CartItem | any }) {
     );
 }
 
-function CheckoutContent() {
+export function CheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const orderIdParam = searchParams.get('orderId');
