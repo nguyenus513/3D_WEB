@@ -72,7 +72,7 @@ function transformOrder(order: Record<string, unknown>) {
         subtotal: order.subtotal,
         shipping_fee: order.shipping_fee,
         discount: order.discount,
-        total: order.total,
+        total: order.total_amount || order.total || 0,
         deposit_amount: order.deposit_amount,
         status: order.status,
         payment_status: order.payment_status,
