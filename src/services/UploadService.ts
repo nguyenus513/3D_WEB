@@ -62,10 +62,11 @@ export class UploadService {
     ): Promise<UploadResult> {
         // Validate file type
         const isImage = file.type.startsWith('image/');
-        const isSTL = file.name.endsWith('.stl') || file.name.endsWith('.obj');
+        const lowerName = file.name.toLowerCase();
+        const is3DModel = lowerName.endsWith('.stl') || lowerName.endsWith('.obj') || lowerName.endsWith('.3mf') || lowerName.endsWith('.step') || lowerName.endsWith('.stp');
 
-        if (!isImage && !isSTL) {
-            throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF, STL, OBJ');
+        if (!isImage && !is3DModel) {
+            throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF, STL, OBJ, 3MF, STEP');
         }
 
         // Validate file size (max 100MB)
@@ -98,19 +99,39 @@ export class UploadService {
         }
 
         // Determine storage destination
-        // Determine storage destination
-        // HYBRID STORAGE STRATEGY (Hot vs Cold):
-        // All new uploads go to R2 (Hot Storage) for reliability and speed.
-        // Google Drive is used ONLY for archival (Cold Storage) via separate process.
-        // This prevents checkout failures due to Drive token expiration.
+        // STRATEGY:
+        // - Images -> R2 (Hot Storage) for fast CDN delivery
+        // - 3D Models -> Google Drive (Production Storage) for manufacturing/archival
 
-        // return this.uploadToR2Storage(buffer, file, params, userId);
         try {
             console.log('[UploadService] Starting upload:', { type: params.type, filename: file.name, size: file.size });
-            return await this.uploadToR2Storage(buffer, file, params, userId);
+
+            if (is3DModel) {
+                console.log('[UploadService] Routing 3D model to Google Drive...');
+                return await this.uploadToDrive(buffer, file, params);
+            } else {
+                console.log('[UploadService] Routing image to R2...');
+                return await this.uploadToR2Storage(buffer, file, params, userId);
+            }
         } catch (error) {
             console.error('[UploadService] Upload failed:', error);
-            throw error;
+
+            // Fallback strategy
+            if (is3DModel) {
+                // If Drive fails for 3D model, try R2 as backup? 
+                // Or typically we might just fail since Drive is required for production.
+                // But let's try R2 as backup if Drive fails, just to save the file.
+                console.warn('[UploadService] Google Drive upload failed. Retrying with R2 backup...');
+                try {
+                    return await this.uploadToR2Storage(buffer, file, params, userId);
+                } catch (r2Error) {
+                    throw error; // Throw original error if both fail
+                }
+            } else {
+                // If R2 fails for image, try Drive as backup
+                console.warn('[UploadService] R2 upload failed. Retrying with Google Drive backup...');
+                return await this.uploadToDrive(buffer, file, params);
+            }
         }
     }
 
