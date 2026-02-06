@@ -42,7 +42,7 @@ export async function generateOAuthState(): Promise<string> {
 
     // Store state temporarily (expires in 10 minutes)
     await supabaseAdmin
-        .from('settings')
+        .from('system_settings')
         .upsert({
             key: 'oauth_state_pending',
             value: { state, expires: Date.now() + 10 * 60 * 1000 },
@@ -57,7 +57,7 @@ export async function generateOAuthState(): Promise<string> {
  */
 export async function validateOAuthState(state: string): Promise<boolean> {
     const { data } = await supabaseAdmin
-        .from('settings')
+        .from('system_settings')
         .select('value')
         .eq('key', 'oauth_state_pending')
         .single();
@@ -68,7 +68,7 @@ export async function validateOAuthState(state: string): Promise<boolean> {
 
     // Clean up used state
     await supabaseAdmin
-        .from('settings')
+        .from('system_settings')
         .delete()
         .eq('key', 'oauth_state_pending');
 
@@ -123,7 +123,7 @@ export async function saveTokens(tokens: {
     };
 
     const { error } = await supabaseAdmin
-        .from('settings')
+        .from('system_settings')
         .upsert({
             key: 'google_drive_tokens',
             value: tokenData,
@@ -143,7 +143,7 @@ export async function saveTokens(tokens: {
  */
 export async function getStoredTokens() {
     const { data, error } = await supabaseAdmin
-        .from('settings')
+        .from('system_settings')
         .select('value')
         .eq('key', 'google_drive_tokens')
         .single();
@@ -182,12 +182,16 @@ export async function getDriveClient(options: { useServiceAccount?: boolean } = 
     // Unless explicitly asked to use Service Account
     if (!options.useServiceAccount) {
         const tokens = await getStoredTokens();
+        // console.log('[DRIVE] Checking stored tokens:', tokens ? 'Found' : 'Not Found');
+
         if (tokens && tokens.refresh_token) {
+            // console.log('[DRIVE] Using OAuth Tokens');
             const oauth2Client = getOAuth2Client();
             oauth2Client.setCredentials(tokens);
 
             // Check refresh
             if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
+                console.log('[DRIVE] Token expired, refreshing...');
                 try {
                     const { credentials } = await oauth2Client.refreshAccessToken();
                     await saveTokens({
@@ -202,6 +206,8 @@ export async function getDriveClient(options: { useServiceAccount?: boolean } = 
                 }
             }
             return google.drive({ version: 'v3', auth: oauth2Client });
+        } else {
+            console.log('[DRIVE] No OAuth tokens found in DB. Falling back to next method.');
         }
     }
 
@@ -210,7 +216,7 @@ export async function getDriveClient(options: { useServiceAccount?: boolean } = 
     const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
     if (SERVICE_ACCOUNT_EMAIL && PRIVATE_KEY) {
-        // console.log('[DRIVE] Using Service Account:', SERVICE_ACCOUNT_EMAIL);
+        console.log('[DRIVE] Using Service Account (Fallback):', SERVICE_ACCOUNT_EMAIL);
         const auth = new google.auth.JWT({
             email: SERVICE_ACCOUNT_EMAIL,
             key: PRIVATE_KEY,
@@ -250,7 +256,7 @@ export async function getDriveStatus(): Promise<{ connected: boolean; type?: 'se
  */
 export async function disconnectDrive() {
     const { error } = await supabaseAdmin
-        .from('settings')
+        .from('system_settings')
         .delete()
         .eq('key', 'google_drive_tokens');
 

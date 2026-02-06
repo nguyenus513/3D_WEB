@@ -360,7 +360,7 @@ export default function PrintingPage() {
                     status: 'pending',
                     subtotal: totalPrice,
                     shipping_fee: 0,
-                    total: grandTotal,
+                    total_amount: grandTotal,
                     deposit_amount: grandTotal, // 100% for printing
                     customer_note: customerNote || null,
                     shipping_address: {
