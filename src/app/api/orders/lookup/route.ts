@@ -271,6 +271,7 @@ export async function GET(request: NextRequest) {
                 order_type: orderType,
                 total,
                 deposit_amount: depositAmount,
+                deposit_paid: order.deposit_paid || false, // Add this for payment confirmation persistence
                 status: finalStatus,
                 payment_status: order.payment_status || 'pending',
                 shipping_address: order.shipping_address || order.address,
