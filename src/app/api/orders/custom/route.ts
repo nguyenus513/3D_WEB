@@ -103,18 +103,18 @@ export async function POST(request: NextRequest) {
             console.error('[Custom Order API] Failed to parse key:', e);
         }
 
-        // FRESH TABLE STRATEGY: Using brand new 'custom_orders' table
-        // PostgREST cache is frozen for 'orders' table, so we insert into a new table
-        console.log('[Custom Order API] Inserting into custom_orders (fresh table)...');
+        // Insert into orders table with order_type='custom'
+        console.log('[Custom Order API] Inserting into orders table...');
 
         const { data: order, error: orderError } = await supabase
-            .from('custom_orders')
+            .from('orders')
             .insert({
-                order_number: orderCode, // Required by DB schema (NOT NULL)
+                order_number: orderCode,
                 order_code: orderCode,
                 user_id: userId,
                 order_type: 'custom',
-                status: 'pending',
+                status: 'pending_confirmation',
+                deposit_paid: false,
                 subtotal: totalPrice,
                 shipping_fee: 0,
                 total: totalPrice,
