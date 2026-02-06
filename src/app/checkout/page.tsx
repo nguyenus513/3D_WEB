@@ -90,9 +90,8 @@ export function CheckoutContent() {
         ? (singleOrder?.total || 0)  // Single order usually already includes price logic
         : cartTotal;
 
-    // Shipping Fee Logic (FREE SHIPPING requested)
-    const shippingFee = 0;
-    const finalTotal = subtotal + shippingFee;
+    // Final Total is just subtotal since shipping is removed
+    const finalTotal = subtotal;
 
     // QR Code Logic - 18 Char Hex Format [10 cust][8 parent]
     const qrTransferContent = useMemo(() => {
@@ -351,7 +350,6 @@ export function CheckoutContent() {
                                     <span>Tạm tính</span>
                                     <span>{subtotal.toLocaleString('vi-VN')}đ</span>
                                 </div>
-                                {/* Removed Shipping Fee Line */}
                                 <div className="pt-3 border-t border-white/10 flex justify-between items-end">
                                     <span className="text-white font-medium">Thành tiền</span>
                                     <span className="text-2xl font-bold text-green-400">
