@@ -196,7 +196,16 @@ export async function GET(request: NextRequest) {
         const total = order.total || order.total_amount || order.total_price || order.estimated_price || 0;
         const depositAmount = order.deposit_amount || Math.round(total * 0.5);
         const bankConfig = await getBankConfigForOrderTypeAsync(orderType);
-        const transferContent = `MINWSUN_${order.order_number || order.order_code || orderId}`;
+
+        // Get customer_code from profiles table
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('customer_code')
+            .eq('id', userId)
+            .single();
+        const customerCode = profile?.customer_code || userId.replace(/-/g, '').substring(0, 10).toUpperCase();
+        const orderCode = order.order_number || order.order_code || orderId;
+        const transferContent = `${customerCode}_${orderCode}`;
         const qrUrl = `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
 
         // Normalize items for response
