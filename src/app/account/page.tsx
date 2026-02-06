@@ -81,7 +81,7 @@ export default function AccountPage() {
 
         // Fetch orders via API to avoid RLS 401
         try {
-            const ordersRes = await fetch('/api/orders');
+            const ordersRes = await fetch('/api/orders/my-orders');
             if (ordersRes.ok) {
                 const response = await ordersRes.json();
                 // API returns { success: true, data: [...], meta: {...} }
@@ -89,7 +89,7 @@ export default function AccountPage() {
 
                 // Calculate stats
                 const total = orders.length;
-                const processing = orders.filter((o: any) => ['paid', 'preparing', 'shipped'].includes(o.status)).length;
+                const processing = orders.filter((o: any) => ['paid', 'preparing', 'shipped', 'confirmed', 'processing', 'designing', 'review', 'revising', 'approved', 'producing', 'printing', 'shipping'].includes(o.status)).length;
                 const completed = orders.filter((o: any) => o.status === 'delivered').length;
                 setStats({ total, processing, completed });
 
@@ -98,9 +98,9 @@ export default function AccountPage() {
                     id: o.id,
                     order_code: o.order_code,
                     created_at: o.created_at,
-                    total: o.total,
+                    total: o.total || 0,
                     status: o.status,
-                    item_count: Array.isArray(o.order_items) ? o.order_items.length : 0,
+                    item_count: Array.isArray(o.order_items) ? o.order_items.length : 1,
                 }));
                 setRecentOrders(recent);
             }
