@@ -313,7 +313,16 @@ export default function PrintingPage() {
                 throw new Error(data.error || 'Upload failed');
             }
 
-            uploadedFiles.push(data.file);
+            // BaseController returns { success: true, data: { file: ... } }
+            // So we need to access data.data.file
+            const uploadedFile = data.data?.file || data.file;
+
+            if (uploadedFile) {
+                uploadedFiles.push(uploadedFile);
+            } else {
+                console.error('Upload response missing file object:', data);
+                throw new Error('Upload failed: Invalid response');
+            }
         }
 
         return uploadedFiles;
