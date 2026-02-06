@@ -60,7 +60,7 @@ async function runFlowTest() {
     // Note: This tests admin transitions only
     // Step 4 (user approve) requires separate testing with user session
 
-    const transitions = [
+    const transitions: { status: string; step: number }[] = [
         // { status: 'confirmed', step: 1 },
         // { status: 'designing', step: 2 },
         // Step 3 is demo upload - separate
