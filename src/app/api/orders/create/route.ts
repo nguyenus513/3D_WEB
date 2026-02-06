@@ -144,7 +144,10 @@ export async function POST(request: NextRequest) {
                 subtotal: totalPrice,
                 shipping_fee: shippingFee,
                 total_amount: total,
-                shipping_address_id: shippingAddressId,
+                shipping_address: shippingAddress ? {
+                    id: shippingAddressId,
+                    ...shippingAddress
+                } : null,
                 customer_note: sanitizedNote,
             })
             .select('id, order_code')
