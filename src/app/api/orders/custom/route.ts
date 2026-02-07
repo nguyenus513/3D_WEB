@@ -1,7 +1,7 @@
 /**
  * Custom Order Creation API
  * Creates custom orders (single/couple/group) with file uploads
- * Uses supabaseAdmin to bypass RLS policies
+ * Uses unified orders + order_items tables
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,7 +9,6 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { generateId } from '@/lib/generateId';
-import { dbRequest } from '@/lib/db-direct';
 
 interface CustomOrderRequest {
     type: 'single' | 'couple' | 'group';
@@ -84,44 +83,32 @@ export async function POST(request: NextRequest) {
         const totalPrice = Math.round(basePrice * sizeMultiplier);
         const depositAmount = Math.round(totalPrice * 0.5); // 50% deposit
 
-        // Generate order code
-        const orderCode = generateId.custom();
+        // Generate codes (8-HEX format)
+        const orderCode = generateId.order();
+        const cartCode = generateId.cart();
+        const itemOrderCode = generateId.order();
+        const fullCode = `${cartCode}_${itemOrderCode}`;
 
-        // DEBUG: Verify Service Role Key
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-        try {
-            const payloadPart = serviceKey.split('.')[1];
-            if (payloadPart) {
-                // Fix base64 padding if needed
-                const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = Buffer.from(base64, 'base64').toString('utf-8');
-                const parsed = JSON.parse(jsonPayload);
-                console.log('[Custom Order API] Service Key Role:', parsed.role); // MUST be 'service_role'
-                console.log('[Custom Order API] Key exp:', new Date(parsed.exp * 1000).toISOString());
-            }
-        } catch (e) {
-            console.error('[Custom Order API] Failed to parse key:', e);
-        }
+        console.log('[Custom Order API] Creating order with unified schema...');
+        console.log('[Custom Order API] Codes:', { orderCode, cartCode, itemOrderCode, fullCode });
 
-        // Insert into custom_orders table
-        console.log('[Custom Order API] Inserting into custom_orders table...');
-
+        // Insert into unified orders table
         const { data: order, error: orderError } = await supabase
-            .from('custom_orders')
+            .from('orders')
             .insert({
                 order_code: orderCode,
+                cart_code: cartCode,
                 user_id: userId,
-                custom_type: type,
-                custom_size: size,
-                reference_images: images || [],
-                description: notes || null,
+                order_type: 'custom',
                 subtotal: totalPrice,
                 shipping_fee: 0,
+                discount: 0,
                 total_amount: totalPrice,
                 deposit_amount: depositAmount,
                 deposit_paid: false,
                 status: 'pending',
                 payment_status: 'pending',
+                fulfillment_status: 'pending',
                 shipping_address: {
                     full_name: shippingAddress.full_name,
                     phone: shippingAddress.phone,
@@ -130,21 +117,19 @@ export async function POST(request: NextRequest) {
                     district: shippingAddress.district || '',
                     province: shippingAddress.province,
                 },
-                customer_note: notes || null,
+                notes: notes || null,
             })
             .select()
             .single();
 
-
-
         if (orderError) {
-            console.error('[Custom Order API] Create order RPC error:', orderError);
+            console.error('[Custom Order API] Create order error:', orderError);
             return NextResponse.json(
                 {
                     success: false,
                     error: {
                         code: 'DB_ERROR',
-                        message: (orderError as { message: string }).message || 'Unknown database error'
+                        message: orderError.message || 'Unknown database error'
                     }
                 },
                 { status: 500 }
@@ -153,25 +138,74 @@ export async function POST(request: NextRequest) {
 
         if (!order) {
             return NextResponse.json(
-                { success: false, error: { code: 'DB_ERROR', message: 'Order creation failed (no data returned)' } },
+                { success: false, error: { code: 'DB_ERROR', message: 'Order creation failed' } },
                 { status: 500 }
             );
         }
 
-        // Note: order_configs and order_files tables don't exist
-        // Custom config is stored in custom_config jsonb column
-        // Files info is stored in the images array in custom_config
+        // Insert order item for custom figurine
+        const { data: orderItem, error: itemError } = await supabase
+            .from('order_items')
+            .insert({
+                order_id: order.id,
+                cart_code: cartCode,
+                item_order_code: itemOrderCode,
+                full_code: fullCode,
+                item_type: 'custom',
+                custom_type: type,
+                custom_size: size,
+                name: `Custom Figurine - ${type.charAt(0).toUpperCase() + type.slice(1)} (${size})`,
+                quantity: 1,
+                unit_price: totalPrice,
+                total_price: totalPrice,
+                production_status: 'waiting',
+                configuration: {
+                    type,
+                    size,
+                    images: images || [],
+                    notes: notes || null,
+                },
+            })
+            .select()
+            .single();
+
+        if (itemError) {
+            console.error('[Custom Order API] Create order item error:', itemError);
+            // Rollback: delete the order
+            await supabase.from('orders').delete().eq('id', order.id);
+            return NextResponse.json(
+                { success: false, error: { code: 'DB_ERROR', message: itemError.message } },
+                { status: 500 }
+            );
+        }
+
+        // Link uploaded files to order_files
+        if (images && images.length > 0) {
+            try {
+                // Update any existing order_files with this cart_code
+                await supabase
+                    .from('order_files')
+                    .update({
+                        order_id: order.id,
+                        order_item_id: orderItem?.id,
+                        order_code: orderCode,
+                    })
+                    .eq('cart_code', cartCode);
+            } catch (err) {
+                console.warn('[Custom Order API] Failed to link order_files:', err);
+            }
+        }
 
         // Return success response
         return NextResponse.json({
             success: true,
             data: {
-                id: (order as any).id,
-                order_code: (order as any).order_code,
-                order_number: (order as any).order_number, // For checkout success lookup
-                total: (order as any).total_amount || (order as any).total,
-                deposit_amount: (order as any).deposit_amount,
-                status: (order as any).status,
+                id: order.id,
+                order_code: order.order_code,
+                cart_code: order.cart_code,
+                total: order.total_amount,
+                deposit_amount: order.deposit_amount,
+                status: order.status,
             },
         });
     } catch (error) {
