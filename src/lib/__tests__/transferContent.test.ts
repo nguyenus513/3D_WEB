@@ -1,8 +1,8 @@
 /**
  * Unit Tests - Transfer Content Utility
  *
- * Tests for VietQR transfer content generation with 25-char validation
- * Format: {cartCode}_{orderCode} = 8 + 1 + 8 = 17 chars
+ * Tests for VietQR transfer content generation
+ * Format: {cart_code} only (8 chars max for new orders)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -13,47 +13,47 @@ import {
 } from '@/lib/services/paymentConfigService';
 
 describe('buildTransferContent', () => {
-    it('should format as {cartCode}_{orderCode}', () => {
-        expect(buildTransferContent('1E08D23A', '5C3C8742')).toBe('1E08D23A_5C3C8742');
+    it('should return cart_code directly', () => {
+        expect(buildTransferContent('1E08D23A')).toBe('1E08D23A');
     });
 
-    it('should pass with 8-char hex codes (17 total chars)', () => {
-        const content = buildTransferContent('ABCDEF12', '56789ABC');
-        expect(content.length).toBe(17);
-        expect(content).toBe('ABCDEF12_56789ABC');
+    it('should work with 8-char hex codes', () => {
+        const content = buildTransferContent('ABCDEF12');
+        expect(content.length).toBe(8);
+        expect(content).toBe('ABCDEF12');
     });
 
     it('should allow content up to 25 chars', () => {
-        // 12 + 1 + 12 = 25 chars (exactly at limit)
-        const content = buildTransferContent('ABCDEF123456', 'FEDCBA654321');
+        // 25 chars exactly at limit (edge case for legacy)
+        const content = buildTransferContent('ABCDEFGHIJ1234567890ABCDE');
         expect(content.length).toBe(25);
     });
 
     it('should throw if content exceeds 25 chars', () => {
-        // 13 + 1 + 13 = 27 chars (over limit)
-        expect(() => buildTransferContent('TOOLONGCODE13', 'ANOTHERLONGC13')).toThrow();
+        // 26 chars (over limit)
+        expect(() => buildTransferContent('ABCDEFGHIJ1234567890ABCDEF')).toThrow();
     });
 
     it('should include helpful error message when throwing', () => {
-        expect(() => buildTransferContent('TOOLONGCODE13', 'ANOTHERLONGC13'))
+        expect(() => buildTransferContent('TOOLONGCODE_EXCEEDS_LIMIT_26'))
             .toThrow(/exceeds VietQR limit/);
     });
 
-    it('should handle empty strings (edge case)', () => {
-        expect(buildTransferContent('', '')).toBe('_');
+    it('should handle empty string (edge case)', () => {
+        expect(buildTransferContent('')).toBe('');
     });
 
     it('should work with shorter codes', () => {
-        const content = buildTransferContent('ABC', '123');
-        expect(content).toBe('ABC_123');
-        expect(content.length).toBe(7);
+        const content = buildTransferContent('ABC');
+        expect(content).toBe('ABC');
+        expect(content.length).toBe(3);
     });
 });
 
 describe('generateTransferContent (deprecated)', () => {
     it('should work as alias for buildTransferContent', () => {
-        expect(generateTransferContent('1E08D23A', '5C3C8742'))
-            .toBe(buildTransferContent('1E08D23A', '5C3C8742'));
+        expect(generateTransferContent('1E08D23A'))
+            .toBe(buildTransferContent('1E08D23A'));
     });
 });
 

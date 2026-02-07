@@ -8,6 +8,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { generateId } from '@/lib/generateId';
 import {
     Order,
     OrderItem,
@@ -36,6 +37,7 @@ export interface OrderQueryParams {
 export interface CreateOrderParams {
     userId: string;
     orderCode: string;
+    cartCode?: string; // 8-char hex, auto-generated if not provided
     addressId?: string;
     subtotal: number;
     shippingFee: number;
@@ -54,6 +56,7 @@ export interface CreateOrderItemParams {
     unitPrice: number;
     totalPrice: number;
     configuration?: OrderItemConfiguration;
+    itemOrderCode?: string; // 8-char hex, auto-generated if not provided
 }
 
 // =============================================================================
@@ -167,16 +170,21 @@ export class OrderRepository {
 
     /**
      * Create a new order with items
+     * Generates cart_code (8-char) for order and item_order_code (8-char) for each item
      */
     async create(
         orderData: CreateOrderParams,
         items: CreateOrderItemParams[]
     ): Promise<OrderWithItems> {
+        // Generate cart_code if not provided
+        const cartCode = orderData.cartCode || generateId.cart();
+
         // Insert order
         const { data: order, error: orderError } = await this.db
             .from('orders')
             .insert({
                 order_code: orderData.orderCode,
+                cart_code: cartCode,
                 user_id: orderData.userId,
                 address_id: orderData.addressId || null,
                 subtotal: orderData.subtotal,
@@ -196,17 +204,29 @@ export class OrderRepository {
             throw orderError;
         }
 
-        // Insert order items
-        const orderItems = items.map((item) => ({
-            order_id: order.id,
-            product_id: item.productId || null,
-            name: item.name,
-            sku: item.sku || null,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            total_price: item.totalPrice,
-            configuration: item.configuration || {},
-        }));
+        // Generate unique item_order_code for each item (with collision detection)
+        const usedItemCodes = new Set<string>();
+        const orderItems = items.map((item) => {
+            let itemOrderCode = item.itemOrderCode || generateId.order();
+
+            // Ensure uniqueness within this order
+            while (usedItemCodes.has(itemOrderCode)) {
+                itemOrderCode = generateId.order();
+            }
+            usedItemCodes.add(itemOrderCode);
+
+            return {
+                order_id: order.id,
+                product_id: item.productId || null,
+                name: item.name,
+                sku: item.sku || null,
+                quantity: item.quantity,
+                unit_price: item.unitPrice,
+                total_price: item.totalPrice,
+                configuration: item.configuration || {},
+                item_order_code: itemOrderCode,
+            };
+        });
 
         const { data: insertedItems, error: itemsError } = await this.db
             .from('order_items')

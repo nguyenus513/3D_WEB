@@ -121,37 +121,34 @@ export function generateFallbackCustomerCode(userId: string): string {
 /**
  * VietQR Transfer Content Max Length
  * Reference: https://vietqr.io - addInfo field limit is 25 characters
- * Format: {cart_code}_{order_code}
- * With 8-char hex codes: 8 + 1 + 8 = 17 chars (safe)
+ * Format: {cart_code} only (8 chars)
+ * This is the identifier shown in bank transfer description
  */
 export const VIETQR_MAX_TRANSFER_CONTENT_LENGTH = 25;
 
 /**
  * Build and validate transfer content for VietQR
- * Format: {cart_code}_{order_code}
- * Example: 1E08D23A_5C3C8742
+ * Format: {cart_code} only
+ * Example: 1E08D23A (8 chars)
  * 
  * @throws Error if content exceeds 25 characters
  */
-export function buildTransferContent(cartCode: string, orderCode: string): string {
-    const content = `${cartCode}_${orderCode}`;
-
-    if (content.length > VIETQR_MAX_TRANSFER_CONTENT_LENGTH) {
+export function buildTransferContent(cartCode: string): string {
+    if (cartCode.length > VIETQR_MAX_TRANSFER_CONTENT_LENGTH) {
         throw new Error(
             `Transfer content exceeds VietQR limit of ${VIETQR_MAX_TRANSFER_CONTENT_LENGTH} chars: ` +
-            `"${content}" (${content.length} chars). ` +
-            `Cart code: ${cartCode.length} chars, Order code: ${orderCode.length} chars.`
+            `"${cartCode}" (${cartCode.length} chars).`
         );
     }
 
-    return content;
+    return cartCode;
 }
 
 /**
  * @deprecated Use buildTransferContent instead (with validation)
  */
-export function generateTransferContent(customerCode: string, orderCode: string): string {
-    return buildTransferContent(customerCode, orderCode);
+export function generateTransferContent(cartCode: string): string {
+    return buildTransferContent(cartCode);
 }
 
 /**
@@ -181,7 +178,8 @@ export async function getPaymentSetup(
     productType: string,
     orderCode: string,
     amount: number,
-    email?: string | null  // Added for email fallback
+    email?: string | null,
+    cartCode?: string  // NEW: 8-char cart code for transfer content
 ): Promise<{
     customerCode: string;
     transferContent: string;
@@ -200,8 +198,9 @@ export async function getPaymentSetup(
         throw new Error(`Payment config không tồn tại cho loại đơn hàng: ${orderType}. Vui lòng liên hệ admin.`);
     }
 
-    // Generate transfer content: {customer_code}-{order_code}
-    const transferContent = generateTransferContent(customerCode, orderCode);
+    // Generate transfer content: cart_code only (8 chars)
+    // Fallback: use first 8 chars of orderCode for legacy orders without cartCode
+    const transferContent = buildTransferContent(cartCode || orderCode.substring(0, 8).toUpperCase());
 
     // Generate QR URL
     const qrUrl = generateQRUrl(

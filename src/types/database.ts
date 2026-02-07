@@ -121,6 +121,7 @@ export interface ShippingAddressSnapshot {
 export interface Order {
     id: string;
     order_code: string;
+    cart_code: string | null; // 8-char hex for display (new orders)
     user_id: string | null;
     address_id: string | null;
     subtotal: number;
@@ -167,6 +168,7 @@ export interface OrderItem {
     id: string;
     order_id: string;
     product_id: string | null;
+    item_order_code: string | null; // 8-char hex for display (new orders)
     name: string;
     sku: string | null;
     quantity: number;
@@ -174,6 +176,8 @@ export interface OrderItem {
     total_price: number;
     configuration: OrderItemConfiguration;
     created_at: string;
+    // Computed (client-side)
+    item_code?: string; // {cart_code}_{item_order_code}
     // Relations
     product?: Product;
     order?: Order;
