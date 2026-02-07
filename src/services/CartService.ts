@@ -44,7 +44,7 @@ export class CartService {
 
         const cart = await this.cartRepo.getOrCreateCart(userId);
         const existingCart = await this.cartRepo.getCartWithItems(userId);
-        const itemCount = existingCart?.cart_items.length || 0;
+        const itemCount = existingCart?.order_items.length || 0;
 
         if (itemCount >= MAX_ITEMS_PER_CART) {
             throw new BadRequestError(`Giỏ hàng tối đa ${MAX_ITEMS_PER_CART} sản phẩm`);
@@ -67,7 +67,7 @@ export class CartService {
             }
         }
 
-        return this.cartRepo.addItem(cart.id, item);
+        return this.cartRepo.addItem(cart.id, cart.cart_code, item);
     }
 
     /**
@@ -125,7 +125,7 @@ export class CartService {
      * Convert server cart to client format
      */
     toClientFormat(serverCart: CartWithItems): ClientCartItem[] {
-        return serverCart.cart_items.map((item) => ({
+        return serverCart.order_items.map((item) => ({
             id: item.id,
             type: item.item_type,
             name: item.name,

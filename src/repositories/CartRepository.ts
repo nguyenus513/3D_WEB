@@ -1,29 +1,42 @@
 /**
- * Cart Repository
+ * Cart Repository v2
  *
- * Data access layer for carts and cart_items tables.
- * Handles server-side cart persistence and sync with client-side Zustand store.
+ * Uses `orders` + `order_items` tables instead of deprecated `carts` + `cart_items`.
+ * Cart is an unpaid order (payment_status = 'pending').
+ * Each item gets `cart_code`, `item_order_code`, and `full_code`.
  *
- * @see backend-dev-guidelines.md - Rule #6: Use Repository Pattern for Data Access
+ * @see implementation_plan.md - Phase 3: Cart Flow Refactoring
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CartItem as ClientCartItem, CartItemType, PrintOptions, PrintFileInfo } from '@/lib/store/cart';
+import { generateId } from '@/lib/generateId';
+import { Order, OrderItem, FulfillmentStatus, ProductionStatus } from '@/types/database';
 
 // =============================================================================
 // Types
 // =============================================================================
 
+// Cart is an unpaid order
 export interface Cart {
     id: string;
-    user_id: string;
+    user_id: string | null;
+    cart_code: string;
+    order_code: string;
+    total_amount: number;
+    payment_status: 'pending';
+    fulfillment_status: FulfillmentStatus;
     created_at: string;
     updated_at: string;
 }
 
 export interface CartItemDB {
     id: string;
-    cart_id: string;
+    order_id: string;
+    cart_code: string;
+    item_order_code: string;
+    full_code: string;
+    production_status: ProductionStatus;
     item_type: CartItemType;
     name: string;
     price: number;
@@ -37,12 +50,13 @@ export interface CartItemDB {
     print_files?: PrintFileInfo[];
     description?: string;
     custom_files?: { name: string; url: string }[];
+    file_path?: string;
     created_at: string;
     updated_at: string;
 }
 
 export interface CartWithItems extends Cart {
-    cart_items: CartItemDB[];
+    order_items: CartItemDB[];
 }
 
 // =============================================================================
@@ -53,24 +67,38 @@ export class CartRepository {
     constructor(private readonly db: SupabaseClient) { }
 
     /**
-     * Get or create cart for user
+     * Get or create cart (unpaid order) for user
      */
     async getOrCreateCart(userId: string): Promise<Cart> {
-        // Try to get existing cart
+        // Try to get existing pending order (cart)
         const { data: existing } = await this.db
-            .from('carts')
+            .from('orders')
             .select('*')
             .eq('user_id', userId)
+            .eq('payment_status', 'pending')
             .single();
 
         if (existing) {
-            return existing as Cart;
+            return this.mapToCart(existing);
         }
 
-        // Create new cart
+        // Create new cart (order with pending payment)
+        const cartCode = generateId.cart();
         const { data, error } = await this.db
-            .from('carts')
-            .insert({ user_id: userId })
+            .from('orders')
+            .insert({
+                user_id: userId,
+                cart_code: cartCode,
+                order_code: cartCode, // Same as cart_code for new orders
+                payment_status: 'pending',
+                fulfillment_status: 'pending',
+                status: 'pending',
+                subtotal: 0,
+                shipping_fee: 0,
+                discount: 0,
+                total_amount: 0,
+                deposit_amount: 0,
+            })
             .select()
             .single();
 
@@ -78,7 +106,7 @@ export class CartRepository {
             throw error;
         }
 
-        return data as Cart;
+        return this.mapToCart(data);
     }
 
     /**
@@ -86,9 +114,10 @@ export class CartRepository {
      */
     async getCartWithItems(userId: string): Promise<CartWithItems | null> {
         const { data, error } = await this.db
-            .from('carts')
-            .select('*, cart_items(*)')
+            .from('orders')
+            .select('*, order_items(*)')
             .eq('user_id', userId)
+            .eq('payment_status', 'pending')
             .single();
 
         if (error) {
@@ -98,20 +127,27 @@ export class CartRepository {
             throw error;
         }
 
-        return data as CartWithItems;
+        return {
+            ...this.mapToCart(data),
+            order_items: (data.order_items || []).map(this.mapToCartItem),
+        };
     }
 
     /**
-     * Add item to cart
+     * Add item to cart with auto-generated codes
      */
     async addItem(
         cartId: string,
+        cartCode: string,
         item: Omit<ClientCartItem, 'id'>
     ): Promise<CartItemDB> {
-        const dbItem = this.mapToDbItem(cartId, item);
+        const itemOrderCode = generateId.order();
+        const fullCode = `${cartCode}_${itemOrderCode}`;
+
+        const dbItem = this.mapToDbItem(cartId, cartCode, itemOrderCode, fullCode, item);
 
         const { data, error } = await this.db
-            .from('cart_items')
+            .from('order_items')
             .insert(dbItem)
             .select()
             .single();
@@ -120,7 +156,10 @@ export class CartRepository {
             throw error;
         }
 
-        return data as CartItemDB;
+        // Update cart total
+        await this.recalculateTotal(cartId);
+
+        return this.mapToCartItem(data);
     }
 
     /**
@@ -132,10 +171,12 @@ export class CartRepository {
         quantity: number
     ): Promise<CartItemDB> {
         const { data, error } = await this.db
-            .from('cart_items')
-            .update({ quantity, updated_at: new Date().toISOString() })
+            .from('order_items')
+            .update({
+                quantity,
+            })
             .eq('id', itemId)
-            .eq('cart_id', cartId)
+            .eq('order_id', cartId)
             .select()
             .single();
 
@@ -143,7 +184,10 @@ export class CartRepository {
             throw error;
         }
 
-        return data as CartItemDB;
+        // Update cart total
+        await this.recalculateTotal(cartId);
+
+        return this.mapToCartItem(data);
     }
 
     /**
@@ -151,14 +195,17 @@ export class CartRepository {
      */
     async removeItem(itemId: string, cartId: string): Promise<void> {
         const { error } = await this.db
-            .from('cart_items')
+            .from('order_items')
             .delete()
             .eq('id', itemId)
-            .eq('cart_id', cartId);
+            .eq('order_id', cartId);
 
         if (error) {
             throw error;
         }
+
+        // Update cart total
+        await this.recalculateTotal(cartId);
     }
 
     /**
@@ -166,13 +213,23 @@ export class CartRepository {
      */
     async clearCart(cartId: string): Promise<void> {
         const { error } = await this.db
-            .from('cart_items')
+            .from('order_items')
             .delete()
-            .eq('cart_id', cartId);
+            .eq('order_id', cartId);
 
         if (error) {
             throw error;
         }
+
+        // Reset cart total to 0
+        await this.db
+            .from('orders')
+            .update({
+                subtotal: 0,
+                total_amount: 0,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', cartId);
     }
 
     /**
@@ -187,7 +244,7 @@ export class CartRepository {
 
         // Get existing server items
         const existingCart = await this.getCartWithItems(userId);
-        const existingItems = existingCart?.cart_items || [];
+        const existingItems = existingCart?.order_items || [];
 
         // Merge logic: client items override server items for same product
         for (const clientItem of clientItems) {
@@ -208,7 +265,7 @@ export class CartRepository {
                 );
             } else {
                 // Add new item
-                await this.addItem(cart.id, clientItem);
+                await this.addItem(cart.id, cart.cart_code, clientItem);
             }
         }
 
@@ -224,14 +281,13 @@ export class CartRepository {
         size?: string
     ): Promise<CartItemDB | null> {
         let query = this.db
-            .from('cart_items')
+            .from('order_items')
             .select('*')
-            .eq('cart_id', cartId)
-            .eq('item_type', 'product')
+            .eq('order_id', cartId)
             .eq('product_id', productId);
 
         if (size) {
-            query = query.eq('size', size);
+            query = query.eq('configuration->>size', size);
         }
 
         const { data, error } = await query.single();
@@ -243,32 +299,105 @@ export class CartRepository {
             throw error;
         }
 
-        return data as CartItemDB;
+        return this.mapToCartItem(data);
     }
 
     // ==========================================================================
     // Private Helpers
     // ==========================================================================
 
+    private async recalculateTotal(cartId: string): Promise<void> {
+        // Get all items
+        const { data: items } = await this.db
+            .from('order_items')
+            .select('unit_price, quantity')
+            .eq('order_id', cartId);
+
+        const subtotal = (items || []).reduce(
+            (sum, item) => sum + (item.unit_price * item.quantity),
+            0
+        );
+
+        await this.db
+            .from('orders')
+            .update({
+                subtotal,
+                total_amount: subtotal, // Will be adjusted with shipping later
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', cartId);
+    }
+
+    private mapToCart(data: any): Cart {
+        return {
+            id: data.id,
+            user_id: data.user_id,
+            cart_code: data.cart_code || data.order_code,
+            order_code: data.order_code,
+            total_amount: data.total_amount,
+            payment_status: data.payment_status,
+            fulfillment_status: data.fulfillment_status || 'pending',
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+        };
+    }
+
+    private mapToCartItem(data: any): CartItemDB {
+        return {
+            id: data.id,
+            order_id: data.order_id,
+            cart_code: data.cart_code,
+            item_order_code: data.item_order_code,
+            full_code: data.full_code,
+            production_status: data.production_status || 'waiting',
+            item_type: data.configuration?.item_type || 'product',
+            name: data.name,
+            price: data.unit_price,
+            quantity: data.quantity,
+            image_url: data.configuration?.image_url,
+            product_id: data.product_id,
+            product_sku: data.sku,
+            size: data.configuration?.size,
+            original_price: data.configuration?.original_price,
+            print_options: data.configuration?.print_options,
+            print_files: data.configuration?.print_files,
+            description: data.configuration?.description,
+            custom_files: data.configuration?.custom_files,
+            file_path: data.file_path,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+        };
+    }
+
     private mapToDbItem(
         cartId: string,
+        cartCode: string,
+        itemOrderCode: string,
+        fullCode: string,
         item: Omit<ClientCartItem, 'id'>
-    ): Omit<CartItemDB, 'id' | 'created_at' | 'updated_at'> {
+    ): Record<string, unknown> {
         return {
-            cart_id: cartId,
-            item_type: item.type,
+            order_id: cartId,
+            cart_code: cartCode,
+            item_order_code: itemOrderCode,
+            full_code: fullCode,
+            production_status: 'waiting',
             name: item.name,
-            price: item.price,
+            unit_price: item.price,
+            total_price: item.price * item.quantity,
             quantity: item.quantity,
-            image_url: item.image,
             product_id: item.productId,
-            product_sku: item.sku,
-            size: item.size,
-            original_price: item.originalPrice,
-            print_options: item.printOptions,
-            print_files: item.printFiles,
-            description: item.description,
-            custom_files: item.customFiles,
+            sku: item.sku,
+            configuration: {
+                item_type: item.type,
+                size: item.size,
+                image_url: item.image,
+                original_price: item.originalPrice,
+                print_options: item.printOptions,
+                print_files: item.printFiles,
+                description: item.description,
+                custom_files: item.customFiles,
+            },
         };
     }
 }

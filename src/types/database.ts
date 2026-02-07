@@ -23,6 +23,12 @@ export type OrderStatus =
 
 export type PaymentStatus = 'pending' | 'partial' | 'deposit_paid' | 'paid' | 'refunded' | 'failed';
 
+// Cart/Order fulfillment tracking
+export type FulfillmentStatus = 'pending' | 'processing' | 'completed';
+
+// Item/Sub-order production tracking
+export type ProductionStatus = 'waiting' | 'printing' | 'done' | 'error';
+
 export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'printing';
 
 export type PrintTech = 'fdm' | 'resin' | 'sla';
@@ -131,6 +137,7 @@ export interface Order {
     deposit_amount: number;
     status: OrderStatus;
     payment_status: PaymentStatus;
+    fulfillment_status: FulfillmentStatus; // NEW: Cart/order fulfillment
     shipping_address_snapshot: ShippingAddressSnapshot | null;
     notes: string | null;
     admin_notes: string | null;
@@ -169,6 +176,10 @@ export interface OrderItem {
     order_id: string;
     product_id: string | null;
     item_order_code: string | null; // 8-char hex for display (new orders)
+    cart_code: string | null; // Denormalized from parent order
+    full_code: string | null; // {cart_code}_{item_order_code}
+    production_status: ProductionStatus; // Item production tracking
+    file_path: string | null; // Storage path for production files
     name: string;
     sku: string | null;
     quantity: number;

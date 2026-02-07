@@ -215,6 +215,9 @@ export class OrderRepository {
             }
             usedItemCodes.add(itemOrderCode);
 
+            // Generate full_code = {cart_code}_{item_order_code}
+            const fullCode = `${cartCode}_${itemOrderCode}`;
+
             return {
                 order_id: order.id,
                 product_id: item.productId || null,
@@ -225,6 +228,9 @@ export class OrderRepository {
                 total_price: item.totalPrice,
                 configuration: item.configuration || {},
                 item_order_code: itemOrderCode,
+                cart_code: cartCode, // Denormalized for fast queries
+                full_code: fullCode, // {cart_code}_{item_order_code}
+                production_status: 'waiting', // Default for new items
             };
         });
 
@@ -358,5 +364,78 @@ export class OrderRepository {
             orders: (data as OrderWithItems[]) || [],
             total: count || 0,
         };
+    }
+
+    /**
+     * Update order fulfillment status
+     */
+    async updateFulfillmentStatus(
+        orderId: string,
+        status: 'pending' | 'processing' | 'completed'
+    ): Promise<Order> {
+        const { data, error } = await this.db
+            .from('orders')
+            .update({
+                fulfillment_status: status,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        return data as Order;
+    }
+
+    /**
+     * Update order item production status
+     */
+    async updateProductionStatus(
+        itemId: string,
+        status: 'waiting' | 'printing' | 'done' | 'error'
+    ): Promise<OrderItem> {
+        const { data, error } = await this.db
+            .from('order_items')
+            .update({ production_status: status })
+            .eq('id', itemId)
+            .select()
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        return data as OrderItem;
+    }
+
+    /**
+     * Find items by production status (for admin printing page)
+     */
+    async findItemsByProductionStatus(
+        status?: 'waiting' | 'printing' | 'done' | 'error',
+        paidOnly: boolean = true
+    ): Promise<OrderItem[]> {
+        let query = this.db
+            .from('order_items')
+            .select('*, order:orders!inner(*)');
+
+        if (status) {
+            query = query.eq('production_status', status);
+        }
+
+        if (paidOnly) {
+            query = query.eq('order.payment_status', 'paid');
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: true });
+
+        if (error) {
+            throw error;
+        }
+
+        return (data || []) as OrderItem[];
     }
 }

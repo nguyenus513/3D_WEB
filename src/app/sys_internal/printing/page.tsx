@@ -28,6 +28,21 @@ const statusLabels: Record<string, string> = {
     cancelled: 'Đã hủy',
 };
 
+// Production status for order items (sub-orders)
+const productionStatusColors: Record<string, string> = {
+    waiting: 'bg-orange-500/20 text-orange-400',
+    printing: 'bg-purple-500/20 text-purple-400',
+    done: 'bg-green-500/20 text-green-400',
+    error: 'bg-red-500/20 text-red-400',
+};
+
+const productionStatusLabels: Record<string, string> = {
+    waiting: 'Chờ in',
+    printing: 'Đang in',
+    done: 'Hoàn thành',
+    error: 'Lỗi',
+};
+
 export default function AdminPrintingPage() {
     // any for now to bypass strict legacy type checks during migration
     const [orders, setOrders] = useState<any[]>([]);
@@ -41,11 +56,10 @@ export default function AdminPrintingPage() {
     const fetchOrders = async () => {
         const supabase = getSupabase();
 
-        // Removed .eq('order_type', 'printing') as column is gone.
-        // For now, fetching all orders. One could filter by 'producing' status if strictly needed.
+        // Fetch orders with their order_items including production_status
         const { data, error } = await supabase
             .from('orders')
-            .select('*')
+            .select('*, order_items(*)')
             .order('created_at', { ascending: false });
 
         if (!error && data) {
@@ -71,6 +85,20 @@ export default function AdminPrintingPage() {
             fetchOrders();
         } catch (error) {
             console.error('Error updating status:', error);
+        }
+    };
+
+    // Update production status for individual order item
+    const handleUpdateProductionStatus = async (itemId: string, newStatus: string) => {
+        try {
+            const supabase = getSupabase();
+            await supabase
+                .from('order_items')
+                .update({ production_status: newStatus })
+                .eq('id', itemId);
+            fetchOrders();
+        } catch (error) {
+            console.error('Error updating production status:', error);
         }
     };
 

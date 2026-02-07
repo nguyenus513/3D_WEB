@@ -148,6 +148,54 @@ export function generateOrderCentricKey(params: OrderCentricKeyParams): string {
     return `orders/${safeOrderCode}/${safeFileName}`;
 }
 
+// =============================================================================
+// NEW: Order Item Key Generation (Cart/SubOrder Format)
+// =============================================================================
+
+export interface OrderItemKeyParams {
+    cartCode: string;      // 8-char hex from parent order
+    fullCode: string;      // {cartCode}_{itemOrderCode} (17 chars)
+    fileName: string;
+    category?: OrderFileCategory;
+}
+
+/**
+ * Generate storage key for order items (Sub-Order format)
+ *
+ * Path Format: orders/{cartCode}/{fullCode}/{category}/{fileName}
+ *
+ * @example
+ * generateOrderItemKey({
+ *   cartCode: '1E08D23A',
+ *   fullCode: '1E08D23A_5C3C8742',
+ *   fileName: 'model.stl',
+ *   category: 'model'
+ * })
+ * // => 'orders/1E08D23A/1E08D23A_5C3C8742/model/model.stl'
+ */
+export function generateOrderItemKey(params: OrderItemKeyParams): string {
+    const { cartCode, fullCode, fileName, category = 'upload' } = params;
+
+    // Validate cartCode (8 hex chars)
+    const safeCartCode = cartCode.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    if (safeCartCode.length !== 8) {
+        throw new Error('Invalid cart code: must be exactly 8 hex characters');
+    }
+
+    // Validate fullCode format ({8hex}_{8hex})
+    const fullCodeRegex = /^[0-9A-Fa-f]{8}_[0-9A-Fa-f]{8}$/;
+    const safeFullCode = fullCode.toUpperCase();
+    if (!fullCodeRegex.test(safeFullCode)) {
+        throw new Error('Invalid full code: must be format XXXXXXXX_YYYYYYYY');
+    }
+
+    // Sanitize filename
+    const safeFileName = sanitizeFileName(fileName);
+
+    return `orders/${safeCartCode}/${safeFullCode}/${category}/${safeFileName}`;
+}
+
+
 /**
  * Generate temp storage key for pre-checkout uploads
  *
