@@ -23,9 +23,13 @@ export interface Cart {
     user_id: string | null;
     cart_code: string;
     order_code: string;
+    subtotal: number;
+    shipping_fee: number;
+    discount: number;
     total_amount: number;
     payment_status: 'pending';
     fulfillment_status: FulfillmentStatus;
+    shipping_address: Record<string, unknown> | null;
     created_at: string;
     updated_at: string;
 }
@@ -40,7 +44,10 @@ export interface CartItemDB {
     item_type: CartItemType;
     name: string;
     price: number;
+    unit_price: number;
+    total_price: number;
     quantity: number;
+    sku?: string;
     image_url?: string;
     product_id?: string;
     product_sku?: string;
@@ -51,12 +58,23 @@ export interface CartItemDB {
     description?: string;
     custom_files?: { name: string; url: string }[];
     file_path?: string;
+    configuration?: Record<string, unknown>;
+    custom_type?: string;
+    custom_size?: string;
+    print_tech?: string;
+    infill?: string;
+    layer_height?: string;
+    color?: string;
+    material?: string;
+    notes?: string;
     created_at: string;
     updated_at: string;
 }
 
 export interface CartWithItems extends Cart {
     order_items: CartItemDB[];
+    // Alias for CheckoutService compatibility
+    cart_items: CartItemDB[];
 }
 
 // =============================================================================
@@ -127,9 +145,11 @@ export class CartRepository {
             throw error;
         }
 
+        const orderItems = (data.order_items || []).map((item: any) => this.mapToCartItem(item));
         return {
             ...this.mapToCart(data),
-            order_items: (data.order_items || []).map(this.mapToCartItem),
+            order_items: orderItems,
+            cart_items: orderItems, // Alias for CheckoutService compatibility
         };
     }
 
@@ -302,6 +322,40 @@ export class CartRepository {
         return this.mapToCartItem(data);
     }
 
+    /**
+     * Update shipping address for cart
+     */
+    async updateShippingAddress(cartId: string, address: Record<string, unknown>): Promise<void> {
+        const { error } = await this.db
+            .from('orders')
+            .update({
+                shipping_address: address,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', cartId);
+
+        if (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Mark cart as checked out (payment confirmed)
+     */
+    async markCheckedOut(cartId: string): Promise<void> {
+        const { error } = await this.db
+            .from('orders')
+            .update({
+                payment_status: 'paid',
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', cartId);
+
+        if (error) {
+            throw error;
+        }
+    }
+
     // ==========================================================================
     // Private Helpers
     // ==========================================================================
@@ -334,9 +388,13 @@ export class CartRepository {
             user_id: data.user_id,
             cart_code: data.cart_code || data.order_code,
             order_code: data.order_code,
+            subtotal: data.subtotal ?? 0,
+            shipping_fee: data.shipping_fee ?? 0,
+            discount: data.discount ?? 0,
             total_amount: data.total_amount,
             payment_status: data.payment_status,
             fulfillment_status: data.fulfillment_status || 'pending',
+            shipping_address: data.shipping_address || null,
             created_at: data.created_at,
             updated_at: data.updated_at,
         };
@@ -350,10 +408,13 @@ export class CartRepository {
             item_order_code: data.item_order_code,
             full_code: data.full_code,
             production_status: data.production_status || 'waiting',
-            item_type: data.configuration?.item_type || 'product',
+            item_type: data.item_type || data.configuration?.item_type || 'product',
             name: data.name,
             price: data.unit_price,
+            unit_price: data.unit_price,
+            total_price: data.total_price,
             quantity: data.quantity,
+            sku: data.sku,
             image_url: data.configuration?.image_url,
             product_id: data.product_id,
             product_sku: data.sku,
@@ -364,6 +425,15 @@ export class CartRepository {
             description: data.configuration?.description,
             custom_files: data.configuration?.custom_files,
             file_path: data.file_path,
+            configuration: data.configuration,
+            custom_type: data.custom_type,
+            custom_size: data.custom_size,
+            print_tech: data.print_tech,
+            infill: data.infill,
+            layer_height: data.layer_height,
+            color: data.color,
+            material: data.material,
+            notes: data.notes,
             created_at: data.created_at,
             updated_at: data.updated_at,
         };

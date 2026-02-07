@@ -38,13 +38,16 @@ export interface CreateOrderParams {
     userId: string;
     orderCode: string;
     cartCode?: string; // 8-char hex, auto-generated if not provided
+    orderType?: string; // ready_made, custom, printing, mixed
     addressId?: string;
     subtotal: number;
     shippingFee: number;
     discount: number;
     totalAmount: number;
     depositAmount?: number;
+    depositPaid?: boolean;
     shippingAddressSnapshot?: ShippingAddressSnapshot;
+    shippingAddress?: Record<string, unknown> | null; // Alias for cart's shipping_address
     notes?: string;
 }
 

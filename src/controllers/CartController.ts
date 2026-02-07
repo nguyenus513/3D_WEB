@@ -101,11 +101,14 @@ export class CartController extends BaseController {
             const cart = await this.cartService.getCart(session.user.id);
 
             if (!cart) {
-                return this.handleSuccess({ items: [] });
+                return this.handleSuccess({ cart_code: null as string | null, items: [] as any[] });
             }
 
             const items = this.cartService.toClientFormat(cart);
-            return this.handleSuccess({ items });
+            return this.handleSuccess({
+                cart_code: cart.cart_code,
+                items,
+            });
         }, 'CartController.getCart');
     }
 
