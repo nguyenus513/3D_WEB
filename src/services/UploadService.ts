@@ -19,6 +19,7 @@ import {
     generateUnifiedKey,
     generateProductKey,
     generateOrderCentricKey,
+    generateOrderItemKey,
     type FileType,
     type OrderFileCategory
 } from '@/lib/storage/unified-keys';
@@ -394,7 +395,7 @@ export class UploadService {
         ext: string,
         filename: string
     ): string {
-        const { type, index, isReview, orderCode, customerCode, sku } = params;
+        const { type, index, isReview, orderCode, customerCode, sku, cartCode, fullCode } = params;
 
         // 1. Product Uploads
         if (type === 'product' && sku) {
@@ -412,6 +413,18 @@ export class UploadService {
                 index: index,
                 ext: ext,
                 variant: 'size'
+            });
+        }
+
+        // 2. NEW: Order Item Uploads (with fullCode)
+        // Uses new path format: orders/{cartCode}/{fullCode}/{category}/{filename}
+        if (cartCode && fullCode) {
+            const category = determineCategory(params, filename);
+            return generateOrderItemKey({
+                cartCode: cartCode,
+                fullCode: fullCode,
+                fileName: filename,
+                category: category
             });
         }
 

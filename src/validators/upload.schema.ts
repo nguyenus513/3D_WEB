@@ -69,6 +69,10 @@ export const UploadRequestSchema = z.object({
     customerCode: z.string().nullish(),
     orderCode: z.string().nullish(),
 
+    // NEW: Order item uploads (cart/sub-order codes)
+    cartCode: z.string().max(8).nullish(),    // 8-char hex cart code
+    fullCode: z.string().max(17).nullish(),   // {cartCode}_{itemOrderCode}
+
     // Custom order naming - all optional/nullable for non-custom uploads
     customType: CustomTypeSchema.nullish(),
     personCount: z.preprocess(

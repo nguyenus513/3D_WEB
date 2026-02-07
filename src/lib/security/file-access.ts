@@ -63,14 +63,32 @@ export async function canAccessFile(
             return { allowed: true, reason: 'public_product', isPublic: true };
         }
 
-        // Order files - check if user owns the order by extracting order code
-        const orderMatch = fileKey.match(/orders\/([^/]+)\//);
-        if (orderMatch) {
-            const orderCode = orderMatch[1];
+        // Order files - check by path pattern
+        // Pattern 1: orders/{cart_code}/{full_code}/... (new format)
+        const fullCodeMatch = fileKey.match(/orders\/([0-9A-Fa-f]{8})\/([0-9A-Fa-f]{8}_[0-9A-Fa-f]{8})\//);
+        if (fullCodeMatch) {
+            const cartCode = fullCodeMatch[1].toUpperCase();
+            // Verify user owns the order via cart_code
             const { data: order } = await supabase
                 .from('orders')
                 .select('user_id')
-                .eq('order_code', orderCode)
+                .eq('cart_code', cartCode)
+                .single();
+
+            if (order?.user_id === userId) {
+                return { allowed: true, reason: 'order_owner_by_cart_code' };
+            }
+        }
+
+        // Pattern 2: orders/{order_code}/... (legacy format)
+        const orderMatch = fileKey.match(/orders\/([^/]+)\//);
+        if (orderMatch) {
+            const orderCode = orderMatch[1];
+            // Try cart_code first, then order_code
+            const { data: order } = await supabase
+                .from('orders')
+                .select('user_id')
+                .or(`cart_code.eq.${orderCode},order_code.eq.${orderCode}`)
                 .single();
 
             if (order?.user_id === userId) {
