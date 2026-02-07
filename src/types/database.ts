@@ -31,6 +31,10 @@ export type ProductionStatus = 'waiting' | 'printing' | 'done' | 'error';
 
 export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'printing';
 
+// Order types for unified orders table
+export type OrderType = 'product' | 'print' | 'custom';
+export type OrderItemType = 'product' | 'print' | 'custom';
+
 export type PrintTech = 'fdm' | 'resin' | 'sla';
 
 // ==================== PROFILES ====================
@@ -251,8 +255,7 @@ export interface RefreshToken {
 }
 
 // ==================== LEGACY COMPATIBILITY ====================
-// These types can be removed after full migration
-export type OrderType = 'ready_made' | 'custom' | 'printing';
+// Legacy OrderType removed - now unified at top of file as OrderType | OrderItemType
 
 // ==================== SETTINGS (Not in DB, for app use) ====================
 export interface StoreSettings {
