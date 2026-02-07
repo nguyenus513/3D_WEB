@@ -93,37 +93,22 @@ export function CheckoutContent() {
     // Final Total is just subtotal since shipping is removed
     const finalTotal = subtotal;
 
-    // QR Code Logic - 18 Char Hex Format [10 cust][8 parent]
-    const qrTransferContent = useMemo(() => {
-        // 1. Get Customer Code (10 hex) or use placeholder
-        let custCode = paymentConfig?.customer_code;
-
-        // Clean and validate Customer Code
-        if (custCode) {
-            custCode = custCode.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
-            if (custCode.length < 10) custCode = custCode.padEnd(10, '0');
-            else if (custCode.length > 10) custCode = custCode.substring(0, 10);
-        } else {
-            // Default placeholder if not logged in or config not loaded yet
-            custCode = '0000000000';
-        }
-
-        // 2. Get Parent Code (8 hex)
-        let parentCode = '';
-
+    // Cart Code: 8 Hex chars only - used for transfer content
+    const cartCode = useMemo(() => {
         if (mode === 'single' && singleOrder) {
-            // Existing Order: Extract parent code from order_code
+            // Use cart_code if available, otherwise extract from order_code
+            if (singleOrder.cart_code) {
+                return singleOrder.cart_code.toUpperCase();
+            }
+            // Fallback: extract first 8 hex chars from order_code
             const rawCode = singleOrder.order_code || singleOrder.id;
             const cleanCode = rawCode.toString().replace(/[^a-fA-F0-9]/g, '').toUpperCase();
-            // If child code (16), take first 8. If parent (8), take 8.
-            parentCode = cleanCode.substring(0, 8).padEnd(8, '0');
+            return cleanCode.substring(0, 8).padEnd(8, '0');
         } else {
             // Cart: Generate new random 8 hex
-            parentCode = Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0');
+            return Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0');
         }
-
-        return `${custCode}${parentCode}`;
-    }, [mode, singleOrder, paymentConfig]);
+    }, [mode, singleOrder]);
 
     // Fetch Payment Config
     useEffect(() => {
@@ -369,8 +354,9 @@ export function CheckoutContent() {
                                 >
                                     <PaymentQR
                                         orderId={mode === 'single' ? orderIdParam! : 'cart-placeholder'}
-                                        orderCode={qrTransferContent}
-                                        transferContent={qrTransferContent}
+                                        orderCode={singleOrder?.order_code || cartCode}
+                                        cartCode={cartCode}
+                                        transferContent={cartCode}
                                         amount={finalTotal}
                                         bankId={paymentConfig.bank_code}
                                         accountNo={paymentConfig.account_no}

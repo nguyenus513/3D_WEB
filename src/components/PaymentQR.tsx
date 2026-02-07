@@ -6,6 +6,7 @@ import { BANK_INFO, type BankCode } from '@/lib/vietqr';
 interface PaymentQRProps {
     orderId: string;
     orderCode: string;
+    cartCode?: string;      // NEW: 8-char cart code for display
     customerCode?: string;
     amount: number;
     // Bank info - now all optional, will use from these props or fallback
@@ -35,6 +36,7 @@ interface PaymentQRProps {
 export function PaymentQR({
     orderId,
     orderCode,
+    cartCode,
     customerCode,
     amount,
     bankId = 'MB',
@@ -52,9 +54,9 @@ export function PaymentQR({
     const [confirmError, setConfirmError] = useState<string | null>(null);
     const [isConfirmed, setIsConfirmed] = useState(false);
 
-    // Use provided transfer content from DB, fallback to new format
-    const transferContent = providedTransferContent
-        || (customerCode ? `${customerCode}-${orderCode}` : orderCode);
+    // Use provided transfer content, or cartCode (preferred), or fallback to first 8 chars of orderCode
+    const displayCode = cartCode || orderCode.substring(0, 8).toUpperCase();
+    const transferContent = providedTransferContent || displayCode;
 
     // Use provided QR URL from DB or generate dynamic VietQR URL
     const qrUrl = providedQrUrl || `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accountName)}`;
@@ -134,7 +136,7 @@ export function PaymentQR({
                     {/* Header */}
                     <div className="mb-8">
                         <h2 className="text-2xl font-semibold text-white mb-1">Thanh Toán</h2>
-                        <p className="text-white/50 text-sm">Mã đơn: <span className="font-mono text-white/70">{orderCode}</span></p>
+                        <p className="text-white/50 text-sm">Mã đơn: <span className="font-mono text-white/70">{displayCode}</span></p>
                     </div>
 
                     {/* Order Summary */}
