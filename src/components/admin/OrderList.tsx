@@ -159,8 +159,11 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
         // Use shipping_address_snapshot fallback
         const shippingName = (order.shipping_address_snapshot as any)?.full_name;
         const shippingPhone = (order.shipping_address_snapshot as any)?.phone;
-
-        const matchesSearch = order.order_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        // Search by cart_code (preferred), order_code (fallback), customer name, or user_id
+        const displayCode = (order as any).cart_code || order.order_code;
+        const matchesSearch =
+            displayCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.order_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (shippingName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (order.user_id && order.user_id.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -324,8 +327,15 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                         >
                                             <td className="px-5 py-4">
                                                 <Link href={`${adminRoot}/orders/${order.id}`} className="text-white font-medium hover:underline">
-                                                    {order.order_code}
+                                                    {/* Display cart_code if available, fallback to order_code */}
+                                                    {(order as any).cart_code || order.order_code}
                                                 </Link>
+                                                {/* Show legacy order_code if cart_code exists (for reference) */}
+                                                {(order as any).cart_code && (
+                                                    <span className="block text-white/30 text-xs mt-0.5">
+                                                        Code: {order.order_code}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div>

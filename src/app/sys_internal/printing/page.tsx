@@ -140,8 +140,15 @@ export default function AdminPrintingPage() {
                                         <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                             <td className="px-5 py-4">
                                                 <Link href={`/sys_internal/printing/${order.id}`} className="text-white font-mono hover:text-blue-400">
-                                                    {order.order_code}
+                                                    {/* Display cart_code if available, fallback to order_code */}
+                                                    {order.cart_code || order.order_code}
                                                 </Link>
+                                                {/* Show legacy order_code in small text if cart_code exists */}
+                                                {order.cart_code && (
+                                                    <span className="block text-white/30 text-xs mt-0.5">
+                                                        Code: {order.order_code}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-5 py-4 text-white/70">
                                                 {shippingInfo?.full_name || 'Khách'}

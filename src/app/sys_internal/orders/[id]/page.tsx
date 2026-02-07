@@ -521,11 +521,18 @@ export default function AdminOrderDetailPage() {
                     </Link>
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-white">{order.order_code}</h1>
+                            {/* Display cart_code if available, fallback to order_code */}
+                            <h1 className="text-2xl font-bold text-white">
+                                {(order as any).cart_code || order.order_code}
+                            </h1>
                             <span className={`px-3 py-1 rounded-full text-sm ${statusColors[order.status]}`}>
                                 {statusLabels[order.status]}
                             </span>
                         </div>
+                        {/* Show legacy order_code if cart_code exists */}
+                        {(order as any).cart_code && (
+                            <p className="text-white/40 text-sm mt-0.5">Code: {order.order_code}</p>
+                        )}
                         <p className="text-white/50 mt-1">Tạo lúc {formatDate(order.created_at)}</p>
                     </div>
                 </div>
@@ -882,8 +889,21 @@ export default function AdminOrderDetailPage() {
                                 const customConfig = isCustom ? config as CustomConfig : null;
                                 const printingConfig = isPrinting ? config as PrintingConfig : null;
 
+                                // Build item code display: cart_code_item_order_code
+                                const cartCode = (order as any).cart_code || order.order_code.substring(0, 8);
+                                const itemOrderCode = (item as any).item_order_code;
+                                const displayItemCode = itemOrderCode ? `${cartCode}_${itemOrderCode}` : null;
+
                                 return (
                                     <div key={item.id || idx} className="p-4 bg-white/5 rounded-xl space-y-4">
+                                        {/* Item code badge (if available) */}
+                                        {displayItemCode && (
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs font-mono rounded">
+                                                    📦 {displayItemCode}
+                                                </span>
+                                            </div>
+                                        )}
                                         {/* Main product info */}
                                         <div className="flex items-center gap-4">
                                             <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
