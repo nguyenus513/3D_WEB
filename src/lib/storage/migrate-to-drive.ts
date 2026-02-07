@@ -29,6 +29,8 @@ export interface MigrationResult {
 /**
  * Migrate order files from R2 to Google Drive
  * Called when order status changes to COMPLETED
+ * 
+ * NEW: Reads from order_files table instead of orders.image_urls
  */
 export async function migrateOrderToArchive(orderId: string): Promise<MigrationResult> {
     const result: MigrationResult = {
@@ -54,10 +56,10 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
     try {
         const supabase = getAdminSupabase();
 
-        // 1. Get order with file URLs
+        // 1. Get order info
         const { data: order, error: orderError } = await supabase
             .from('orders')
-            .select('id, order_code, order_type, image_urls, file_url, user_id')
+            .select('id, order_code, order_type, user_id')
             .eq('id', orderId)
             .single();
 
@@ -67,112 +69,89 @@ export async function migrateOrderToArchive(orderId: string): Promise<MigrationR
             return result;
         }
 
-        // Get customer code for folder naming
-        let customerCode = 'GUEST';
-        if (order.user_id) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('customer_code')
-                .eq('id', order.user_id)
-                .single();
-            customerCode = profile?.customer_code || 'GUEST';
+        // 2. Get R2 files from order_files table (not yet archived)
+        const { data: filesToMigrate, error: filesError } = await supabase
+            .from('order_files')
+            .select('id, file_key, file_name, mime_type, category, order_code')
+            .eq('order_id', orderId)
+            .eq('storage_provider', 'r2')
+            .is('archived_at', null);
+
+        if (filesError) {
+            result.success = false;
+            result.errors.push(`Failed to fetch order_files: ${filesError.message}`);
+            return result;
         }
 
-        // 2. Collect R2 URLs to migrate
-        const filesToMigrate: { url: string; type: 'image' | 'file'; index: number }[] = [];
-
-        // Parse image_urls (can be array or JSON string)
-        let imageUrls: string[] = [];
-        if (order.image_urls) {
-            if (Array.isArray(order.image_urls)) {
-                imageUrls = order.image_urls;
-            } else if (typeof order.image_urls === 'string') {
-                try {
-                    imageUrls = JSON.parse(order.image_urls);
-                } catch {
-                    imageUrls = [order.image_urls];
-                }
-            }
-        }
-
-        imageUrls.forEach((url, index) => {
-            if (url && isR2Url(url)) {
-                filesToMigrate.push({ url, type: 'image', index: index + 1 });
-            }
-        });
-
-        if (filesToMigrate.length === 0) {
-            // No R2 files to migrate
+        if (!filesToMigrate || filesToMigrate.length === 0) {
+            console.log(`[Migration] No R2 files to migrate for order ${order.order_code}`);
             return result;
         }
 
         console.log(`[Migration] Starting migration for order ${order.order_code}: ${filesToMigrate.length} files`);
 
         // 3. Migrate each file
-        const newImageUrls: string[] = [...imageUrls];
-
         for (const file of filesToMigrate) {
+            if (!file.file_key) {
+                result.errors.push(`File ${file.id} has no file_key, skipping`);
+                continue;
+            }
+
             try {
-                const r2Key = extractR2KeyFromUrl(file.url);
-                if (!r2Key) {
-                    result.errors.push(`Could not extract key from URL: ${file.url}`);
-                    continue;
-                }
-
                 // Download from R2
-                const buffer = await downloadFromR2(r2Key);
+                const buffer = await downloadFromR2(file.file_key);
 
-                // Determine MIME type from URL
-                const ext = file.url.split('.').pop()?.toLowerCase() || 'jpg';
-                const mimeType = ext === 'png' ? 'image/png' :
-                    ext === 'webp' ? 'image/webp' : 'image/jpeg';
+                // Determine category for Drive folder
+                const category = file.category || 'images';
+                const ext = file.file_name?.split('.').pop()?.toLowerCase() || 'jpg';
+                const mimeType = file.mime_type || (
+                    ext === 'png' ? 'image/png' :
+                        ext === 'webp' ? 'image/webp' :
+                            ext === 'stl' ? 'model/stl' :
+                                ext === 'obj' ? 'model/obj' :
+                                    'image/jpeg'
+                );
 
-                // Upload to Drive (Order-Centric)
-                const category = ['stl', 'obj', '3mf', 'step', 'stp'].includes(ext) ? 'models' : 'images';
-
+                // Upload to Drive with order-centric path
                 const driveResult = await uploadWithNaming(
                     buffer,
-                    file.url.split('/').pop() || `file_${file.index}.${ext}`, // Use original name if possible
+                    file.file_name || `file_${file.id}.${ext}`,
                     mimeType,
                     {
                         type: 'order_centric',
-                        index: file.index,
-                        orderCode: order.order_code,
-                        category: category // Optional subfolder: orders/{code}/models/ or orders/{code}/images/
+                        index: 1,
+                        orderCode: file.order_code || order.order_code,
+                        category: category
                     }
                 );
 
                 const driveUrl = getDirectUrl(driveResult.fileId);
 
-                // Update URL in array
-                const originalIndex = imageUrls.indexOf(file.url);
-                if (originalIndex !== -1) {
-                    newImageUrls[originalIndex] = driveUrl;
+                // Update order_files record with Drive info and archive timestamp
+                const { error: updateError } = await supabase
+                    .from('order_files')
+                    .update({
+                        storage_provider: 'drive',
+                        drive_file_id: driveResult.fileId,
+                        drive_url: driveUrl,
+                        archived_at: new Date().toISOString(),
+                    })
+                    .eq('id', file.id);
+
+                if (updateError) {
+                    result.errors.push(`Failed to update order_files ${file.id}: ${updateError.message}`);
+                    continue;
                 }
 
-                // Delete from R2
-                await deleteFromR2(r2Key);
+                // Delete from R2 after successful migration
+                await deleteFromR2(file.file_key);
 
                 result.migratedFiles++;
-                console.log(`[Migration] Migrated: ${file.url} → ${driveUrl}`);
+                result.newUrls![file.file_key] = driveUrl;
+                console.log(`[Migration] Migrated: ${file.file_key} → ${driveUrl}`);
 
             } catch (fileError) {
-                result.errors.push(`Failed to migrate ${file.url}: ${(fileError as Error).message}`);
-            }
-        }
-
-        // 4. Update database with new URLs
-        if (result.migratedFiles > 0) {
-            const { error: updateError } = await supabase
-                .from('orders')
-                .update({ image_urls: newImageUrls })
-                .eq('id', orderId);
-
-            if (updateError) {
-                result.errors.push(`Failed to update database: ${updateError.message}`);
-                result.success = false;
-            } else {
-                result.newUrls = { image_urls: JSON.stringify(newImageUrls) };
+                result.errors.push(`Failed to migrate ${file.file_key}: ${(fileError as Error).message}`);
             }
         }
 

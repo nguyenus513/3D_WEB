@@ -18,12 +18,15 @@ import {
 import {
     generateUnifiedKey,
     generateProductKey,
-    type FileType
+    generateOrderCentricKey,
+    type FileType,
+    type OrderFileCategory
 } from '@/lib/storage/unified-keys';
 import { validateUploadedFile, sanitizeFilename } from '@/lib/security/file-validation';
 import { trackFileUpload } from '@/lib/security/file-access';
 import { BadRequestError, ForbiddenError } from '@/lib/core/BaseController';
 import { UploadRequestInput } from '@/validators/upload.schema';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 
 // =============================================================================
 // Types
@@ -37,12 +40,87 @@ interface UploadedFile {
     thumbnail: string;
     viewUrl?: string;
     downloadUrl?: string;
+    orderFileId?: string; // ID from order_files table
 }
 
 interface UploadResult {
     success: boolean;
     storage: 'r2' | 'drive';
     file: UploadedFile;
+}
+
+// Determine file category based on upload type and file extension
+function determineCategory(params: UploadRequestInput, fileName: string): OrderFileCategory {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    const is3DModel = ['stl', 'obj', '3mf', 'step', 'stp'].includes(ext);
+
+    if (is3DModel) return 'models';
+    if (params.isReview) return 'review';
+    if (params.type.startsWith('custom_')) return 'images';
+    if (params.type === 'printing') return 'images';
+
+    return 'images'; // default
+}
+
+// Insert record into order_files table for tracking
+async function insertOrderFile(data: {
+    orderCode?: string;
+    orderId?: string;
+    fileKey?: string;
+    storageProvider: 'r2' | 'drive';
+    driveFileId?: string;
+    driveUrl?: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    category: OrderFileCategory;
+    ownerId: string;
+}): Promise<string | null> {
+    // Skip if no order code (e.g., product uploads)
+    if (!data.orderCode) return null;
+
+    try {
+        const supabase = getAdminSupabase();
+
+        // First try to get order_id from order_code
+        let resolvedOrderId = data.orderId;
+        if (!resolvedOrderId && data.orderCode) {
+            const { data: order } = await supabase
+                .from('orders')
+                .select('id')
+                .eq('order_code', data.orderCode)
+                .single();
+            resolvedOrderId = order?.id;
+        }
+
+        const { data: inserted, error } = await supabase
+            .from('order_files')
+            .insert({
+                order_id: resolvedOrderId || null,
+                order_code: data.orderCode,
+                file_key: data.fileKey || null,
+                storage_provider: data.storageProvider,
+                drive_file_id: data.driveFileId || null,
+                drive_url: data.driveUrl || null,
+                file_name: data.fileName,
+                mime_type: data.mimeType,
+                size_bytes: data.sizeBytes,
+                category: data.category,
+                owner_id: data.ownerId,
+            })
+            .select('id')
+            .single();
+
+        if (error) {
+            console.error('[UploadService] Failed to insert order_files:', error);
+            return null;
+        }
+
+        return inserted?.id || null;
+    } catch (err) {
+        console.error('[UploadService] Error inserting order_files:', err);
+        return null;
+    }
 }
 
 // =============================================================================
@@ -176,6 +254,20 @@ export class UploadService {
             options
         );
 
+        // Insert into order_files table for unified tracking
+        const category = determineCategory(params, file.name);
+        const orderFileId = await insertOrderFile({
+            orderCode: params.orderCode || undefined,
+            driveFileId: result.fileId,
+            driveUrl: getDirectUrl(result.fileId),
+            storageProvider: 'drive',
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            sizeBytes: buffer.length,
+            category,
+            ownerId: params.customerCode || 'SYSTEM',
+        });
+
         return {
             success: true,
             storage: 'drive',
@@ -186,6 +278,7 @@ export class UploadService {
                 thumbnail: getThumbnailUrl(result.fileId, 400),
                 viewUrl: result.webViewLink,
                 downloadUrl: result.webContentLink,
+                orderFileId: orderFileId || undefined,
             },
         };
     }
@@ -246,6 +339,19 @@ export class UploadService {
                 }
             );
 
+            // Insert into order_files table for unified tracking
+            const category = determineCategory(params, file.name);
+            const orderFileId = await insertOrderFile({
+                orderCode: params.orderCode ?? undefined,
+                fileKey: key,
+                storageProvider: 'r2',
+                fileName: file.name,
+                mimeType: file.type,
+                sizeBytes: buffer.length,
+                category,
+                ownerId: userId,
+            });
+
             // Return secure proxy URL
             const secureUrl = `/api/files/${key}`;
 
@@ -260,6 +366,7 @@ export class UploadService {
                     thumbnail: secureUrl,
                     viewUrl: secureUrl, // Map to viewUrl for compatibility
                     downloadUrl: secureUrl,
+                    orderFileId: orderFileId || undefined,
                 },
             };
         } catch (error) {

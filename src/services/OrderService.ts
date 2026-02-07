@@ -112,7 +112,7 @@ export class OrderService {
             },
             input.items.map((item) => ({
                 name: (item as any).product_name || 'Item',
-                productId: item.product_id,
+                productId: item.product_id ?? undefined,
                 quantity: item.quantity,
                 unitPrice: item.price,
                 totalPrice: item.price * item.quantity,

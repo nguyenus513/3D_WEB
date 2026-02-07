@@ -66,8 +66,13 @@ export async function POST(
                 .single();
 
             if (legacyOrder) {
-                order = legacyOrder;
-                order.total = legacyOrder.total_amount;
+                order = {
+                    id: legacyOrder.id,
+                    user_id: legacyOrder.user_id,
+                    order_code: legacyOrder.order_code,
+                    status: legacyOrder.status,
+                    total: legacyOrder.total_amount,
+                };
                 orderTable = 'orders';
             }
         }

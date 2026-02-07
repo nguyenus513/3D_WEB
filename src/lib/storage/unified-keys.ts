@@ -19,7 +19,8 @@
 export type FileType = 'main' | 'acc' | 'fdm' | 'resin' | 'review' | 'product';
 
 // NEW: Order-centric storage types (Production-Ready)
-export type OrderFileCategory = 'model' | 'preview' | 'invoice' | 'reference' | 'demo';
+// Categories aligned with order_files.category in database
+export type OrderFileCategory = 'models' | 'images' | 'review' | 'docs' | 'reference';
 
 export interface OrderCentricKeyParams {
     orderCode: string;           // Hex order code (e.g., 4A1B9C2D8E3F)
