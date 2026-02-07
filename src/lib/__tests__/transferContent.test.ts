@@ -2,6 +2,7 @@
  * Unit Tests - Transfer Content Utility
  *
  * Tests for VietQR transfer content generation with 25-char validation
+ * Format: {cartCode}_{orderCode} = 8 + 1 + 8 = 17 chars
  */
 
 import { describe, it, expect } from 'vitest';
@@ -12,14 +13,14 @@ import {
 } from '@/lib/services/paymentConfigService';
 
 describe('buildTransferContent', () => {
-    it('should format as {customerCode}_{orderCode}', () => {
-        expect(buildTransferContent('1E08D23AA9', '5C3C874218')).toBe('1E08D23AA9_5C3C874218');
+    it('should format as {cartCode}_{orderCode}', () => {
+        expect(buildTransferContent('1E08D23A', '5C3C8742')).toBe('1E08D23A_5C3C8742');
     });
 
-    it('should pass with 10-char hex codes (21 total chars)', () => {
-        const content = buildTransferContent('ABCDEF1234', '56789ABCDE');
-        expect(content.length).toBe(21);
-        expect(content).toBe('ABCDEF1234_56789ABCDE');
+    it('should pass with 8-char hex codes (17 total chars)', () => {
+        const content = buildTransferContent('ABCDEF12', '56789ABC');
+        expect(content.length).toBe(17);
+        expect(content).toBe('ABCDEF12_56789ABC');
     });
 
     it('should allow content up to 25 chars', () => {
@@ -51,8 +52,8 @@ describe('buildTransferContent', () => {
 
 describe('generateTransferContent (deprecated)', () => {
     it('should work as alias for buildTransferContent', () => {
-        expect(generateTransferContent('1E08D23AA9', '5C3C874218'))
-            .toBe(buildTransferContent('1E08D23AA9', '5C3C874218'));
+        expect(generateTransferContent('1E08D23A', '5C3C8742'))
+            .toBe(buildTransferContent('1E08D23A', '5C3C8742'));
     });
 });
 

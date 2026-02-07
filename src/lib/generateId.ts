@@ -5,6 +5,8 @@ import { generateHexCode } from './utils/generateHexCode';
  * 
  * | Entity           | Format        | Example      | Length |
  * |------------------|---------------|--------------|--------|
+ * | Cart Code        | Hex String    | 1E08D23A     | 8      |
+ * | Order Code       | Hex String    | 5C3C8742     | 8      |
  * | Custom Order     | Hex String    | 9CF293891B   | 10     |
  * | Product Order    | Hex String    | B2N8P4K5...  | 10     |
  * | 3D Printing      | Hex String    | M4R7S2N9...  | 10     |
@@ -12,6 +14,7 @@ import { generateHexCode } from './utils/generateHexCode';
  * | Master Order     | Hex String    | A1B2C3D4E5F6 | 12     |
  * | Product SKU      | Hex String    | A7B3C9D1     | 8      |
  * 
+ * Transfer Content: {cartCode}_{orderCode} = 8 + 1 + 8 = 17 chars
  * Format: Uppercase Hex string (0-9, A-F)
  */
 
@@ -77,9 +80,18 @@ export const generateId = {
     customer: (): string => generateHexCode(10),
 
     /**
-     * Alias for product() - for cart/checkout flow
+     * Generate Cart Code: 8 chars Hex
+     * Used in transfer content: {cartCode}_{orderCode}
+     * @example 1E08D23A
      */
-    order: (): string => generateHexCode(10),
+    cart: (): string => generateHexCode(8),
+
+    /**
+     * Generate Order Code: 8 chars Hex
+     * Used in transfer content: {cartCode}_{orderCode}
+     * @example 5C3C8742
+     */
+    order: (): string => generateHexCode(8),
 
     /**
      * Generate raw code
@@ -100,6 +112,8 @@ export const validateId = {
 
     // 8 chars Hex
     sku: (id: string): boolean => /^[0-9A-F]{8}$/.test(id),
+    cart: (id: string): boolean => /^[0-9A-F]{8}$/.test(id),
+    order: (id: string): boolean => /^[0-9A-F]{8}$/.test(id),
 
     // 12 chars Hex
     master: (id: string): boolean => /^[0-9A-F]{12}$/.test(id),

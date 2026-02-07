@@ -121,26 +121,26 @@ export function generateFallbackCustomerCode(userId: string): string {
 /**
  * VietQR Transfer Content Max Length
  * Reference: https://vietqr.io - addInfo field limit is 25 characters
- * Format: {customer_code}_{order_code}
- * With 10-char hex codes: 10 + 1 + 10 = 21 chars (safe)
+ * Format: {cart_code}_{order_code}
+ * With 8-char hex codes: 8 + 1 + 8 = 17 chars (safe)
  */
 export const VIETQR_MAX_TRANSFER_CONTENT_LENGTH = 25;
 
 /**
  * Build and validate transfer content for VietQR
- * Format: {customer_code}_{order_code}
- * Example: 1E08D23AA9_5C3C874218
+ * Format: {cart_code}_{order_code}
+ * Example: 1E08D23A_5C3C8742
  * 
  * @throws Error if content exceeds 25 characters
  */
-export function buildTransferContent(customerCode: string, orderCode: string): string {
-    const content = `${customerCode}_${orderCode}`;
+export function buildTransferContent(cartCode: string, orderCode: string): string {
+    const content = `${cartCode}_${orderCode}`;
 
     if (content.length > VIETQR_MAX_TRANSFER_CONTENT_LENGTH) {
         throw new Error(
             `Transfer content exceeds VietQR limit of ${VIETQR_MAX_TRANSFER_CONTENT_LENGTH} chars: ` +
             `"${content}" (${content.length} chars). ` +
-            `Customer code: ${customerCode.length} chars, Order code: ${orderCode.length} chars.`
+            `Cart code: ${cartCode.length} chars, Order code: ${orderCode.length} chars.`
         );
     }
 
