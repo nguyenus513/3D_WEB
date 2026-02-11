@@ -10,6 +10,7 @@
 import { OrderRepository, OrderWithItems, OrderQueryParams } from '@/repositories/OrderRepository';
 import { ProfileRepository } from '@/repositories/ProfileRepository';
 import { NotFoundError, ForbiddenError, BadRequestError } from '@/lib/core/BaseController';
+import { generateId } from '@/lib/generateId';
 import {
     CreateOrderInput,
     UpdateOrderStatusInput,
@@ -100,7 +101,7 @@ export class OrderService {
         const order = await this.orderRepo.create(
             {
                 userId: profile.id,
-                orderCode: `${Date.now()}`, // Simple generation or provided in input
+                orderCode: generateId.order(), // 8-char hex code
                 subtotal: totalAmount, // Note: input.items might need to sum up
                 shippingFee: 0, // Default or calculated
                 discount: 0,
@@ -117,6 +118,7 @@ export class OrderService {
                 unitPrice: item.price,
                 totalPrice: item.price * item.quantity,
                 configuration: item.customization,
+                itemType: (item as any).item_type || 'product',
             }))
         );
 

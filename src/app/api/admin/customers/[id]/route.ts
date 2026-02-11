@@ -39,52 +39,23 @@ export async function GET(
             .eq('user_id', id)
             .order('is_default', { ascending: false });
 
-        // Fetch orders from all tables in parallel
-        const [ordersRes, customRes, printRes, masterRes] = await Promise.all([
-            supabase.from('orders').select('*').eq('user_id', id).order('created_at', { ascending: false }),
-            supabase.from('custom_orders').select('*').eq('user_id', id).order('created_at', { ascending: false }),
-            supabase.from('print_orders').select('*').eq('user_id', id).order('created_at', { ascending: false }),
-            supabase.from('master_orders').select('*').eq('user_id', id).order('created_at', { ascending: false })
-        ]);
+        // Fetch orders from unified orders table
+        const { data: orders } = await supabase
+            .from('orders')
+            .select('*, items:order_items(*)')
+            .eq('user_id', id)
+            .order('created_at', { ascending: false });
 
-        // Normalize and merge orders
-        const allOrders = [
-            ...(ordersRes.data || []).map((o: any) => ({
-                id: o.id,
-                order_code: o.order_code,
-                total_amount: Number(o.total_amount || 0),
-                status: o.status,
-                created_at: o.created_at,
-                source: 'orders'
-            })),
-            ...(customRes.data || []).map((o: any) => ({
-                id: o.id,
-                order_code: o.order_number || o.order_code,
-                total_amount: Number(o.total || o.estimated_price || 0),
-                status: o.status,
-                created_at: o.created_at,
-                source: 'custom_orders'
-            })),
-            ...(printRes.data || []).map((o: any) => ({
-                id: o.id,
-                order_code: o.order_number,
-                total_amount: Number(o.total_price || 0),
-                status: o.status,
-                created_at: o.created_at,
-                source: 'print_orders'
-            })),
-            ...(masterRes.data || []).map((o: any) => ({
-                id: o.id,
-                order_code: o.order_number,
-                total_amount: Number(o.total || 0),
-                status: o.status,
-                created_at: o.created_at,
-                source: 'master_orders'
-            }))
-        ];
-
-        // Sort by newest first
-        allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        // Transform orders
+        const allOrders = (orders || []).map((o: any) => ({
+            id: o.id,
+            order_code: o.order_code || o.cart_code,
+            order_type: o.order_type || 'ready_made',
+            total_amount: Number(o.total_amount || 0),
+            status: o.status,
+            payment_status: o.payment_status,
+            created_at: o.created_at,
+        }));
 
         return NextResponse.json({
             profile,

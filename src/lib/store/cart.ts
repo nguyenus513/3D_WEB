@@ -37,6 +37,7 @@ export interface CartItem {
     price: number;
     quantity: number;
     image?: string;
+    notes?: string; // User notes for any item type
 
     // Product-specific fields
     productId?: string;
@@ -51,6 +52,11 @@ export interface CartItem {
     // Custom-specific fields
     description?: string;
     customFiles?: { name: string; url: string }[];
+    customConfig?: {
+        orderType: string;
+        size: string;
+        imageCount: number;
+    };
 }
 
 interface CartStore {

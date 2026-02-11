@@ -50,15 +50,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Tên danh mục là bắt buộc' }, { status: 400 });
         }
 
-        // Generate slug from name
-        const slug = name
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-
         // Get max sort_order
         const { data: maxOrder } = await supabase
             .from('categories')
@@ -73,9 +64,9 @@ export async function POST(request: NextRequest) {
             .from('categories')
             .insert({
                 name,
-                slug,
                 description: description || null,
                 sort_order: sortOrder,
+                is_active: true,
             })
             .select()
             .single();
@@ -145,22 +136,13 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'ID và tên là bắt buộc' }, { status: 400 });
         }
 
-        // Generate new slug
-        const slug = name
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-
         const { data, error } = await supabase
             .from('categories')
             .update({
                 name,
-                slug,
-                description: description || null,
+                description: body.description || null,
                 sort_order: sort_order || 0,
+                is_active: body.is_active ?? true,
             })
             .eq('id', id)
             .select()

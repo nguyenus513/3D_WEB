@@ -71,7 +71,6 @@ export interface Address {
 export interface Category {
     id: string;
     name: string;
-    slug: string;
     parent_id: string | null;
     sort_order: number;
     is_active: boolean;
@@ -88,17 +87,29 @@ export interface ProductSpecs {
     [key: string]: unknown;
 }
 
+// Product size with its own images
+export interface ProductSize {
+    name: string;
+    sku?: string;
+    price: number;
+    stock: number;
+    enabled: boolean;
+    images: string[]; // Each size has its own gallery
+}
+
+// Product image can be string (legacy) or object (current)
+export type ProductImage = string | { url: string; is_main?: boolean };
+
 export interface Product {
     id: string;
     category_id: string | null;
     sku: string | null;
     name: string;
-    slug: string;
     type: ProductType;
     base_price: number;
     sale_price: number | null;
     stock: number;
-    images: string[]; // Array of URLs
+    images: ProductImage[]; // Default/fallback images
     specs: ProductSpecs;
     is_active: boolean; // Computed or legacy? v3 has status.
     status: 'draft' | 'active' | 'archived'; // Added for v3
@@ -114,8 +125,8 @@ export interface Product {
     updated_at: string;
     // Relations
     category?: Category;
-    // Computed/Frontend Helpers (optional)
-    sizes?: { name: string; price: number; stock: number; enabled: boolean }[];
+    // Sizes with per-size galleries
+    sizes?: ProductSize[];
 }
 
 // ==================== ORDERS ====================

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { Check } from 'lucide-react';
 
 /**
  * Forgot Password Page
@@ -68,9 +69,7 @@ export default function ForgotPasswordPage() {
                         className="bg-[var(--card-bg)] rounded-2xl p-8 border border-[var(--card-border)] text-center"
                     >
                         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/10 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                            <Check size={32} className="text-green-500" strokeWidth={2} />
                         </div>
                         <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
                             Email đã được gửi!

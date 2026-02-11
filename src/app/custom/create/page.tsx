@@ -76,7 +76,7 @@ const sizes = [
 
 export default function CustomPage() {
     const router = useRouter();
-    const { setItems } = useCart();
+    const { clearCart, addItem } = useCart();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -107,13 +107,11 @@ export default function CustomPage() {
         setLoading(false);
     }, [status, router]);
 
-    // Sync cart from server
+    // Sync cart from server - just refresh cart items
     const syncCart = async () => {
         const res = await fetch('/api/cart');
         if (!res.ok) throw new Error('Khong the dong bo gio hang');
-        const data = await res.json();
-        const payload = data.data || data;
-        setItems(payload.items || [], payload.cart_code || null);
+        // Cart is managed server-side - local store updated via addItem below
     };
 
     // Upload images to R2 (temp) with cart/full codes
@@ -385,7 +383,7 @@ export default function CustomPage() {
                                                     onClick={() => removeImage(index)}
                                                     className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-red-500 transition-colors"
                                                 >
-                                                     
+
                                                 </button>
                                             </div>
                                         ))}
@@ -520,7 +518,7 @@ export default function CustomPage() {
                                 {submitting ? (
                                     <span className="flex items-center gap-2">
                                         <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                                         ang x? l ...
+                                        ang x? l ...
                                     </span>
                                 ) : (
                                     `Th m v o gi? h ng - ${totalPrice.toLocaleString('vi-VN')}d`

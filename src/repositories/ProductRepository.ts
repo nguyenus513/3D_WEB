@@ -28,22 +28,29 @@ export interface Product {
     id: string;
     sku: string;
     name: string;
-    slug: string;
+    // Note: 'slug' column removed from DB
     category_id?: string | null;
-    type: 'ready_made' | 'custom' | 'print_on_demand';
-    status: 'draft' | 'active' | 'archived';
+    category?: { id: string; name: string } | null; // Joined relation
+    // Note: 'type' column doesn't exist in DB - removed
     short_description?: string | null;
     description?: string | null;
     base_price: number;
     sale_price?: number | null;
-    cost_price?: number | null;
+    // Note: 'cost_price' doesn't exist in DB - removed
     stock: number;
     images: ProductImage[] | string[];
+    sizes?: ProductSize[] | null;
+    specs?: Record<string, unknown> | null;
     tags: string[];
     is_featured: boolean;
+    is_active: boolean;
+    view_count?: number;
+    sold_count?: number;
+    low_stock_alert?: number;
     created_at: string;
     updated_at: string;
-    // Note: sizes and low_stock_alert removed - columns don't exist in DB
+    // Virtual field for UI - mapped from is_active
+    status?: 'draft' | 'active' | 'archived';
 }
 
 export interface ProductQueryParams {
@@ -77,9 +84,11 @@ export class ProductRepository {
         const { page = 1, limit = 20, status } = params;
         const offset = (page - 1) * limit;
 
+        console.log('[ProductRepository.findAll] Starting query with params:', { page, limit, status, offset });
+
         let query = this.db
             .from('products')
-            .select('*', { count: 'exact' })
+            .select('*, category:categories(id, name)', { count: 'exact' })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -93,7 +102,18 @@ export class ProductRepository {
         }
 
         const { data, count, error } = await query;
-        if (error) throw error;
+
+        console.log('[ProductRepository.findAll] Query result:', {
+            dataCount: data?.length || 0,
+            total: count,
+            error: error?.message,
+            firstProduct: data?.[0]?.name
+        });
+
+        if (error) {
+            console.error('[ProductRepository.findAll] Error:', error);
+            throw error;
+        }
 
         const products = (data || []).map(this.mapToProduct);
         return { products, total: count || 0 };
@@ -120,7 +140,7 @@ export class ProductRepository {
     async findFeatured(limit = 8): Promise<Product[]> {
         const { data, error } = await this.db
             .from('products')
-            .select('id, name, slug, base_price, sale_price, images, short_description, is_active')
+            .select('id, name, sku, base_price, sale_price, images, short_description, is_active')
             .eq('is_featured', true)
             .eq('is_active', true)
             .order('updated_at', { ascending: false })

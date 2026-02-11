@@ -9,56 +9,55 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { useCart, CartItem } from '@/lib/store/cart';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { PaymentQR } from '@/components/PaymentQR';
-
-// Icons
-const ProductIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-);
-
-const PrintIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-    </svg>
-);
-
-const CustomIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-);
+import { Box, Boxes, PenLine } from 'lucide-react';
 
 // Item row in order summary
-function OrderItem({ item }: { item: CartItem | any }) {
+function OrderItem({ item, onUpdateNotes }: { item: CartItem | any; onUpdateNotes?: (id: string, notes: string) => void }) {
     const getTypeIcon = () => {
         // Handle both CartItem type and DB Order Item type
         const type = item.type || item.order_type;
         switch (type) {
-            case 'product': return <ProductIcon />;
-            case 'print': return <PrintIcon />;
-            case 'custom': return <CustomIcon />;
-            default: return <ProductIcon />;
+            case 'product': return <Box size={20} strokeWidth={1.5} />;
+            case 'print': return <Boxes size={20} strokeWidth={1.5} />;
+            case 'custom': return <PenLine size={20} strokeWidth={1.5} />;
+            default: return <Box size={20} strokeWidth={1.5} />;
         }
     };
 
     return (
-        <div className="flex justify-between items-start py-3 border-b border-white/10 last:border-b-0">
-            <div className="flex items-start gap-3 flex-1">
-                <span className="text-white/50 mt-0.5">{getTypeIcon()}</span>
-                <div>
-                    <p className="text-white font-medium line-clamp-1">{item.name || item.product_name || 'Sản phẩm'}</p>
-                    <div className="text-white/50 text-sm">
-                        {/* Render details based on type */}
-                        {item.size && <span>Size: {item.size} • </span>}
-                        {item.quantity && <span>SL: {item.quantity}</span>}
+        <div className="py-3 border-b border-white/10 last:border-b-0">
+            <div className="flex justify-between items-start">
+                <div className="flex items-start gap-3 flex-1">
+                    <span className="text-white/50 mt-0.5">{getTypeIcon()}</span>
+                    <div>
+                        <p className="text-white font-medium line-clamp-1">{item.name || item.product_name || 'Sản phẩm'}</p>
+                        <div className="text-white/50 text-sm">
+                            {/* Render details based on type */}
+                            {item.size && <span>Size: {item.size} • </span>}
+                            {item.quantity && <span>SL: {item.quantity}</span>}
+                        </div>
                     </div>
                 </div>
+                <p className="text-white font-medium whitespace-nowrap">
+                    {((item.price || item.total || 0) * (item.quantity || 1)).toLocaleString('vi-VN')}đ
+                </p>
             </div>
-            <p className="text-white font-medium whitespace-nowrap">
-                {((item.price || item.total || 0) * (item.quantity || 1)).toLocaleString('vi-VN')}đ
-            </p>
+            {/* Notes field */}
+            {onUpdateNotes ? (
+                <div className="mt-3 ml-8">
+                    <textarea
+                        value={item.notes || ''}
+                        onChange={(e) => onUpdateNotes(item.id, e.target.value)}
+                        placeholder="Ghi chú (tùy chọn)..."
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 text-sm resize-none focus:outline-none focus:border-white/30"
+                        rows={2}
+                    />
+                </div>
+            ) : item.notes ? (
+                <div className="mt-2 ml-8 text-sm text-white/60 bg-white/5 rounded-lg px-3 py-2">
+                    <span className="text-white/40">Ghi chú:</span> {item.notes}
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -69,7 +68,7 @@ export function CheckoutContent() {
     const orderIdParam = searchParams.get('orderId');
 
     // Cart Data
-    const { items, totalPrice: cartTotal, clearCart } = useCart();
+    const { items, totalPrice: cartTotal, clearCart, updateItem } = useCart();
     const { data: session } = useSession();
 
     // State
@@ -214,9 +213,18 @@ export function CheckoutContent() {
                         // Only use productId if it's a valid UUID (real product)
                         // For print/custom items, productId is undefined, so send null
                         product_id: item.productId || null,
+                        product_name: item.name, // Pass actual product name
                         quantity: item.quantity,
                         price: item.price,
-                        customization: (item as any).customization || {}
+                        size: item.size || null, // Pass selected size
+                        item_type: item.type, // 'product', 'print', 'custom'
+                        customization: {
+                            ...((item as any).customization || {}),
+                            size: item.size,
+                            sku: item.sku,
+                            printOptions: item.printOptions,
+                            notes: item.notes,
+                        }
                     })),
                     // Map to CreateOrderSchema: { name, phone, address, city }
                     shipping_address: {
@@ -317,7 +325,11 @@ export function CheckoutContent() {
                             </h2>
                             <div className="space-y-1">
                                 {currentItems.map((item, i) => (
-                                    <OrderItem key={i} item={item} />
+                                    <OrderItem
+                                        key={i}
+                                        item={item}
+                                        onUpdateNotes={mode === 'cart' ? (id, notes) => updateItem(id, { notes }) : undefined}
+                                    />
                                 ))}
                             </div>
                         </div>

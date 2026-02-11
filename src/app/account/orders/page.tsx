@@ -4,22 +4,38 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
+import { Box } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 
+// Individual order item (full_code format: ORDERCODE_ITEMCODE)
 interface OrderItem {
+    id: string;
+    item_code: string; // 8 char HEX
+    full_code: string; // 17 char: ORDER_ITEM (e.g., A4F5A15B_1185AFCE)
     name: string;
     quantity: number;
+    unit_price: number;
     total_price: number;
+    production_status: string; // waiting, designing, producing, etc.
+    item_type: string; // print_3d, custom, product
+    print_tech?: string;
+    color?: string;
+    material?: string;
 }
 
-interface Order {
+// Master Order (what user sees)
+interface CartOrder {
     id: string;
-    order_code: string;
+    order_code: string; // 8 HEX - primary identifier
     created_at: string;
-    total: number;
+    total_amount: number;
     status: string;
-    order_items: OrderItem[];
+    payment_status?: string;
+    order_type?: string;
+    items?: OrderItem[];
+    notes?: string;
 }
+
 
 const tabs = [
     { key: 'all', label: 'Tất cả' },
@@ -60,7 +76,7 @@ const statusLabels: Record<string, string> = {
 
 export default function AccountOrdersPage() {
     const { data: session, status } = useSession();
-    const [orders, setOrders] = useState<Order[]>([]);
+    const [orders, setOrders] = useState<CartOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
 
@@ -154,9 +170,17 @@ export default function AccountOrdersPage() {
                         {/* Order header */}
                         <div className="p-5 border-b border-white/10 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <span className="text-white font-semibold">{order.order_code}</span>
+                                <span className="text-white font-semibold font-mono">
+                                    {order.order_code}
+                                </span>
                                 <span className="text-white/50 text-sm">
-                                    {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                                    {new Date(order.created_at).toLocaleString('vi-VN', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
                                 </span>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
@@ -164,25 +188,34 @@ export default function AccountOrdersPage() {
                             </span>
                         </div>
 
-                        {/* Order items */}
+                        {/* Order items - ALWAYS render regardless of count */}
                         <div className="p-5">
                             <div className="space-y-3">
-                                {order.order_items?.slice(0, 3).map((item, i) => (
-                                    <div key={i} className="flex items-center gap-3">
+                                {/* EmptyState when no items */}
+                                {(!order.items || order.items.length === 0) && (
+                                    <div className="text-center py-4 text-white/40">
+                                        <Box size={32} className="mx-auto mb-2 opacity-50 text-white/40" strokeWidth={1.5} />
+                                        <p className="text-sm">Đơn hàng đang xử lý</p>
+                                    </div>
+                                )}
+
+                                {/* Render ALL items (slice removed for showing at least first 3) */}
+                                {order.items && order.items.slice(0, 3).map((item, i) => (
+                                    <div key={item.full_code || i} className="flex items-center gap-3">
                                         <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                                            <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                            </svg>
+                                            <Box size={24} className="text-white/40" strokeWidth={1.5} />
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-white">{item.name}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white truncate">{item.name}</p>
                                             <p className="text-white/50 text-sm">x{item.quantity}</p>
                                         </div>
-                                        <p className="text-white">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
+                                        <p className="text-white font-medium">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
                                     </div>
                                 ))}
-                                {(order.order_items?.length || 0) > 3 && (
-                                    <p className="text-white/50 text-sm">+{(order.order_items?.length || 0) - 3} sản phẩm khác</p>
+
+                                {/* Show +N more if more than 3 items */}
+                                {order.items && order.items.length > 3 && (
+                                    <p className="text-white/50 text-sm">+{order.items.length - 3} sản phẩm khác</p>
                                 )}
                             </div>
                         </div>
@@ -191,7 +224,7 @@ export default function AccountOrdersPage() {
                         <div className="px-5 py-4 bg-white/5 flex items-center justify-between">
                             <div>
                                 <span className="text-white/50 text-sm">Tổng cộng: </span>
-                                <span className="text-white font-semibold">{Number(order.total).toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')}đ</span>
                             </div>
                             <Link
                                 href={`/account/orders/${order.id}`}

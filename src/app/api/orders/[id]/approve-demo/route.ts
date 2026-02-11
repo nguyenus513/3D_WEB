@@ -2,7 +2,7 @@
  * User Demo Approval API
  * POST /api/orders/[id]/approve-demo - Approve demo design
  * DELETE /api/orders/[id]/approve-demo - Reject demo with feedback
- * Uses Supabase Admin REST for reliable status updates (no Direct DB)
+ * Uses unified orders table only
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -23,60 +23,21 @@ export async function POST(
         // 1. Check session
         const session = await auth();
         if (!session?.user?.id) {
-            console.error('[ApproveDemo] Error: Unauthorized (No session/user)');
+            console.error('[ApproveDemo] Error: Unauthorized');
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         // 2. Initialize Admin Client
-        let supabase;
-        try {
-            supabase = getAdminSupabase();
-        } catch (err) {
-            console.error('[ApproveDemo] Error initializing Supabase Admin:', err);
-            return NextResponse.json({ error: 'Server Configuration Error' }, { status: 500 });
-        }
+        const supabase = getAdminSupabase();
 
-        // 3. Find order (Multi-table lookup)
-        let targetTable = '';
-        let order: any = null;
-
-        // Check custom_orders
-        const { data: customOrder } = await supabase
-            .from('custom_orders')
+        // 3. Find order in unified orders table
+        const { data: order, error: findError } = await supabase
+            .from('orders')
             .select('*')
             .eq('id', orderId)
             .maybeSingle();
 
-        if (customOrder) {
-            targetTable = 'custom_orders';
-            order = customOrder;
-        } else {
-            console.log('[ApproveDemo] Not found in custom_orders, trying print_orders...');
-            const { data: printOrder } = await supabase
-                .from('print_orders')
-                .select('*')
-                .eq('id', orderId)
-                .maybeSingle();
-
-            if (printOrder) {
-                targetTable = 'print_orders';
-                order = printOrder;
-            } else {
-                console.log('[ApproveDemo] Not found in print_orders, trying orders...');
-                const { data: regularOrder } = await supabase
-                    .from('orders')
-                    .select('*')
-                    .eq('id', orderId)
-                    .maybeSingle();
-
-                if (regularOrder) {
-                    targetTable = 'orders';
-                    order = regularOrder;
-                }
-            }
-        }
-
-        if (!order) {
+        if (findError || !order) {
             console.error('[ApproveDemo] Error: Order not found ID:', orderId);
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
@@ -87,26 +48,22 @@ export async function POST(
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        console.log(`[ApproveDemo] Found order in '${targetTable}' with status '${order.status}'`);
+        console.log(`[ApproveDemo] Found order with status '${order.status}'`);
 
         if (order.status !== 'review') {
             if (order.status === 'approved') {
-                console.log('[ApproveDemo] Order already approved. Returning success.');
+                console.log('[ApproveDemo] Order already approved');
                 return NextResponse.json({ success: true, message: 'Already approved', new_status: 'approved' });
             }
             console.error(`[ApproveDemo] Error: Invalid status '${order.status}'`);
             return NextResponse.json({ error: 'Order is not in review status' }, { status: 400 });
         }
 
-        // 4. Update status to 'approved' - Admin will manually move to 'producing' when ready
-        const newStatus = 'approved';
-
-        console.log(`[ApproveDemo] Updating status to '${newStatus}' in ${targetTable}...`);
-
+        // 4. Update status to 'approved'
         const { error: updateError } = await supabase
-            .from(targetTable)
+            .from('orders')
             .update({
-                status: newStatus,
+                status: 'approved',
                 approved_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
@@ -128,7 +85,7 @@ export async function POST(
         return NextResponse.json({
             success: true,
             message: 'Demo approved successfully',
-            new_status: newStatus
+            new_status: 'approved'
         });
 
     } catch (error) {
@@ -157,34 +114,31 @@ export async function DELETE(
 
         const supabase = getAdminSupabase();
 
-        let targetTable = '';
-        let order: any = null;
+        // Find order in unified orders table
+        const { data: order, error: findError } = await supabase
+            .from('orders')
+            .select('id, user_id, status')
+            .eq('id', orderId)
+            .maybeSingle();
 
-        // Lookup logic same as POST
-        const { data: customOrder } = await supabase.from('custom_orders').select('id, user_id, status').eq('id', orderId).maybeSingle();
-        if (customOrder) { targetTable = 'custom_orders'; order = customOrder; }
-        else {
-            const { data: printOrder } = await supabase.from('print_orders').select('id, user_id, status').eq('id', orderId).maybeSingle();
-            if (printOrder) { targetTable = 'print_orders'; order = printOrder; }
-            else {
-                const { data: regularOrder } = await supabase.from('orders').select('id, user_id, status').eq('id', orderId).maybeSingle();
-                if (regularOrder) { targetTable = 'orders'; order = regularOrder; }
-            }
+        if (findError || !order) {
+            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        if (order.user_id !== session.user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
-        if (order.user_id !== session.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        if (order.status !== 'review') {
+            return NextResponse.json({ error: 'Order is not in review status' }, { status: 400 });
+        }
 
-        if (order.status !== 'review') return NextResponse.json({ error: 'Order is not in review status' }, { status: 400 });
-
-        console.log(`[RejectDemo] Updating status to 'revising' in ${targetTable}...`);
+        console.log(`[RejectDemo] Updating status to 'revising'...`);
         const { error: updateError } = await supabase
-            .from(targetTable)
+            .from('orders')
             .update({
                 status: 'revising',
-                customer_note: feedback,
-                revising_at: new Date().toISOString(),
+                notes: feedback,
                 updated_at: new Date().toISOString()
             })
             .eq('id', orderId);

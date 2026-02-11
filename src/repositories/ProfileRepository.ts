@@ -16,11 +16,11 @@ export interface Profile {
     full_name?: string | null;
     phone?: string | null;
     customer_code?: string | null;
-    role: 'customer' | 'admin';
-    instagram?: string | null;
     avatar_url?: string | null;
+    is_verified?: boolean;
+    role: 'customer' | 'admin';
     created_at: string;
-    updated_at?: string;
+    updated_at?: string | null;
 }
 
 // =============================================================================
@@ -80,7 +80,6 @@ export class ProfileRepository {
         email: string;
         full_name?: string;
         phone?: string;
-        instagram?: string;
     }): Promise<Profile> {
         // Generate customer code
         const { generateId } = await import('@/lib/generateId');
@@ -102,11 +101,11 @@ export class ProfileRepository {
             .insert({
                 id: newId,
                 email: data.email,
-                full_name: data.full_name,
-                phone: data.phone,
-                instagram: data.instagram,
+                full_name: data.full_name || null,
+                phone: data.phone || null,
                 customer_code: customerCode,
                 role: 'customer',
+                is_verified: false,
             })
             .select()
             .single();
@@ -127,7 +126,7 @@ export class ProfileRepository {
         data: {
             full_name?: string;
             phone?: string;
-            instagram?: string;
+            avatar_url?: string;
         }
     ): Promise<Profile> {
         const updateData: Record<string, unknown> = {
@@ -136,7 +135,7 @@ export class ProfileRepository {
 
         if (data.full_name !== undefined) updateData.full_name = data.full_name;
         if (data.phone !== undefined) updateData.phone = data.phone;
-        if (data.instagram !== undefined) updateData.instagram = data.instagram;
+        if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
 
         const { data: profile, error } = await this.db
             .from('profiles')

@@ -19,7 +19,7 @@ export default function AdminProductsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [deleting, setDeleting] = useState<string | null>(null);
-    const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([]);
+    const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
     useEffect(() => {
         fetchCategories();
@@ -42,10 +42,20 @@ export default function AdminProductsPage() {
         try {
             // Use API endpoint with admin auth instead of direct Supabase
             const response = await fetch('/api/admin/products');
-            const data = await response.json();
+            const responseJson = await response.json();
+
+            // API uses envelope pattern: { success: true, data: { products: [...] } }
+            const data = responseJson.data || responseJson; // Support both formats
+
+            console.log('[AdminProducts] API Response:', {
+                ok: response.ok,
+                status: response.status,
+                hasEnvelope: !!responseJson.data,
+                productsCount: data.products?.length,
+            });
 
             if (!response.ok) {
-                console.error('Error fetching products:', data.error);
+                console.error('Error fetching products:', responseJson.error);
                 setLoading(false);
                 return;
             }
@@ -59,6 +69,7 @@ export default function AdminProductsPage() {
                 buyer_count: 0,
             }));
 
+            console.log('[AdminProducts] Fetched products:', productsWithStats.length, productsWithStats.map((p: any) => ({ name: p.name, category: p.category })));
             setProducts(productsWithStats);
         } catch (error) {
             console.error('Error fetching products:', error);
@@ -89,17 +100,15 @@ export default function AdminProductsPage() {
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             active: 'bg-green-500/20 text-green-400',
-            draft: 'bg-yellow-500/20 text-yellow-400',
-            archived: 'bg-white/10 text-white/50',
+            draft: 'bg-white/10 text-white/50',
         };
         const labels: Record<string, string> = {
             active: 'Đang bán',
-            draft: 'Nháp',
-            archived: 'Lưu trữ',
+            draft: 'Ẩn',
         };
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
-                {labels[status] || status}
+                {labels[status] || 'Ẩn'}
             </span>
         );
     };
@@ -274,23 +283,28 @@ export default function AdminProductsPage() {
                         <tbody>
                             {/* Grouping Logic */}
                             {(() => {
-                                // 1. Group products by category ID (or 'other')
+                                // 1. Group products by category name (or 'other')
                                 const groups: Record<string, ProductWithStats[]> = {};
                                 const otherProducts: ProductWithStats[] = [];
 
+                                // Build a set of known category names for fast lookup
+                                const knownCategoryNames = new Set(categories.map(c => c.name.trim()));
+
                                 filteredProducts.forEach(product => {
-                                    if (product.category?.name) {
-                                        const catName = product.category.name;
+                                    const catName = product.category?.name?.trim();
+                                    if (catName && knownCategoryNames.has(catName)) {
+                                        // Product has category that matches our categories list
                                         if (!groups[catName]) groups[catName] = [];
                                         groups[catName].push(product);
                                     } else {
+                                        // No category OR category not in our list
                                         otherProducts.push(product);
                                     }
                                 });
 
                                 // 2. Determine display order based on 'categories' state
                                 const orderedGroups = categories
-                                    .map(c => c.name)
+                                    .map(c => c.name.trim())
                                     .filter(name => groups[name] && groups[name].length > 0)
                                     .map(name => ({ name, products: groups[name] }));
 

@@ -44,29 +44,31 @@ export class ProductService {
      * Create a new product
      */
     async createProduct(input: CreateProductInput): Promise<Product> {
-        // Generate slug if not provided
-        const slug = input.slug || this.generateSlug(input.name);
+        // Note: slug removed from DB - no longer needed
 
         try {
             return await this.productRepo.create({
                 sku: input.sku.trim(),
                 name: input.name.trim(),
-                slug,
+                // Note: 'slug' removed - column doesn't exist in DB
                 category_id: input.category_id,
-                type: input.type,
+                // Note: 'type' removed - column doesn't exist in DB
                 status: input.status,
                 short_description: input.short_description,
                 description: input.description,
                 base_price: input.base_price,
                 sale_price: input.sale_price,
-                cost_price: input.cost_price,
+                // Note: 'cost_price' removed - column doesn't exist in DB
                 stock: input.stock,
                 images: input.images,
+                sizes: input.sizes, // JSONB column in DB
                 tags: input.tags,
                 is_featured: input.is_featured,
-                // Note: sizes stored separately or as JSONB - not supported in current DB schema
+                is_active: input.status === 'active',
             });
         } catch (error: unknown) {
+
+
             if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
                 throw new ConflictError('SKU hoặc slug đã tồn tại');
             }
@@ -90,13 +92,15 @@ export class ProductService {
         const updateData: Partial<Product> = {};
         if (updates.name) updateData.name = updates.name.trim();
         if (updates.sku) updateData.sku = updates.sku.trim();
-        if (updates.slug) updateData.slug = updates.slug.trim();
+        // Note: slug removed from DB
         if (updates.status) updateData.status = updates.status;
+        if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
         if (updates.base_price !== undefined) updateData.base_price = updates.base_price;
         if (updates.sale_price !== undefined) updateData.sale_price = updates.sale_price;
         if (updates.stock !== undefined) updateData.stock = updates.stock;
         if (updates.is_featured !== undefined) updateData.is_featured = updates.is_featured;
         if (updates.images !== undefined) updateData.images = updates.images;
+        if (updates.sizes !== undefined) updateData.sizes = updates.sizes;
         if (updates.description !== undefined) updateData.description = updates.description;
 
         await this.productRepo.update(id, updateData);

@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// GET endpoint for manual status check
+// GET endpoint for manual status check by item_code or order_code
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
@@ -149,19 +149,54 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Code required' }, { status: 400 });
     }
 
-    const { data: payment } = await supabaseAdmin
-        .from('payment')
-        .select('status, amount, paid_at')
-        .eq('reference_code', code)
+    const upperCode = code.toUpperCase();
+
+    // Try to find by item_code first (new direct payment flow)
+    const { data: orderItem } = await supabaseAdmin
+        .from('order_items')
+        .select(`
+            id,
+            item_code,
+            full_code,
+            order:orders(
+                id,
+                order_code,
+                status,
+                payment_status,
+                total_amount
+            )
+        `)
+        .eq('item_code', upperCode)
         .single();
 
-    if (!payment) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (orderItem && orderItem.order) {
+        // Cast to any because Supabase types can be array or object for 1:1 relations
+        const order = orderItem.order as any;
+        return NextResponse.json({
+            success: true,
+            status: order.payment_status || order.status,
+            amount: order.total_amount,
+            order_code: order.order_code,
+            item_code: orderItem.item_code,
+        });
     }
 
-    return NextResponse.json({
-        status: payment.status,
-        amount: payment.amount,
-        paidAt: payment.paid_at,
-    });
+    // Fallback: try by order_code
+    const { data: order } = await supabaseAdmin
+        .from('orders')
+        .select('id, order_code, status, payment_status, total_amount')
+        .eq('order_code', upperCode)
+        .single();
+
+    if (order) {
+        return NextResponse.json({
+            success: true,
+            status: order.payment_status || order.status,
+            amount: order.total_amount,
+            order_code: order.order_code,
+        });
+    }
+
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
 }
+

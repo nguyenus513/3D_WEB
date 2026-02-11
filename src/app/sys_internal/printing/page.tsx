@@ -56,10 +56,15 @@ export default function AdminPrintingPage() {
     const fetchOrders = async () => {
         const supabase = getSupabase();
 
-        // Fetch orders with their order_items including production_status
+        // Fetch orders with their order_items (only columns that exist)
         const { data, error } = await supabase
             .from('orders')
-            .select('*, order_items(*)')
+            .select(`
+                id, order_code, cart_code, user_id, order_type,
+                total_amount, status, payment_status, shipping_address,
+                created_at, updated_at,
+                order_items(id, order_id, name, quantity, unit_price, total_price)
+            `)
             .order('created_at', { ascending: false });
 
         if (!error && data) {
@@ -89,17 +94,19 @@ export default function AdminPrintingPage() {
     };
 
     // Update production status for individual order item
+    // TODO: Re-enable after adding production_status column to order_items
     const handleUpdateProductionStatus = async (itemId: string, newStatus: string) => {
-        try {
-            const supabase = getSupabase();
-            await supabase
-                .from('order_items')
-                .update({ production_status: newStatus })
-                .eq('id', itemId);
-            fetchOrders();
-        } catch (error) {
-            console.error('Error updating production status:', error);
-        }
+        console.warn('production_status column not available in current schema');
+        // try {
+        //     const supabase = getSupabase();
+        //     await supabase
+        //         .from('order_items')
+        //         .update({ production_status: newStatus })
+        //         .eq('id', itemId);
+        //     fetchOrders();
+        // } catch (error) {
+        //     console.error('Error updating production status:', error);
+        // }
     };
 
     return (

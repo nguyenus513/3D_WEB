@@ -108,6 +108,7 @@ export class CartRepository {
                 user_id: userId,
                 cart_code: cartCode,
                 order_code: cartCode, // Same as cart_code for new orders
+                name: `Cart-${cartCode}`, // Required field - will be updated on checkout
                 payment_status: 'pending',
                 fulfillment_status: 'pending',
                 status: 'pending',
@@ -458,8 +459,18 @@ export class CartRepository {
             quantity: item.quantity,
             product_id: item.productId,
             sku: item.sku,
+            // Store item type and options in dedicated columns (for fast queries)
+            item_type: item.type || 'product',
+            color: item.printOptions?.color || null,
+            material: null, // Not in current PrintOptions, can be extended later
+            infill: item.printOptions?.infill || null,
+            print_tech: item.printOptions?.type || null, // PrintOptions.type = 'fdm' | 'resin'
+            layer_height: item.printOptions?.layerHeight || null,
+            custom_type: item.customConfig?.orderType || null,
+            custom_size: item.customConfig?.size || item.size || null,
+            notes: item.notes || null,
+            // Also keep full configuration for flexibility
             configuration: {
-                item_type: item.type,
                 size: item.size,
                 image_url: item.image,
                 original_price: item.originalPrice,

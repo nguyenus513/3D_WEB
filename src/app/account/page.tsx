@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
+import { ShoppingBag, Clock, CheckCircle, Box, PenLine } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 
 interface OrderStats {
@@ -98,7 +99,7 @@ export default function AccountPage() {
                     id: o.id,
                     order_code: o.order_code,
                     created_at: o.created_at,
-                    total: o.total || 0,
+                    total: o.total_amount || 0,
                     status: o.status,
                     item_count: Array.isArray(o.order_items) ? o.order_items.length : 1,
                 }));
@@ -114,23 +115,17 @@ export default function AccountPage() {
     const statCards = [
         {
             name: 'Tổng đơn hàng', value: stats.total.toString(), icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
+                <ShoppingBag size={20} strokeWidth={1.5} />
             )
         },
         {
             name: 'Đang xử lý', value: stats.processing.toString(), icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Clock size={20} strokeWidth={1.5} />
             )
         },
         {
             name: 'Hoàn thành', value: stats.completed.toString(), icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <CheckCircle size={20} strokeWidth={1.5} />
             )
         },
     ];
@@ -213,9 +208,15 @@ export default function AccountPage() {
                                         </svg>
                                     </div>
                                     <div>
-                                        <p className="text-white font-medium">{order.order_code}</p>
+                                        <p className="text-white font-medium font-mono tracking-wider">{order.order_code}</p>
                                         <p className="text-white/50 text-sm">
-                                            {new Date(order.created_at).toLocaleDateString('vi-VN')} • {order.item_count} sản phẩm
+                                            {new Date(order.created_at).toLocaleString('vi-VN', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })} • {order.item_count} sản phẩm
                                         </p>
                                     </div>
                                 </div>
@@ -245,9 +246,7 @@ export default function AccountPage() {
                     className="flex items-center gap-4 p-5 bg-[#1D1D1F] rounded-2xl border border-white/10 hover:bg-white/5 transition-colors"
                 >
                     <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
+                        <Box size={24} className="text-white/70" strokeWidth={1.5} />
                     </div>
                     <div>
                         <p className="text-white font-medium">Xem sản phẩm</p>
@@ -259,9 +258,7 @@ export default function AccountPage() {
                     className="flex items-center gap-4 p-5 bg-[#1D1D1F] rounded-2xl border border-white/10 hover:bg-white/5 transition-colors"
                 >
                     <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
+                        <PenLine size={24} className="text-white/70" strokeWidth={1.5} />
                     </div>
                     <div>
                         <p className="text-white font-medium">Đặt custom</p>

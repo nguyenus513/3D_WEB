@@ -11,6 +11,7 @@ import {
 } from 'framer-motion';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
+import { Menu, X } from 'lucide-react';
 
 export interface DockItem {
     title: string;
@@ -75,18 +76,7 @@ function FloatingDockMobile({
                 onClick={() => setOpen(!open)}
                 className="h-14 w-14 rounded-full bg-[#1D1D1F] flex items-center justify-center border border-white/10"
             >
-                <svg
-                    className="w-6 h-6 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    {open ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    )}
-                </svg>
+                {open ? <X size={24} className="text-white" /> : <Menu size={24} className="text-white" />}
             </button>
         </div>
     );

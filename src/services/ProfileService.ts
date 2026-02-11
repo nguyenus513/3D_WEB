@@ -50,7 +50,6 @@ export class ProfileService {
             return this.profileRepo.update(existing.id, {
                 full_name: input.name,
                 phone: input.phone,
-                instagram: input.instagram,
             });
         } else {
             // Create new profile with Auth ID
@@ -60,7 +59,6 @@ export class ProfileService {
                 email: normalizedEmail,
                 full_name: input.name,
                 phone: input.phone,
-                instagram: input.instagram,
             });
         }
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAdminPath } from '@/hooks/useAdminPath';
+import { Menu, Search, Bell, ShoppingBag } from 'lucide-react';
 
 interface Notification {
     id: string;
@@ -80,17 +81,13 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                     onClick={onMenuClick}
                     className="lg:hidden p-2 rounded-xl hover:bg-white/5 transition-colors mr-2"
                 >
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
+                    <Menu size={24} className="text-white" strokeWidth={1.5} />
                 </button>
 
                 {/* Search */}
                 <div className="flex-1 max-w-md">
                     <div className="relative">
-                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                        <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" strokeWidth={1.5} />
                         <input
                             type="text"
                             placeholder="Tìm kiếm..."
@@ -107,9 +104,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                             onClick={() => setShowNotifications(!showNotifications)}
                             className="relative p-2.5 rounded-xl hover:bg-white/5 transition-colors"
                         >
-                            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
+                            <Bell size={20} className="text-white/70" strokeWidth={1.5} />
                             {/* Badge - only show if there are pending orders */}
                             {pendingCount > 0 && (
                                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-medium rounded-full flex items-center justify-center px-1">
@@ -149,9 +144,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                 <div className="flex items-start gap-3">
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.status === 'pending' ? 'bg-yellow-500/20' : 'bg-blue-500/20'
                                                         }`}>
-                                                        <svg className={`w-4 h-4 ${n.status === 'pending' ? 'text-yellow-400' : 'text-blue-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                                                        </svg>
+                                                        <ShoppingBag size={16} className={n.status === 'pending' ? 'text-yellow-400' : 'text-blue-400'} strokeWidth={1.5} />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">

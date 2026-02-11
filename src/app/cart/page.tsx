@@ -9,47 +9,23 @@ import { clsx } from 'clsx';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button, buttonVariants, buttonBaseStyles, buttonSizes } from '@/components/ui/Button';
 import { useCart, CartItem, CartItemType } from '@/lib/store/cart';
-
-// Icons
-const ProductIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-);
-
-const PrintIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-    </svg>
-);
-
-const CustomIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-);
-
-const TrashIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-);
+import { Box, Boxes, PenLine, Trash2, ShoppingBag } from 'lucide-react';
 
 type TabType = 'all' | CartItemType;
 
 const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'all', label: 'Tất cả', icon: null },
-    { id: 'product', label: 'Sản phẩm', icon: <ProductIcon /> },
-    { id: 'print', label: 'In 3D', icon: <PrintIcon /> },
-    { id: 'custom', label: 'Custom', icon: <CustomIcon /> },
+    { id: 'product', label: 'Sản phẩm', icon: <Box size={20} strokeWidth={1.5} /> },
+    { id: 'print', label: 'In 3D', icon: <Boxes size={20} strokeWidth={1.5} /> },
+    { id: 'custom', label: 'Custom', icon: <PenLine size={20} strokeWidth={1.5} /> },
 ];
 
 // Cart item component
-function CartItemRow({ item, onUpdate, onRemove }: {
+function CartItemRow({ item, onUpdate, onRemove, onUpdateItem }: {
     item: CartItem;
     onUpdate: (id: string, qty: number) => void;
     onRemove: (id: string) => void;
+    onUpdateItem: (id: string, updates: Partial<CartItem>) => void;
 }) {
     const getTypeLabel = () => {
         switch (item.type) {
@@ -73,79 +49,92 @@ function CartItemRow({ item, onUpdate, onRemove }: {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, x: -100 }}
-            className="bg-[#1D1D1F] rounded-2xl p-6 flex items-start gap-6"
+            className="bg-[#1D1D1F] rounded-2xl p-6"
         >
-            {/* Image/Icon */}
-            <div className="w-24 h-24 rounded-xl bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-                {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                ) : item.type === 'print' ? (
-                    <PrintIcon />
-                ) : item.type === 'custom' ? (
-                    <CustomIcon />
-                ) : (
-                    <ProductIcon />
-                )}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className={`px-2 py-0.5 rounded text-xs ${getTypeColor()}`}>
-                        {getTypeLabel()}
-                    </span>
+            <div className="flex items-start gap-6">
+                {/* Image/Icon */}
+                <div className="w-24 h-24 rounded-xl bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    ) : item.type === 'print' ? (
+                        <Boxes size={24} strokeWidth={1.5} className="text-white/50" />
+                    ) : item.type === 'custom' ? (
+                        <PenLine size={24} strokeWidth={1.5} className="text-white/50" />
+                    ) : (
+                        <Box size={24} strokeWidth={1.5} className="text-white/50" />
+                    )}
                 </div>
-                <h3 className="text-white font-semibold text-lg truncate">{item.name}</h3>
 
-                {/* Type-specific details */}
-                {item.type === 'product' && item.size && (
-                    <p className="text-white/50 text-sm mt-1">Size: {item.size}</p>
-                )}
-                {item.type === 'print' && item.printOptions && (
-                    <p className="text-white/50 text-sm mt-1">
-                        {item.printOptions.type.toUpperCase()} • {item.printOptions.color} • {item.printOptions.infill}
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded text-xs ${getTypeColor()}`}>
+                            {getTypeLabel()}
+                        </span>
+                    </div>
+                    <h3 className="text-white font-semibold text-lg truncate">{item.name}</h3>
+
+                    {/* Type-specific details */}
+                    {item.type === 'product' && item.size && (
+                        <p className="text-white/50 text-sm mt-1">Size: {item.size}</p>
+                    )}
+                    {item.type === 'print' && item.printOptions && (
+                        <p className="text-white/50 text-sm mt-1">
+                            {item.printOptions.type.toUpperCase()} • {item.printOptions.color} • {item.printOptions.infill}
+                        </p>
+                    )}
+                    {item.type === 'custom' && item.description && (
+                        <p className="text-white/50 text-sm mt-1 line-clamp-2">{item.description}</p>
+                    )}
+
+                    <p className="text-white font-medium mt-2">
+                        {item.price.toLocaleString('vi-VN')}đ
                     </p>
-                )}
-                {item.type === 'custom' && item.description && (
-                    <p className="text-white/50 text-sm mt-1 line-clamp-2">{item.description}</p>
-                )}
+                </div>
 
-                <p className="text-white font-medium mt-2">
-                    {item.price.toLocaleString('vi-VN')}đ
-                </p>
-            </div>
+                {/* Quantity */}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => onUpdate(item.id, Math.max(1, item.quantity - 1))}
+                        className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                    >
+                        -
+                    </button>
+                    <span className="text-white w-8 text-center">{item.quantity}</span>
+                    <button
+                        onClick={() => onUpdate(item.id, item.quantity + 1)}
+                        className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                    >
+                        +
+                    </button>
+                </div>
 
-            {/* Quantity */}
-            <div className="flex items-center gap-3">
+                {/* Subtotal */}
+                <div className="text-right min-w-[100px]">
+                    <p className="text-white font-semibold">
+                        {(item.price * item.quantity).toLocaleString('vi-VN')}đ
+                    </p>
+                </div>
+
+                {/* Remove */}
                 <button
-                    onClick={() => onUpdate(item.id, Math.max(1, item.quantity - 1))}
-                    className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                    onClick={() => onRemove(item.id)}
+                    className="p-2 text-white/40 hover:text-red-400 transition-colors cursor-pointer"
                 >
-                    -
-                </button>
-                <span className="text-white w-8 text-center">{item.quantity}</span>
-                <button
-                    onClick={() => onUpdate(item.id, item.quantity + 1)}
-                    className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
-                >
-                    +
+                    <Trash2 size={20} strokeWidth={1.5} />
                 </button>
             </div>
 
-            {/* Subtotal */}
-            <div className="text-right min-w-[100px]">
-                <p className="text-white font-semibold">
-                    {(item.price * item.quantity).toLocaleString('vi-VN')}đ
-                </p>
+            {/* Notes textarea */}
+            <div className="mt-4 pt-4 border-t border-white/10">
+                <textarea
+                    value={item.notes || ''}
+                    onChange={(e) => onUpdateItem(item.id, { notes: e.target.value })}
+                    placeholder="Ghi chú cho sản phẩm này (tùy chọn)..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm resize-none focus:outline-none focus:border-white/30 transition-colors"
+                    rows={2}
+                />
             </div>
-
-            {/* Remove */}
-            <button
-                onClick={() => onRemove(item.id)}
-                className="p-2 text-white/40 hover:text-red-400 transition-colors cursor-pointer"
-            >
-                <TrashIcon />
-            </button>
         </motion.div>
     );
 }
@@ -153,7 +142,7 @@ function CartItemRow({ item, onUpdate, onRemove }: {
 export default function CartPage() {
     const router = useRouter();
     const { data: session, status } = useSession();
-    const { items, totalPrice, updateQuantity, removeItem, clearCart, groupedTotals, productItems, printItems, customItems } = useCart();
+    const { items, totalPrice, updateQuantity, updateItem, removeItem, clearCart, groupedTotals, productItems, printItems, customItems } = useCart();
     const [activeTab, setActiveTab] = useState<TabType>('all');
 
     const [checkingOut, setCheckingOut] = useState(false);
@@ -187,9 +176,7 @@ export default function CartPage() {
             <div className="min-h-screen bg-[#0a0a0a] pt-32 pb-20 flex items-center justify-center px-6">
                 <div className="text-center">
                     <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
-                        <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                        </svg>
+                        <ShoppingBag size={40} className="text-white/30" strokeWidth={1.5} />
                     </div>
                     <h2 className="text-2xl font-bold text-white mb-4">Giỏ hàng trống</h2>
                     <p className="text-white/50 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
@@ -258,6 +245,7 @@ export default function CartPage() {
                                     item={item}
                                     onUpdate={updateQuantity}
                                     onRemove={removeItem}
+                                    onUpdateItem={updateItem}
                                 />
                             ))}
                         </AnimatePresence>
@@ -288,7 +276,7 @@ export default function CartPage() {
                                     {groupedTotals.products.count > 0 && (
                                         <div className="flex justify-between">
                                             <span className="text-white/60 flex items-center gap-2">
-                                                <ProductIcon /> Sản phẩm ({groupedTotals.products.count})
+                                                <Box size={20} strokeWidth={1.5} /> Sản phẩm ({groupedTotals.products.count})
                                             </span>
                                             <span className="text-white">{groupedTotals.products.total.toLocaleString('vi-VN')}đ</span>
                                         </div>
@@ -296,7 +284,7 @@ export default function CartPage() {
                                     {groupedTotals.prints.count > 0 && (
                                         <div className="flex justify-between">
                                             <span className="text-white/60 flex items-center gap-2">
-                                                <PrintIcon /> In 3D ({groupedTotals.prints.count})
+                                                <Boxes size={20} strokeWidth={1.5} /> In 3D ({groupedTotals.prints.count})
                                             </span>
                                             <span className="text-white">{groupedTotals.prints.total.toLocaleString('vi-VN')}đ</span>
                                         </div>
@@ -304,7 +292,7 @@ export default function CartPage() {
                                     {groupedTotals.customs.count > 0 && (
                                         <div className="flex justify-between">
                                             <span className="text-white/60 flex items-center gap-2">
-                                                <CustomIcon /> Custom ({groupedTotals.customs.count})
+                                                <PenLine size={20} strokeWidth={1.5} /> Custom ({groupedTotals.customs.count})
                                             </span>
                                             <span className="text-white">{groupedTotals.customs.total.toLocaleString('vi-VN')}đ</span>
                                         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface Address {
     id: string;
@@ -288,9 +289,7 @@ export default function AccountAddressesPage() {
                     onClick={() => setShowForm(true)}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-white/90"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <Plus size={20} strokeWidth={2} />
                     Thêm địa chỉ
                 </button>
             </div>
@@ -337,9 +336,7 @@ export default function AccountAddressesPage() {
                                     className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white"
                                     title="Sửa địa chỉ"
                                 >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
+                                    <Pencil size={20} strokeWidth={1.5} />
                                 </button>
                                 {!address.is_default && (
                                     <button
@@ -347,9 +344,7 @@ export default function AccountAddressesPage() {
                                         className="p-2 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400"
                                         title="Xóa địa chỉ"
                                     >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
+                                        <Trash2 size={20} strokeWidth={1.5} />
                                     </button>
                                 )}
                             </div>

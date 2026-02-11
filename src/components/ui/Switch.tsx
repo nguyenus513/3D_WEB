@@ -70,6 +70,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
             <div className={clsx('inline-flex items-center gap-3', className)}>
                 <button
                     ref={ref}
+                    type="button"
                     role="switch"
                     aria-checked={checked}
                     aria-label={label}

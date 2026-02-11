@@ -31,7 +31,7 @@ export const ProductSizeSchema = z.object({
     price: z.coerce.number().int().min(0),
     stock: z.coerce.number().int().min(0).default(0),
     enabled: z.boolean().default(true),
-    image_url: z.string().optional().nullable(), // Image per size
+    images: z.array(z.string()).optional().default([]), // Multiple images per size
 });
 
 // =============================================================================
@@ -72,11 +72,13 @@ export const UpdateProductSchema = z.object({
     sku: z.string().min(1).max(20).optional(),
     slug: z.string().max(150).optional(),
     status: ProductStatus.optional(),
+    is_active: z.boolean().optional(), // Direct is_active update
     base_price: z.coerce.number().int().min(0).optional(),
     sale_price: z.coerce.number().int().min(0).nullable().optional(),
     stock: z.coerce.number().int().min(0).optional(),
     is_featured: z.boolean().optional(),
-    images: z.array(z.string().url()).optional(),
+    images: z.array(ProductImageSchema).optional(), // Updated to use ProductImageSchema
+    sizes: z.array(ProductSizeSchema).optional(), // Added sizes support
     description: z.string().nullable().optional(),
 });
 

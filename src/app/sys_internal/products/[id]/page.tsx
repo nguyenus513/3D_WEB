@@ -67,45 +67,51 @@ export default function AdminProductEditPage() {
     }, [params.id]);
 
     const fetchProduct = async (id: string) => {
-        const supabase = getSupabase();
-        const { data, error: fetchError } = await supabase
-            .from('products')
-            .select('*')
-            .eq('id', id)
-            .single();
+        try {
+            const response = await fetch(`/api/admin/products/${id}`);
+            const result = await response.json();
 
-        if (fetchError || !data) {
-            setError('Không tìm thấy sản phẩm');
+            if (!response.ok || !result.success) {
+                setError('Không tìm thấy sản phẩm');
+                setLoading(false);
+                return;
+            }
+
+            const product = result.data.product;
+
+            // Map images (string[] -> FormImage[])
+            const images = Array.isArray(product.images)
+                ? product.images.map((img: any, i: number) => ({
+                    url: typeof img === 'string' ? img : img.url,
+                    is_main: i === 0
+                }))
+                : [];
+
+            // Map sizes (ensure array)
+            const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+
+            setPricingMode(sizes.length > 0 ? 'multi_size' : 'original');
+            setFormData({
+                name: product.name,
+                sku: product.sku || '',
+                status: product.is_active ? 'active' : 'draft',
+                basePrice: String(product.base_price || 0),
+                stock: String(product.stock || 0),
+                images: images,
+                sizes: sizes.map((s: any) => ({
+                    name: s.name || '',
+                    sku: s.sku || '',
+                    price: String(s.price || 0),
+                    stock: String(s.stock || 0),
+                    image_url: s.image_url,
+                })),
+            });
+        } catch (err) {
+            console.error('Error fetching product:', err);
+            setError('Không thể tải sản phẩm');
+        } finally {
             setLoading(false);
-            return;
         }
-
-        const product = data as Product;
-        // Map images (string[] -> FormImage[])
-        const images = Array.isArray(product.images)
-            ? product.images.map((url: any, i: number) => ({ url: typeof url === 'string' ? url : url.url, is_main: i === 0 }))
-            : [];
-
-        // Map sizes (ensure array)
-        const sizes = Array.isArray(product.sizes) ? product.sizes : [];
-
-        setPricingMode(sizes.length > 0 ? 'multi_size' : 'original');
-        setFormData({
-            name: product.name,
-            sku: product.sku || '',
-            status: (product as any).is_active ? 'active' : 'draft',
-            basePrice: String(product.base_price || 0),
-            stock: String(product.stock || 0),
-            images: images,
-            sizes: sizes.map((s: any) => ({
-                name: s.name || '',
-                sku: s.sku || '',
-                price: String(s.price || 0),
-                stock: String(s.stock || 0),
-                image_url: s.image_url,
-            })),
-        });
-        setLoading(false);
     };
 
     const fetchBuyers = async (_productId: string) => {
@@ -132,9 +138,8 @@ export default function AdminProductEditPage() {
         setError('');
 
         try {
-            const supabase = getSupabase();
-
             const productData = {
+                id: params.id,
                 name: formData.name,
                 is_active: formData.status === 'active',
                 base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : 0,
@@ -151,13 +156,16 @@ export default function AdminProductEditPage() {
                 })) : [],
             };
 
-            const { error: updateError } = await supabase
-                .from('products')
-                .update(productData)
-                .eq('id', params.id);
+            const response = await fetch('/api/admin/products', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productData),
+            });
 
-            if (updateError) {
-                setError('Không thể cập nhật sản phẩm: ' + updateError.message);
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                setError('Không thể cập nhật sản phẩm: ' + (result.error?.message || 'Unknown error'));
                 return;
             }
 
@@ -728,7 +736,7 @@ export default function AdminProductEditPage() {
                         <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/5">
                             <div className="flex items-center justify-between">
                                 <span className={formData.status === 'active' ? "text-green-400 font-medium" : "text-white/50"}>
-                                    {formData.status === 'active' ? 'Đang bán' : 'Bản nháp/Ẩn'}
+                                    {formData.status === 'active' ? 'Đang bán' : 'Ẩn'}
                                 </span>
                                 <Switch
                                     checked={formData.status === 'active'}

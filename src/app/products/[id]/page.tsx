@@ -17,11 +17,63 @@ export default function ProductDetailPage() {
     const [product, setProduct] = useState<Product | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedSize, setSelectedSize] = useState(0);
+    const [selectedImage, setSelectedImage] = useState(0); // Current image within size
     const [quantity, setQuantity] = useState(1);
     const [addedToCart, setAddedToCart] = useState(false);
     const [payingNow, setPayingNow] = useState(false);
 
     const addItem = useCartStore(state => state.addItem);
+
+    // Get product's general images
+    const getProductImages = (): string[] => {
+        if (!product) return [];
+        return (product.images || []).map(img =>
+            typeof img === 'string' ? img : img.url
+        );
+    };
+
+    // Get current size's images combined with product images
+    const getCurrentImages = (): string[] => {
+        if (!product) return [];
+
+        const productImages = getProductImages();
+        const size = product.sizes?.[selectedSize] as any;
+
+        // Get size-specific images
+        let sizeImages: string[] = [];
+        if (size?.images && size.images.length > 0) {
+            sizeImages = size.images;
+        } else if (size?.image_url) {
+            sizeImages = [size.image_url];
+        }
+
+        // Combine: product images FIRST, then size images (no duplicates)
+        const combined = [...productImages];
+        sizeImages.forEach(img => {
+            if (!combined.includes(img)) {
+                combined.push(img);
+            }
+        });
+
+        return combined.length > 0 ? combined : productImages;
+    };
+
+    // Navigation arrows
+    const handlePrevImage = () => {
+        const images = getCurrentImages();
+        setSelectedImage(prev => (prev - 1 + images.length) % images.length);
+    };
+
+    const handleNextImage = () => {
+        const images = getCurrentImages();
+        setSelectedImage(prev => (prev + 1) % images.length);
+    };
+
+    // Reset selected image when size changes
+    const handleSizeChange = (index: number) => {
+        setSelectedSize(index);
+        setSelectedImage(0); // Reset to first image of new size
+    };
 
     // Handle direct payment (Pay Now) with retry logic
     const handlePayNow = async () => {
@@ -52,7 +104,7 @@ export default function ProductDetailPage() {
                         metadata: {
                             size: size?.name || 'Default',
                             sku: product.sku,
-                            image: product.images?.[0], // Direct string
+                            image: typeof product.images?.[0] === 'string' ? product.images[0] : product.images?.[0]?.url, // Handle both formats
                         },
                     }),
                 });
@@ -97,11 +149,12 @@ export default function ProductDetailPage() {
         // Try to fetch by ID (UUID) or slug
         let query = supabase.from('products').select('*');
 
-        // Check if it's a UUID or slug
+        // Check if it's a UUID
         if (productId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
             query = query.eq('id', productId);
         } else {
-            query = query.eq('slug', productId);
+            // Try by ID as fallback (slug removed)
+            query = query.eq('id', productId);
         }
 
         const { data, error } = await query.single();
@@ -114,11 +167,11 @@ export default function ProductDetailPage() {
         // Schema v3 Adapter: Map DB fields to Component expectations
         const adaptedProduct: Product = {
             ...data,
-            // Map specs.sizes to top-level sizes if available
-            sizes: (data.specs as any)?.sizes?.map((s: any) => ({
+            // Use sizes from top-level column (not specs.sizes)
+            sizes: (data.sizes || []).map((s: any) => ({
                 ...s,
-                enabled: true // Default to enabled if missing
-            })) || [],
+                enabled: s.enabled !== false // Default to enabled if missing
+            })),
             // Ensure images is string[] but component might check .url, need to inspect component usage
             // The component uses product.images[0].url checks, so we might need object wrapping if we don't change component logic
             // But let's verify if we can just update component logic.
@@ -151,7 +204,7 @@ export default function ProductDetailPage() {
             price: price,
             quantity: quantity,
             size: size?.name || 'Default',
-            image: product.images?.[0],
+            image: typeof product.images?.[0] === 'string' ? product.images[0] : product.images?.[0]?.url,
         });
 
         setAddedToCart(true);
@@ -201,29 +254,93 @@ export default function ProductDetailPage() {
                 </nav>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
-                    {/* Left - Product Image */}
+                    {/* Left - Product Gallery (based on selected size) */}
                     <AnimatedSection animation="fadeIn">
-                        <div className="aspect-square rounded-3xl bg-gradient-to-br from-white/5 to-white/10 flex items-center justify-center relative overflow-hidden">
-                            {product.images?.[0] ? (
-                                <img
-                                    src={product.images[0]}
-                                    alt={product.name}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <motion.div
-                                    initial={{ scale: 0.8, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    className="text-[200px]"
-                                >
-                                    🎭
-                                </motion.div>
+                        <div className="space-y-4">
+                            {/* Main Image */}
+                            <div className="aspect-square rounded-3xl bg-gradient-to-br from-white/5 to-white/10 flex items-center justify-center relative overflow-hidden">
+                                {getCurrentImages()[selectedImage] ? (
+                                    <motion.img
+                                        key={`${selectedSize}-${selectedImage}`}
+                                        src={getCurrentImages()[selectedImage]}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.3 }}
+                                    />
+                                ) : (
+                                    <motion.div
+                                        initial={{ scale: 0.8, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        className="text-[200px]"
+                                    >
+                                        🎭
+                                    </motion.div>
+                                )}
+
+                                {hasDiscount && (
+                                    <div className="absolute top-4 left-4 px-3 py-1 bg-red-500 text-white text-sm font-medium rounded-full">
+                                        SALE
+                                    </div>
+                                )}
+
+                                {/* Navigation Arrows */}
+                                {getCurrentImages().length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={handlePrevImage}
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+                                            aria-label="Previous image"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={handleNextImage}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+                                            aria-label="Next image"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                        {/* Image counter */}
+                                        <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/50 rounded-full text-white text-xs">
+                                            {selectedImage + 1} / {getCurrentImages().length}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Thumbnails */}
+                            {getCurrentImages().length > 1 && (
+                                <div className="flex gap-3 flex-wrap">
+                                    {getCurrentImages().map((img, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setSelectedImage(idx)}
+                                            className={`w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-2 transition-all ${selectedImage === idx
+                                                ? 'border-white scale-105'
+                                                : 'border-white/20 hover:border-white/50'
+                                                }`}
+                                        >
+                                            <img
+                                                src={img}
+                                                alt={`${product.name} ${idx + 1}`}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
                             )}
 
-                            {hasDiscount && (
-                                <div className="absolute top-4 left-4 px-3 py-1 bg-red-500 text-white text-sm font-medium rounded-full">
-                                    SALE
-                                </div>
+                            {/* Current size label */}
+                            {product.sizes && product.sizes.length > 0 && (
+                                <p className="text-sm text-white/50 text-center">
+                                    Đang xem: <span className="text-white font-medium">{product.sizes[selectedSize]?.name}</span>
+                                </p>
                             )}
                         </div>
                     </AnimatedSection>
@@ -267,7 +384,7 @@ export default function ProductDetailPage() {
                                         {product.sizes.filter(s => s.enabled).map((size, index) => (
                                             <button
                                                 key={size.name}
-                                                onClick={() => setSelectedSize(index)}
+                                                onClick={() => handleSizeChange(index)}
                                                 className={`px-4 py-3 rounded-xl border transition-all ${selectedSize === index
                                                     ? 'bg-white text-black border-white'
                                                     : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
@@ -358,7 +475,11 @@ export default function ProductDetailPage() {
                                     </li>
                                     <li className="flex items-center gap-2 text-white/60">
                                         <span className="w-2 h-2 rounded-full bg-green-400" />
-                                        Còn hàng: {product.stock} sản phẩm
+                                        Còn hàng: {
+                                            product.sizes?.[selectedSize]?.stock ??
+                                            product.sizes?.reduce((sum, s) => sum + (s.stock || 0), 0) ??
+                                            product.stock
+                                        } sản phẩm
                                     </li>
                                 </ul>
                             </div>

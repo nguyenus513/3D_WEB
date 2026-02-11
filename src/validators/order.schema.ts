@@ -37,12 +37,16 @@ export type OrderStatusType = z.infer<typeof OrderStatus>;
 
 export const OrderItemSchema = z.object({
     product_id: z.string().uuid().nullable().optional(),
+    product_name: z.string().max(200).optional(), // Product name for display
     quantity: z.number().int().min(1).max(100),
     price: z.number().positive(),
+    size: z.string().max(50).nullable().optional(), // Selected size
+    item_type: z.enum(['product', 'print', 'custom']).optional(), // Item type
     customization: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type OrderItemInput = z.infer<typeof OrderItemSchema>;
+
 
 // =============================================================================
 // Create Order Schema

@@ -20,7 +20,8 @@ import {
     generateTransferContent,
     generateCustomerCode,
     isValidCustomerCode,
-    isValidHex
+    isValidHex,
+    generateHex
 } from '@/lib/orderCodeGenerator';
 import { getCorrelationId, CorrelatedLogger } from '@/lib/utils/correlationId';
 import { createSuccessResponse, createErrorResponse, ERROR_MESSAGES } from '@/lib/utils/apiResponse';
@@ -134,15 +135,18 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Generate pure hex codes
-        const codeParent = generateParentCode();
+        // order_code = 8 hex (for the order)
+        // item_code = 8 hex (for the order item)
+        // full_code = {order_code}_{item_code} = 17 chars
+        const codeParent = generateParentCode(); // 8 hex
 
-        // Determine SKU suffix
-        let skuSuffix: string | undefined = undefined;
+        // Generate item_code as separate 8 hex (or use SKU if valid)
+        let codeChild: string;
         if (body.productSku && body.productSku.length === 8 && isValidHex(body.productSku)) {
-            skuSuffix = body.productSku;
+            codeChild = body.productSku.toUpperCase();
+        } else {
+            codeChild = generateHex(8); // 8 hex
         }
-
-        const codeChild = generateChildCode(codeParent, skuSuffix);
 
         // 3. Payment Setup (Manual to enforce content format)
         // Get bank info
@@ -181,39 +185,26 @@ export async function POST(request: NextRequest) {
             bankCode: bankInfo.bank_code
         });
 
-        // Create order_child
-        const { data: orderChild, error: orderError } = await supabaseAdmin
-            .from('order_child')
+        // Create order in orders table
+        const { data: newOrder, error: orderError } = await supabaseAdmin
+            .from('orders')
             .insert({
-                code_child: codeChild,
-                product_sku: body.productSku || null,
-                parent_id: null,
+                order_code: codeParent,
                 user_id: session.user.id,
-                product_id: productId || null,
-                product_type: productType,
-                product_name: productName,
-                quantity,
-                unit_price: unitPrice,
-                total_price: totalPrice,
+                order_type: productType === 'product' ? 'ready_made' : productType,
+                subtotal: totalPrice,
+                shipping_fee: shippingFee,
+                total_amount: finalAmount,
+                deposit_amount: finalAmount,
                 status: 'pending',
-                payment_qr_url: qrUrl,
-                metadata: {
-                    ...metadata,
-                    parent_code: codeParent,
-                    customer_code: customerCode,
-                    transfer_content: transferContent,
-                    shipping_address: shippingAddress,
-                    shipping_fee: shippingFee,
-                    correlation_id: correlationId,
-                    bank_code: bankInfo.bank_code,
-                    account_no: bankInfo.account_no,
-                    account_name: bankInfo.account_name,
-                },
+                payment_status: 'pending',
+                shipping_address: shippingAddress || null,
+                customer_note: null,
             })
             .select()
             .single();
 
-        if (orderError || !orderChild) {
+        if (orderError || !newOrder) {
             logger.error('Order creation failed', orderError);
             return NextResponse.json(
                 createErrorResponse('ORDER_CREATE_FAILED', ERROR_MESSAGES.ORDER_CREATE_FAILED, {
@@ -224,26 +215,60 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        logger.info('Order created successfully', { orderId: orderChild.id });
-
-        // Create payment record
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
-        const { error: paymentError } = await supabaseAdmin
-            .from('payment')
+        // Create order_item
+        const { data: orderItem, error: itemError } = await supabaseAdmin
+            .from('order_items')
             .insert({
-                order_type: 'direct_child',
-                order_id: orderChild.id,
-                reference_code: codeChild,
+                order_id: newOrder.id,
+                product_id: productId || null,
+                item_code: codeChild, // 8 hex
+                full_code: `${codeParent}_${codeChild}`, // 8_8 = 17 chars
+                name: productName,
+                sku: body.productSku || null,
+                quantity,
+                unit_price: unitPrice,
+                total_price: totalPrice,
+                item_type: productType,
+                production_status: 'waiting',
+                spec: metadata || {},
+            })
+            .select()
+            .single();
+
+        if (itemError) {
+            logger.error('Order item creation failed', itemError);
+            // Rollback order
+            await supabaseAdmin.from('orders').delete().eq('id', newOrder.id);
+            return NextResponse.json(
+                createErrorResponse('ORDER_CREATE_FAILED', ERROR_MESSAGES.ORDER_CREATE_FAILED, {
+                    correlationId,
+                    reason: itemError?.message || 'ITEM_CREATE_ERROR'
+                }),
+                { status: 500 }
+            );
+        }
+
+        logger.info('Order created successfully', { orderId: newOrder.id });
+
+        // Create payment record in payments table
+        const { error: paymentError } = await supabaseAdmin
+            .from('payments')
+            .insert({
+                order_id: newOrder.id,
+                transaction_code: transferContent,
                 amount: finalAmount,
+                method: 'qr',
                 status: 'pending',
-                method: 'QR',
-                qr_url: qrUrl,
-                bank_code: bankInfo.bank_code,
-                account_no: bankInfo.account_no,
-                account_name: bankInfo.account_name,
-                expires_at: expiresAt.toISOString(),
-                idempotency_key: idempotencyKey || null,
-                correlation_id: correlationId,
+                gateway_response: {
+                    qr_url: qrUrl,
+                    bank_code: bankInfo.bank_code,
+                    account_no: bankInfo.account_no,
+                    account_name: bankInfo.account_name,
+                    transfer_content: transferContent,
+                    customer_code: customerCode,
+                    correlation_id: correlationId,
+                    idempotency_key: idempotencyKey,
+                },
             });
 
         if (paymentError) {
@@ -251,21 +276,22 @@ export async function POST(request: NextRequest) {
         }
 
         logger.info('Direct payment completed successfully', {
-            orderId: orderChild.id,
+            orderId: newOrder.id,
             amount: finalAmount,
             codeChild,
             customerCode: customerCode,
             transferContent: transferContent
         });
 
+
         return NextResponse.json(createSuccessResponse({
-            orderId: orderChild.id,
+            orderId: newOrder.id,
+            orderCode: codeParent,
             codeChild,
             customerCode: customerCode,
             amount: finalAmount,
             qrUrl: qrUrl,
             transferContent: transferContent,
-            expiresAt: expiresAt.toISOString(),
             correlationId,
             bankInfo: {
                 bankCode: bankInfo.bank_code,
@@ -274,6 +300,7 @@ export async function POST(request: NextRequest) {
                 bankName: BANK_INFO[bankInfo.bank_code as keyof typeof BANK_INFO]?.shortName || bankInfo.bank_code,
             },
         }));
+
     } catch (error: any) {
         logger.error('Unexpected error in direct payment', error);
 

@@ -65,7 +65,7 @@ function determineCategory(params: UploadRequestInput, fileName: string): OrderF
 
 // Insert record into order_files table for tracking
 async function insertOrderFile(data: {
-    orderCode?: string;
+    cartCode?: string; // Changed from orderCode to cartCode
     orderId?: string;
     fileKey?: string;
     storageProvider: 'r2' | 'drive';
@@ -77,19 +77,19 @@ async function insertOrderFile(data: {
     category: OrderFileCategory;
     ownerId: string;
 }): Promise<string | null> {
-    // Skip if no order code (e.g., product uploads)
-    if (!data.orderCode) return null;
+    // Skip if no cart code (e.g., product uploads)
+    if (!data.cartCode) return null;
 
     try {
         const supabase = getAdminSupabase();
 
-        // First try to get order_id from order_code
+        // First try to get order_id from cart_code
         let resolvedOrderId = data.orderId;
-        if (!resolvedOrderId && data.orderCode) {
+        if (!resolvedOrderId && data.cartCode) {
             const { data: order } = await supabase
                 .from('orders')
                 .select('id')
-                .eq('order_code', data.orderCode)
+                .eq('cart_code', data.cartCode)
                 .single();
             resolvedOrderId = order?.id;
         }
@@ -98,7 +98,7 @@ async function insertOrderFile(data: {
             .from('order_files')
             .insert({
                 order_id: resolvedOrderId || null,
-                order_code: data.orderCode,
+                cart_code: data.cartCode, // Use cart_code instead of order_code
                 file_key: data.fileKey || null,
                 storage_provider: data.storageProvider,
                 drive_file_id: data.driveFileId || null,
@@ -258,7 +258,7 @@ export class UploadService {
         // Insert into order_files table for unified tracking
         const category = determineCategory(params, file.name);
         const orderFileId = await insertOrderFile({
-            orderCode: params.orderCode || undefined,
+            cartCode: params.orderCode || undefined, // Using orderCode as cartCode for now
             driveFileId: result.fileId,
             driveUrl: getDirectUrl(result.fileId),
             storageProvider: 'drive',
@@ -343,7 +343,7 @@ export class UploadService {
             // Insert into order_files table for unified tracking
             const category = determineCategory(params, file.name);
             const orderFileId = await insertOrderFile({
-                orderCode: params.orderCode ?? undefined,
+                cartCode: params.orderCode ?? undefined, // Using orderCode as cartCode for now
                 fileKey: key,
                 storageProvider: 'r2',
                 fileName: file.name,

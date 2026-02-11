@@ -84,63 +84,91 @@ export async function POST(request: NextRequest) {
 
         const fullNote = [settingsNote, itemsNote, customerNote].filter(Boolean).join('\n');
 
-        // Create Order
+        // Create Order (ĐƠN TỔNG)
         const { data: orderData, error: orderError } = await supabase
             .from('orders')
             .insert({
                 order_code: orderCode,
                 user_id: user.id,
-                order_type: 'printing',
+                order_type: 'print_3d',
                 status: 'pending',
                 payment_status: 'pending',
                 subtotal: totalPrice,
                 shipping_fee: 0,
+                discount: 0,
                 total_amount: totalPrice,
-                deposit_amount: totalPrice, // 100% deposit for printing
+                deposit_amount: totalPrice,
+                deposit_paid: false,
                 customer_note: fullNote,
                 shipping_address: shippingAddress,
             })
             .select()
             .single();
 
+
         if (orderError) {
             console.error('Printing Order Insert Error:', orderError);
             return NextResponse.json({ error: orderError.message }, { status: 500 });
         }
 
-        // Insert configs (one per distinct file item)
-        // Note: Client logic mapped files 1:1 with items
-        // We iterate through items and match with index if possible or assuming 1:1
-        // The client code had: for (const item of order.items) insert config...
 
-        const configInserts = items.map(item => ({
-            order_id: orderData.id,
-            print_tech: type,
-            material: type === 'resin' ? 'standard_resin' : 'pla',
-            color: color,
-            quantity: item.quantity,
-            print_volume: item.analysis.volume,
-            print_weight: item.analysis.grams,
-            print_time: item.analysis.hours,
-        }));
+        // cartCode already defined above when creating order
+        // Insert order_items (ĐƠN CON - one per file) - NEW SCHEMA
+        const orderItemInserts = items.map((item, index) => {
+            const file = files[index];
+            const itemCode = generateId.order(); // 8 char HEX
+            const fullCode = `${orderCode}_${itemCode}`; // ORDER_ITEM format
 
-        const { error: configError } = await supabase
-            .from('order_configs')
-            .insert(configInserts);
-
-        if (configError) {
-            console.error('Order configs error:', configError);
-            // Non-fatal? Maybe warnings. Admin can see order but missing config details.
-        }
-
-        // Insert files
-        if (files && files.length > 0) {
-            const fileInserts = files.map(f => ({
+            return {
                 order_id: orderData.id,
-                file_id: f.id,
-                file_type: 'stl',
-                file_name: f.name || null,
-            }));
+                product_id: null, // No product for 3D printing
+                item_code: itemCode,
+                full_code: fullCode,
+                name: file?.name || `3D Print ${index + 1}`,
+                quantity: item.quantity,
+                unit_price: item.analysis.price,
+                total_price: item.analysis.price * item.quantity,
+                item_type: 'print_3d',
+                production_status: 'waiting',
+                // All config in spec JSONB
+                spec: {
+                    print_tech: type,
+                    material: type === 'resin' ? 'standard_resin' : 'petg',
+                    color: color,
+                    infill: infill,
+                    layer_height: layerHeight,
+                    volume: item.analysis.volume,
+                    grams: item.analysis.grams,
+                    hours: item.analysis.hours,
+                    file_name: file?.name,
+                    file_id: file?.id,
+                },
+            };
+        });
+
+        const { data: insertedItems, error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItemInserts)
+            .select();
+
+        if (itemsError) {
+            console.error('Order items insert error:', itemsError);
+            return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 });
+        }
+        // Insert order_files (link files to order_items)
+        if (files && files.length > 0) {
+            const fileInserts = files.map((f, idx) => {
+                const linkedItem = insertedItems?.[idx];
+                return {
+                    order_id: orderData.id,
+                    order_item_id: linkedItem?.id || null,
+                    file_name: f.name || null,
+                    file_type: 'stl',
+                    file_key: f.id, // R2 file key
+                    category: 'models',
+                    storage_provider: 'r2',
+                };
+            });
 
             const { error: fileError } = await supabase
                 .from('order_files')

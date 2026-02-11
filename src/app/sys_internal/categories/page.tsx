@@ -6,9 +6,9 @@ import { motion } from 'framer-motion';
 interface Category {
     id: string;
     name: string;
-    slug: string;
     description: string | null;
     sort_order: number;
+    is_active: boolean;
     created_at: string;
 }
 
@@ -187,7 +187,6 @@ export default function AdminCategoriesPage() {
                             <tr className="border-b border-white/10">
                                 <th className="text-left text-white/50 text-sm font-medium px-5 py-4">STT</th>
                                 <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Tên danh mục</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Slug</th>
                                 <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Mô tả</th>
                                 <th className="text-right text-white/50 text-sm font-medium px-5 py-4">Thao tác</th>
                             </tr>
@@ -207,11 +206,6 @@ export default function AdminCategoriesPage() {
                                         ) : (
                                             <span className="text-white font-medium">{category.name}</span>
                                         )}
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <code className="text-white/60 text-sm bg-white/5 px-2 py-1 rounded">
-                                            {category.slug}
-                                        </code>
                                     </td>
                                     <td className="px-5 py-4">
                                         {editingId === category.id ? (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, Mail, X, MessageCircle } from 'lucide-react';
 
 // Contact info
 const CONTACTS = {
@@ -25,17 +26,9 @@ const InstagramIcon = () => (
     </svg>
 );
 
-const PhoneIcon = () => (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-    </svg>
-);
+const PhoneIcon = () => <Phone size={20} strokeWidth={2} />;
 
-const EmailIcon = () => (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-    </svg>
-);
+const EmailIcon = () => <Mail size={20} strokeWidth={2} />;
 
 const contactItems = [
     { key: 'zalo', href: CONTACTS.zalo, icon: ZaloIcon, label: 'Zalo', external: true },
@@ -141,13 +134,9 @@ export default function ContactWidget() {
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
                     {isOpen ? (
-                        <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <X size={24} className="text-white" strokeWidth={2} />
                     ) : (
-                        <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
+                        <MessageCircle size={24} className="text-white" strokeWidth={2} />
                     )}
                 </motion.div>
             </motion.button>

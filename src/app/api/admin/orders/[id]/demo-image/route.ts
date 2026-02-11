@@ -3,15 +3,14 @@
  * POST /api/admin/orders/[id]/demo-image - Upload demo/preview image for customer review
  * 
  * Storage: Cloudflare R2 (fast serving)
- * Uses DIRECT PostgreSQL to bypass Supabase REST API cache issues
+ * Uses unified orders table only
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache'; // Invalidate Next.js cache
+import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, generateReviewR2Key, isR2Configured } from '@/lib/storage/r2';
-import { dbRequest } from '@/lib/db-direct';
 
 export async function POST(
     request: NextRequest,
@@ -33,48 +32,19 @@ export async function POST(
         }
 
         const supabase = getAdminSupabase();
-        let targetTable = '';
-        let orderCode = '';
 
-        // 1. Try orders table
-        const { data: order } = await supabase
+        // Find order in unified orders table
+        const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, order_code, user_id')
+            .select('id, order_code, cart_code, user_id')
             .eq('id', orderId)
             .maybeSingle();
 
-        if (order) {
-            targetTable = 'orders';
-            orderCode = order.order_code;
-        } else {
-            // 2. Try custom_orders table
-            const { data: customOrder } = await supabase
-                .from('custom_orders')
-                .select('id, order_number, user_id')
-                .eq('id', orderId)
-                .maybeSingle();
-
-            if (customOrder) {
-                targetTable = 'custom_orders';
-                orderCode = customOrder.order_number;
-            } else {
-                // 3. Try print_orders table
-                const { data: printOrder } = await supabase
-                    .from('print_orders')
-                    .select('id, order_number, user_id')
-                    .eq('id', orderId)
-                    .maybeSingle();
-
-                if (printOrder) {
-                    targetTable = 'print_orders';
-                    orderCode = printOrder.order_number;
-                }
-            }
+        if (findError || !order) {
+            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        if (!targetTable) {
-            return NextResponse.json({ error: 'Order not found in any table' }, { status: 404 });
-        }
+        const orderCode = order.order_code || order.cart_code;
 
         // Parse multipart form data
         const formData = await request.formData();
@@ -105,50 +75,23 @@ export async function POST(
             type: 'demo',
         });
 
-        // ===== Update status: Try Direct PostgreSQL first, fallback to Supabase REST =====
-        let updateSuccess = false;
+        // Update order status to 'review'
+        const { error: updateError } = await supabase
+            .from('orders')
+            .update({
+                status: 'review',
+                demo_image_url: demoImageUrl,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', orderId);
 
-        // Try direct PostgreSQL
-        try {
-            const updateQuery = `
-                UPDATE ${targetTable} 
-                SET status = $1, 
-                    demo_image_url = $2,
-                    updated_at = NOW()
-                WHERE id = $3
-            `;
-            const result = await dbRequest.query(updateQuery, ['review', demoImageUrl, orderId]);
-            console.log('[DemoUpload] Direct PostgreSQL update:', result.rowCount, 'rows affected');
-            updateSuccess = (result.rowCount || 0) > 0;
-        } catch (dbError) {
-            console.warn('[DemoUpload] Direct PostgreSQL failed, trying Supabase REST:', (dbError as Error).message);
+        if (updateError) {
+            console.error('[DemoUpload] Update failed:', updateError);
         }
 
-        // Fallback: Use Supabase REST API
-        if (!updateSuccess) {
-            const { error: updateError } = await supabase
-                .from(targetTable)
-                .update({
-                    status: 'review',
-                    demo_image_url: demoImageUrl,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', orderId);
-
-            if (updateError) {
-                console.error('[DemoUpload] Supabase REST also failed:', updateError);
-            } else {
-                console.log('[DemoUpload] Supabase REST update succeeded');
-                updateSuccess = true;
-            }
-        }
-
-        // === CRITICAL: Invalidate Next.js cache to ensure fresh data on reload ===
-        if (updateSuccess) {
-            console.log('[DemoUpload] Invalidating cache for:', `/sys_internal/orders/${orderId}`);
-            revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
-            revalidatePath('/sys_internal/orders', 'page');
-        }
+        // Invalidate cache
+        revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
+        revalidatePath('/sys_internal/orders', 'page');
 
         return NextResponse.json({
             success: true,
@@ -161,4 +104,3 @@ export async function POST(
         return NextResponse.json({ error: 'Upload failed: ' + (error as Error).message }, { status: 500 });
     }
 }
-

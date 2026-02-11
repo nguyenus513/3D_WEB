@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
 import { getBankConfig, BANK_INFO, type BankCode } from '@/lib/vietqr';
+import { CheckCircle, Box, Boxes, PenLine, Info } from 'lucide-react';
 
 interface SubOrder {
     type: string;
@@ -41,38 +42,19 @@ interface MasterOrder {
 
 // Icons
 const CheckIcon = () => (
-    <svg className="w-16 h-16 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-);
-
-const ProductIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-);
-
-const PrintIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-    </svg>
-);
-
-const CustomIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
+    <CheckCircle size={64} className="text-green-400" strokeWidth={2} />
 );
 
 const getTypeIcon = (type: string) => {
     switch (type) {
-        case 'product': return <ProductIcon />;
-        case 'print': return <PrintIcon />;
-        case 'custom': return <CustomIcon />;
-        default: return <ProductIcon />;
+        case 'product': return <Box size={20} strokeWidth={1.5} />;
+        case 'print': return <Boxes size={20} strokeWidth={1.5} />;
+        case 'custom': return <PenLine size={20} strokeWidth={1.5} />;
+        default: return <Box size={20} strokeWidth={1.5} />;
     }
 };
+
+
 
 const getTypeLabel = (type: string) => {
     switch (type) {
@@ -183,7 +165,14 @@ export default function CheckoutSuccessPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orderAny = order as any;
         const payment = orderAny?.payment;
-        const depositAmount = orderAny?.deposit_amount || Math.round(order.total * 0.5);
+
+        // Calculate deposit based on order type: custom = 50%, others = 100%
+        const orderType = subOrders[0]?.type || 'product';
+        const isCustomOrder = orderType === 'custom';
+        const depositPercentage = isCustomOrder ? 0.5 : 1.0;
+        const depositLabel = isCustomOrder ? 'Đặt cọc 50%' : 'Thanh toán 100%';
+        const depositAmount = orderAny?.deposit_amount || Math.round(order.total * depositPercentage);
+
         const qrUrl = payment?.qr_url || `https://img.vietqr.io/image/MB-0359123456-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(`MINWSUN_${orderId}`)}`;
         const transferContent = payment?.transfer_content || `MINWSUN_${orderId}`;
         const bankName = payment?.bank_id ? (BANK_INFO[payment.bank_id as BankCode]?.shortName || payment.bank_id) : 'MB Bank';
@@ -229,7 +218,7 @@ export default function CheckoutSuccessPage() {
                                     </div>
                                     <div className="h-px bg-white/10 my-2" />
                                     <div className="flex justify-between items-center">
-                                        <span className="text-white/50">Số tiền cọc (50%)</span>
+                                        <span className="text-white/50">{depositLabel}</span>
                                         <span className="text-green-400 font-bold text-xl">{depositAmount.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex justify-between items-center pt-2">
@@ -239,9 +228,7 @@ export default function CheckoutSuccessPage() {
                                 </div>
 
                                 <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                                    <svg className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                                    <Info size={20} className="text-blue-400 mt-0.5 shrink-0" strokeWidth={2} />
                                     <p className="text-sm text-blue-200/80">
                                         Nội dung chuyển khoản chính xác giúp hệ thống tự động xác nhận đơn hàng của bạn nhanh chóng hơn.
                                     </p>

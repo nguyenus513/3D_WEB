@@ -7,11 +7,11 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
+import { Search, X, Box, Star } from 'lucide-react';
 
 interface Category {
     id: string;
     name: string;
-    slug: string;
 }
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'bestseller';
@@ -52,6 +52,24 @@ export default function ProductsPage() {
             setProducts(data);
         }
         setLoading(false);
+    };
+
+    // Helper to get display price (handles sizes)
+    const getDisplayPrice = (product: Product) => {
+        const sizes = product.sizes as any[];
+        if (sizes && sizes.length > 0) {
+            const prices = sizes.filter(s => s.enabled !== false).map(s => s.price);
+            if (prices.length > 0) {
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+                if (min === max) {
+                    return `${min.toLocaleString('vi-VN')}đ`;
+                }
+                return `${min.toLocaleString('vi-VN')} - ${max.toLocaleString('vi-VN')}đ`;
+            }
+        }
+        const price = product.sale_price || product.base_price;
+        return `${Number(price).toLocaleString('vi-VN')}đ`;
     };
 
     // Filter and sort products
@@ -126,19 +144,7 @@ export default function ProductsPage() {
                 {/* Search Bar */}
                 <AnimatedSection delay={0.15} className="max-w-md mx-auto mb-8">
                     <div className="relative">
-                        <svg
-                            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                            />
-                        </svg>
+                        <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" strokeWidth={1.5} />
                         <input
                             type="text"
                             placeholder="Tìm kiếm sản phẩm..."
@@ -151,9 +157,7 @@ export default function ProductsPage() {
                                 onClick={() => setSearchQuery('')}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 hover:text-white transition-colors"
                             >
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                <X size={20} strokeWidth={2} />
                             </button>
                         )}
                     </div>
@@ -260,7 +264,7 @@ export default function ProductsPage() {
                                                 {/* Product Image or Emoji */}
                                                 {product.images?.[0] ? (
                                                     <motion.img
-                                                        src={product.images[0]}
+                                                        src={typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url}
                                                         alt={product.name}
                                                         className="w-full h-full object-cover relative z-10"
                                                         animate={{
@@ -276,18 +280,14 @@ export default function ProductsPage() {
                                                         }}
                                                         transition={{ duration: 0.4 }}
                                                     >
-                                                        <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                        </svg>
+                                                        <Box size={32} className="text-white/50" strokeWidth={1.5} />
                                                     </motion.span>
                                                 )}
 
                                                 {/* Featured badge */}
                                                 {product.is_featured && (
                                                     <span className="absolute top-4 left-4 px-3 py-1 bg-yellow-400/90 text-black text-xs font-bold rounded-full z-20 flex items-center gap-1">
-                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                        </svg>
+                                                        <Star size={12} fill="currentColor" strokeWidth={0} />
                                                         Nổi bật
                                                     </span>
                                                 )}
@@ -323,20 +323,9 @@ export default function ProductsPage() {
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
-                                                        {product.sale_price ? (
-                                                            <>
-                                                                <p className="text-white font-medium">
-                                                                    {Number(product.sale_price).toLocaleString('vi-VN')}đ
-                                                                </p>
-                                                                <p className="text-sm text-white/40 line-through">
-                                                                    {Number(product.base_price).toLocaleString('vi-VN')}đ
-                                                                </p>
-                                                            </>
-                                                        ) : (
-                                                            <p className="text-white font-medium whitespace-nowrap">
-                                                                {Number(product.base_price).toLocaleString('vi-VN')}đ
-                                                            </p>
-                                                        )}
+                                                        <p className="text-white font-medium whitespace-nowrap">
+                                                            {getDisplayPrice(product)}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -352,9 +341,7 @@ export default function ProductsPage() {
                 {!loading && filteredProducts.length === 0 && (
                     <div className="text-center py-20">
                         <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
+                            <Box size={40} className="text-white/30" strokeWidth={1.5} />
                         </div>
                         <p className="text-white/50 mb-4">
                             {products.length === 0

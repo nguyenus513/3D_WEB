@@ -6,22 +6,58 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { getSupabase } from '@/lib/supabase/client';
+import { X, ArrowLeft } from 'lucide-react';
+import {
+    getCartStatusLabel,
+    getItemStatusLabel,
+    formatOrderDate,
+    SHIPPING_PROVIDERS,
+    type ShippingProvider
+} from '@/lib/utils/orderStatus';
 
 interface OrderItem {
     id: string;
+    cart_order_code?: string; // 17 char format: CARTCODE_ORDERCODE
+    item_order_code?: string; // 8 char format
     product_name: string;
     product_sku: string;
     quantity: number;
     unit_price: number;
     total_price: number;
+    status?: string;
+    production_status?: string;
+    item_type?: string;
+    custom_type?: string;
+    custom_size?: string;
     configuration: {
         size?: string;
+        // Printing fields
+        type?: string;
+        color?: string;
+        fileName?: string;
+        file_name?: string;
+        grams?: number;
+        infill?: string; // FDM infill percentage
+        layerHeight?: string; // FDM layer height
+        // Custom fields
+        custom_type?: string;
     };
+
+    // Custom order fields
+    is_custom?: boolean;
+    custom_note?: string; // User's custom request description
+    preview_images?: string[]; // Admin preview images URLs
+    preview_status?: 'pending' | 'approved' | 'revising'; // Review status
+    // Shipping fields (per-item tracking)
+    shipping_provider?: string;
+    tracking_code?: string;
+    delivered_at?: string;
 }
 
 interface Order {
     id: string;
     order_code: string;
+    cart_code?: string; // 8 HEX - primary display identifier
     order_type: 'ready_made' | 'custom' | 'printing';
     status: string;
     subtotal: number;
@@ -172,12 +208,18 @@ export default function AccountOrderDetailPage() {
             const orderData: Order = {
                 id: data.id,
                 order_code: data.order_code,
+                cart_code: data.cart_code, // 8 HEX display code
                 order_type: data.order_type || 'custom',
                 status: data.status,
                 subtotal: data.total,
                 shipping_fee: 0,
                 total: data.total,
-                deposit_amount: data.deposit_amount || Math.round(data.total * 0.5),
+                // Calculate deposit based on order type: custom = 50%, others = 100%
+                deposit_amount: data.deposit_amount || (
+                    (data.order_type === 'custom' || data.order_type === 'mixed')
+                        ? Math.round(data.total * 0.5)
+                        : data.total
+                ),
                 deposit_paid: data.payment_status === 'paid' || data.payment_status === 'deposit_paid',
                 shipping_address: data.shipping_address,
                 shipping_code: null,
@@ -200,10 +242,10 @@ export default function AccountOrderDetailPage() {
             setLoading(false);
         }
     };
-
+    // Format date: DD/MM/YYYY HH:MM:SS (no icons)
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '';
-        return new Date(dateStr).toLocaleString('vi-VN');
+        return formatOrderDate(dateStr);
     };
 
     const getTimeline = () => {
@@ -273,9 +315,7 @@ export default function AccountOrderDetailPage() {
         return (
             <div className="text-center py-20">
                 <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X size={32} className="text-red-400" strokeWidth={2} />
                 </div>
                 <h2 className="text-xl font-bold text-white mb-2">Không tìm thấy đơn hàng</h2>
                 <p className="text-white/50 mb-6">{error}</p>
@@ -290,55 +330,62 @@ export default function AccountOrderDetailPage() {
     const timeline = getTimeline();
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link
-                        href="/account/orders"
-                        className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-white">Đơn hàng {order.order_code}</h1>
-                        <p className="text-white/50 mt-1">
-                            {orderTypeLabels[order.order_type]} • {formatDate(order.created_at)}
-                        </p>
+        <div className="space-y-8">
+            {/* ═══════════════════════════════════════════════════════════════
+                HEADER - Mã đơn hàng
+            ═══════════════════════════════════════════════════════════════ */}
+            <div className="bg-[#1D1D1F] rounded-3xl border border-white/10 p-8">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-5">
+                        <Link
+                            href="/account/orders"
+                            className="p-3 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors mt-1"
+                        >
+                            <ArrowLeft size={20} strokeWidth={2} />
+                        </Link>
+                        <div>
+                            <p className="text-white/50 text-sm font-medium mb-2">
+                                Mã đơn hàng
+                            </p>
+                            <h1 className="text-4xl md:text-5xl font-bold text-white font-mono tracking-tight select-all cursor-text">
+                                {order.cart_code || order.order_code.slice(-8).toUpperCase()}
+                            </h1>
+                            <p className="text-white/40 text-sm mt-4">
+                                Đặt lúc: {formatDate(order.created_at)}
+                            </p>
+                        </div>
                     </div>
+                    <span className={`px-5 py-2.5 rounded-full text-sm font-semibold ${statusColors[order.status] || 'bg-gray-500/20 text-gray-400'}`}>
+                        {getCartStatusLabel(order.status)}
+                    </span>
                 </div>
-                <span className={`px-4 py-2 rounded-xl text-sm font-medium ${statusColors[order.status] || 'bg-gray-500/20 text-gray-400'}`}>
-                    {statusLabels[order.status] || order.status}
-                </span>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Timeline */}
+                    {/* Timeline - Supporting context, reduced visual weight */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[#1a1a1c]/60 rounded-2xl border border-white/5 p-5"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-6">Tiến trình đơn hàng</h2>
+                        <h2 className="text-base font-medium text-white/70 mb-5">Tiến trình đơn hàng</h2>
                         <div className="relative">
                             {timeline.map((step, index) => (
-                                <div key={step.status} className="flex gap-4 pb-6 last:pb-0">
+                                <div key={step.status} className="flex gap-3 pb-5 last:pb-0">
                                     <div className="flex flex-col items-center">
-                                        <div className={`w-4 h-4 rounded-full ${step.completed ? 'bg-white' : 'bg-white/20'}`} />
+                                        <div className={`w-3 h-3 rounded-full ${step.completed ? 'bg-white/80' : 'bg-white/15'}`} />
                                         {index < timeline.length - 1 && (
-                                            <div className={`w-0.5 flex-1 ${step.completed ? 'bg-white/50' : 'bg-white/10'}`} />
+                                            <div className={`w-0.5 flex-1 ${step.completed ? 'bg-white/30' : 'bg-white/8'}`} />
                                         )}
                                     </div>
-                                    <div className="flex-1 pb-2">
-                                        <p className={`font-medium ${step.completed ? 'text-white' : 'text-white/40'}`}>
+                                    <div className="flex-1 pb-1">
+                                        <p className={`text-sm font-medium ${step.completed ? 'text-white/80' : 'text-white/30'}`}>
                                             {step.label}
                                         </p>
                                         {step.date && (
-                                            <p className="text-white/50 text-sm">{step.date}</p>
+                                            <p className="text-white/40 text-xs mt-0.5">{step.date}</p>
                                         )}
                                     </div>
                                 </div>
@@ -346,30 +393,245 @@ export default function AccountOrderDetailPage() {
                         </div>
                     </motion.div>
 
-                    {/* Order items - Ready Made */}
-                    {order.order_type === 'ready_made' && order.order_items.length > 0 && (
+                    {/* ═══════════════════════════════════════════════════════════════
+                        CHI TIẾT ĐƠN HÀNG - MAIN FOCUS AREA
+                    ═══════════════════════════════════════════════════════════════ */}
+                    {order.order_items.length > 0 && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Sản phẩm</h2>
-                            <div className="space-y-4">
-                                {order.order_items.map((item) => (
-                                    <div key={item.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl">
-                                        <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center text-2xl">
-                                            📦
+                            <h2 className="text-lg font-semibold text-white mb-6">Chi tiết đơn hàng</h2>
+
+                            {/* Order Cards - 24px spacing between cards */}
+                            <div className="space-y-6">
+                                {order.order_items.map((item) => {
+                                    // Generate display code: CARTCODE_ITEMCODE
+                                    const displayCode = item.cart_order_code ||
+                                        (order.cart_code && item.item_order_code
+                                            ? `${order.cart_code}_${item.item_order_code}`
+                                            : `#${item.id.slice(0, 8).toUpperCase()}`);
+
+                                    // Determine item type
+                                    const itemType = item.item_type || order.order_type;
+                                    const isCustom = item.is_custom || itemType === 'custom';
+                                    const isPrinting = itemType === 'printing' || itemType === 'print';
+
+                                    // Badge = item_status (trạng thái duy nhất của item)
+                                    const itemStatus = item.production_status || item.status || 'waiting';
+                                    const getStatusBadge = (status: string) => {
+                                        const statusLabel = getItemStatusLabel(status);
+                                        const colorMap: Record<string, string> = {
+                                            'waiting': 'bg-gray-500/20 text-gray-300',
+                                            'pending': 'bg-gray-500/20 text-gray-300',
+                                            'designing': 'bg-violet-500/20 text-violet-300',
+                                            'waiting_approval': 'bg-amber-500/20 text-amber-300',
+                                            'preview_pending': 'bg-amber-500/20 text-amber-300',
+                                            'producing': 'bg-blue-500/20 text-blue-300',
+                                            'printing': 'bg-indigo-500/20 text-indigo-300',
+                                            'ready_to_ship': 'bg-cyan-500/20 text-cyan-300',
+                                            'shipping': 'bg-sky-500/20 text-sky-300',
+                                            'delivered': 'bg-green-500/20 text-green-300',
+                                            'completed': 'bg-emerald-500/20 text-emerald-300',
+                                            'done': 'bg-emerald-500/20 text-emerald-300',
+                                        };
+                                        return { label: statusLabel, color: colorMap[status] || 'bg-gray-500/20 text-gray-300' };
+                                    };
+                                    const badge = getStatusBadge(itemStatus);
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="bg-[#1C1C1E] rounded-2xl border border-white/[0.06] overflow-hidden"
+                                        >
+                                            {/* ═══ HEADER: Code + Badge ═══ */}
+                                            <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+                                                <code className="font-mono text-sm text-white/80 tracking-wide select-all">
+                                                    {displayCode}
+                                                </code>
+                                                <span className={`px-3 py-1.5 text-xs font-semibold rounded-full ${badge.color}`}>
+                                                    {badge.label}
+                                                </span>
+                                            </div>
+
+                                            {/* ═══ BODY ═══ */}
+                                            <div className="px-6 py-5 space-y-4">
+                                                {/* Product Name + Price */}
+                                                <div>
+                                                    <h3 className="text-white font-medium text-base leading-relaxed">
+                                                        {item.product_name || (isPrinting ? 'Đơn in 3D' : isCustom ? 'Đơn thiết kế riêng' : 'Sản phẩm')}
+                                                    </h3>
+                                                    <p className="text-white font-semibold mt-1">
+                                                        {(item.total_price || 0).toLocaleString('vi-VN')}đ
+                                                    </p>
+                                                </div>
+
+
+
+                                                {/* Details list */}
+                                                <div className="space-y-2 text-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-white/40">•</span>
+                                                        <span className="text-white/60">Số lượng:</span>
+                                                        <span className="text-white">{item.quantity}</span>
+                                                    </div>
+
+                                                    {item.configuration?.size && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-white/40">•</span>
+                                                            <span className="text-white/60">Size:</span>
+                                                            <span className="text-white">{item.configuration.size}</span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* ═══ IN 3D: Hiển thị đầy đủ settings ═══ */}
+                                                    {isPrinting && (
+                                                        <>
+                                                            {/* Print Type: FDM or Resin */}
+                                                            {item.configuration?.type && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-white/40">•</span>
+                                                                    <span className="text-white/60">Loại in:</span>
+                                                                    <span className="text-white uppercase font-medium">{item.configuration.type}</span>
+                                                                </div>
+                                                            )}
+                                                            {/* Color */}
+                                                            {item.configuration?.color && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-white/40">•</span>
+                                                                    <span className="text-white/60">Màu:</span>
+                                                                    <span className="text-white capitalize">{item.configuration.color}</span>
+                                                                </div>
+                                                            )}
+                                                            {/* FDM-specific: Infill */}
+                                                            {item.configuration?.infill && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-white/40">•</span>
+                                                                    <span className="text-white/60">Infill:</span>
+                                                                    <span className="text-white">{item.configuration.infill}</span>
+                                                                </div>
+                                                            )}
+                                                            {/* FDM-specific: Layer Height */}
+                                                            {item.configuration?.layerHeight && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-white/40">•</span>
+                                                                    <span className="text-white/60">Layer:</span>
+                                                                    <span className="text-white">{item.configuration.layerHeight}</span>
+                                                                </div>
+                                                            )}
+                                                            {/* File Name */}
+                                                            {(item.configuration?.fileName || item.configuration?.file_name) && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-white/40">•</span>
+                                                                    <span className="text-white/60">File:</span>
+                                                                    <span className="text-white truncate max-w-[200px]">
+                                                                        {item.configuration.fileName || item.configuration.file_name}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {/* Weight */}
+                                                            {item.configuration?.grams && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-white/40">•</span>
+                                                                    <span className="text-white/60">Khối lượng:</span>
+                                                                    <span className="text-white">{item.configuration.grams}g</span>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+
+
+                                                    {/* ═══ CUSTOM: Hiển thị loại custom ═══ */}
+                                                    {isCustom && item.configuration?.custom_type && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-white/40">•</span>
+                                                            <span className="text-white/60">Loại:</span>
+                                                            <span className="text-white capitalize">{item.configuration.custom_type}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* ═══ CUSTOM ORDER SECTION ═══ */}
+                                                {isCustom && (
+                                                    <div className="space-y-4 pt-2">
+                                                        {/* Custom Note - User's request */}
+                                                        {(item.custom_note || item.configuration?.custom_type) && (
+                                                            <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                                                <p className="text-white/50 text-xs font-medium mb-2 flex items-center gap-1.5">
+                                                                    📝 Yêu cầu của bạn
+                                                                </p>
+                                                                <p className="text-white/80 text-sm leading-relaxed">
+                                                                    {item.custom_note || `Loại: ${item.configuration?.custom_type || 'Custom'}, Size: ${item.configuration?.size || 'Chưa xác định'}`}
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Preview Images - Admin sent */}
+                                                        {item.preview_images && item.preview_images.length > 0 && (
+                                                            <div className="p-4 bg-gradient-to-br from-cyan-500/[0.03] to-purple-500/[0.03] rounded-xl border border-cyan-500/10">
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <p className="text-white/50 text-xs font-medium flex items-center gap-1.5">
+                                                                        📷 Preview thiết kế (Admin gửi)
+                                                                    </p>
+                                                                    {/* Preview Status Badge */}
+                                                                    {item.preview_status === 'pending' && (
+                                                                        <span className="px-2.5 py-1 bg-yellow-500/15 text-yellow-400 text-xs rounded-full font-medium">
+                                                                            ⏳ Chờ bạn xác nhận
+                                                                        </span>
+                                                                    )}
+                                                                    {item.preview_status === 'approved' && (
+                                                                        <span className="px-2.5 py-1 bg-green-500/15 text-green-400 text-xs rounded-full font-medium">
+                                                                            ✓ Đã duyệt
+                                                                        </span>
+                                                                    )}
+                                                                    {item.preview_status === 'revising' && (
+                                                                        <span className="px-2.5 py-1 bg-orange-500/15 text-orange-400 text-xs rounded-full font-medium">
+                                                                            🔄 Đang chỉnh sửa
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="grid grid-cols-3 gap-3">
+                                                                    {item.preview_images.map((img, i) => (
+                                                                        <a
+                                                                            key={i}
+                                                                            href={img}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="aspect-square rounded-xl bg-white/5 overflow-hidden hover:ring-2 ring-cyan-400/50 transition-all"
+                                                                        >
+                                                                            <img
+                                                                                src={img}
+                                                                                alt={`Preview ${i + 1}`}
+                                                                                className="w-full h-full object-cover"
+                                                                            />
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Footer - Only show tracking info, no duplicate status */}
+                                                {(item.shipping_provider || item.tracking_code || item.delivered_at) && (
+                                                    <div className="pt-4 border-t border-white/[0.06] space-y-1">
+                                                        {(item.shipping_provider || item.tracking_code) && (
+                                                            <p className="text-sm text-white/60">
+                                                                Mã vận chuyển: {item.shipping_provider && `${item.shipping_provider} - `}{item.tracking_code}
+                                                            </p>
+                                                        )}
+                                                        {item.delivered_at && (
+                                                            <p className="text-sm text-green-400">
+                                                                Đã giao thành công
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-white font-medium">{item.product_name}</p>
-                                            <p className="text-white/50 text-sm">
-                                                {item.configuration?.size || item.product_sku} × {item.quantity}
-                                            </p>
-                                        </div>
-                                        <p className="text-white font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </motion.div>
                     )}

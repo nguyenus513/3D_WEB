@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { ShoppingBag, User, Menu, X } from 'lucide-react';
 
 const navLinks = [
     { name: 'Sản phẩm', href: '/products' },
@@ -45,9 +46,7 @@ export function Navbar() {
                 <div className="flex items-center gap-4">
                     {/* Cart */}
                     <Link href="/cart" className="text-[#F5F5F7]/80 hover:text-white transition-colors">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                        </svg>
+                        <ShoppingBag size={20} strokeWidth={1.5} />
                     </Link>
 
                     {/* Account - Show different UI based on login status */}
@@ -105,9 +104,7 @@ export function Navbar() {
                         </div>
                     ) : (
                         <Link href="/login" className="text-[#F5F5F7]/80 hover:text-white transition-colors">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
+                            <User size={20} strokeWidth={1.5} />
                         </Link>
                     )}
 
@@ -116,13 +113,7 @@ export function Navbar() {
                         className="md:hidden text-[#F5F5F7]/80 hover:text-white"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            {isMobileMenuOpen ? (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                            ) : (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-                            )}
-                        </svg>
+                        {isMobileMenuOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
                     </button>
                 </div>
             </div>

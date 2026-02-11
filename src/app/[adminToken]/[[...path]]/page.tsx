@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 // Dynamic imports for admin pages
 const AdminDashboardContent = dynamic(() => import('../AdminDashboardContent'));
 const OrderList = dynamic(() => import('@/components/admin/OrderList').then(m => ({ default: m.OrderList })));
+const AdminItemList = dynamic(() => import('@/components/admin/AdminItemList').then(m => ({ default: m.AdminItemList })));
 const AdminCustomersPage = dynamic(() => import('@/app/sys_internal/customers/page'));
 const AdminCategoriesPage = dynamic(() => import('@/app/sys_internal/categories/page'));
 const AdminProductsPage = dynamic(() => import('@/app/sys_internal/products/page'));
@@ -93,24 +94,24 @@ export default function AdminCatchAllPage() {
         return <AdminDashboardContent />;
     }
 
-    // /orders
+    // /orders (TẤT CẢ - đơn tổng / cart view)
     if (path === 'orders') {
-        return <OrderList orderType="all" title="Tất cả đơn hàng" />;
+        return <OrderList orderType="all" title="Tất cả đơn hàng" subtitle="Danh sách đơn tổng (cart)" />;
     }
 
-    // /orders/products
+    // /orders/products (đơn con - sản phẩm có sẵn)
     if (path === 'orders/products') {
-        return <OrderList orderType="ready_made" title="Đơn hàng sản phẩm" />;
+        return <AdminItemList itemType="product" title="Đơn sản phẩm" subtitle="Đơn con - Hàng có sẵn" />;
     }
 
-    // /orders/printing
+    // /orders/printing (đơn con - in 3D)
     if (path === 'orders/printing') {
-        return <OrderList orderType="printing" title="Đơn hàng in 3D" />;
+        return <AdminItemList itemType="printing" title="Đơn in 3D" subtitle="Đơn con - Xưởng in 3D" />;
     }
 
-    // /orders/custom
+    // /orders/custom (đơn con - hàng theo yêu cầu)
     if (path === 'orders/custom') {
-        return <OrderList orderType="custom" title="Đơn hàng Custom" />;
+        return <AdminItemList itemType="custom" title="Đơn Custom" subtitle="Đơn con - Hàng theo yêu cầu" />;
     }
 
     // /orders/[id]

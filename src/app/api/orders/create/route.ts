@@ -131,18 +131,19 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Create order with FK instead of JSONB
+        // Create order - NEW SCHEMA (no 'name' column)
         const { data: order, error: orderError } = await supabaseAdmin
             .from('orders')
             .insert({
                 order_code: orderCode,
                 user_id: user.id,
-                order_type: orderType,
+                order_type: orderType === 'ready_made' ? 'product' : orderType,
                 status: 'pending',
                 payment_status: 'pending',
                 deposit_paid: false,
                 subtotal: totalPrice,
                 shipping_fee: shippingFee,
+                discount: 0,
                 total_amount: total,
                 shipping_address: shippingAddress ? {
                     id: shippingAddressId,
@@ -160,6 +161,7 @@ export async function POST(request: NextRequest) {
                 { status: 500 }
             );
         }
+
 
         // Create order items
         // Fetch all products involved in the order
@@ -182,18 +184,19 @@ export async function POST(request: NextRequest) {
 
         const productMap = new Map((products || []).map(p => [p.id, p]));
 
-        // Calculate order items with server-side pricing
-        const orderItems = items.map(item => {
-            let unitPrice = item.price; // Fallback (should be overridden below for ready_made)
+        // Calculate order items with server-side pricing - NEW SCHEMA
+        const orderItems = items.map((item, index) => {
+            let unitPrice = item.price;
             let productName = item.name;
+            let productSku = item.sku || null;
 
             if (orderType === 'ready_made' && item.productId) {
                 const product = productMap.get(item.productId);
                 if (product) {
-                    productName = product.name; // Use authoritative name
+                    productName = product.name;
+                    productSku = product.sku || null;
 
-                    // Determine price
-                    // Check for size-specific price first
+                    // Determine price from size or sale_price or base_price
                     let sizePrice: number | null = null;
                     if (item.size && Array.isArray(product.sizes)) {
                         const sizeObj = product.sizes.find((s: any) =>
@@ -204,32 +207,32 @@ export async function POST(request: NextRequest) {
                         }
                     }
 
-                    if (sizePrice !== null) {
-                        unitPrice = sizePrice;
-                    } else {
-                        // Use product sale price or base price
-                        unitPrice = (typeof product.sale_price === 'number')
-                            ? product.sale_price
-                            : product.base_price;
-                    }
+                    unitPrice = sizePrice ?? product.sale_price ?? product.base_price;
                 }
             }
 
-            // For custom/printing orders, logic might differ (usually quoted), 
-            // but for now we trust the input OR you should implement a Quote lookup here.
-            // TODO: specific logic for custom/printing if needed.
+            // Generate item codes
+            const itemCode = generateId.order(); // 8 HEX
+            const fullCode = `${orderCode}_${itemCode}`; // ORDER_ITEM format
 
             return {
                 order_id: order.id,
                 product_id: item.productId || null,
-                product_sku: item.sku || null,
-                product_name: productName,
+                item_code: itemCode,
+                full_code: fullCode,
+                name: productName,
+                sku: productSku,
                 quantity: item.quantity,
                 unit_price: unitPrice,
                 total_price: unitPrice * item.quantity,
-                size: item.size || null,
+                item_type: orderType === 'ready_made' ? 'product' : orderType,
+                production_status: 'waiting',
+                spec: {
+                    size: item.size || null,
+                },
             };
         });
+
 
         // Recalculate total from secure items
         const calculatedSubtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);

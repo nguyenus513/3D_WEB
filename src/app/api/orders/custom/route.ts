@@ -1,7 +1,8 @@
 /**
- * Custom Order Creation API
- * Creates custom orders (single/couple/group) with file uploads
- * Uses unified orders + order_items tables
+ * Custom Order Creation API - NEW SCHEMA
+ * Creates custom figurine orders (single/couple/group) with file uploads
+ * 
+ * Uses: orders -> order_items -> order_files
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -26,6 +27,8 @@ interface CustomOrderRequest {
         id: string;
         name: string;
         url?: string;
+        size?: number;
+        type?: string;
     }>;
 }
 
@@ -83,32 +86,26 @@ export async function POST(request: NextRequest) {
         const totalPrice = Math.round(basePrice * sizeMultiplier);
         const depositAmount = Math.round(totalPrice * 0.5); // 50% deposit
 
-        // Generate codes (8-HEX format)
-        const orderCode = generateId.order();
-        const cartCode = generateId.cart();
-        const itemOrderCode = generateId.order();
-        const fullCode = `${cartCode}_${itemOrderCode}`;
+        // Generate codes
+        const orderCode = generateId.order(); // 8 HEX
 
-        console.log('[Custom Order API] Creating order with unified schema...');
-        console.log('[Custom Order API] Codes:', { orderCode, cartCode, itemOrderCode, fullCode });
+        console.log('[Custom Order API] Creating order:', { orderCode, type, size, totalPrice });
 
-        // Insert into unified orders table
+        // Step 1: Create order (ĐƠN TỔNG)
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert({
                 order_code: orderCode,
-                cart_code: cartCode,
                 user_id: userId,
                 order_type: 'custom',
+                status: 'pending',
+                payment_status: 'pending',
                 subtotal: totalPrice,
                 shipping_fee: 0,
                 discount: 0,
                 total_amount: totalPrice,
                 deposit_amount: depositAmount,
                 deposit_paid: false,
-                status: 'pending',
-                payment_status: 'pending',
-                fulfillment_status: 'pending',
                 shipping_address: {
                     full_name: shippingAddress.full_name,
                     phone: shippingAddress.phone,
@@ -117,7 +114,7 @@ export async function POST(request: NextRequest) {
                     district: shippingAddress.district || '',
                     province: shippingAddress.province,
                 },
-                notes: notes || null,
+                customer_note: notes || null,
             })
             .select()
             .single();
@@ -125,53 +122,45 @@ export async function POST(request: NextRequest) {
         if (orderError) {
             console.error('[Custom Order API] Create order error:', orderError);
             return NextResponse.json(
-                {
-                    success: false,
-                    error: {
-                        code: 'DB_ERROR',
-                        message: orderError.message || 'Unknown database error'
-                    }
-                },
+                { success: false, error: { code: 'DB_ERROR', message: orderError.message } },
                 { status: 500 }
             );
         }
 
-        if (!order) {
-            return NextResponse.json(
-                { success: false, error: { code: 'DB_ERROR', message: 'Order creation failed' } },
-                { status: 500 }
-            );
-        }
+        // Step 2: Create order_item (ĐƠN CON)
+        const itemCode = generateId.order(); // 8 HEX
+        const fullCode = `${orderCode}_${itemCode}`;
 
-        // Insert order item for custom figurine
         const { data: orderItem, error: itemError } = await supabase
             .from('order_items')
             .insert({
                 order_id: order.id,
-                cart_code: cartCode,
-                item_order_code: itemOrderCode,
+                product_id: null,
+                item_code: itemCode,
                 full_code: fullCode,
-                item_type: 'custom',
-                custom_type: type,
-                custom_size: size,
                 name: `Custom Figurine - ${type.charAt(0).toUpperCase() + type.slice(1)} (${size})`,
+                sku: null,
                 quantity: 1,
                 unit_price: totalPrice,
                 total_price: totalPrice,
+                item_type: 'custom',
                 production_status: 'waiting',
-                configuration: {
-                    type,
-                    size,
-                    images: images || [],
+                spec: {
+                    type: type,
+                    size: size,
+                    base_price: basePrice,
+                    size_multiplier: sizeMultiplier,
                     notes: notes || null,
+                    image_count: images?.length || 0,
                 },
+                notes: notes || null,
             })
             .select()
             .single();
 
         if (itemError) {
             console.error('[Custom Order API] Create order item error:', itemError);
-            // Rollback: delete the order
+            // Rollback order
             await supabase.from('orders').delete().eq('id', order.id);
             return NextResponse.json(
                 { success: false, error: { code: 'DB_ERROR', message: itemError.message } },
@@ -179,20 +168,29 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Link uploaded files to order_files
+        // Step 3: Create order_files with full metadata
         if (images && images.length > 0) {
-            try {
-                // Update any existing order_files with this cart_code
-                await supabase
-                    .from('order_files')
-                    .update({
-                        order_id: order.id,
-                        order_item_id: orderItem?.id,
-                        order_code: orderCode,
-                    })
-                    .eq('cart_code', cartCode);
-            } catch (err) {
-                console.warn('[Custom Order API] Failed to link order_files:', err);
+            const fileInserts = images.map((img, idx) => ({
+                order_id: order.id,
+                order_item_id: orderItem.id,
+                file_name: img.name || `reference_${idx + 1}`,
+                file_type: img.type?.split('/')[1] || 'image',
+                file_key: img.id, // R2 key
+                file_url: img.url || null,
+                mime_type: img.type || 'image/jpeg',
+                size_bytes: img.size || null,
+                storage_provider: 'r2',
+                category: 'reference',
+                is_public: false,
+            }));
+
+            const { error: fileError } = await supabase
+                .from('order_files')
+                .insert(fileInserts);
+
+            if (fileError) {
+                console.warn('[Custom Order API] Create files warning:', fileError);
+                // Non-fatal, continue
             }
         }
 
@@ -202,7 +200,8 @@ export async function POST(request: NextRequest) {
             data: {
                 id: order.id,
                 order_code: order.order_code,
-                cart_code: order.cart_code,
+                item_code: itemCode,
+                full_code: fullCode,
                 total: order.total_amount,
                 deposit_amount: order.deposit_amount,
                 status: order.status,

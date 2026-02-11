@@ -37,6 +37,7 @@ export interface OrderQueryParams {
 export interface CreateOrderParams {
     userId: string;
     orderCode: string;
+    name?: string; // Order name (auto-generated if not provided)
     cartCode?: string; // 8-char hex, auto-generated if not provided
     orderType?: string; // ready_made, custom, printing, mixed
     addressId?: string;
@@ -60,6 +61,16 @@ export interface CreateOrderItemParams {
     totalPrice: number;
     configuration?: OrderItemConfiguration;
     itemOrderCode?: string; // 8-char hex, auto-generated if not provided
+    // Additional fields for different item types
+    itemType?: string | null;     // 'product' | 'printing' | 'custom'
+    customType?: string | null;   // 'single' | 'couple' | 'family'
+    customSize?: string | null;   // 'S' | 'M' | 'L'
+    printTech?: string | null;    // 'fdm' | 'sla' | 'resin'
+    infill?: string | null;       // '20' | '50' | '100' (as string)
+    layerHeight?: string | null;  // '0.1' | '0.2' (as string)
+    color?: string | null;
+    material?: string | null;     // 'PLA' | 'ABS' | 'PETG'
+    notes?: string | null;
 }
 
 // =============================================================================
@@ -179,17 +190,13 @@ export class OrderRepository {
         orderData: CreateOrderParams,
         items: CreateOrderItemParams[]
     ): Promise<OrderWithItems> {
-        // Generate cart_code if not provided
-        const cartCode = orderData.cartCode || generateId.cart();
-
         // Insert order
         const { data: order, error: orderError } = await this.db
             .from('orders')
             .insert({
                 order_code: orderData.orderCode,
-                cart_code: cartCode,
+                order_type: orderData.orderType || 'ready_made',
                 user_id: orderData.userId,
-                address_id: orderData.addressId || null,
                 subtotal: orderData.subtotal,
                 shipping_fee: orderData.shippingFee,
                 discount: orderData.discount,
@@ -197,29 +204,30 @@ export class OrderRepository {
                 deposit_amount: orderData.depositAmount || 0,
                 status: 'pending' as OrderStatus,
                 payment_status: 'pending' as PaymentStatus,
-                shipping_address_snapshot: orderData.shippingAddressSnapshot || null,
-                notes: orderData.notes || null,
+                shipping_address: orderData.shippingAddressSnapshot || null,
+                customer_note: orderData.notes || null,
             })
             .select()
             .single();
 
         if (orderError) {
+            console.error('[OrderRepository.create] Order insert error:', JSON.stringify(orderError, null, 2));
             throw orderError;
         }
 
-        // Generate unique item_order_code for each item (with collision detection)
+        // Generate unique item_code for each item (with collision detection)
         const usedItemCodes = new Set<string>();
         const orderItems = items.map((item) => {
-            let itemOrderCode = item.itemOrderCode || generateId.order();
+            let itemCode = item.itemOrderCode || generateId.order();
 
             // Ensure uniqueness within this order
-            while (usedItemCodes.has(itemOrderCode)) {
-                itemOrderCode = generateId.order();
+            while (usedItemCodes.has(itemCode)) {
+                itemCode = generateId.order();
             }
-            usedItemCodes.add(itemOrderCode);
+            usedItemCodes.add(itemCode);
 
-            // Generate full_code = {cart_code}_{item_order_code}
-            const fullCode = `${cartCode}_${itemOrderCode}`;
+            // Generate full_code = {order_code}_{item_code}
+            const fullCode = `${orderData.orderCode}_${itemCode}`;
 
             return {
                 order_id: order.id,
@@ -229,11 +237,12 @@ export class OrderRepository {
                 quantity: item.quantity,
                 unit_price: item.unitPrice,
                 total_price: item.totalPrice,
-                configuration: item.configuration || {},
-                item_order_code: itemOrderCode,
-                cart_code: cartCode, // Denormalized for fast queries
-                full_code: fullCode, // {cart_code}_{item_order_code}
-                production_status: 'waiting', // Default for new items
+                spec: item.configuration || {}, // DB uses 'spec' not 'configuration'
+                item_code: itemCode, // DB uses 'item_code' not 'item_order_code'
+                full_code: fullCode,
+                production_status: 'waiting',
+                item_type: item.itemType || 'product',
+                notes: item.notes || null,
             };
         });
 
@@ -243,6 +252,7 @@ export class OrderRepository {
             .select();
 
         if (itemsError) {
+            console.error('[OrderRepository.create] Order items insert error:', JSON.stringify(itemsError, null, 2));
             // Rollback: delete the order if items failed
             await this.db.from('orders').delete().eq('id', order.id);
             throw itemsError;

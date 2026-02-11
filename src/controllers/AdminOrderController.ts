@@ -234,7 +234,61 @@ export class AdminOrderController extends BaseController {
             const { authorized } = await requireAdmin(request);
             if (!authorized) throw new UnauthorizedError('Admin access required');
 
-            // 1. Try custom_orders table (Primary for Custom items)
+            // 1. Try orders table FIRST (Primary for Ready Made / Direct Payment)
+            console.log('[AdminOrder] getOrder - Looking for orderId:', orderId);
+
+            const { data: order, error } = await this.supabase
+                .from('orders')
+                .select(`*, user:profiles(*), items:order_items(*), address:addresses(*)`)
+                .eq('id', orderId)
+                .maybeSingle() as any;
+
+            console.log('[AdminOrder] orders table result:', {
+                found: !!order,
+                error: error?.message,
+                order_code: order?.order_code
+            });
+
+            if (order) {
+                // Map to legacy structure
+                const items = Array.isArray(order.items) ? order.items : [];
+                const mainItem = items[0] || {};
+                const config = mainItem.configuration || mainItem.spec || {};
+                const orderType = this.inferOrderType(items);
+
+                let custom_config = null;
+                if (orderType === 'custom') {
+                    custom_config = {
+                        type: config.type || 'unknown',
+                        size: config.size || mainItem?.size || 'Chưa chọn',
+                        notes: order.notes || '',
+                        images: (Array.isArray(config.photos) ? config.photos : []).map((p: any) => ({
+                            id: p.drive_file_id || p.id,
+                            name: p.file_name || p.name,
+                            url: p.web_view_link || p.url,
+                            thumbnail: p.thumbnail
+                        })),
+                    };
+                }
+
+                return this.handleSuccess({
+                    order: {
+                        ...order,
+                        profiles: order.user,
+                        order_items: order.items,
+                        total: order.total_amount,
+                        customer_note: order.notes,
+                        admin_note: order.admin_notes,
+                        order_type: orderType,
+                        custom_config,
+                        shipping_address: order.shipping_address_snapshot,
+                        _source_table: 'orders'
+                    },
+                    profile: order.user,
+                });
+            }
+
+            // 2. Try custom_orders table (Secondary for Custom items)
             const { data: customOrder } = await this.supabase
                 .from('custom_orders')
                 .select('*')
@@ -369,51 +423,6 @@ export class AdminOrderController extends BaseController {
                 });
             }
 
-            // 3. Try orders table (Fallback for Ready Made or Legacy)
-            const { data: order, error } = await this.supabase
-                .from('orders')
-                .select(`*, user:profiles(*), items:order_items(*), address:addresses(*)`)
-                .eq('id', orderId)
-                .maybeSingle() as any;
-
-            if (order) {
-                // Map to legacy structure
-                const items = Array.isArray(order.items) ? order.items : [];
-                const mainItem = items[0] || {};
-                const config = mainItem.configuration || {};
-                const orderType = this.inferOrderType(items);
-
-                let custom_config = null;
-                if (orderType === 'custom') {
-                    custom_config = {
-                        type: config.type || 'unknown',
-                        size: config.size || mainItem?.size || 'Chưa chọn',
-                        notes: order.notes || '',
-                        images: (Array.isArray(config.photos) ? config.photos : []).map((p: any) => ({
-                            id: p.drive_file_id || p.id,
-                            name: p.file_name || p.name,
-                            url: p.web_view_link || p.url,
-                            thumbnail: p.thumbnail
-                        })),
-                    };
-                }
-
-                return this.handleSuccess({
-                    order: {
-                        ...order,
-                        profiles: order.user,
-                        order_items: order.items,
-                        total: order.total_amount,
-                        customer_note: order.notes,
-                        admin_note: order.admin_notes,
-                        order_type: orderType,
-                        custom_config,
-                        shipping_address: order.shipping_address_snapshot,
-                        _source_table: 'orders'
-                    },
-                    profile: order.user,
-                });
-            }
 
             throw new NotFoundError('Order not found in any table');
 

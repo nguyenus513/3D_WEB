@@ -131,6 +131,68 @@ export async function canAccessFile(
 }
 
 /**
+ * Check if a user can access a file by ID
+ */
+export async function canAccessFileById(
+    userId: string | null,
+    fileId: string,
+    userRole?: string
+): Promise<FileAccessCheck> {
+    const supabase = getAdminSupabase();
+
+    // Admin can access everything
+    if (userRole === 'admin') {
+        return { allowed: true, reason: 'admin', fileId };
+    }
+
+    // No user = only public files
+    if (!userId) {
+        return { allowed: false, reason: 'unauthenticated' };
+    }
+
+    // Check file in database by ID
+    const { data: file } = await supabase
+        .from('order_files')
+        .select('id, order_id, owner_id, allowed_user_ids, is_public, file_key')
+        .eq('id', fileId)
+        .single();
+
+    if (!file) {
+        return { allowed: false, reason: 'file_not_found' };
+    }
+
+    // Public files
+    if (file.is_public) {
+        return { allowed: true, reason: 'public', fileId: file.id, isPublic: true };
+    }
+
+    // Owner check
+    if (file.owner_id === userId) {
+        return { allowed: true, reason: 'owner', fileId: file.id };
+    }
+
+    // Allowed users array check
+    if (file.allowed_user_ids?.includes(userId)) {
+        return { allowed: true, reason: 'allowed_user', fileId: file.id };
+    }
+
+    // Check if user owns the order
+    if (file.order_id) {
+        const { data: order } = await supabase
+            .from('orders')
+            .select('user_id')
+            .eq('id', file.order_id)
+            .single();
+
+        if (order?.user_id === userId) {
+            return { allowed: true, reason: 'order_owner', fileId: file.id };
+        }
+    }
+
+    return { allowed: false, reason: 'unauthorized', fileId: file.id };
+}
+
+/**
  * Log file access attempt
  */
 export async function logFileAccess(entry: FileAccessLogEntry): Promise<void> {
