@@ -394,9 +394,31 @@ export default function AccountOrderDetailPage() {
                                     <div className="flex-1 pb-1">
                                         <p className={`text-sm font-medium ${step.completed ? 'text-white/80' : 'text-white/30'}`}>
                                             {step.label}
+                                            {/* Pulsing dot for active review step */}
+                                            {step.status === 'review' && order.status === 'review' && (
+                                                <span className="inline-block w-1.5 h-1.5 bg-amber-400 rounded-full ml-2 animate-pulse" />
+                                            )}
                                         </p>
                                         {step.date && (
                                             <p className="text-white/40 text-xs mt-0.5">{step.date}</p>
+                                        )}
+                                        {/* Inline CTA: Xem Demo — only when this step is active review */}
+                                        {step.status === 'review' && order.status === 'review' && (
+                                            <Link
+                                                href={`/account/orders/${order.id}/demo`}
+                                                className="inline-flex items-center gap-1.5 mt-2 px-4 py-1.5 bg-amber-500/15 text-amber-400 text-xs font-medium rounded-lg hover:bg-amber-500/25 transition-colors"
+                                            >
+                                                Xem Demo
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </Link>
+                                        )}
+                                        {/* Inline info: Revising feedback */}
+                                        {step.status === 'review' && order.status === 'revising' && order.revision_feedback && (
+                                            <p className="text-pink-400/60 text-xs mt-1 italic">
+                                                &ldquo;{order.revision_feedback}&rdquo;
+                                            </p>
                                         )}
                                     </div>
                                 </div>
@@ -699,74 +721,7 @@ export default function AccountOrderDetailPage() {
                         </motion.div>
                     )}
 
-                    {/* ═══ DEMO STATUS BLOCK — CTA to dedicated review page ═══ */}
-                    {order.order_type === 'custom' && (['review', 'revising', 'approved', 'producing', 'finished'].includes(order.status) || (order.demo_images && order.demo_images.length > 0)) && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.15 }}
-                            className={`rounded-2xl border p-6 ${order.status === 'review'
-                                ? 'bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/30'
-                                : order.status === 'revising'
-                                    ? 'bg-gradient-to-br from-pink-500/10 to-purple-500/10 border-pink-500/20'
-                                    : 'bg-[#1D1D1F] border-white/10'
-                                }`}
-                        >
-                            {/* Review status — Prominent CTA */}
-                            {order.status === 'review' && (
-                                <div className="text-center space-y-4">
-                                    <div className="w-12 h-12 mx-auto bg-amber-500/20 rounded-full flex items-center justify-center">
-                                        <span className="text-2xl">🎨</span>
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-white">Demo đã sẵn sàng</h2>
-                                        <p className="text-white/50 text-sm mt-1">Vui lòng xác nhận thiết kế để tiếp tục sản xuất</p>
-                                    </div>
-                                    <Link
-                                        href={`/account/orders/${order.id}/demo`}
-                                        className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-black font-semibold rounded-xl hover:bg-white/90 transition-all text-sm"
-                                    >
-                                        Xem Demo
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </Link>
-                                </div>
-                            )}
 
-                            {/* Revising status — Waiting for new design */}
-                            {order.status === 'revising' && (
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-xl">✏️</span>
-                                        <div>
-                                            <h2 className="text-base font-semibold text-white">Đang chờ bản thiết kế mới</h2>
-                                            <p className="text-white/40 text-xs">Lần chỉnh sửa: {order.revision_count || 1}</p>
-                                        </div>
-                                    </div>
-                                    {order.revision_feedback && (
-                                        <div className="p-3 bg-white/5 rounded-xl">
-                                            <p className="text-white/30 text-xs mb-1">Phản hồi của bạn:</p>
-                                            <p className="text-white/60 text-sm">{order.revision_feedback}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Approved status */}
-                            {(['approved', 'producing', 'finished'].includes(order.status)) && (
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <span className="text-green-400 text-lg">✓</span>
-                                    </div>
-                                    <div>
-                                        <h2 className="text-base font-semibold text-white">Thiết kế đã được duyệt</h2>
-                                        <p className="text-white/40 text-xs">Đơn hàng đang được sản xuất</p>
-                                    </div>
-                                </div>
-                            )}
-                        </motion.div>
-                    )}
 
                     {/* ═══ FINISHED PRODUCT GALLERY ═══ */}
                     {order.order_type === 'custom' && order.finished_images && order.finished_images.length > 0 && (
