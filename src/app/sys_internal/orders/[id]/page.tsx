@@ -448,6 +448,35 @@ export default function AdminOrderDetailPage() {
         }
     };
 
+    // Delete demo image (from DB + R2)
+    const handleDeleteDemoImage = async (imageIndex: number) => {
+        if (!order) return;
+        if (!confirm('Xóa ảnh demo này? (Ảnh sẽ bị xóa khỏi storage)')) return;
+
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/demo-image`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ index: imageIndex }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Delete failed');
+
+            // Update local state
+            setOrder(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    demo_images: data.demo_images || [],
+                    demo_image_url: data.demo_images?.[0]?.url || null,
+                };
+            });
+        } catch (error) {
+            alert('Xóa thất bại: ' + (error as Error).message);
+        }
+    };
+
     // Send demo to customer for review (explicit action)
     const handleSendForReview = async () => {
         if (!order) return;
@@ -702,22 +731,32 @@ export default function AdminOrderDetailPage() {
                                         </>
                                     )}
 
-                                    {/* Demo Image Gallery */}
+                                    {/* Demo Image Gallery with Delete */}
                                     {(order.demo_images && order.demo_images.length > 0) && (
                                         <>
                                             <p className="text-white/50 text-sm">🖼️ Ảnh demo ({order.demo_images.length}):</p>
                                             <div className="grid grid-cols-2 gap-3">
                                                 {order.demo_images.map((img, idx) => (
-                                                    <a key={idx} href={img.url} target="_blank" rel="noopener noreferrer" className="group relative">
-                                                        <img
-                                                            src={img.url}
-                                                            alt={img.label || `Demo ${idx + 1}`}
-                                                            className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-white/30 transition-all"
-                                                        />
+                                                    <div key={idx} className="group relative">
+                                                        <a href={img.url} target="_blank" rel="noopener noreferrer">
+                                                            <img
+                                                                src={img.url}
+                                                                alt={img.label || `Demo ${idx + 1}`}
+                                                                className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-white/30 transition-all"
+                                                            />
+                                                        </a>
                                                         <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-white/80 px-2 py-0.5 rounded-full">
                                                             {img.label || `#${idx + 1}`}
                                                         </span>
-                                                    </a>
+                                                        {/* Delete button (hover) */}
+                                                        <button
+                                                            onClick={() => handleDeleteDemoImage(idx)}
+                                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-400 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
+                                                            title="Xóa ảnh demo"
+                                                        >
+                                                            <span className="text-white text-xs font-bold">✕</span>
+                                                        </button>
+                                                    </div>
                                                 ))}
                                             </div>
                                         </>

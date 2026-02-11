@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
-import { uploadToR2, generateReviewR2Key, isR2Configured } from '@/lib/storage/r2';
+import { uploadToR2, generateReviewR2Key, isR2Configured, deleteFromR2, extractR2KeyFromUrl } from '@/lib/storage/r2';
 
 interface DemoImage {
     url: string;
@@ -39,18 +39,25 @@ export async function POST(
 
         const supabase = getAdminSupabase();
 
-        // Find order
+        // Find order - select minimal columns to avoid missing column errors
+        // Note: 'cart_code' column might be missing in some environments, so we exclude it to be safe
         const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, order_code, cart_code, user_id, demo_images')
+            .select('id, order_code, user_id, demo_images')
             .eq('id', orderId)
             .maybeSingle();
 
-        if (findError || !order) {
+        if (findError) {
+            console.error('[DemoUpload] Supabase query error:', findError);
+            return NextResponse.json({ error: 'Database error: ' + findError.message }, { status: 500 });
+        }
+
+        if (!order) {
+            console.error('[DemoUpload] Order not found for ID:', orderId);
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const orderCode = order.order_code || order.cart_code;
+        const orderCode = order.order_code || order.id.slice(0, 8).toUpperCase();
 
         // Parse multipart form data
         const formData = await request.formData();
@@ -161,7 +168,22 @@ export async function DELETE(
             return NextResponse.json({ error: 'Invalid image index' }, { status: 400 });
         }
 
-        // Remove image at index
+        // Delete from R2 storage first
+        const imageToDelete = images[imageIndex];
+        if (imageToDelete?.url) {
+            try {
+                const r2Key = extractR2KeyFromUrl(imageToDelete.url);
+                if (r2Key) {
+                    await deleteFromR2(r2Key);
+                    console.log(`[DemoDelete] Deleted from R2: ${r2Key}`);
+                }
+            } catch (r2Error) {
+                // Log but don't block — DB cleanup is more important
+                console.error('[DemoDelete] R2 delete failed (non-blocking):', r2Error);
+            }
+        }
+
+        // Remove image at index from DB
         const updatedImages = images.filter((_, i) => i !== imageIndex);
 
         const { error: updateError } = await supabase

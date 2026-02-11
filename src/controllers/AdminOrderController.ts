@@ -254,7 +254,7 @@ export class AdminOrderController extends BaseController {
                 const items = Array.isArray(order.items) ? order.items : [];
                 const mainItem = items[0] || {};
                 const config = mainItem.configuration || mainItem.spec || {};
-                const orderType = this.inferOrderType(items);
+                const orderType = order.order_type || this.inferOrderType(items);
 
                 let custom_config = null;
                 if (orderType === 'custom') {
@@ -299,17 +299,11 @@ export class AdminOrderController extends BaseController {
                 // Fetch profile
                 const { data: profile } = await this.supabase.from('profiles').select('*').eq('id', customOrder.user_id).single();
 
-                // === Get fresh status and demo_image_url - ALWAYS try multiple methods ===
-                let finalStatus = customOrder.status;
-                let finalDemoUrl = customOrder.demo_image_url;
+                // Use actual DB status — status is only changed to 'review' via explicit admin action
+                const finalStatus = customOrder.status;
+                const finalDemoUrl = customOrder.demo_image_url;
 
                 console.log('[AdminOrder] Status from Supabase:', { status: finalStatus });
-
-                // Virtual Status fallback: If demo_image_url exists but status is stuck, FORCE to 'review'
-                if (finalDemoUrl && ['pending', 'confirmed', 'designing'].includes(finalStatus)) {
-                    console.log('[AdminOrder] Virtual Status override: forcing to review');
-                    finalStatus = 'review';
-                }
 
                 // Ensure custom_config.images exists (map from photos if needed)
                 let customConfig = customOrder.custom_config || {};
@@ -386,19 +380,14 @@ export class AdminOrderController extends BaseController {
             if (printOrder) {
                 const { data: profile } = await this.supabase.from('profiles').select('*').eq('id', printOrder.user_id).single();
 
-                // Virtual Status: If demo_image_url exists but status is stuck, override to 'review'
-                let finalStatus = printOrder.status;
+                // Use actual DB status — no virtual override
                 const finalDemoUrl = printOrder.demo_image_url;
-
-                if (finalDemoUrl && ['pending', 'confirmed', 'designing'].includes(finalStatus)) {
-                    finalStatus = 'review';
-                }
 
                 return this.handleSuccess({
                     order: {
                         ...printOrder,
-                        status: finalStatus, // Apply virtual status
-                        demo_image_url: finalDemoUrl, // Apply virtual demo url
+                        status: printOrder.status,
+                        demo_image_url: finalDemoUrl,
                         profiles: profile,
                         total: printOrder.total_price,
                         total_amount: printOrder.total_price || 0, // Normalize

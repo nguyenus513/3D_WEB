@@ -1,8 +1,8 @@
 'use client';
 
-import { Check, Clock, Package, Truck, PenTool, Image as ImageIcon, ThumbsUp, Star } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { OrderStatus } from '@/types/database';
+import { getFlowByType, getStepIndex, type FlowStep } from '@/lib/utils/orderFlows';
 
 interface OrderStatusStepperProps {
     currentStatus: string;
@@ -13,34 +13,6 @@ interface OrderStatusStepperProps {
     updating?: boolean;
 }
 
-// Flow chuẩn cho đơn Custom (7 bước)
-const CUSTOM_STEPS = [
-    { value: 'confirmed', label: 'Xác nhận', icon: Check },
-    { value: 'designing', label: 'Thiết kế', icon: PenTool },
-    { value: 'review', label: 'Chờ duyệt', icon: ImageIcon },
-    { value: 'approved', label: 'Đã duyệt', icon: ThumbsUp },
-    { value: 'producing', label: 'Sản xuất', icon: Package },
-    { value: 'finished', label: 'Hoàn thiện', icon: Star },
-    { value: 'shipping', label: 'Giao hàng', icon: Truck },
-    { value: 'delivered', label: 'Hoàn thành', icon: Check }
-];
-
-// Flow cho đơn Printing
-const PRINTING_STEPS = [
-    { value: 'confirmed', label: 'Xác nhận', icon: Check },
-    { value: 'printing', label: 'Đang in', icon: Package },
-    { value: 'shipping', label: 'Đang giao hàng', icon: Truck },
-    { value: 'delivered', label: 'Hoàn thành', icon: Check }
-];
-
-// Flow cho đơn Ready Made
-const STANDARD_STEPS = [
-    { value: 'confirmed', label: 'Đã xác nhận', icon: Check },
-    { value: 'processing', label: 'Đang xử lý', icon: Package },
-    { value: 'shipping', label: 'Đang giao hàng', icon: Truck },
-    { value: 'delivered', label: 'Hoàn thành', icon: Check }
-];
-
 export function OrderStatusStepper({
     currentStatus,
     className,
@@ -49,29 +21,11 @@ export function OrderStatusStepper({
     onShippingClick,
     updating = false
 }: OrderStatusStepperProps) {
-    // Chọn danh sách bước dựa trên loại đơn
-    const steps = orderType === 'custom' ? CUSTOM_STEPS :
-        orderType === 'printing' ? PRINTING_STEPS : STANDARD_STEPS;
+    // Get flow steps from centralized config
+    const flowSteps: FlowStep[] = getFlowByType(orderType);
 
-    // Tìm index của trạng thái hiện tại
-    const getCurrentStepIndex = (currentStatus: string) => {
-        const index = steps.findIndex(s => s.value === currentStatus);
-        if (index !== -1) return index;
-
-        // Xử lý trạng thái đặc biệt
-        if (currentStatus === 'pending') return -1;
-        if (currentStatus === 'revising') {
-            // Revising quay lại designing
-            return steps.findIndex(s => s.value === 'designing');
-        }
-
-        return 0;
-    };
-
-    const currentStepIndex = getCurrentStepIndex(currentStatus);
-
-    // Debug log to see what status is received
-    console.log(`[Stepper Debug] status: "${currentStatus}", orderType: "${orderType}", stepIndex: ${currentStepIndex}, steps:`, steps.map(s => s.value));
+    // Find current step index
+    const currentStepIndex = getStepIndex(flowSteps, currentStatus);
 
     return (
         <div className={cn("w-full py-4", className)}>
@@ -83,11 +37,11 @@ export function OrderStatusStepper({
                 <div
                     className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-white -z-10 rounded-full transition-all duration-500"
                     style={{
-                        width: `${Math.max(0, (currentStepIndex / (steps.length - 1)) * 100)}%`
+                        width: `${Math.max(0, (currentStepIndex / (flowSteps.length - 1)) * 100)}%`
                     }}
                 />
 
-                {steps.map((step, index) => {
+                {flowSteps.map((step, index) => {
                     const Icon = step.icon;
                     const isCompleted = index < currentStepIndex;
                     const isCurrent = index === currentStepIndex;
@@ -95,14 +49,14 @@ export function OrderStatusStepper({
                     const canClick = isNext && !updating && onStatusChange;
 
                     return (
-                        <div key={step.value} className="flex flex-col items-center group relative" style={{ flex: 1 }}>
+                        <div key={step.status} className="flex flex-col items-center group relative" style={{ flex: 1 }}>
                             <button
                                 onClick={() => {
                                     if (canClick) {
-                                        if (step.value === 'shipping' && onShippingClick) {
+                                        if (step.status === 'shipping' && onShippingClick) {
                                             onShippingClick();
                                         } else if (onStatusChange) {
-                                            onStatusChange(step.value);
+                                            onStatusChange(step.status);
                                         }
                                     }
                                 }}
@@ -123,7 +77,7 @@ export function OrderStatusStepper({
                                 "mt-2 text-[10px] font-medium text-center whitespace-nowrap",
                                 isCompleted || isCurrent ? "text-white" : "text-white/40"
                             )}>
-                                {step.label}
+                                {step.adminLabel}
                             </span>
 
                             {isNext && onStatusChange && (
@@ -136,9 +90,9 @@ export function OrderStatusStepper({
 
             {/* Status text */}
             <div className="flex items-center justify-between text-xs mt-6">
-                <span className="text-white/50">{Math.max(0, currentStepIndex + 1)} / {steps.length}</span>
+                <span className="text-white/50">{Math.max(0, currentStepIndex + 1)} / {flowSteps.length}</span>
                 <span className="text-white font-medium">
-                    {steps[currentStepIndex]?.label || currentStatus}
+                    {flowSteps[currentStepIndex]?.adminLabel || currentStatus}
                 </span>
             </div>
         </div>

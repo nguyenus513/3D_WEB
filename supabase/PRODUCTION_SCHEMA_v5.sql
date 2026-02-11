@@ -33,7 +33,8 @@ END $$;
 CREATE TYPE user_role AS ENUM ('customer', 'admin', 'staff');
 
 CREATE TYPE order_status AS ENUM (
-    'pending',          -- Chờ xác nhận
+    'pending',          -- Chờ thanh toán
+    'pending_confirmation', -- Chờ Admin xác nhận thanh toán
     'confirmed',        -- Đã xác nhận
     'paid',             -- Đã thanh toán
     'review',           -- Chờ duyệt demo (custom)
@@ -44,6 +45,7 @@ CREATE TYPE order_status AS ENUM (
     'designing',        -- Đang thiết kế
     'printing',         -- Đang in 3D
     'producing',        -- Đang sản xuất
+    'finished',         -- Đã hoàn thiện
     'shipping',         -- Đang giao
     'delivered',        -- Đã giao
     'completed',        -- Hoàn thành

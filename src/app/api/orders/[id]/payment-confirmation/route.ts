@@ -87,7 +87,7 @@ export async function POST(
         }
 
         // Check if order is in correct state
-        if (!['pending', 'expired'].includes(order.status)) {
+        if (!['pending', 'pending_confirmation', 'expired'].includes(order.status)) {
             return NextResponse.json({
                 error: 'Đơn hàng đã được xử lý hoặc không ở trạng thái chờ thanh toán'
             }, { status: 400 });
@@ -98,7 +98,7 @@ export async function POST(
             const { error: updateError } = await supabaseAdmin
                 .from('order_child')
                 .update({
-                    status: 'confirmed',
+                    status: 'pending_confirmation',
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', orderId);
@@ -108,13 +108,12 @@ export async function POST(
                 return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
             }
         } else {
-            // For orders table - set deposit_paid=true so checkout success page skips payment view
+            // For orders table - mark as pending admin confirmation
             const { error: updateError } = await supabaseAdmin
                 .from('orders')
                 .update({
-                    status: 'confirmed',
-                    deposit_paid: true,
-                    payment_status: 'pending', // Still pending admin verification
+                    status: 'pending_confirmation',
+                    payment_status: 'pending',
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', orderId);
@@ -142,7 +141,8 @@ export async function POST(
 
         return NextResponse.json({
             success: true,
-            message: 'Đã gửi xác nhận thanh toán. Admin sẽ kiểm tra và xác nhận sớm nhất.'
+            message: 'Đã gửi xác nhận thanh toán. Admin sẽ kiểm tra và xác nhận sớm nhất.',
+            status: 'pending_confirmation',
         });
     } catch (error) {
         console.error('[PaymentConfirmation] Error:', error);

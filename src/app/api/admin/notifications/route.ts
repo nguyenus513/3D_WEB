@@ -23,11 +23,13 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Fetch pending/paid orders using admin client
+        // Fetch pending/pending_confirmation/paid orders using admin client
         const { data, error } = await supabaseAdmin
             .from('orders')
             .select(`
                 id,
+                order_code,
+                order_type,
                 status,
                 total: total_amount,
                 created_at,
@@ -36,7 +38,7 @@ export async function GET() {
                     email
                 )
             `)
-            .in('status', ['pending', 'paid'])
+            .in('status', ['pending', 'pending_confirmation', 'paid'])
             .order('created_at', { ascending: false })
             .limit(10);
 

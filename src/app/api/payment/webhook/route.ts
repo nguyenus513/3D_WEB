@@ -12,12 +12,7 @@ import { getAdminSupabase } from '@/lib/supabase/admin';
 
 const paymentService = new PaymentService();
 
-// Disable body parsing for webhook signature verification
-export const config = {
-    api: {
-        bodyParser: false,
-    },
-};
+// App Router: body is NOT auto-parsed. Use request.text() for raw body access.
 
 export async function POST(request: NextRequest) {
     try {

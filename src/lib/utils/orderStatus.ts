@@ -24,10 +24,18 @@ export const CART_STATUS_LABELS: Record<CartStatus, string> = {
 export function normalizeCartStatus(status: string): CartStatus {
     const mapping: Record<string, CartStatus> = {
         'pending': 'confirmed',
+        'pending_confirmation': 'confirmed',
         'confirmed': 'confirmed',
         'paid': 'confirmed',
         'processing': 'processing',
+        'designing': 'processing',
+        'review': 'processing',
+        'revising': 'processing',
+        'approved': 'processing',
+        'production_pending': 'processing',
         'producing': 'processing',
+        'printing': 'processing',
+        'finished': 'processing',
         'shipping': 'shipping',
         'delivered': 'completed',
         'completed': 'completed',
