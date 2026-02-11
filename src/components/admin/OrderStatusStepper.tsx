@@ -1,11 +1,11 @@
 'use client';
 
-import { Check, Clock, Package, Truck, PenTool, Image as ImageIcon, ThumbsUp } from 'lucide-react';
+import { Check, Clock, Package, Truck, PenTool, Image as ImageIcon, ThumbsUp, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrderStatus } from '@/types/database';
 
 interface OrderStatusStepperProps {
-    currentStatus: string; // Match existing admin page usage
+    currentStatus: string;
     className?: string;
     orderType?: 'custom' | 'printing' | 'ready_made';
     onStatusChange?: (newStatus: string) => void;
@@ -13,15 +13,15 @@ interface OrderStatusStepperProps {
     updating?: boolean;
 }
 
-// Flow chuẩn cho đơn Custom
+// Flow chuẩn cho đơn Custom (7 bước)
 const CUSTOM_STEPS = [
-    { value: 'confirmed', label: 'Xác nhận thanh toán', icon: Check },
-    { value: 'designing', label: 'Đang thiết kế', icon: PenTool },
-    { value: 'review', label: 'Chờ duyệt demo', icon: ImageIcon },
-    { value: 'approved', label: 'Khách đã duyệt', icon: ThumbsUp },
-    { value: 'production_pending', label: 'Chờ sản xuất', icon: Clock },
-    { value: 'producing', label: 'Đang sản xuất', icon: Package },
-    { value: 'shipping', label: 'Đang giao hàng', icon: Truck },
+    { value: 'confirmed', label: 'Xác nhận', icon: Check },
+    { value: 'designing', label: 'Thiết kế', icon: PenTool },
+    { value: 'review', label: 'Chờ duyệt', icon: ImageIcon },
+    { value: 'approved', label: 'Đã duyệt', icon: ThumbsUp },
+    { value: 'producing', label: 'Sản xuất', icon: Package },
+    { value: 'finished', label: 'Hoàn thiện', icon: Star },
+    { value: 'shipping', label: 'Giao hàng', icon: Truck },
     { value: 'delivered', label: 'Hoàn thành', icon: Check }
 ];
 

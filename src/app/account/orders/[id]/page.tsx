@@ -94,6 +94,11 @@ interface Order {
         files: { url: string; name: string }[];
     };
     demo_image_url?: string;
+    demo_images?: { url: string; label: string; uploaded_at: string }[];
+    finished_images?: { url: string; label: string; uploaded_at: string }[];
+    revision_count?: number;
+    revision_feedback?: string;
+    approved_at?: string;
     order_items: OrderItem[];
 }
 
@@ -109,6 +114,7 @@ const statusLabels: Record<string, string> = {
     approved: 'Đã duyệt thiết kế',
     production_pending: 'Chờ sản xuất',
     producing: 'Đang sản xuất',
+    finished: 'Hoàn thiện',
     printing: 'Đang in 3D',
     shipping: 'Đang giao hàng',
     delivered: 'Đã giao hàng',
@@ -121,7 +127,10 @@ const statusColors: Record<string, string> = {
     processing: 'bg-blue-500/20 text-blue-400',
     designing: 'bg-purple-500/20 text-purple-400',
     review: 'bg-amber-500/20 text-amber-400',
+    revising: 'bg-pink-500/20 text-pink-400',
     approved: 'bg-cyan-500/20 text-cyan-400',
+    producing: 'bg-indigo-500/20 text-indigo-400',
+    finished: 'bg-teal-500/20 text-teal-400',
     printing: 'bg-indigo-500/20 text-indigo-400',
     shipping: 'bg-orange-500/20 text-orange-400',
     delivered: 'bg-green-500/20 text-green-400',
@@ -142,36 +151,57 @@ export default function AccountOrderDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [submittingReview, setSubmittingReview] = useState(false);
+    const [showRevisionModal, setShowRevisionModal] = useState(false);
+    const [revisionFeedback, setRevisionFeedback] = useState('');
 
     // Handle customer review action (approve or reject)
     const handleReview = async (action: 'approve' | 'reject') => {
         if (!order) return;
 
+        if (action === 'reject') {
+            // Show modal for feedback
+            setShowRevisionModal(true);
+            return;
+        }
+
         setSubmittingReview(true);
         try {
-            let res;
-            if (action === 'approve') {
-                // Approve: POST to /api/orders/[id]/approve-demo
-                res = await fetch(`/api/orders/${order.id}/approve-demo`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                });
-            } else {
-                // Reject: DELETE with feedback
-                const feedback = prompt('Nhập lý do cần chỉnh sửa:') || 'Cần chỉnh sửa thêm';
-                res = await fetch(`/api/orders/${order.id}/approve-demo`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ feedback }),
-                });
-            }
+            const res = await fetch(`/api/orders/${order.id}/approve-demo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
-            // Refresh order to show new status
             await fetchOrder();
-            alert(action === 'approve' ? 'Đã duyệt thiết kế!' : 'Đã gửi yêu cầu chỉnh sửa!');
+            alert('Đã duyệt thiết kế! Đơn hàng sẽ được chuyển sang sản xuất.');
+        } catch (err) {
+            alert('Lỗi: ' + (err as Error).message);
+        } finally {
+            setSubmittingReview(false);
+        }
+    };
+
+    // Submit revision feedback
+    const handleSubmitRevision = async () => {
+        if (!order || !revisionFeedback.trim()) return;
+
+        setSubmittingReview(true);
+        try {
+            const res = await fetch(`/api/orders/${order.id}/approve-demo`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ feedback: revisionFeedback }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            setShowRevisionModal(false);
+            setRevisionFeedback('');
+            await fetchOrder();
+            alert('Đã gửi yêu cầu chỉnh sửa!');
         } catch (err) {
             alert('Lỗi: ' + (err as Error).message);
         } finally {
@@ -230,8 +260,13 @@ export default function AccountOrderDetailPage() {
                 shipped_at: null,
                 delivered_at: null,
                 order_items: data.items || [],
-                // CRITICAL: Include demo_image_url for review flow
+                // CRITICAL: Include demo fields for review flow
                 demo_image_url: data.demo_image_url,
+                demo_images: data.demo_images || [],
+                finished_images: data.finished_images || [],
+                revision_count: data.revision_count || 0,
+                revision_feedback: data.revision_feedback || null,
+                approved_at: data.approved_at || null,
                 custom_config: data.custom_config,
                 printing_config: data.printing_config,
             };
@@ -251,44 +286,77 @@ export default function AccountOrderDetailPage() {
     const getTimeline = () => {
         if (!order) return [];
 
-        // Define status hierarchy
-        // 0: pending
-        // 1: confirmed (deposit paid)
-        // 2: processing (design/produce/print)
-        // 3: shipping
-        // 4: delivered
-
-        let currentLevel = 0;
         const s = order.status;
+
+        // ═══ CUSTOM ORDER TIMELINE (6 steps) ═══
+        if (order.order_type === 'custom') {
+            const customSteps = [
+                { key: 'ordered', label: 'Đã đặt hàng', statuses: ['pending', 'confirmed'] },
+                { key: 'designing', label: 'Đang thiết kế', statuses: ['designing', 'revising'] },
+                { key: 'review', label: 'Chờ duyệt Demo', statuses: ['review'] },
+                { key: 'producing', label: 'Đang sản xuất', statuses: ['approved', 'production_pending', 'producing'] },
+                { key: 'finished', label: 'Hoàn thiện', statuses: ['finished'] },
+                { key: 'delivered', label: 'Hoàn thành', statuses: ['shipping', 'delivered'] },
+            ];
+
+            // Find which step the current status belongs to
+            let currentStepIndex = 0;
+            for (let i = 0; i < customSteps.length; i++) {
+                if (customSteps[i].statuses.includes(s)) {
+                    currentStepIndex = i;
+                    break;
+                }
+            }
+
+            // Special: if delivered, all steps are complete
+            if (s === 'delivered') currentStepIndex = customSteps.length - 1;
+
+            return customSteps.map((step, idx) => {
+                let date = '';
+                if (idx === 0 && currentStepIndex >= 0) date = formatDate(order.created_at);
+                if (step.key === 'review' && s === 'review') date = 'Chờ bạn duyệt';
+                if (step.key === 'designing' && s === 'revising') date = 'Chỉnh sửa lần ' + (order.revision_count || 1);
+                if (step.key === 'producing' && ['approved', 'producing'].includes(s)) date = 'Đang thực hiện';
+                if (step.key === 'finished' && s === 'finished') date = 'Chờ giao hàng';
+                if (step.key === 'delivered' && s === 'delivered') date = order.delivered_at ? formatDate(order.delivered_at) : '';
+                if (step.key === 'delivered' && s === 'shipping') date = 'Đang giao';
+
+                return {
+                    status: step.key,
+                    label: step.label,
+                    date,
+                    completed: idx <= currentStepIndex,
+                };
+            });
+        }
+
+        // ═══ DEFAULT TIMELINE (4 steps for ready_made / printing) ═══
+        let currentLevel = 0;
 
         if (s === 'delivered') currentLevel = 4;
         else if (s === 'shipping') currentLevel = 3;
-        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising'].includes(s)) currentLevel = 2;
+        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising', 'finished'].includes(s)) currentLevel = 2;
         else if (s === 'confirmed' || order.deposit_paid || (s !== 'pending' && s !== 'cancelled')) currentLevel = 1;
 
         const timeline = [
-            // 1. Đã xác nhận
             {
                 status: 'confirmed',
                 label: 'Đã xác nhận',
                 date: order.paid_at ? formatDate(order.paid_at) : (currentLevel >= 1 ? formatDate(order.created_at) : ''),
                 completed: currentLevel >= 1
             },
-            // 2. Đang xử lý
             {
                 status: 'processing',
                 label: 'Đang xử lý',
                 date: (currentLevel >= 2 && currentLevel < 3) ? 'Đang thực hiện' : '',
                 completed: currentLevel >= 2
             },
-            // 3. Đang giao hàng
             {
                 status: 'shipping',
                 label: 'Đang giao hàng',
                 date: order.shipped_at ? formatDate(order.shipped_at) : '',
                 completed: currentLevel >= 3
             },
-            // 4. Hoàn thành
             {
                 status: 'delivered',
                 label: 'Hoàn thành',
@@ -688,8 +756,8 @@ export default function AccountOrderDetailPage() {
                         </motion.div>
                     )}
 
-                    {/* Demo Image Review - For custom orders with demo image */}
-                    {order.order_type === 'custom' && order.demo_image_url && !order.demo_image_url.includes('[object Object]') && (
+                    {/* ═══ DEMO IMAGES GALLERY — Multi-angle review ═══ */}
+                    {order.order_type === 'custom' && ((order.demo_images && order.demo_images.length > 0) || (order.demo_image_url && !order.demo_image_url.includes('[object Object]'))) && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -697,59 +765,152 @@ export default function AccountOrderDetailPage() {
                             className="bg-gradient-to-br from-cyan-500/10 to-purple-500/10 rounded-2xl border border-cyan-500/30 p-6"
                         >
                             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                                🎨 Thiết kế của bạn
+                                🎨 Thiết kế Demo
                                 {order.status === 'review' && (
-                                    <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full">
-                                        Chờ duyệt
-                                    </span>
+                                    <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full">Chờ duyệt</span>
                                 )}
-                                {order.status === 'approved' && (
-                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
-                                        Đã duyệt
-                                    </span>
+                                {order.status === 'revising' && (
+                                    <span className="px-2 py-1 bg-pink-500/20 text-pink-400 text-xs rounded-full">Đang chỉnh sửa</span>
+                                )}
+                                {(order.status === 'approved' || order.status === 'producing' || order.status === 'finished') && (
+                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">Đã duyệt</span>
+                                )}
+                                {order.revision_count && order.revision_count > 0 && (
+                                    <span className="text-white/40 text-xs ml-auto">Lần chỉnh sửa: {order.revision_count}</span>
                                 )}
                             </h2>
 
-                            {/* Demo Image */}
-                            <div className="mb-4">
-                                <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
-                                    <img
-                                        src={order.demo_image_url}
-                                        alt="Thiết kế demo"
-                                        className="w-full rounded-xl border border-white/20 hover:border-white/50 transition-all"
-                                    />
-                                </a>
-                            </div>
+                            {/* Multi-image Gallery */}
+                            {order.demo_images && order.demo_images.length > 0 ? (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                                    {order.demo_images.map((img, i) => (
+                                        <a
+                                            key={i}
+                                            href={img.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group relative aspect-square rounded-xl bg-white/5 overflow-hidden hover:ring-2 ring-cyan-400/50 transition-all"
+                                        >
+                                            <img src={img.url} alt={img.label || `Demo ${i + 1}`} className="w-full h-full object-cover" />
+                                            {img.label && (
+                                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                                                    <p className="text-white/80 text-xs truncate">{img.label}</p>
+                                                </div>
+                                            )}
+                                        </a>
+                                    ))}
+                                </div>
+                            ) : order.demo_image_url ? (
+                                <div className="mb-4">
+                                    <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
+                                        <img src={order.demo_image_url} alt="Demo" className="w-full rounded-xl border border-white/20 hover:border-white/50 transition-all" />
+                                    </a>
+                                </div>
+                            ) : null}
 
-                            {/* Review Actions - Only show when status is 'review' */}
+                            {/* Review Actions — Two buttons */}
                             {order.status === 'review' && (
                                 <div className="space-y-3">
-                                    <p className="text-white/70 text-sm text-center">
-                                        Xác nhận duyệt thiết kế để tiến hành sản xuất
-                                    </p>
-                                    <button
-                                        onClick={() => handleReview('approve')}
-                                        disabled={submittingReview}
-                                        className="w-full py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
-                                    >
-                                        {submittingReview ? 'Đang xử lý...' : '✓ Duyệt thiết kế'}
-                                    </button>
-                                    <p className="text-white/40 text-xs text-center">
-                                        * Sau khi duyệt, đơn hàng sẽ được chuyển sang sản xuất
-                                    </p>
-                                    <p className="text-white/40 text-xs text-center">
-                                        Nếu cần hỗ trợ, vui lòng liên hệ Zalo
-                                    </p>
+                                    <p className="text-white/70 text-sm text-center">Xác nhận duyệt thiết kế để tiến hành sản xuất</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => handleReview('reject')}
+                                            disabled={submittingReview}
+                                            className="py-3 rounded-xl border border-orange-500/30 text-orange-400 font-medium hover:bg-orange-500/10 transition-colors disabled:opacity-50"
+                                        >
+                                            ✏️ Yêu cầu chỉnh sửa
+                                        </button>
+                                        <button
+                                            onClick={() => handleReview('approve')}
+                                            disabled={submittingReview}
+                                            className="py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                                        >
+                                            {submittingReview ? 'Đang xử lý...' : '✓ Duyệt thiết kế'}
+                                        </button>
+                                    </div>
+                                    <p className="text-white/40 text-xs text-center">* Sau khi duyệt, đơn hàng sẽ được chuyển sang sản xuất</p>
+                                </div>
+                            )}
+
+                            {/* Revising info */}
+                            {order.status === 'revising' && order.revision_feedback && (
+                                <div className="p-4 bg-pink-500/10 rounded-xl border border-pink-500/20">
+                                    <p className="text-pink-400 text-xs font-medium mb-1">Phản hồi của bạn:</p>
+                                    <p className="text-white/80 text-sm">{order.revision_feedback}</p>
                                 </div>
                             )}
 
                             {/* Already approved message */}
-                            {order.status === 'approved' && (
-                                <p className="text-green-400 text-sm text-center">
-                                    ✓ Bạn đã duyệt thiết kế này. Đơn hàng đang được sản xuất.
-                                </p>
+                            {(order.status === 'approved' || order.status === 'producing' || order.status === 'finished') && (
+                                <p className="text-green-400 text-sm text-center">✓ Bạn đã duyệt thiết kế. Đơn hàng đang được sản xuất.</p>
                             )}
                         </motion.div>
+                    )}
+
+                    {/* ═══ FINISHED PRODUCT GALLERY ═══ */}
+                    {order.order_type === 'custom' && order.finished_images && order.finished_images.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="bg-gradient-to-br from-teal-500/10 to-emerald-500/10 rounded-2xl border border-teal-500/30 p-6"
+                        >
+                            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                ⭐ Sản phẩm hoàn thiện
+                            </h2>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {order.finished_images.map((img, i) => (
+                                    <a
+                                        key={i}
+                                        href={img.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group relative aspect-square rounded-xl bg-white/5 overflow-hidden hover:ring-2 ring-teal-400/50 transition-all"
+                                    >
+                                        <img src={img.url} alt={img.label || `Finished ${i + 1}`} className="w-full h-full object-cover" />
+                                        {img.label && (
+                                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                                                <p className="text-white/80 text-xs truncate">{img.label}</p>
+                                            </div>
+                                        )}
+                                    </a>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* ═══ REVISION FEEDBACK MODAL ═══ */}
+                    {showRevisionModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 w-full max-w-md mx-4"
+                            >
+                                <h3 className="text-lg font-semibold text-white mb-4">✏️ Yêu cầu chỉnh sửa</h3>
+                                <textarea
+                                    value={revisionFeedback}
+                                    onChange={(e) => setRevisionFeedback(e.target.value)}
+                                    placeholder="Mô tả chi tiết phần cần chỉnh sửa..."
+                                    className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-white/30 resize-none"
+                                />
+                                <div className="grid grid-cols-2 gap-3 mt-4">
+                                    <button
+                                        onClick={() => { setShowRevisionModal(false); setRevisionFeedback(''); }}
+                                        className="py-3 rounded-xl border border-white/10 text-white/60 font-medium hover:bg-white/5 transition-colors"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        onClick={handleSubmitRevision}
+                                        disabled={submittingReview || !revisionFeedback.trim()}
+                                        className="py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+                                    >
+                                        {submittingReview ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
                     )}
 
                     {/* Printing Config */}

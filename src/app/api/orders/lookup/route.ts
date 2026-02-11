@@ -219,6 +219,11 @@ export async function GET(request: NextRequest) {
                 created_at: order.created_at,
                 items: items,
                 demo_image_url: demoUrl,
+                demo_images: order.demo_images || [],
+                finished_images: order.finished_images || [],
+                revision_count: order.revision_count || 0,
+                revision_feedback: order.revision_feedback || null,
+                approved_at: order.approved_at || null,
                 payment: {
                     bank_id: bankConfig.bankId,
                     account_no: bankConfig.accountNo,

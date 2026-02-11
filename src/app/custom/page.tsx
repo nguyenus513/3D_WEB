@@ -8,7 +8,7 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/Button';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
-import { User, Users, UsersRound, Upload, Gift, UtensilsCrossed, Package, Camera, Palette, Glasses, HardHat, ImagePlus, PenLine, X, Layers, Columns2 } from 'lucide-react';
+import { User, Users, UsersRound, Upload, Gift, UtensilsCrossed, Package, Camera, Palette, Glasses, ImagePlus, PenLine, X, Layers, Columns2, Ruler } from 'lucide-react';
 import { useCart } from '@/lib/store/cart';
 
 // ============================================================
@@ -16,6 +16,7 @@ import { useCart } from '@/lib/store/cart';
 // ============================================================
 
 type OrderType = 'single' | 'couple' | 'group';
+type SizeType = 'S' | 'M' | 'L';
 type BaseType = 'single_base' | 'couple_base' | 'separate_base' | 'group_base';
 type PackagingType = 'premium_box' | 'bento' | 'standard';
 
@@ -70,6 +71,12 @@ const ORDER_TYPE_CONFIG = [
     },
 ];
 
+const SIZE_OPTIONS: { id: SizeType; name: string; desc: string; height: string }[] = [
+    { id: 'S', name: 'Size S', desc: 'Nhỏ xinh', height: '60mm' },
+    { id: 'M', name: 'Size M', desc: 'Tiêu chuẩn', height: '80mm' },
+    { id: 'L', name: 'Size L', desc: 'Lớn, chi tiết', height: '100mm' },
+];
+
 const PACKAGING_OPTIONS: { id: PackagingType; name: string; desc: string; icon: React.ReactNode }[] = [
     { id: 'premium_box', name: 'Box Cao Cấp', desc: 'Hộp cứng thiết kế riêng, lót nhung', icon: <Gift size={40} strokeWidth={1.5} /> },
     { id: 'bento', name: 'Bento Style', desc: 'Hộp bento phong cách Nhật Bản', icon: <UtensilsCrossed size={40} strokeWidth={1.5} /> },
@@ -80,6 +87,26 @@ const BASE_OPTIONS: { id: BaseType; name: string; desc: string }[] = [
     { id: 'couple_base', name: 'Đế đôi', desc: '1 khối chung cho 2 mô hình' },
     { id: 'separate_base', name: '2 đế riêng', desc: 'Mỗi mô hình 1 đế riêng biệt' },
 ];
+
+function FashionHatIcon({ size = 24, strokeWidth = 1.5, className }: { size?: number | string; strokeWidth?: number | string; className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={size}
+            height={size}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M6 16V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10" />
+            <path d="M2 16h20" />
+        </svg>
+    );
+}
 
 function createEmptyCharacter(): CharacterData {
     return {
@@ -154,6 +181,7 @@ export default function CustomPage() {
     // Wizard state
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [orderType, setOrderType] = useState<OrderType>('single');
+    const [size, setSize] = useState<SizeType>('M');
     const [groupCount, setGroupCount] = useState(3);
     const [characters, setCharacters] = useState<CharacterData[]>([createEmptyCharacter()]);
     const [baseType, setBaseType] = useState<BaseType>('couple_base');
@@ -362,6 +390,7 @@ export default function CustomPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: orderType,
+                    size,
                     notes: notes || '',
                     characterCount,
                     baseType,
@@ -392,7 +421,7 @@ export default function CustomPage() {
 
             sessionStorage.setItem('checkout_order_type', 'custom');
             sessionStorage.setItem('checkout_order_id', result.data.id);
-            router.push('/checkout/success/' + result.data.order_code);
+            router.push('/checkout?orderId=' + result.data.id);
         } catch (err) {
             setError((err as Error).message);
             setSubmitting(false);
@@ -487,8 +516,10 @@ export default function CustomPage() {
                             {currentPhase.type === 'order_type' && (
                                 <StepOrderType
                                     orderType={orderType}
+                                    size={size}
                                     groupCount={groupCount}
                                     onTypeChange={handleOrderTypeChange}
+                                    onSizeChange={setSize}
                                     onGroupCountChange={setGroupCount}
                                 />
                             )}
@@ -521,6 +552,7 @@ export default function CustomPage() {
                             {currentPhase.type === 'confirm' && (
                                 <StepConfirm
                                     orderType={orderType}
+                                    size={size}
                                     characters={characters}
                                     baseType={baseType}
                                     packaging={packaging}
@@ -659,13 +691,17 @@ function ProgressBar({
 
 function StepOrderType({
     orderType,
+    size,
     groupCount,
     onTypeChange,
+    onSizeChange,
     onGroupCountChange,
 }: {
     orderType: OrderType;
+    size: SizeType;
     groupCount: number;
     onTypeChange: (t: OrderType) => void;
+    onSizeChange: (s: SizeType) => void;
     onGroupCountChange: (n: number) => void;
 }) {
     return (
@@ -699,6 +735,32 @@ function StepOrderType({
                 ))}
             </div>
 
+            {/* Size Selection */}
+            <div className="mt-8">
+                <h3 className="text-white/70 text-sm mb-3">Chọn kích thước</h3>
+                <div className="grid grid-cols-3 gap-4">
+                    {SIZE_OPTIONS.map((opt) => (
+                        <button
+                            key={opt.id}
+                            onClick={() => onSizeChange(opt.id)}
+                            className={`
+                                p-4 rounded-xl text-center transition-all border
+                                ${size === opt.id
+                                    ? 'bg-white text-black border-white ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
+                                    : 'bg-[#2D2D2F] text-white border-transparent hover:bg-[#3D3D3F]'
+                                }
+                            `}
+                        >
+                            <div className="flex justify-center mb-2">
+                                <Ruler size={24} strokeWidth={1.5} className={size === opt.id ? 'text-black' : 'text-white/50'} />
+                            </div>
+                            <div className="font-bold text-lg">{opt.id}</div>
+                            <div className="text-xs font-mono opacity-60 mt-0.5">{opt.height}</div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Group count input */}
             {orderType === 'group' && (
                 <motion.div
@@ -710,7 +772,13 @@ function StepOrderType({
                         <label className="text-white/70 text-sm mb-3 block">Số lượng mô hình</label>
                         <div className="flex items-center gap-4">
                             <button
-                                onClick={() => onGroupCountChange(Math.max(3, groupCount - 1))}
+                                onClick={() => {
+                                    if (groupCount > 3) {
+                                        onGroupCountChange(groupCount - 1);
+                                    } else {
+                                        onTypeChange('couple');
+                                    }
+                                }}
                                 className="w-12 h-12 rounded-xl bg-[#3D3D3F] text-white flex items-center justify-center text-xl hover:bg-[#4D4D4F] transition-colors"
                             >
                                 −
@@ -894,7 +962,7 @@ function StepCharacter({
                         {/* Hat */}
                         <AccessoryOption
                             label="Thêm mũ"
-                            icon={<HardHat size={20} strokeWidth={1.5} />}
+                            icon={<FashionHatIcon size={20} strokeWidth={1.5} />}
                             enabled={character.hasHat}
                             mode={character.hatMode}
                             image={character.hatImage}
@@ -1107,6 +1175,7 @@ function StepPackaging({
 
 function StepConfirm({
     orderType,
+    size,
     characters,
     baseType,
     packaging,
@@ -1120,6 +1189,7 @@ function StepConfirm({
     submitting,
 }: {
     orderType: OrderType;
+    size: SizeType;
     characters: CharacterData[];
     baseType: BaseType;
     packaging: PackagingType;
@@ -1134,11 +1204,43 @@ function StepConfirm({
 }) {
     const baseLabel = baseType === 'couple_base' ? 'Đế đôi' : baseType === 'separate_base' ? '2 đế riêng' : baseType === 'group_base' ? 'Đế nhóm' : 'Đế đơn';
     const packagingLabel = PACKAGING_OPTIONS.find(p => p.id === packaging)?.name || packaging;
-    const typeLabel = ORDER_TYPE_CONFIG.find(t => t.id === orderType)?.name || orderType;
+    const orderConfig = ORDER_TYPE_CONFIG.find((t) => t.id === orderType);
+    const sizeConfig = SIZE_OPTIONS.find((s) => s.id === size);
 
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-white mb-2">Xác nhận đơn hàng</h2>
+
+            {/* Combined Summary */}
+            <div className="bg-[#2D2D2F] rounded-2xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 className="text-xl font-bold text-white">
+                            {orderConfig?.name}
+                            <span className="text-white/50 font-normal ml-2">x{characters.length}</span>
+                        </h3>
+                        <p className="text-white/50 text-sm mt-1">
+                            {orderConfig?.desc} • {sizeConfig?.name} ({sizeConfig?.height})
+                        </p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xl font-bold text-white">
+                            {totalPrice.toLocaleString('vi-VN')}đ
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm border-t border-white/10 pt-4">
+                    <div>
+                        <span className="block text-white/40 mb-1">Loại đế</span>
+                        <span className="text-white font-medium">{baseLabel}</span>
+                    </div>
+                    <div>
+                        <span className="block text-white/40 mb-1">Đóng gói</span>
+                        <span className="text-white font-medium">{packagingLabel}</span>
+                    </div>
+                </div>
+            </div>
 
             {/* Characters review */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
@@ -1160,10 +1262,10 @@ function StepConfirm({
                                         {char.image ? '✓ Ảnh' : '✗ Ảnh'}
                                     </span>
                                     <span className={`text-xs ${char.hasGlasses ? 'text-green-400' : 'text-white/30'}`}>
-                                        {char.hasGlasses ? '✓ Kính' : '✗ Kính'}
+                                        {char.hasGlasses ? '+ Kính' : '- Kính'}
                                     </span>
                                     <span className={`text-xs ${char.hasHat ? 'text-green-400' : 'text-white/30'}`}>
-                                        {char.hasHat ? '✓ Mũ' : '✗ Mũ'}
+                                        {char.hasHat ? '+ Mũ' : '- Mũ'}
                                     </span>
                                 </div>
                             </div>
@@ -1172,23 +1274,16 @@ function StepConfirm({
                 </div>
             </div>
 
-            {/* Order details */}
+            {/* Price Breakdown */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                <h3 className="text-white font-medium mb-4">Chi tiết</h3>
-                <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                        <span className="text-white/60">Loại đơn</span>
-                        <span className="text-white">{typeLabel} — {characters.length} mô hình</span>
+                <h3 className="text-white font-medium mb-4">Chi phí</h3>
+                <div className="space-y-3">
+                    <div className="flex justify-between text-white/70">
+                        <span>Giá cơ bản ({orderConfig?.name})</span>
+                        <span>{orderConfig?.price.toLocaleString('vi-VN')}đ</span>
                     </div>
-                    <div className="flex justify-between">
-                        <span className="text-white/60">Đế</span>
-                        <span className="text-white">{baseLabel}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-white/60">Đóng gói</span>
-                        <span className="text-white">{packagingLabel}</span>
-                    </div>
-                    <div className="border-t border-white/10 pt-3 flex justify-between">
+                    {/* Add-on costs logic here if needed */}
+                    <div className="flex justify-between items-center text-white pt-3 border-t border-white/10">
                         <span className="text-white font-medium">Tổng cộng</span>
                         <span className="text-white font-bold text-lg">{totalPrice.toLocaleString('vi-VN')}đ</span>
                     </div>

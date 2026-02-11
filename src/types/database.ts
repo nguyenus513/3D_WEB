@@ -14,6 +14,7 @@ export type OrderStatus =
     | 'production_pending' // Chờ sản xuất (Đã duyệt + Đã cọc/thanh toán)
     | 'revising'    // Yêu cầu chỉnh sửa
     | 'producing'
+    | 'finished'      // Hoàn thiện (chờ xác nhận thành phẩm)
     | 'printing'
     | 'shipping'
     | 'delivered'

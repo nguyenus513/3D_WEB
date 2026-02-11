@@ -32,7 +32,9 @@ interface MasterOrder {
     address: {
         full_name: string;
         phone: string;
-        address_line: string;
+        address_line?: string;
+        ward?: string;
+        district?: string;
         province: string;
     };
     orders?: { order_code: string; status: string; total: number }[];
@@ -363,11 +365,20 @@ export default function CheckoutSuccessPage() {
                     <AnimatedSection delay={0.2}>
                         <div className="bg-[#1D1D1F] rounded-3xl p-8 mb-6">
                             <h3 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h3>
-                            <div className="text-white/70">
-                                <p className="font-medium text-white">{order.address.full_name}</p>
-                                <p className="text-sm mt-1">{order.address.phone}</p>
-                                <p className="text-sm mt-1">
-                                    {order.address.address_line}, {order.address.province}
+                            <div className="text-white/70 space-y-2">
+                                {order.address.full_name && (
+                                    <p className="font-medium text-white text-base">{order.address.full_name}</p>
+                                )}
+                                {order.address.phone && (
+                                    <p className="text-sm text-white/60">{order.address.phone}</p>
+                                )}
+                                <p className="text-sm">
+                                    {[
+                                        order.address.address_line,
+                                        order.address.ward,
+                                        order.address.district,
+                                        order.address.province,
+                                    ].filter(Boolean).join(', ')}
                                 </p>
                             </div>
                         </div>

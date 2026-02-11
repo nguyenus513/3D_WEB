@@ -95,6 +95,11 @@ interface Order {
     };
     // Demo image for review
     demo_image_url?: string;
+    demo_images?: { url: string; label: string; uploaded_at: string }[];
+    finished_images?: { url: string; label: string; uploaded_at: string }[];
+    revision_count?: number;
+    revision_feedback?: string;
+    approved_at?: string;
 }
 
 const statusLabels: Record<string, string> = {
@@ -108,6 +113,7 @@ const statusLabels: Record<string, string> = {
     approved: 'Đã xác nhận',
     production_pending: 'Chờ sản xuất',
     producing: 'Đang sản xuất',
+    finished: 'Hoàn thiện',
     printing: 'Đang in',
     shipping: 'Đang giao hàng',
     delivered: 'Đã giao',
@@ -125,6 +131,7 @@ const statusColors: Record<string, string> = {
     approved: 'bg-cyan-500/20 text-cyan-400',
     production_pending: 'bg-indigo-500/20 text-indigo-400',
     producing: 'bg-indigo-500/20 text-indigo-400',
+    finished: 'bg-teal-500/20 text-teal-400',
     printing: 'bg-violet-500/20 text-violet-400',
     shipping: 'bg-amber-500/20 text-amber-400',
     delivered: 'bg-emerald-500/20 text-emerald-400',
@@ -145,6 +152,7 @@ export default function AdminOrderDetailPage() {
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [adminNote, setAdminNote] = useState('');
     const [uploadingDemo, setUploadingDemo] = useState(false);
+    const [uploadingFinished, setUploadingFinished] = useState(false);
     const [archiving, setArchiving] = useState(false);
     const [archiveError, setArchiveError] = useState('');
     // Lock fetches while optimistic update is in progress
@@ -402,14 +410,15 @@ export default function AdminOrderDetailPage() {
         }
     };
 
-    // Upload demo image for customer review
-    const handleUploadDemoImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Upload demo image for customer review (multi-image)
+    const handleUploadDemoImage = async (e: React.ChangeEvent<HTMLInputElement>, label?: string) => {
         if (!order || !e.target.files?.[0]) return;
 
         setUploadingDemo(true);
         try {
             const formData = new FormData();
             formData.append('file', e.target.files[0]);
+            formData.append('label', label || 'Demo');
 
             const res = await fetch(`/api/admin/orders/${order.id}/demo-image`, {
                 method: 'POST',
@@ -417,44 +426,106 @@ export default function AdminOrderDetailPage() {
             });
 
             const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Upload failed');
 
-            if (!res.ok) {
-                throw new Error(data.error || 'Upload failed');
-            }
-
-            // === OPTIMISTIC UI: Override UI state immediately ===
-            isOptimisticUpdate.current = true; // Lock fetches
-            setOptimisticStatus('review');     // Force UI to show 'review'
-
+            // Update local state with new images
             setOrder(prev => {
                 if (!prev) return prev;
                 return {
                     ...prev,
-                    status: 'review',  // Also update data state
-                    demo_image_url: data.demo_image_url || prev.demo_image_url,
+                    demo_images: data.demo_images || prev.demo_images,
+                    demo_image_url: data.demo_images?.[0]?.url || prev.demo_image_url,
                 };
             });
 
-            alert('Upload thành công! Status đã chuyển sang "Chờ duyệt"');
-
-            // Hold UI override for 3s to mask any server lag/cache issues
-            setTimeout(() => {
-                router.refresh();
-                fetchOrder();
-
-                // Release overrides after Sync is likely done
-                setTimeout(() => {
-                    isOptimisticUpdate.current = false;
-                    setOptimisticStatus(null);
-                }, 1000);
-            }, 3000);
+            alert(`Upload thành công! (${data.total_images} ảnh demo)`);
         } catch (error) {
             console.error('Demo upload error:', error);
             alert('Upload thất bại: ' + (error as Error).message);
         } finally {
             setUploadingDemo(false);
-            // Reset input
             e.target.value = '';
+        }
+    };
+
+    // Send demo to customer for review (explicit action)
+    const handleSendForReview = async () => {
+        if (!order) return;
+        const images = order.demo_images || [];
+        if (images.length === 0) {
+            alert('Vui lòng upload ảnh demo trước khi gửi cho khách!');
+            return;
+        }
+        setUpdating(true);
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'review' }),
+            });
+            if (!res.ok) throw new Error('Failed to update status');
+            setOrder(prev => prev ? { ...prev, status: 'review' } : prev);
+            setOptimisticStatus('review');
+            alert('Đã gửi demo cho khách duyệt!');
+            setTimeout(() => { setOptimisticStatus(null); fetchOrder(); }, 2000);
+        } catch (error) {
+            alert('Lỗi: ' + (error as Error).message);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    // Upload finished product image
+    const handleUploadFinishedImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!order || !e.target.files?.[0]) return;
+
+        setUploadingFinished(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', e.target.files[0]);
+            formData.append('label', 'Thành phẩm');
+
+            const res = await fetch(`/api/admin/orders/${order.id}/finished-images`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+            setOrder(prev => {
+                if (!prev) return prev;
+                return { ...prev, finished_images: data.finished_images || prev.finished_images };
+            });
+
+            alert(`Upload thành phẩm thành công! (${data.total_images} ảnh)`);
+        } catch (error) {
+            alert('Upload thất bại: ' + (error as Error).message);
+        } finally {
+            setUploadingFinished(false);
+            e.target.value = '';
+        }
+    };
+
+    // Mark order as finished (production complete)
+    const handleMarkFinished = async () => {
+        if (!order) return;
+        setUpdating(true);
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'finished' }),
+            });
+            if (!res.ok) throw new Error('Failed to update status');
+            setOrder(prev => prev ? { ...prev, status: 'finished' } : prev);
+            setOptimisticStatus('finished');
+            alert('Đã đánh dấu hoàn thiện!');
+            setTimeout(() => { setOptimisticStatus(null); fetchOrder(); }, 2000);
+        } catch (error) {
+            alert('Lỗi: ' + (error as Error).message);
+        } finally {
+            setUpdating(false);
         }
     };
 
@@ -584,54 +655,161 @@ export default function AdminOrderDetailPage() {
                                 updating={updating}
                             />
 
-                            {/* Demo Image Upload - For custom orders in designing/review status */}
-                            {order.order_type === 'custom' && ['designing', 'processing', 'review', 'revising'].includes(order.status) && (
-                                <div className="mt-6 pt-6 border-t border-white/10">
-                                    <p className="text-white/50 text-sm mb-3">📷 Upload ảnh preview cho khách:</p>
-                                    <label className={`
-                                        flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
-                                        border-2 border-dashed border-cyan-500/30 hover:border-cyan-500/50 
-                                        bg-cyan-500/10 hover:bg-cyan-500/20 transition-all cursor-pointer
-                                        ${uploadingDemo ? 'opacity-50 cursor-wait' : ''}
-                                    `}>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleUploadDemoImage}
-                                            disabled={uploadingDemo}
-                                            className="hidden"
-                                        />
-                                        {uploadingDemo ? (
-                                            <>
-                                                <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-                                                <span className="text-cyan-400 text-sm">Đang upload...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                </svg>
-                                                <span className="text-cyan-400 text-sm font-medium">Chọn ảnh demo</span>
-                                            </>
-                                        )}
-                                    </label>
-                                    <p className="text-white/30 text-xs mt-2 text-center">
-                                        Ảnh sẽ được gửi cho khách duyệt
-                                    </p>
+                            {/* ═══ DEMO IMAGES SECTION (Custom orders) ═══ */}
+                            {order.order_type === 'custom' && (
+                                <div className="mt-6 pt-6 border-t border-white/10 space-y-4">
+                                    {/* Revision Feedback Alert */}
+                                    {order.status === 'revising' && order.revision_feedback && (
+                                        <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
+                                            <p className="text-pink-400 font-semibold text-sm mb-1">
+                                                ✏ Khách yêu cầu chỉnh sửa {order.revision_count ? `(lần ${order.revision_count})` : ''}
+                                            </p>
+                                            <p className="text-white/70 text-sm">{order.revision_feedback}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Upload Demo (show when designing/revising/processing) */}
+                                    {['designing', 'processing', 'revising', 'review'].includes(order.status) && (
+                                        <>
+                                            <p className="text-white/50 text-sm">📷 Upload ảnh demo (nhiều góc):</p>
+                                            <label className={`
+                                                flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
+                                                border-2 border-dashed border-cyan-500/30 hover:border-cyan-500/50 
+                                                bg-cyan-500/10 hover:bg-cyan-500/20 transition-all cursor-pointer
+                                                ${uploadingDemo ? 'opacity-50 cursor-wait' : ''}
+                                            `}>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => handleUploadDemoImage(e)}
+                                                    disabled={uploadingDemo}
+                                                    className="hidden"
+                                                />
+                                                {uploadingDemo ? (
+                                                    <>
+                                                        <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                                                        <span className="text-cyan-400 text-sm">Đang upload...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                        </svg>
+                                                        <span className="text-cyan-400 text-sm font-medium">Thêm ảnh demo</span>
+                                                    </>
+                                                )}
+                                            </label>
+                                        </>
+                                    )}
+
+                                    {/* Demo Image Gallery */}
+                                    {(order.demo_images && order.demo_images.length > 0) && (
+                                        <>
+                                            <p className="text-white/50 text-sm">🖼️ Ảnh demo ({order.demo_images.length}):</p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {order.demo_images.map((img, idx) => (
+                                                    <a key={idx} href={img.url} target="_blank" rel="noopener noreferrer" className="group relative">
+                                                        <img
+                                                            src={img.url}
+                                                            alt={img.label || `Demo ${idx + 1}`}
+                                                            className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-white/30 transition-all"
+                                                        />
+                                                        <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-white/80 px-2 py-0.5 rounded-full">
+                                                            {img.label || `#${idx + 1}`}
+                                                        </span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Single legacy image fallback */}
+                                    {order.demo_image_url && (!order.demo_images || order.demo_images.length === 0) && (
+                                        <div>
+                                            <p className="text-white/50 text-sm mb-2">🖼️ Ảnh demo:</p>
+                                            <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
+                                                <img src={order.demo_image_url} alt="Demo" className="w-full rounded-xl border border-white/10 hover:border-white/30 transition-all" />
+                                            </a>
+                                        </div>
+                                    )}
+
+                                    {/* Send for Review Button */}
+                                    {['designing', 'revising'].includes(order.status) && (order.demo_images?.length || 0) > 0 && (
+                                        <button
+                                            onClick={handleSendForReview}
+                                            disabled={updating}
+                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                        >
+                                            {updating ? 'Đang gửi...' : '📤 Gửi cho khách duyệt'}
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
-                            {/* Current Demo Image Preview */}
-                            {order.demo_image_url && (
-                                <div className="mt-6 pt-6 border-t border-white/10">
-                                    <p className="text-white/50 text-sm mb-3">🖼️ Ảnh demo hiện tại:</p>
-                                    <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                            src={order.demo_image_url}
-                                            alt="Demo preview"
-                                            className="w-full rounded-xl border border-white/10 hover:border-white/30 transition-all"
-                                        />
-                                    </a>
+                            {/* ═══ FINISHED PRODUCT SECTION (Custom orders in producing/finished) ═══ */}
+                            {order.order_type === 'custom' && ['producing', 'finished', 'shipping', 'delivered'].includes(order.status) && (
+                                <div className="mt-6 pt-6 border-t border-white/10 space-y-4">
+                                    <p className="text-white/50 text-sm">📸 Ảnh thành phẩm:</p>
+
+                                    {/* Upload button (only when producing) */}
+                                    {order.status === 'producing' && (
+                                        <label className={`
+                                            flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
+                                            border-2 border-dashed border-teal-500/30 hover:border-teal-500/50 
+                                            bg-teal-500/10 hover:bg-teal-500/20 transition-all cursor-pointer
+                                            ${uploadingFinished ? 'opacity-50 cursor-wait' : ''}
+                                        `}>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleUploadFinishedImage}
+                                                disabled={uploadingFinished}
+                                                className="hidden"
+                                            />
+                                            {uploadingFinished ? (
+                                                <>
+                                                    <span className="w-4 h-4 border-2 border-teal-400/30 border-t-teal-400 rounded-full animate-spin" />
+                                                    <span className="text-teal-400 text-sm">Đang upload...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                    <span className="text-teal-400 text-sm font-medium">Thêm ảnh thành phẩm</span>
+                                                </>
+                                            )}
+                                        </label>
+                                    )}
+
+                                    {/* Finished Images Gallery */}
+                                    {(order.finished_images && order.finished_images.length > 0) && (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {order.finished_images.map((img, idx) => (
+                                                <a key={idx} href={img.url} target="_blank" rel="noopener noreferrer" className="group relative">
+                                                    <img
+                                                        src={img.url}
+                                                        alt={img.label || `Thành phẩm ${idx + 1}`}
+                                                        className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-teal-400/50 transition-all"
+                                                    />
+                                                    <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-white/80 px-2 py-0.5 rounded-full">
+                                                        {img.label || `#${idx + 1}`}
+                                                    </span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Mark as Finished */}
+                                    {order.status === 'producing' && (
+                                        <button
+                                            onClick={handleMarkFinished}
+                                            disabled={updating}
+                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                        >
+                                            {updating ? 'Đang xử lý...' : '✅ Xác nhận hoàn thiện đơn hàng'}
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </motion.div>

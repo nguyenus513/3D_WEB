@@ -239,7 +239,7 @@ export class AdminOrderController extends BaseController {
 
             const { data: order, error } = await this.supabase
                 .from('orders')
-                .select(`*, user:profiles(*), items:order_items(*), address:addresses(*)`)
+                .select(`*, user:profiles(*), items:order_items(*)`)
                 .eq('id', orderId)
                 .maybeSingle() as any;
 
@@ -281,7 +281,7 @@ export class AdminOrderController extends BaseController {
                         admin_note: order.admin_notes,
                         order_type: orderType,
                         custom_config,
-                        shipping_address: order.shipping_address_snapshot,
+                        shipping_address: order.shipping_address || order.shipping_address_snapshot,
                         _source_table: 'orders'
                     },
                     profile: order.user,
@@ -450,26 +450,46 @@ export class AdminOrderController extends BaseController {
 
             for (const table of tables) {
                 try {
-                    // Build minimal update - ONLY status and updated_at
+                    // Build update object with ALL allowed fields
                     const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-                    // Only add status if provided
+                    // Status
                     if (body.status !== undefined && body.status !== null) {
                         update.status = body.status;
+                    }
+
+                    // Payment fields
+                    if (body.deposit_paid !== undefined) {
+                        update.deposit_paid = body.deposit_paid;
+                    }
+                    if (body.paid_at !== undefined) {
+                        update.paid_at = body.paid_at;
+                    }
+                    if (body.payment_status !== undefined) {
+                        update.payment_status = body.payment_status;
+                    }
+
+                    // When confirming deposit, also update payment_status
+                    if (body.deposit_paid === true && !body.payment_status) {
+                        update.payment_status = 'confirmed';
+                    }
+
+                    // Admin notes
+                    if (body.admin_note !== undefined) {
+                        update.admin_notes = body.admin_note; // DB column is admin_notes (plural)
+                    }
+
+                    // Shipping
+                    if (body.shipping_code !== undefined) {
+                        update.shipping_code = body.shipping_code;
                     }
 
                     // Auto-complete payment on Delivery/Completion (50/50 Model)
                     if (body.status === 'delivered' || body.status === 'completed') {
                         update.payment_status = 'paid';
-                        // Only update paid_at if not already set (preserve original deposit date if needed, though for full payment this usually implies "now")
-                        // Actually for 50/50, paid_at usually marks the FINAL payment.
-                        // Let's set it to now if we are moving to paid.
                         update.paid_at = new Date().toISOString();
                         console.log('[AdminOrder] Auto-completing payment for delivery');
                     }
-
-                    // For 'orders' table, we can add admin_notes (note the plural)
-                    // But skip for custom_orders/print_orders to avoid errors
 
                     console.log(`[AdminOrder] Trying ${table} with update:`, update);
 

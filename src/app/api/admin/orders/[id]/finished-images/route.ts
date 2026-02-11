@@ -1,18 +1,18 @@
 /**
- * Admin Demo Image Upload API (Multi-Image)
- * POST /api/admin/orders/[id]/demo-image - Upload demo/preview images for customer review
- * 
- * Supports multiple images (multi-angle). Each upload appends to demo_images array.
- * Storage: Cloudflare R2 (fast serving)
+ * Admin Finished Product Images API
+ * POST /api/admin/orders/[id]/finished-images - Upload finished product images
+ * DELETE /api/admin/orders/[id]/finished-images - Remove a finished image by index
+ *
+ * Storage: Cloudflare R2
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
-import { uploadToR2, generateReviewR2Key, isR2Configured } from '@/lib/storage/r2';
+import { uploadToR2, isR2Configured } from '@/lib/storage/r2';
 
-interface DemoImage {
+interface FinishedImage {
     url: string;
     label: string;
     uploaded_at: string;
@@ -23,7 +23,6 @@ export async function POST(
     props: { params: Promise<{ id: string }> }
 ) {
     try {
-        // Verify admin
         const { authorized, response } = await requireAdmin(request);
         if (!authorized) return response;
 
@@ -32,17 +31,15 @@ export async function POST(
             return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
         }
 
-        // Check R2 configuration
         if (!isR2Configured()) {
             return NextResponse.json({ error: 'R2 storage not configured' }, { status: 500 });
         }
 
         const supabase = getAdminSupabase();
 
-        // Find order
         const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, order_code, cart_code, user_id, demo_images')
+            .select('id, order_code, cart_code, finished_images')
             .eq('id', orderId)
             .maybeSingle();
 
@@ -52,67 +49,56 @@ export async function POST(
 
         const orderCode = order.order_code || order.cart_code;
 
-        // Parse multipart form data
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const label = (formData.get('label') as string) || 'Demo';
+        const label = (formData.get('label') as string) || 'Thành phẩm';
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // Validate file type
         const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
         if (!validTypes.includes(file.type)) {
-            return NextResponse.json({ error: 'Invalid file type. Use JPEG, PNG, WebP or GIF' }, { status: 400 });
+            return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
         }
 
-        // Convert File to Buffer
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Get existing demo images
-        const existingImages: DemoImage[] = Array.isArray(order.demo_images) ? order.demo_images : [];
+        const existingImages: FinishedImage[] = Array.isArray(order.finished_images) ? order.finished_images : [];
         const imageIndex = existingImages.length + 1;
-
-        // Get file extension
         const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
 
-        // Generate R2 key and upload
-        const r2Key = generateReviewR2Key(orderCode, imageIndex, ext);
-        const { url: demoImageUrl } = await uploadToR2(buffer, r2Key, file.type, {
+        // Upload to R2 under finished/ prefix
+        const r2Key = `orders/${orderCode}/finished/${imageIndex}.${ext}`;
+        const { url: imageUrl } = await uploadToR2(buffer, r2Key, file.type, {
             orderId,
-            orderCode: orderCode,
-            type: 'demo',
+            orderCode,
+            type: 'finished',
             index: String(imageIndex),
         });
 
-        // Build new image entry
-        const newImage: DemoImage = {
-            url: demoImageUrl,
+        const newImage: FinishedImage = {
+            url: imageUrl,
             label,
             uploaded_at: new Date().toISOString(),
         };
 
-        // Append to demo_images array
         const updatedImages = [...existingImages, newImage];
 
-        // Update order: set demo_image_url (primary/first), demo_images (all)
         const { error: updateError } = await supabase
             .from('orders')
             .update({
-                demo_image_url: updatedImages[0]?.url || demoImageUrl,
-                demo_images: updatedImages,
+                finished_images: updatedImages,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);
 
         if (updateError) {
-            console.error('[DemoUpload] Update failed:', updateError);
-            return NextResponse.json({ error: 'Failed to update order: ' + updateError.message }, { status: 500 });
+            console.error('[FinishedUpload] Update failed:', updateError);
+            return NextResponse.json({ error: 'Failed to update: ' + updateError.message }, { status: 500 });
         }
 
-        // Invalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
         revalidatePath('/sys_internal/orders', 'page');
 
@@ -120,18 +106,14 @@ export async function POST(
             success: true,
             image: newImage,
             total_images: updatedImages.length,
-            demo_images: updatedImages,
+            finished_images: updatedImages,
         });
     } catch (error) {
-        console.error('[DemoUpload] Error:', error);
+        console.error('[FinishedUpload] Error:', error);
         return NextResponse.json({ error: 'Upload failed: ' + (error as Error).message }, { status: 500 });
     }
 }
 
-/**
- * DELETE /api/admin/orders/[id]/demo-image
- * Remove a demo image by index
- */
 export async function DELETE(
     request: NextRequest,
     props: { params: Promise<{ id: string }> }
@@ -148,7 +130,7 @@ export async function DELETE(
 
         const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, demo_images')
+            .select('id, finished_images')
             .eq('id', orderId)
             .maybeSingle();
 
@@ -156,19 +138,17 @@ export async function DELETE(
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const images: DemoImage[] = Array.isArray(order.demo_images) ? order.demo_images : [];
+        const images: FinishedImage[] = Array.isArray(order.finished_images) ? order.finished_images : [];
         if (imageIndex < 0 || imageIndex >= images.length) {
             return NextResponse.json({ error: 'Invalid image index' }, { status: 400 });
         }
 
-        // Remove image at index
         const updatedImages = images.filter((_, i) => i !== imageIndex);
 
         const { error: updateError } = await supabase
             .from('orders')
             .update({
-                demo_images: updatedImages,
-                demo_image_url: updatedImages[0]?.url || null,
+                finished_images: updatedImages,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);
@@ -181,7 +161,7 @@ export async function DELETE(
 
         return NextResponse.json({
             success: true,
-            demo_images: updatedImages,
+            finished_images: updatedImages,
             total_images: updatedImages.length,
         });
     } catch (error) {
