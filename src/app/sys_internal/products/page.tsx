@@ -173,7 +173,15 @@ export default function AdminProductsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            {/* ... header code ... */}
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-white">Sản phẩm</h1>
+                <Link
+                    href={`${adminRoot}/products/new`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-colors"
+                >
+                    ＋ Thêm sản phẩm
+                </Link>
+            </div>
 
             {/* Filters */}
             <div className="space-y-4">
