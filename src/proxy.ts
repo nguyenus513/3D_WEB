@@ -135,17 +135,35 @@ export const proxy = auth((req) => {
         return NextResponse.rewrite(new URL(internalPath, nextUrl.origin));
     }
 
-    // Block direct access to /admin (It doesn't exist publicly)
-    if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    // Block direct access to /admin (except /admin/verify-2fa)
+    if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !pathname.startsWith('/admin/verify-2fa')) {
         return NextResponse.rewrite(new URL('/404', nextUrl.origin));
     }
 
-    // Block direct access to sys_internal
+    // Block direct access to sys_internal (must use Phoenix token)
     if (pathname.startsWith('/sys_internal')) {
-        return NextResponse.rewrite(new URL('/404', nextUrl.origin));
+        if (!isLoggedIn || !isAdmin) {
+            return NextResponse.rewrite(new URL('/404', nextUrl.origin));
+        }
+
+        // ─── 2FA Check for Admin Pages ────────────────────────
+        const twoFactorEnabled = (req.auth?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled;
+        if (twoFactorEnabled) {
+            const twoFACookie = req.cookies.get('2fa-verified');
+            const userId = req.auth?.user?.id;
+            if (!twoFACookie || twoFACookie.value !== userId) {
+                return NextResponse.redirect(new URL('/admin/verify-2fa', nextUrl.origin));
+            }
+        }
     }
 
-    return NextResponse.next();
+    // ─── Correlation ID ──────────────────────────────────────
+    const response = NextResponse.next();
+    const correlationId = req.headers.get('X-Correlation-ID') ||
+        `req-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`;
+    response.headers.set('X-Correlation-ID', correlationId);
+
+    return response;
 });
 
 export const config = {
@@ -159,6 +177,6 @@ export const config = {
          * 
          * NOTE: API routes ARE included for rate limiting
          */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next|api/auth|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot)$).*)',
     ],
 };
