@@ -130,6 +130,16 @@ export const proxy = auth((req) => {
             return NextResponse.redirect(new URL('/', nextUrl.origin));
         }
 
+        // ─── 2FA Check (before rewrite) ──────────────────────
+        const twoFactorEnabled = (req.auth?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled;
+        if (twoFactorEnabled) {
+            const twoFACookie = req.cookies.get('2fa-verified');
+            const userId = req.auth?.user?.id;
+            if (!twoFACookie || twoFACookie.value !== userId) {
+                return NextResponse.redirect(new URL('/admin/verify-2fa', nextUrl.origin));
+            }
+        }
+
         // Rewrite to internal system
         const internalPath = pathname.replace(`/${phoenixToken}`, '/sys_internal');
         return NextResponse.rewrite(new URL(internalPath, nextUrl.origin));
