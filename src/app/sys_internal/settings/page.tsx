@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import TwoFactorSetup from '@/components/admin/TwoFactorSetup';
 
 function SettingsContent() {
     const searchParams = useSearchParams();
@@ -12,6 +13,10 @@ function SettingsContent() {
     const [isServiceAccount, setIsServiceAccount] = useState(false);
     const [driveLoading, setDriveLoading] = useState(true);
     const [driveMessage, setDriveMessage] = useState('');
+
+    // 2FA state
+    const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+    const [twoFALoading, setTwoFALoading] = useState(true);
 
     useEffect(() => {
         const checkDriveStatus = async () => {
@@ -32,6 +37,22 @@ function SettingsContent() {
         };
 
         checkDriveStatus();
+
+        // Check 2FA status
+        const check2FAStatus = async () => {
+            try {
+                const res = await fetch('/api/admin/2fa/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    setTwoFAEnabled(data.enabled);
+                }
+            } catch {
+                // Silently fail — 2FA section will show as disabled
+            } finally {
+                setTwoFALoading(false);
+            }
+        };
+        check2FAStatus();
 
         const connected = searchParams.get('drive_connected');
         const error = searchParams.get('drive_error');
@@ -127,6 +148,34 @@ function SettingsContent() {
                         </button>
                     )}
                 </div>
+            </motion.div>
+
+            {/* 2FA Security Section */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 className="text-lg font-semibold text-white">Bảo mật</h2>
+                        <p className="text-white/50 text-sm mt-1">
+                            Xác thực 2 yếu tố cho tài khoản admin
+                        </p>
+                    </div>
+                </div>
+
+                {twoFALoading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    </div>
+                ) : (
+                    <TwoFactorSetup
+                        isEnabled={twoFAEnabled}
+                        onStatusChange={(enabled) => setTwoFAEnabled(enabled)}
+                    />
+                )}
             </motion.div>
         </div>
     );
