@@ -131,11 +131,11 @@ export const config = {
     matcher: [
         /*
          * Match all request paths except:
-         * - _next/static (static files)
-         * - _next/image (image optimization)
+         * - _next (ALL Next.js internals: static, image, webpack-hmr, etc.)
+         * - api/auth (NextAuth endpoints — must not be intercepted)
          * - favicon.ico
-         * - public folder files
+         * - Public static files (images, fonts, etc.)
          */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+        '/((?!_next|api/auth|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot)$).*)',
     ],
 };
