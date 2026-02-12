@@ -98,7 +98,8 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
         }
 
-        console.log(`Cleanup: Deleted ${expiredAccounts.length} unverified accounts`);
+        const { createLogger } = await import('@/lib/logger');
+        createLogger('auth-cleanup').info('Cleanup complete', { deleted: expiredAccounts.length });
 
         return NextResponse.json({
             message: `Deleted ${expiredAccounts.length} unverified accounts`,

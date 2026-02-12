@@ -1,23 +1,18 @@
 /**
  * Sentry Edge Configuration
  *
- * Initializes Sentry for edge runtime (middleware, API routes with edge runtime).
- *
- * @see https://docs.sentry.io/platforms/javascript/guides/nextjs/
+ * Initializes Sentry for Edge Runtime (middleware, edge routes).
+ * This file is auto-loaded by @sentry/nextjs.
  */
 
 import * as Sentry from '@sentry/nextjs';
 
-const SENTRY_DSN = process.env.SENTRY_DSN;
+Sentry.init({
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-if (SENTRY_DSN) {
-    Sentry.init({
-        dsn: SENTRY_DSN,
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.05 : 1.0,
 
-        // Lower sample rate for edge
-        tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.05 : 0.5,
+    enabled: process.env.NODE_ENV === 'production',
 
-        // Environment tag
-        environment: process.env.NODE_ENV || 'development',
-    });
-}
+    environment: process.env.NODE_ENV,
+});

@@ -11,6 +11,9 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { getBankConfigForOrderTypeAsync } from '@/lib/vietqr';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('order-lookup');
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
         }
 
-        console.log('[OrderLookup] Searching for order:', orderId, 'user:', userId);
+        log.debug('Searching for order', { orderId, userId });
 
         // Search in unified orders table by multiple fields
         let order = null;
@@ -55,7 +58,7 @@ export async function GET(request: NextRequest) {
 
         if (orderByCode) {
             order = orderByCode;
-            console.log('[OrderLookup] Found by order_code');
+            log.debug('Found by order_code');
         }
 
         // 2. Try by cart_code
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
 
             if (orderByCart) {
                 order = orderByCart;
-                console.log('[OrderLookup] Found by cart_code');
+                log.debug('Found by cart_code');
             }
         }
 
@@ -84,12 +87,12 @@ export async function GET(request: NextRequest) {
 
             if (orderById) {
                 order = orderById;
-                console.log('[OrderLookup] Found by id');
+                log.debug('Found by id');
             }
         }
 
         if (!order) {
-            console.log('[OrderLookup] Order not found');
+            log.info('Order not found', { orderId });
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
@@ -234,7 +237,7 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('[OrderLookup] Error:', error);
+        log.error('Order lookup failed', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

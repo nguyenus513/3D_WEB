@@ -17,7 +17,9 @@ export async function POST(
     const params = await props.params;
     const orderId = params.id;
 
-    console.log(`[CompleteOrder] Completing order: ${orderId}`);
+    const { createLogger } = await import('@/lib/logger');
+    const log = createLogger('complete-order');
+    log.info('Completing order', { orderId });
 
     try {
         const supabase = getAdminSupabase();
@@ -60,7 +62,7 @@ export async function POST(
         migrateOrderToArchive(orderId)
             .then((result) => {
                 if (result.success) {
-                    console.log(`[CompleteOrder] Migration complete: ${result.migratedFiles} files moved to Drive, R2 cleaned`);
+                    log.info('Migration complete', { migratedFiles: result.migratedFiles });
                 } else {
                     console.warn(`[CompleteOrder] Migration issues:`, result.errors);
                 }

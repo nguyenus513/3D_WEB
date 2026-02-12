@@ -1,67 +1,42 @@
 /**
- * Sentry Client-Side Configuration
+ * Sentry Client Configuration
  *
- * Initializes Sentry for browser-side error tracking.
- *
- * @see https://docs.sentry.io/platforms/javascript/guides/nextjs/
+ * Initializes Sentry on the browser side for error tracking.
+ * This file is auto-loaded by @sentry/nextjs.
  */
 
 import * as Sentry from '@sentry/nextjs';
 
-const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
+Sentry.init({
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-if (SENTRY_DSN) {
-    Sentry.init({
-        dsn: SENTRY_DSN,
+    // Performance monitoring
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
 
-        // Adjust in production - lower for performance
-        tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    // Session replay for debugging
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
 
-        // Enable session replay for debugging (expensive, use sparingly)
-        replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
+    // Only enable in production
+    enabled: process.env.NODE_ENV === 'production',
 
-        // Set to true for development debugging
-        debug: false,
+    // Environment
+    environment: process.env.NODE_ENV,
 
-        // Environment tag
-        environment: process.env.NODE_ENV || 'development',
+    // Filter out noisy errors
+    ignoreErrors: [
+        // Browser extensions
+        'ResizeObserver loop',
+        'Non-Error exception captured',
+        // Network errors
+        'Failed to fetch',
+        'Load failed',
+        'NetworkError',
+        // User navigating away
+        'AbortError',
+    ],
 
-        // App version
-        release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || '1.0.0',
-
-        // Don't send console logs to Sentry
-        integrations: [
-            Sentry.browserTracingIntegration(),
-        ],
-
-        // Filter out noise
-        beforeSend(event) {
-            // Filter out specific errors
-            const message = event.exception?.values?.[0]?.value || '';
-
-            // Don't send network errors from user's connection issues
-            if (
-                message.includes('Failed to fetch') ||
-                message.includes('NetworkError') ||
-                message.includes('Load failed')
-            ) {
-                return null;
-            }
-
-            return event;
-        },
-
-        // Block PII from being sent
-        beforeBreadcrumb(breadcrumb) {
-            // Remove sensitive headers
-            if (breadcrumb.category === 'xhr' || breadcrumb.category === 'fetch') {
-                if (breadcrumb.data?.headers) {
-                    delete breadcrumb.data.headers.Authorization;
-                    delete breadcrumb.data.headers.Cookie;
-                }
-            }
-            return breadcrumb;
-        },
-    });
-}
+    integrations: [
+        Sentry.replayIntegration(),
+    ],
+});

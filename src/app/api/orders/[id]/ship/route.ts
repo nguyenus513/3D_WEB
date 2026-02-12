@@ -15,7 +15,9 @@ export async function POST(
     const params = await props.params;
     const orderId = params.id;
 
-    console.log(`[ShipOrder] Shipping order: ${orderId}`);
+    const { createLogger } = await import('@/lib/logger');
+    const log = createLogger('ship-order');
+    log.info('Shipping order', { orderId });
 
     try {
         const body = await request.json().catch(() => ({}));

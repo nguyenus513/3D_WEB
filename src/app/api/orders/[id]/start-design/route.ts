@@ -15,7 +15,9 @@ export async function POST(
     const params = await props.params;
     const orderId = params.id;
 
-    console.log(`[StartDesign] Starting design for order: ${orderId}`);
+    const { createLogger } = await import('@/lib/logger');
+    const log = createLogger('start-design');
+    log.info('Starting design', { orderId });
 
     try {
         const supabase = getAdminSupabase();

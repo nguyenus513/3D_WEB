@@ -10,6 +10,9 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { generateId } from '@/lib/generateId';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('custom-order');
 
 interface CustomOrderRequest {
     type: 'single' | 'couple' | 'group';
@@ -89,7 +92,7 @@ export async function POST(request: NextRequest) {
         // Generate codes
         const orderCode = generateId.order(); // 8 HEX
 
-        console.log('[Custom Order API] Creating order:', { orderCode, type, size, totalPrice });
+        log.info('Creating custom order', { orderCode, type, size, totalPrice });
 
         // Step 1: Create order (ĐƠN TỔNG)
         const { data: order, error: orderError } = await supabase
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (orderError) {
-            console.error('[Custom Order API] Create order error:', orderError);
+            log.error('Create order failed', orderError);
             return NextResponse.json(
                 { success: false, error: { code: 'DB_ERROR', message: orderError.message } },
                 { status: 500 }
@@ -159,7 +162,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (itemError) {
-            console.error('[Custom Order API] Create order item error:', itemError);
+            log.error('Create order item failed', itemError);
             // Rollback order
             await supabase.from('orders').delete().eq('id', order.id);
             return NextResponse.json(
@@ -189,7 +192,7 @@ export async function POST(request: NextRequest) {
                 .insert(fileInserts);
 
             if (fileError) {
-                console.warn('[Custom Order API] Create files warning:', fileError);
+                log.warn('Create files warning', { error: fileError });
                 // Non-fatal, continue
             }
         }
@@ -208,7 +211,7 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('[Custom Order API] Unexpected error:', error);
+        log.error('Unexpected error', error);
         return NextResponse.json(
             { success: false, error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
             { status: 500 }

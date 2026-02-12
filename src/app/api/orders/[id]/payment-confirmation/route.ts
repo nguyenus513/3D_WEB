@@ -28,10 +28,12 @@ export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    console.log('[PaymentConfirmation] API CALLED');
+    const { createLogger } = await import('@/lib/logger');
+    const log = createLogger('payment-confirmation');
+    log.info('API called');
     try {
         const { id: orderId } = await params;
-        console.log('[PaymentConfirmation] Order ID:', orderId);
+        log.info('Processing order', { orderId });
 
         const session = await auth();
 

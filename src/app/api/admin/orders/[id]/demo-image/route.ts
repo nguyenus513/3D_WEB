@@ -183,7 +183,8 @@ export async function DELETE(
                 const r2Key = extractR2KeyFromUrl(imageToDelete.url);
                 if (r2Key) {
                     await deleteFromR2(r2Key);
-                    console.log(`[DemoDelete] Deleted from R2: ${r2Key}`);
+                    const { createLogger } = await import('@/lib/logger');
+                    createLogger('demo-image').info('Deleted from R2', { r2Key });
                 }
             } catch (r2Error) {
                 // Log but don't block — DB cleanup is more important

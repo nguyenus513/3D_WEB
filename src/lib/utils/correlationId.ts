@@ -49,7 +49,7 @@ export class CorrelatedLogger {
                 service: this.service,
                 correlationId: this.correlationId,
                 message,
-                error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+                error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
                 ...data,
                 timestamp: new Date().toISOString(),
             })

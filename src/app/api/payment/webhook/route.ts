@@ -9,8 +9,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PaymentService } from '@/services/PaymentService';
 import { getAdminSupabase } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
 
 const paymentService = new PaymentService();
+const log = createLogger('payment-webhook');
 
 // App Router: body is NOT auto-parsed. Use request.text() for raw body access.
 
@@ -53,12 +55,12 @@ export async function POST(request: NextRequest) {
             }
 
             default:
-                console.log(`Unhandled event type: ${event.type}`);
+                log.warn('Unhandled event type', { eventType: event.type });
         }
 
         return NextResponse.json({ received: true });
     } catch (error) {
-        console.error('Webhook error:', error);
+        log.error('Webhook processing failed', error);
         return NextResponse.json(
             { error: 'Webhook processing failed' },
             { status: 400 }
@@ -75,7 +77,7 @@ async function handlePaymentSuccess(
     amount: number
 ) {
     if (!orderId) {
-        console.error('No orderId in payment intent metadata');
+        log.error('No orderId in payment intent metadata');
         return;
     }
 
@@ -102,7 +104,7 @@ async function handlePaymentSuccess(
         })
         .eq('id', orderId);
 
-    console.log(`Payment successful for order ${orderId}: ${amount} VND`);
+    log.info('Payment successful', { orderId, amount });
 }
 
 /**
@@ -114,7 +116,7 @@ async function handlePaymentFailed(
     errorMessage: string
 ) {
     if (!orderId) {
-        console.error('No orderId in payment intent metadata');
+        log.error('No orderId in failed payment metadata');
         return;
     }
 
@@ -129,5 +131,5 @@ async function handlePaymentFailed(
         })
         .eq('order_id', orderId);
 
-    console.log(`Payment failed for order ${orderId}: ${errorMessage}`);
+    log.warn('Payment failed', { orderId, errorMessage });
 }

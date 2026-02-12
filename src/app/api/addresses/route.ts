@@ -99,7 +99,9 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (!profileById) {
-            console.log('[POST /api/addresses] Profile not found by ID, trying email lookup');
+            const { createLogger } = await import('@/lib/logger');
+            const log = createLogger('addresses');
+            log.debug('Profile not found by ID, trying email lookup');
 
             if (session.user.email) {
                 const { data: profileByEmail } = await supabase
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest) {
 
                 if (profileByEmail) {
                     // Found by email - use that ID instead of corrupted session ID
-                    console.log('[POST /api/addresses] Using profile ID from email lookup:', profileByEmail.id);
+                    log.debug('Using profile ID from email lookup', { profileId: profileByEmail.id });
                     profileId = profileByEmail.id;
                 } else {
                     // Neither found - profile truly doesn't exist

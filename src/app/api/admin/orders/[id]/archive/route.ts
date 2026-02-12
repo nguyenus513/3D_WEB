@@ -92,11 +92,14 @@ export async function POST(
         const orderFolderName = `ORD-${order.order_code}`;
         let orderFolderId: string;
 
+        const { createLogger } = await import('@/lib/logger');
+        const log = createLogger('archive');
+
         try {
             orderFolderId = await ensureFolder(archiveRootId, orderFolderName);
-            console.log('[Archive] Using Drive folder:', orderFolderId, '(', orderFolderName, ')');
+            log.info('Using Drive folder', { folderId: orderFolderId, folderName: orderFolderName });
         } catch (folderError) {
-            console.error('Failed to create Drive folder:', folderError);
+            log.error('Failed to create Drive folder', folderError);
             return NextResponse.json({
                 error: 'Failed to create folder in Google Drive.',
                 hint: 'Admin must login with Google to enable Drive access.'
@@ -164,7 +167,7 @@ export async function POST(
                     stageFolderId
                 );
 
-                console.log(`[Archive] ✓ ${originalName} → ${stageFolder}/${studioFileName}`);
+                log.info('Archived file', { from: originalName, to: `${stageFolder}/${studioFileName}` });
 
                 // Delete from R2
                 await deleteFromR2(r2Key);

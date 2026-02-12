@@ -286,7 +286,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 try {
                     const { data: profile } = await supabaseAdmin
                         .from('profiles')
-                        .select('id, role, customer_code')
+                        .select('id, role, customer_code, totp_enabled')
                         .eq('email', (email as string).toLowerCase())
                         .single();
 
@@ -295,6 +295,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         token.id = profile.id;
                         token.role = profile.role;
                         token.customerCode = profile.customer_code;
+                        token.twoFactorEnabled = profile.totp_enabled || false;
                     } else {
                         console.warn('[AUTH DEBUG] Profile not found in DB for:', email);
                     }
@@ -306,12 +307,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            // console.log('[AUTH DEBUG] Session Callback | Role:', token.role);
             if (session.user) {
                 session.user.id = token.id as string;
                 (session.user as { role?: string }).role = token.role as string;
                 (session.user as { customerCode?: string }).customerCode = token.customerCode as string;
                 (session.user as { isNewUser?: boolean }).isNewUser = token.isNewUser as boolean;
+                (session.user as { twoFactorEnabled?: boolean }).twoFactorEnabled = token.twoFactorEnabled as boolean;
             }
             return session;
         },

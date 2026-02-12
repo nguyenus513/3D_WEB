@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
             .delete()
             .eq('user_id', resetToken.user_id);
 
-        console.log('[ResetPassword] Password reset successful for user:', resetToken.user_id);
+        const { createLogger } = await import('@/lib/logger');
+        createLogger('reset-password').info('Password reset successful', { userId: resetToken.user_id });
 
         return NextResponse.json({
             success: true,

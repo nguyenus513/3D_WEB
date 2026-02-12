@@ -3,6 +3,9 @@ import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/generateId';
 import { z } from 'zod';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('master-order');
 
 // Supabase admin client
 const supabaseAdmin = createClient(
@@ -64,7 +67,7 @@ export async function POST(request: NextRequest) {
 
                 // Log if type was changed for debugging
                 if (originalType !== type) {
-                    console.log(`[Master Order] Normalized item type: ${originalType} -> ${type}`);
+                    log.debug('Normalized item type', { from: originalType, to: type });
                 }
 
                 return { ...item, type };
@@ -76,10 +79,10 @@ export async function POST(request: NextRequest) {
 
         if (!validation.success) {
             // Log the actual items for debugging
-            console.error('Master order validation failed:', JSON.stringify({
+            log.warn('Validation failed', {
                 issues: validation.error.issues,
                 itemTypes: body.items?.map((i: { type?: string; name?: string }) => ({ type: i.type, name: i.name }))
-            }, null, 2));
+            });
             return NextResponse.json(
                 { error: 'Invalid request', details: validation.error.issues },
                 { status: 400 }
@@ -136,7 +139,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (masterError) {
-            console.error('Failed to create master order:', masterError);
+            log.error('Failed to create master order', masterError);
             return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
         }
 
@@ -170,7 +173,7 @@ export async function POST(request: NextRequest) {
                 .single();
 
             if (productError) {
-                console.error('Failed to create product order:', productError);
+                log.error('Failed to create product order', productError);
             } else {
                 subOrders.push({ type: 'product', orderNumber: productOrderNumber });
 
@@ -216,7 +219,7 @@ export async function POST(request: NextRequest) {
                     });
 
                 if (printError) {
-                    console.error('Failed to create print order:', printError);
+                    log.error('Failed to create print order', printError);
                 } else {
                     subOrders.push({ type: 'print', orderNumber: printOrderNumber });
                 }
@@ -242,7 +245,7 @@ export async function POST(request: NextRequest) {
                     });
 
                 if (customError) {
-                    console.error('Failed to create custom order:', customError);
+                    log.error('Failed to create custom order', customError);
                 } else {
                     subOrders.push({ type: 'custom', orderNumber: customOrderNumber });
                 }
@@ -258,7 +261,7 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('Master order creation error:', error);
+        log.error('Master order creation error', error);
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
@@ -306,7 +309,7 @@ export async function GET() {
             masterOrders = result.data;
             fetchError = result.error;
         } catch (e) {
-            console.error('Master orders query exception:', e);
+            log.error('Master orders query exception', e);
             // Try simpler query without relations
             const simpleResult = await supabaseAdmin
                 .from('master_orders')
@@ -319,14 +322,14 @@ export async function GET() {
         }
 
         if (fetchError) {
-            console.error('Failed to fetch master orders:', fetchError);
+            log.error('Failed to fetch master orders', fetchError);
             return NextResponse.json({ error: 'Failed to fetch orders', details: fetchError.message }, { status: 500 });
         }
 
         return NextResponse.json({ orders: masterOrders || [] });
 
     } catch (error) {
-        console.error('Get master orders error:', error);
+        log.error('Get master orders error', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

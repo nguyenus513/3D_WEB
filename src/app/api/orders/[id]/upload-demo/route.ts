@@ -16,7 +16,10 @@ export async function POST(
     const params = await props.params;
     const orderId = params.id;
 
-    console.log(`[UploadDemo] Uploading demo for order: ${orderId}`);
+    // Structured logging
+    const { createLogger } = await import('@/lib/logger');
+    const log = createLogger('upload-demo');
+    log.info('Uploading demo', { orderId });
 
     try {
         const body = await request.json();

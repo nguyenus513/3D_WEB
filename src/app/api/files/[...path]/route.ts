@@ -109,7 +109,9 @@ export async function GET(
             ? 'public, max-age=31536000' // 1 year for public files
             : 'private, max-age=3600';    // 1 hour for private files
 
-        console.log(`[Files] Streaming ${fileKey} to ${userId || 'anonymous'}`);
+        const { createLogger } = await import('@/lib/logger');
+        const log = createLogger('file-stream');
+        log.info('Streaming file', { fileKey, userId: userId || 'anonymous' });
 
         // Convert Node stream to Web Stream for NextResponse
         // @ts-ignore - S3 Body is compatible with Web Stream in simpler cases or requires transformation

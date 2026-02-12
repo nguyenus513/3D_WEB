@@ -10,6 +10,7 @@ import { auth } from '@/auth';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
 import { createSuccessResponse, createErrorResponse, ERROR_MESSAGES } from '@/lib/utils/apiResponse';
+import { createLogger } from '@/lib/logger';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -29,6 +30,7 @@ interface AtomicOrderRequest {
 
 export async function POST(request: NextRequest) {
     const correlationId = `atomic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const log = createLogger('atomic-order', correlationId);
 
     try {
         // Authenticate
@@ -72,11 +74,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log('[AtomicOrder] Calling RPC', {
+        log.info('Calling RPC', {
             userId,
             productId,
             quantity,
-            correlationId
         });
 
         // Call RPC function for atomic stock check and order creation
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
             });
 
         if (rpcError) {
-            console.error('[AtomicOrder] RPC error', { rpcError, correlationId });
+            log.error('RPC error', rpcError);
             return NextResponse.json(
                 createErrorResponse('INTERNAL_ERROR', rpcError.message, { correlationId }),
                 { status: 500 }
@@ -107,11 +108,10 @@ export async function POST(request: NextRequest) {
         if (!result.success) {
             const statusCode = result.error === 'INSUFFICIENT_STOCK' ? 409 : 400;
 
-            console.warn('[AtomicOrder] Order failed', {
+            log.warn('Order failed', {
                 error: result.error,
                 available: result.available,
                 requested: result.requested,
-                correlationId
             });
 
             return NextResponse.json(
@@ -125,12 +125,11 @@ export async function POST(request: NextRequest) {
         }
 
         // Success
-        console.log('[AtomicOrder] Order created successfully', {
+        log.info('Order created', {
             orderId: result.order_id,
             codeChild: result.code_child,
             stockBefore: result.stock_before,
             stockAfter: result.stock_after,
-            correlationId
         });
 
         return NextResponse.json(createSuccessResponse({
@@ -149,7 +148,7 @@ export async function POST(request: NextRequest) {
         }));
 
     } catch (error) {
-        console.error('[AtomicOrder] Unexpected error', { error, correlationId });
+        log.error('Unexpected error', error);
         return NextResponse.json(
             createErrorResponse('INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR, { correlationId }),
             { status: 500 }
