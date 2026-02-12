@@ -157,15 +157,6 @@ function SettingsContent() {
                 transition={{ delay: 0.1 }}
                 className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
             >
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h2 className="text-lg font-semibold text-white">Bảo mật</h2>
-                        <p className="text-white/50 text-sm mt-1">
-                            Xác thực 2 yếu tố cho tài khoản admin
-                        </p>
-                    </div>
-                </div>
-
                 {twoFALoading ? (
                     <div className="flex items-center justify-center py-8">
                         <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />

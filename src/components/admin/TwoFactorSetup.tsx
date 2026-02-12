@@ -8,6 +8,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { Loader2, Copy, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type Step = 'idle' | 'scanning' | 'verifying' | 'recovery' | 'enabled';
 
@@ -25,6 +27,7 @@ export default function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorS
     const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     const handleSetup = useCallback(async () => {
         setLoading(true);
@@ -113,253 +116,182 @@ export default function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorS
     const copyRecoveryCodes = useCallback(() => {
         const text = recoveryCodes.join('\n');
         navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     }, [recoveryCodes]);
 
-    // ─── Styles ─────────────────────────────────────────────────
-
-    const cardStyle: React.CSSProperties = {
-        background: '#1a1a1a',
-        border: '1px solid #2a2a2a',
-        borderRadius: '16px',
-        padding: '24px',
-    };
-
-    const btnPrimary: React.CSSProperties = {
-        padding: '12px 24px',
-        background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '10px',
-        fontSize: '14px',
-        fontWeight: 600,
-        cursor: 'pointer',
-    };
-
-    const btnDanger: React.CSSProperties = {
-        ...btnPrimary,
-        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-    };
-
-    const inputStyle: React.CSSProperties = {
-        padding: '12px 16px',
-        background: '#111',
-        border: '2px solid #333',
-        borderRadius: '10px',
-        color: '#fff',
-        fontSize: '18px',
-        fontFamily: 'monospace',
-        fontWeight: 600,
-        textAlign: 'center',
-        letterSpacing: '4px',
-        width: '200px',
-        outline: 'none',
-    };
-
-    // ─── Render ─────────────────────────────────────────────────
-
     return (
-        <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <span style={{ fontSize: '24px' }}>🔐</span>
+        <div>
+            {/* Header: Matches Drive Connect Style */}
+            <div className="flex items-center justify-between">
                 <div>
-                    <h3 style={{ margin: 0, color: '#fff', fontSize: '16px', fontWeight: 600 }}>
-                        Xác thực 2 yếu tố (2FA)
-                    </h3>
-                    <p style={{ margin: '4px 0 0', color: '#888', fontSize: '13px' }}>
-                        {step === 'enabled' ? 'Đã bật — bảo vệ tài khoản admin' : 'Bảo vệ tài khoản với authenticator app'}
+                    <h2 className="text-lg font-semibold text-white">Bảo mật</h2>
+                    <p className="text-white/50 text-sm mt-1">
+                        Xác thực 2 yếu tố cho tài khoản admin
                     </p>
                 </div>
-                {step === 'enabled' && (
-                    <span style={{
-                        marginLeft: 'auto',
-                        padding: '4px 12px',
-                        background: 'rgba(34, 197, 94, 0.15)',
-                        color: '#22c55e',
-                        borderRadius: '20px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                    }}>
+
+                {step === 'enabled' || step === 'recovery' ? (
+                    <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-sm font-medium">
                         Đang bật
+                    </span>
+                ) : (
+                    <span className="px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-400 text-sm font-medium">
+                        Chưa bật
                     </span>
                 )}
             </div>
 
+            {/* Error Message */}
             {error && (
-                <p style={{
-                    color: '#ef4444',
-                    fontSize: '13px',
-                    padding: '10px 14px',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    borderRadius: '8px',
-                    margin: '0 0 16px',
-                }}>
+                <div className="mt-4 p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">
                     {error}
-                </p>
+                </div>
             )}
 
-            {/* Step: Idle — show enable button */}
-            {step === 'idle' && (
-                <button onClick={handleSetup} disabled={loading} style={btnPrimary}>
-                    {loading ? 'Đang tạo...' : 'Bật 2FA'}
-                </button>
-            )}
+            {/* Content Section */}
+            <div className="mt-6 pt-4 border-t border-white/10">
 
-            {/* Step: Scanning — show QR code */}
-            {step === 'scanning' && (
-                <div>
-                    <p style={{ color: '#ccc', fontSize: '14px', margin: '0 0 16px' }}>
-                        Quét mã QR bằng Google Authenticator hoặc Authy:
-                    </p>
-                    {qrCode && (
-                        <div style={{
-                            background: '#fff',
-                            borderRadius: '12px',
-                            padding: '16px',
-                            display: 'inline-block',
-                            marginBottom: '16px',
-                        }}>
-                            <img src={qrCode} alt="QR Code" width={200} height={200} />
-                        </div>
-                    )}
-                    <details style={{ marginBottom: '20px' }}>
-                        <summary style={{ color: '#888', fontSize: '13px', cursor: 'pointer' }}>
-                            Nhập thủ công
-                        </summary>
-                        <code style={{
-                            display: 'block',
-                            margin: '8px 0',
-                            padding: '10px',
-                            background: '#111',
-                            borderRadius: '8px',
-                            color: '#3b82f6',
-                            fontSize: '14px',
-                            wordBreak: 'break-all',
-                            fontFamily: 'monospace',
-                        }}>
-                            {manualKey}
-                        </code>
-                    </details>
-
-                    <p style={{ color: '#ccc', fontSize: '14px', margin: '0 0 12px' }}>
-                        Nhập mã 6 chữ số để xác nhận:
-                    </p>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={6}
-                            value={verifyCode}
-                            onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                            onKeyDown={e => e.key === 'Enter' && handleVerify()}
-                            style={inputStyle}
-                            placeholder="000000"
-                            autoFocus
-                        />
+                {/* Case: IDLE */}
+                {step === 'idle' && (
+                    <div className="flex justify-between items-center">
+                        <p className="text-white/50 text-sm">Tăng cường bảo mật bằng Google Authenticator hoặc Authy.</p>
                         <button
-                            onClick={handleVerify}
-                            disabled={loading || verifyCode.length !== 6}
-                            style={{
-                                ...btnPrimary,
-                                opacity: verifyCode.length !== 6 ? 0.5 : 1,
-                            }}
+                            onClick={handleSetup}
+                            disabled={loading}
+                            className="px-6 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-white/90 text-sm transition-colors disabled:opacity-50"
                         >
-                            {loading ? '...' : 'Xác nhận'}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Bật 2FA'}
                         </button>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Step: Recovery — show codes */}
-            {step === 'recovery' && (
-                <div>
-                    <div style={{
-                        background: 'rgba(245, 158, 11, 0.1)',
-                        border: '1px solid rgba(245, 158, 11, 0.3)',
-                        borderRadius: '10px',
-                        padding: '14px',
-                        marginBottom: '16px',
-                    }}>
-                        <p style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, margin: 0 }}>
-                            ⚠️ Lưu recovery codes ở nơi an toàn!
-                        </p>
-                        <p style={{ color: '#d4a' + '574', fontSize: '12px', margin: '6px 0 0' }}>
-                            Mỗi code chỉ dùng được 1 lần. Nếu mất Authenticator app, dùng code này để đăng nhập.
-                        </p>
-                    </div>
+                {/* Case: SCANNING */}
+                {step === 'scanning' && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                        <div className="flex flex-col md:flex-row gap-8">
+                            <div className="bg-white p-4 rounded-xl inline-block h-fit">
+                                <img src={qrCode} alt="QR Code" width={160} height={160} className="mix-blend-multiply" />
+                            </div>
+                            <div className="flex-1 space-y-4">
+                                <div>
+                                    <h3 className="text-white font-medium mb-1">1. Quét mã QR</h3>
+                                    <p className="text-white/50 text-sm">Mở ứng dụng Authenticator và quét mã này.</p>
+                                </div>
 
-                    <div style={{
-                        background: '#111',
-                        borderRadius: '10px',
-                        padding: '16px',
-                        marginBottom: '16px',
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: '8px',
-                    }}>
-                        {recoveryCodes.map((code, i) => (
-                            <code key={i} style={{
-                                color: '#fff',
-                                fontSize: '14px',
-                                fontFamily: 'monospace',
-                                padding: '6px 8px',
-                                background: '#1a1a1a',
-                                borderRadius: '6px',
-                                textAlign: 'center',
-                            }}>
-                                {code}
-                            </code>
-                        ))}
-                    </div>
+                                <div>
+                                    <h3 className="text-white font-medium mb-1">2. Nhập mã xác nhận</h3>
+                                    <div className="flex gap-3">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            value={verifyCode}
+                                            onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                                            onKeyDown={e => e.key === 'Enter' && handleVerify()}
+                                            placeholder="000000"
+                                            className="bg-[#111] border border-white/10 rounded-xl px-4 py-2.5 text-center font-mono text-lg tracking-widest w-32 focus:border-blue-500 outline-none text-white transition-colors"
+                                            autoFocus
+                                        />
+                                        <button
+                                            onClick={handleVerify}
+                                            disabled={loading || verifyCode.length !== 6}
+                                            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Kích hoạt'}
+                                        </button>
+                                    </div>
+                                </div>
 
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={copyRecoveryCodes} style={{
-                            ...btnPrimary,
-                            background: '#333',
-                        }}>
-                            📋 Copy tất cả
-                        </button>
-                        <button onClick={() => setStep('enabled')} style={btnPrimary}>
-                            Đã lưu xong ✓
-                        </button>
-                    </div>
-                </div>
-            )}
+                                <details className="text-sm pt-2">
+                                    <summary className="text-white/40 cursor-pointer hover:text-white/60 transition-colors">Không quét được mã?</summary>
+                                    <div className="mt-2 p-3 bg-[#111] rounded-lg border border-white/5">
+                                        <p className="text-white/40 text-xs mb-1">Khóa setup thủ công:</p>
+                                        <code className="text-blue-400 font-mono select-all">{manualKey}</code>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
 
-            {/* Step: Enabled — show disable option */}
-            {step === 'enabled' && (
-                <details>
-                    <summary style={{ color: '#888', fontSize: '13px', cursor: 'pointer' }}>
-                        Tắt 2FA
-                    </summary>
-                    <div style={{ marginTop: '12px' }}>
-                        <p style={{ color: '#ccc', fontSize: '13px', margin: '0 0 10px' }}>
-                            Nhập mã hiện tại để tắt 2FA:
-                        </p>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                maxLength={6}
-                                value={disableCode}
-                                onChange={e => setDisableCode(e.target.value.replace(/\D/g, ''))}
-                                onKeyDown={e => e.key === 'Enter' && handleDisable()}
-                                style={{ ...inputStyle, width: '160px' }}
-                                placeholder="000000"
-                            />
+                {/* Case: RECOVERY */}
+                {step === 'recovery' && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl mb-6">
+                            <h3 className="text-yellow-400 font-medium mb-1 flex items-center gap-2">
+                                ⚠️ Lưu mã khôi phục!
+                            </h3>
+                            <p className="text-yellow-400/70 text-sm">
+                                Nếu mất điện thoại, bạn CHỈ có thể đăng nhập bằng các mã này.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                            {recoveryCodes.map((code, i) => (
+                                <code key={i} className="bg-[#111] text-white/80 font-mono text-sm py-2 px-3 rounded-lg text-center border border-white/5">
+                                    {code}
+                                </code>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-3">
                             <button
-                                onClick={handleDisable}
-                                disabled={loading || disableCode.length !== 6}
-                                style={{
-                                    ...btnDanger,
-                                    opacity: disableCode.length !== 6 ? 0.5 : 1,
-                                }}
+                                onClick={copyRecoveryCodes}
+                                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
                             >
-                                {loading ? '...' : 'Tắt 2FA'}
+                                {copied ? <Check size={16} /> : <Copy size={16} />}
+                                {copied ? 'Đã copy' : 'Copy tất cả'}
+                            </button>
+                            <button
+                                onClick={() => setStep('enabled')}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-white/90 text-sm transition-colors"
+                            >
+                                Đã lưu xong
                             </button>
                         </div>
+                    </motion.div>
+                )}
+
+                {/* Case: ENABLED */}
+                {step === 'enabled' && (
+                    <div className="flex justify-between items-center">
+                        <p className="text-white/50 text-sm">
+                            Tài khoản đang được bảo vệ.
+                        </p>
+                        <details className="relative group">
+                            <summary className="list-none">
+                                <span className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white hover:border-white/40 text-sm transition-colors cursor-pointer select-none">
+                                    Tắt 2FA
+                                </span>
+                            </summary>
+
+                            <div className="absolute right-0 bottom-full mb-2 w-72 bg-[#1A1A1A] border border-white/10 rounded-xl p-4 shadow-xl z-10">
+                                <p className="text-white/70 text-sm mb-3">Nhập mã OTP để tắt:</p>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={6}
+                                        value={disableCode}
+                                        onChange={e => setDisableCode(e.target.value.replace(/\D/g, ''))}
+                                        placeholder="000000"
+                                        className="bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 font-mono text-center w-24 text-white focus:border-red-500 outline-none"
+                                    />
+                                    <button
+                                        onClick={handleDisable}
+                                        disabled={loading || disableCode.length !== 6}
+                                        className="flex-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-sm font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        {loading ? '...' : 'Xác nhận tắt'}
+                                    </button>
+                                </div>
+                            </div>
+                        </details>
                     </div>
-                </details>
-            )}
+                )}
+            </div>
         </div>
     );
 }
+
