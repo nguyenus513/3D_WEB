@@ -7,10 +7,12 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
+import { ShieldCheck, ArrowLeft, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Verify2FAPage() {
+function Verify2FAContent() {
     const router = useRouter();
     const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
     const [error, setError] = useState('');
@@ -143,209 +145,156 @@ export default function Verify2FAPage() {
 
     if (checking) {
         return (
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: '100vh',
-                background: '#0a0a0a',
-                color: '#888',
-            }}>
-                Đang kiểm tra...
+            <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a] text-white/50">
+                <Loader2 className="w-6 h-6 animate-spin" />
             </div>
         );
     }
 
     return (
-        <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            background: '#0a0a0a',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        }}>
-            <div style={{
-                width: '100%',
-                maxWidth: '420px',
-                padding: '48px 32px',
-                background: '#141414',
-                borderRadius: '24px',
-                border: '1px solid #222',
-                textAlign: 'center',
-            }}>
-                {/* Shield icon */}
-                <div style={{
-                    width: '64px',
-                    height: '64px',
-                    margin: '0 auto 24px',
-                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                    borderRadius: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '28px',
-                }}>
-                    🔐
+        <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a] font-sans selection:bg-blue-500/30">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="w-full max-w-md p-8 sm:p-10 bg-[#141414] rounded-3xl border border-white/5 shadow-2xl"
+            >
+                {/* Minimalist Flat Icon */}
+                <div className="flex justify-center mb-8">
+                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-blue-500 ring-1 ring-white/10">
+                        <ShieldCheck size={32} strokeWidth={1.5} />
+                    </div>
                 </div>
 
-                <h1 style={{
-                    fontSize: '24px',
-                    fontWeight: 700,
-                    color: '#fff',
-                    margin: '0 0 8px',
-                }}>
-                    Xác thực 2 yếu tố
-                </h1>
+                <div className="text-center mb-8">
+                    <h1 className="text-2xl font-semibold text-white mb-2 tracking-tight">
+                        Xác thực 2 yếu tố
+                    </h1>
+                    <p className="text-white/50 text-sm">
+                        {showRecovery
+                            ? 'Nhập mã khôi phục để đăng nhập'
+                            : 'Nhập mã 6 chữ số từ ứng dụng xác thực'
+                        }
+                    </p>
+                </div>
 
-                <p style={{
-                    color: '#888',
-                    fontSize: '14px',
-                    margin: '0 0 32px',
-                    lineHeight: 1.5,
-                }}>
-                    {showRecovery
-                        ? 'Nhập recovery code để đăng nhập'
-                        : 'Nhập mã 6 chữ số từ ứng dụng Authenticator'
-                    }
-                </p>
-
-                {!showRecovery ? (
-                    <>
-                        {/* 6-digit OTP input */}
-                        <div style={{
-                            display: 'flex',
-                            gap: '8px',
-                            justifyContent: 'center',
-                            marginBottom: '24px',
-                        }}>
-                            {digits.map((digit, i) => (
-                                <input
-                                    key={i}
-                                    ref={el => { inputRefs.current[i] = el; }}
-                                    type="text"
-                                    inputMode="numeric"
-                                    maxLength={1}
-                                    value={digit}
-                                    onChange={e => handleDigitChange(i, e.target.value)}
-                                    onKeyDown={e => handleKeyDown(i, e)}
-                                    onPaste={i === 0 ? handlePaste : undefined}
-                                    disabled={loading}
-                                    style={{
-                                        width: '48px',
-                                        height: '56px',
-                                        textAlign: 'center',
-                                        fontSize: '24px',
-                                        fontWeight: 700,
-                                        fontFamily: 'monospace',
-                                        background: '#1a1a1a',
-                                        border: `2px solid ${digit ? '#3b82f6' : '#333'}`,
-                                        borderRadius: '12px',
-                                        color: '#fff',
-                                        outline: 'none',
-                                        transition: 'border-color 0.2s',
-                                    }}
-                                    onFocus={e => {
-                                        e.target.style.borderColor = '#3b82f6';
-                                    }}
-                                    onBlur={e => {
-                                        e.target.style.borderColor = digit ? '#3b82f6' : '#333';
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    </>
-                ) : (
-                    <div style={{ marginBottom: '24px' }}>
-                        <input
-                            type="text"
-                            placeholder="XXXXX-XXXXX"
-                            value={recoveryCode}
-                            onChange={e => setRecoveryCode(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleRecoverySubmit()}
-                            disabled={loading}
-                            style={{
-                                width: '100%',
-                                padding: '14px 16px',
-                                fontSize: '18px',
-                                fontFamily: 'monospace',
-                                fontWeight: 600,
-                                textAlign: 'center',
-                                letterSpacing: '2px',
-                                background: '#1a1a1a',
-                                border: '2px solid #333',
-                                borderRadius: '12px',
-                                color: '#fff',
-                                outline: 'none',
-                                boxSizing: 'border-box',
-                            }}
-                            autoFocus
-                        />
-                        <button
-                            onClick={handleRecoverySubmit}
-                            disabled={loading || !recoveryCode.trim()}
-                            style={{
-                                width: '100%',
-                                marginTop: '12px',
-                                padding: '14px',
-                                background: loading ? '#333' : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '12px',
-                                fontSize: '15px',
-                                fontWeight: 600,
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                            }}
+                <AnimatePresence mode="wait">
+                    {!showRecovery ? (
+                        <motion.div
+                            key="otp"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.2 }}
                         >
-                            {loading ? 'Đang xác thực...' : 'Xác thực'}
-                        </button>
+                            <div className="flex gap-3 justify-center mb-8">
+                                {digits.map((digit, i) => (
+                                    <input
+                                        key={i}
+                                        ref={el => { inputRefs.current[i] = el; }}
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={1}
+                                        value={digit}
+                                        onChange={e => handleDigitChange(i, e.target.value)}
+                                        onKeyDown={e => handleKeyDown(i, e)}
+                                        onPaste={i === 0 ? handlePaste : undefined}
+                                        disabled={loading}
+                                        className={`
+                                            w-12 h-14 text-center text-2xl font-bold font-mono bg-[#0a0a0a] 
+                                            border-2 rounded-xl outline-none transition-all duration-200
+                                            ${digit
+                                                ? 'border-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.15)]'
+                                                : 'border-white/10 text-white/50 focus:border-blue-500/50 focus:text-white'
+                                            }
+                                            disabled:opacity-50 disabled:cursor-not-allowed
+                                        `}
+                                    />
+                                ))}
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="recovery"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 20 }}
+                            transition={{ duration: 0.2 }}
+                            className="mb-8"
+                        >
+                            <input
+                                type="text"
+                                placeholder="XXXXX-XXXXX"
+                                value={recoveryCode}
+                                onChange={e => setRecoveryCode(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleRecoverySubmit()}
+                                disabled={loading}
+                                className="w-full px-4 py-3.5 text-lg font-mono font-medium text-center tracking-widest bg-[#0a0a0a] border border-white/10 rounded-xl text-white outline-none focus:border-blue-500/50 transition-colors placeholder:text-white/20"
+                                autoFocus
+                            />
+                            <button
+                                onClick={handleRecoverySubmit}
+                                disabled={loading || !recoveryCode.trim()}
+                                className="w-full mt-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20 active:scale-[0.98]"
+                            >
+                                {loading ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Đang xử lý...
+                                    </span>
+                                ) : 'Xác thực'}
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center"
+                    >
+                        {error}
+                    </motion.div>
+                )}
+
+                {loading && !showRecovery && (
+                    <div className="flex justify-center mb-6 text-blue-500">
+                        <Loader2 className="w-5 h-5 animate-spin" />
                     </div>
                 )}
 
-                {/* Error message */}
-                {error && (
-                    <p style={{
-                        color: '#ef4444',
-                        fontSize: '13px',
-                        margin: '0 0 16px',
-                        padding: '10px 16px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        borderRadius: '8px',
-                    }}>
-                        {error}
-                    </p>
-                )}
-
-                {/* Loading indicator */}
-                {loading && !showRecovery && (
-                    <p style={{ color: '#3b82f6', fontSize: '14px', margin: '0 0 16px' }}>
-                        Đang xác thực...
-                    </p>
-                )}
-
-                {/* Toggle recovery */}
-                <button
-                    onClick={() => {
-                        setShowRecovery(!showRecovery);
-                        setError('');
-                        setRecoveryCode('');
-                        setDigits(['', '', '', '', '', '']);
-                    }}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#3b82f6',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        padding: '8px',
-                    }}
-                >
-                    {showRecovery
-                        ? '← Quay lại nhập mã OTP'
-                        : 'Dùng recovery code'
-                    }
-                </button>
-            </div>
+                <div className="text-center">
+                    <button
+                        onClick={() => {
+                            setShowRecovery(!showRecovery);
+                            setError('');
+                            setRecoveryCode('');
+                            setDigits(['', '', '', '', '', '']);
+                        }}
+                        className="text-white/40 hover:text-white text-sm transition-colors flex items-center gap-2 mx-auto group"
+                    >
+                        {showRecovery ? (
+                            <>
+                                <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+                                Quay lại nhập mã OTP
+                            </>
+                        ) : 'Không có thiết bị? Dùng mã khôi phục'}
+                    </button>
+                </div>
+            </motion.div>
         </div>
+    );
+}
+
+export default function Verify2FAPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
+                <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+            </div>
+        }>
+            <Verify2FAContent />
+        </Suspense>
     );
 }
