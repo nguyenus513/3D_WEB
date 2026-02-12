@@ -14,7 +14,8 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('2fa-setup');
 
 export async function POST(request: Request) {
-    const { authorized, response, userId } = await requireAdmin(request);
+    // skip2FA=true — 2FA setup is called before 2FA is active
+    const { authorized, response, userId } = await requireAdmin(request, true);
     if (!authorized || !userId) return response;
 
     try {

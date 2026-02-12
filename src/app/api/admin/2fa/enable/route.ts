@@ -3,6 +3,7 @@
  *
  * POST /api/admin/2fa/enable
  * Verifies the TOTP token and enables 2FA with recovery codes.
+ * Sets 2fa-verified cookie so admin isn't locked out immediately.
  */
 
 import { NextResponse } from 'next/server';
@@ -15,7 +16,8 @@ import { auditLog } from '@/lib/audit';
 const log = createLogger('2fa-enable');
 
 export async function POST(request: Request) {
-    const { authorized, response, userId } = await requireAdmin(request);
+    // skip2FA=true because 2FA isn't active yet during enable flow
+    const { authorized, response, userId } = await requireAdmin(request, true);
     if (!authorized || !userId) return response;
 
     try {
@@ -76,11 +78,22 @@ export async function POST(request: Request) {
         log.info('2FA enabled', { userId });
         await auditLog(userId, 'UPDATE_SETTINGS', 'settings', userId, { action: '2fa_enabled' }, request);
 
-        return NextResponse.json({
+        // Set 2fa-verified cookie — admin just proved possession of OTP app
+        const res = NextResponse.json({
             success: true,
             recoveryCodes: plainCodes,
             message: 'Lưu recovery codes ở nơi an toàn. Mỗi code chỉ dùng được 1 lần.',
         });
+
+        res.cookies.set('2fa-verified', userId, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 60 * 60 * 24, // 24 hours
+            path: '/',
+        });
+
+        return res;
     } catch (error) {
         log.error('2FA enable failed', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
