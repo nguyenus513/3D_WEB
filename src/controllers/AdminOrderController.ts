@@ -2,7 +2,7 @@
  * Admin Order Controller
  *
  * Request handling layer for admin order management APIs.
- * Updated for Schema V3 (Unified Orders).
+ * Updated for Schema V6 (Unified Orders - single `orders` table).
  */
 
 import { NextRequest } from 'next/server';
@@ -12,8 +12,19 @@ import { config } from '@/config/unifiedConfig';
 import { requireAdmin } from '@/lib/security/admin-guard';
 
 // =============================================================================
-// Supabase Admin Client
+// Allowed update fields (whitelist to prevent injection of invalid columns)
 // =============================================================================
+const ALLOWED_UPDATE_FIELDS: ReadonlySet<string> = new Set([
+    'status',
+    'payment_status',
+    'deposit_paid',
+    'paid_at',
+    'shipping_code',
+    'admin_notes',
+    'demo_image_url',
+    'demo_version',
+    'revision_feedback',
+]);
 
 // =============================================================================
 // Admin Order Controller
@@ -40,8 +51,7 @@ export class AdminOrderController extends BaseController {
 
     /**
      * GET /api/admin/orders
-     * List all orders from ALL tables (orders, custom_orders, print_orders)
-     * Note: Pagination is approximate due to multi-table merge.
+     * List all orders from the unified `orders` table.
      */
     async listOrders(request: NextRequest) {
         return this.wrapHandler(async () => {
@@ -52,173 +62,40 @@ export class AdminOrderController extends BaseController {
             const status = searchParams.get('status');
             const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
             const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')));
-            // Fetch more than limit from each table to ensure we have enough after merge/sort
-            const fetchLimit = limit * page;
+            const start = (page - 1) * limit;
+            const end = start + limit - 1;
 
-            // 1. Fetch from ready-made orders
-            let queryOrders = this.supabase
+            // Query unified orders table
+            let query = this.supabase
                 .from('orders')
-                .select('*, user:profiles(id, full_name, email, phone, customer_code), items:order_items(*)')
+                .select('*, user:profiles(id, full_name, email, phone, customer_code), items:order_items(*)', { count: 'exact' })
                 .order('created_at', { ascending: false })
-                .range(0, fetchLimit);
-
-            // 2. Fetch from custom_orders
-            let queryCustom = this.supabase
-                .from('custom_orders')
-                .select('*') // user info needs to be fetched separately or joined if possible. custom_orders has user_id
-                .order('created_at', { ascending: false })
-                .range(0, fetchLimit);
-
-            // 3. Fetch from print_orders
-            let queryPrint = this.supabase
-                .from('print_orders')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .range(0, fetchLimit);
-
-
-            // 4. Fetch from master_orders
-            let queryMaster = this.supabase
-                .from('master_orders')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .range(0, fetchLimit);
+                .range(start, end);
 
             if (status && status !== 'all') {
-                queryOrders = queryOrders.eq('status', status);
-                queryCustom = queryCustom.eq('status', status);
-                queryPrint = queryPrint.eq('status', status);
-                queryMaster = queryMaster.eq('status', status);
+                query = query.eq('status', status);
             }
 
-            const [resOrders, resCustom, resPrint, resMaster] = await Promise.all([
-                queryOrders,
-                queryCustom,
-                queryPrint,
-                queryMaster
-            ]);
+            const { data: orders, error, count } = await query;
 
-            // Handle errors
-            if (resOrders.error) console.error('Error fetching orders:', resOrders.error);
-            if (resCustom.error) console.error('Error fetching custom_orders:', resCustom.error);
-            if (resPrint.error) console.error('Error fetching print_orders:', resPrint.error);
-            if (resMaster.error) console.error('Error fetching master_orders:', resMaster.error);
-
-            // Access to profiles for custom/print orders might be needed. 
-            // For now, we'll try to get user data if we can, or just display what we have.
-            // A better way is to do a second pass to fetch profiles for user_ids found.
-
-            const orders = (resOrders.data || []) as any[];
-            const customOrders = (resCustom.data || []) as any[];
-            const printOrders = (resPrint.data || []) as any[];
-            const masterOrders = (resMaster.data || []) as any[];
-
-            // Gather all user IDs from custom and print orders to fetch profiles efficiently
-            const userIds = new Set([
-                ...(customOrders as any[]).map(o => o.user_id),
-                ...(printOrders as any[]).map(o => o.user_id),
-                ...(masterOrders as any[]).map(o => o.user_id)
-            ].filter(Boolean));
-
-            let profilesMap: Record<string, any> = {};
-            if (userIds.size > 0) {
-                const { data: profiles } = await this.supabase
-                    .from('profiles')
-                    .select('id, full_name, email, phone, customer_code')
-                    .in('id', Array.from(userIds));
-
-                if (profiles) {
-                    (profiles as any[]).forEach(p => profilesMap[p.id] = p);
-                }
+            if (error) {
+                console.error('[AdminOrder] listOrders error:', error.message);
+                throw new Error(`Failed to list orders: ${error.message}`);
             }
 
-            // Transform and Merge
-            const allOrders = [
-                ...orders.map(o => ({
-                    ...o,
-                    profiles: o.user,
-                    total: o.total_amount,
-                    order_items: o.items,
-                    order_type: this.inferOrderType(o.items),
-                    _source_table: 'orders'
-                })),
-                ...customOrders.map(o => ({
-                    id: o.id,
-                    order_code: o.order_number || o.order_code, // Use order_number as primary code
-                    status: o.status,
-                    payment_status: o.status === 'pending' ? 'pending' : 'paid', // simplistic mapping
-                    total: o.total || o.estimated_price || 0,
-                    total_amount: o.total || o.estimated_price || 0, // Fix for NaN display
-                    notes: o.customer_note || o.notes || '', // Map to 'notes' for frontend
-                    admin_notes: o.admin_note || o.admin_notes || '', // Map to 'admin_notes' for frontend
-                    created_at: o.created_at,
-                    profiles: profilesMap[o.user_id] || { email: 'Unknown' },
-                    user_id: o.user_id,
-                    order_type: 'custom',
-                    // Ad-hoc item for frontend display
-                    order_items: [{
-                        name: 'Custom Order',
-                        quantity: o.quantity || 1,
-                        total_price: o.total || o.estimated_price || 0,
-                        unit_price: (o.total || o.estimated_price || 0) / (o.quantity || 1)
-                    }],
-                    _source_table: 'custom_orders'
-                })),
-                ...printOrders.map(o => ({
-                    id: o.id,
-                    order_code: o.order_number,
-                    status: o.status,
-                    payment_status: o.status === 'pending' ? 'pending' : 'paid',
-                    total: o.total_price || 0,
-                    total_amount: o.total_price || 0, // Fix for NaN display
-                    notes: o.customer_note || o.note || '', // Map to 'notes' for frontend
-                    admin_notes: o.admin_note || '', // Map to 'admin_notes' for frontend
-                    created_at: o.created_at,
-                    profiles: profilesMap[o.user_id] || { email: 'Unknown' },
-                    user_id: o.user_id,
-                    order_type: 'printing',
-                    order_items: [{
-                        name: `3D Print (${o.print_type})`,
-                        quantity: o.quantity || 1,
-                        total_price: o.total_price || 0,
-                        unit_price: (o.total_price || 0) / (o.quantity || 1)
-                    }],
-                    _source_table: 'print_orders'
-                })),
-                ...masterOrders.map(o => ({
-                    id: o.id,
-                    order_code: o.order_number || o.id.slice(0, 8),
-                    status: o.status,
-                    payment_status: o.payment_status || 'pending',
-                    total: o.total || 0,
-                    total_amount: o.total || 0,
-                    notes: o.note || '',
-                    admin_notes: '',
-                    created_at: o.created_at,
-                    profiles: profilesMap[o.user_id] || { email: 'Unknown' },
-                    user_id: o.user_id,
-                    order_type: 'ready_made', // Default type
-                    order_items: [{
-                        name: 'Master Order',
-                        quantity: 1,
-                        total_price: o.total || 0,
-                        unit_price: o.total || 0
-                    }],
-                    _source_table: 'master_orders'
-                }))
-            ];
-
-            // Sort by created_at DESC
-            allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-            // Slice page
-            const start = (page - 1) * limit;
-            const end = start + limit;
-            const pagedOrders = allOrders.slice(start, end);
+            // Transform to expected frontend format
+            const transformedOrders = (orders || []).map((o: any) => ({
+                ...o,
+                profiles: o.user,
+                total: o.total_amount,
+                order_items: o.items,
+                order_type: o.order_type || this.inferOrderType(o.items),
+                _source_table: 'orders'
+            }));
 
             return this.handleSuccess({
-                orders: pagedOrders,
-                total: allOrders.length, // Total of what we fetched, roughly
+                orders: transformedOrders,
+                total: count ?? transformedOrders.length,
                 page,
                 limit
             });
@@ -227,14 +104,13 @@ export class AdminOrderController extends BaseController {
 
     /**
      * GET /api/admin/orders/[id]
-     * Get single order by ID from ANY table
+     * Get single order by ID from the unified `orders` table.
      */
     async getOrder(request: NextRequest, orderId: string) {
         return this.wrapHandler(async () => {
             const { authorized } = await requireAdmin(request);
             if (!authorized) throw new UnauthorizedError('Admin access required');
 
-            // 1. Try orders table FIRST (Primary for Ready Made / Direct Payment)
             console.log('[AdminOrder] getOrder - Looking for orderId:', orderId);
 
             const { data: order, error } = await this.supabase
@@ -243,184 +119,67 @@ export class AdminOrderController extends BaseController {
                 .eq('id', orderId)
                 .maybeSingle() as any;
 
-            console.log('[AdminOrder] orders table result:', {
-                found: !!order,
-                error: error?.message,
-                order_code: order?.order_code
-            });
-
-            if (order) {
-                // Map to legacy structure
-                const items = Array.isArray(order.items) ? order.items : [];
-                const mainItem = items[0] || {};
-                const config = mainItem.configuration || mainItem.spec || {};
-                const orderType = order.order_type || this.inferOrderType(items);
-
-                let custom_config = null;
-                if (orderType === 'custom') {
-                    custom_config = {
-                        type: config.type || 'unknown',
-                        size: config.size || mainItem?.size || 'Chưa chọn',
-                        notes: order.notes || '',
-                        images: (Array.isArray(config.photos) ? config.photos : []).map((p: any) => ({
-                            id: p.drive_file_id || p.id,
-                            name: p.file_name || p.name,
-                            url: p.web_view_link || p.url,
-                            thumbnail: p.thumbnail
-                        })),
-                    };
-                }
-
-                return this.handleSuccess({
-                    order: {
-                        ...order,
-                        profiles: order.user,
-                        order_items: order.items,
-                        total: order.total_amount,
-                        customer_note: order.notes,
-                        admin_note: order.admin_notes,
-                        order_type: orderType,
-                        custom_config,
-                        shipping_address: order.shipping_address || order.shipping_address_snapshot,
-                        _source_table: 'orders'
-                    },
-                    profile: order.user,
-                });
+            if (error) {
+                console.error('[AdminOrder] getOrder error:', error.message);
+                throw new Error(`Failed to fetch order: ${error.message}`);
             }
 
-            // 2. Try custom_orders table (Secondary for Custom items)
-            const { data: customOrder } = await this.supabase
-                .from('custom_orders')
-                .select('*')
-                .eq('id', orderId)
-                .maybeSingle() as { data: any, error: any };
+            if (!order) {
+                throw new NotFoundError(`Order ${orderId} not found`);
+            }
 
-            if (customOrder) {
-                // Fetch profile
-                const { data: profile } = await this.supabase.from('profiles').select('*').eq('id', customOrder.user_id).single();
+            // Map to frontend structure
+            const items = Array.isArray(order.items) ? order.items : [];
+            const mainItem = items[0] || {};
+            const itemConfig = mainItem.configuration || mainItem.spec || {};
+            const orderType = order.order_type || this.inferOrderType(items);
 
-                // Use actual DB status — status is only changed to 'review' via explicit admin action
-                const finalStatus = customOrder.status;
-                const finalDemoUrl = customOrder.demo_image_url;
-
-                console.log('[AdminOrder] Status from Supabase:', { status: finalStatus });
-
-                // Ensure custom_config.images exists (map from photos if needed)
-                let customConfig = customOrder.custom_config || {};
-
-                // Map 'photos' to 'images' if 'images' is missing/empty but 'photos' exists
-                if ((!customConfig.images || customConfig.images.length === 0) && customConfig.photos && Array.isArray(customConfig.photos)) {
-                    customConfig.images = customConfig.photos.map((p: any) => ({
+            let custom_config = null;
+            if (orderType === 'custom') {
+                custom_config = {
+                    type: itemConfig.type || itemConfig.style || 'unknown',
+                    size: itemConfig.size || mainItem?.size || 'Chưa chọn',
+                    notes: order.notes || '',
+                    images: (Array.isArray(itemConfig.photos) ? itemConfig.photos : []).map((p: any) => ({
                         id: p.drive_file_id || p.id,
                         name: p.file_name || p.name,
                         url: p.web_view_link || p.url,
                         thumbnail: p.thumbnail
-                    }));
-                }
-
-                // === MERGE FINANCE DATA FROM ORDERS TABLE ===
-                // Fetch from orders (Primary for FINANCE & ADMIN NOTES)
-                const { data: masterOrder } = await this.supabase
-                    .from('orders')
-                    .select('deposit_paid, deposit_amount, paid_at, shipping_code, admin_notes, notes, shipping_address_snapshot')
-                    .eq('id', orderId)
-                    .maybeSingle() as any;
-
-                const financialData = masterOrder ? {
-                    deposit_paid: masterOrder.deposit_paid,
-                    deposit_amount: masterOrder.deposit_amount,
-                    paid_at: masterOrder.paid_at,
-                    shipping_code: masterOrder.shipping_code,
-                    admin_note: masterOrder.admin_notes,
-                    customer_note: masterOrder.notes,
-                    shipping_address: masterOrder.shipping_address_snapshot || customOrder.shipping_address
-                } : {
-                    deposit_paid: customOrder.status !== 'pending',
-                    deposit_amount: customOrder.deposit_amount || 0,
-                    paid_at: null,
-                    shipping_code: null,
-                    admin_note: customOrder.admin_note,
-                    customer_note: customOrder.customer_note,
-                    shipping_address: customOrder.shipping_address
+                    })),
                 };
-
-                return this.handleSuccess({
-                    order: {
-                        ...customOrder,
-                        ...financialData,
-                        status: finalStatus,
-                        demo_image_url: finalDemoUrl,
-                        profiles: profile,
-                        total: customOrder.total || customOrder.estimated_price,
-                        total_amount: customOrder.total || customOrder.estimated_price || 0,
-                        customer_note: customOrder.customer_note,
-                        admin_note: customOrder.admin_note,
-                        order_type: 'custom',
-                        order_items: [{
-                            name: 'Custom Order',
-                            quantity: customOrder.quantity || 1,
-                            total_price: customOrder.total || customOrder.estimated_price || 0,
-                            unit_price: (customOrder.total || customOrder.estimated_price || 0) / (customOrder.quantity || 1)
-                        }],
-                        custom_config: customConfig,
-                        shipping_address: customOrder.shipping_address,
-                        _source_table: 'custom_orders'
-                    },
-                    profile: profile
-                });
             }
 
-            // 2. Try print_orders table
-            const { data: printOrder } = await this.supabase
-                .from('print_orders')
-                .select('*')
-                .eq('id', orderId)
-                .maybeSingle() as { data: any, error: any };
-
-            if (printOrder) {
-                const { data: profile } = await this.supabase.from('profiles').select('*').eq('id', printOrder.user_id).single();
-
-                // Use actual DB status — no virtual override
-                const finalDemoUrl = printOrder.demo_image_url;
-
-                return this.handleSuccess({
-                    order: {
-                        ...printOrder,
-                        status: printOrder.status,
-                        demo_image_url: finalDemoUrl,
-                        profiles: profile,
-                        total: printOrder.total_price,
-                        total_amount: printOrder.total_price || 0, // Normalize
-                        customer_note: printOrder.customer_note,
-                        admin_note: printOrder.admin_note,
-                        order_type: 'printing',
-                        order_items: [{
-                            name: `In 3D - ${printOrder.print_tech}`,
-                            quantity: printOrder.quantity || 1,
-                            total_price: printOrder.total_price || 0,
-                            unit_price: (printOrder.total_price || 0) / (printOrder.quantity || 1)
-                        }],
-                        printing_config: {
-                            type: printOrder.print_tech,
-                            color: printOrder.color,
-                            file_url: printOrder.file_url
-                        },
-                        shipping_address: printOrder.shipping_address,
-                        _source_table: 'print_orders'
-                    },
-                    profile: profile
-                });
+            let printing_config = null;
+            if (orderType === 'printing') {
+                printing_config = {
+                    type: itemConfig.print_tech || itemConfig.type,
+                    color: itemConfig.color,
+                    file_url: itemConfig.file_url,
+                };
             }
 
-
-            throw new NotFoundError('Order not found in any table');
-
+            return this.handleSuccess({
+                order: {
+                    ...order,
+                    profiles: order.user,
+                    order_items: order.items,
+                    total: order.total_amount,
+                    customer_note: order.notes,
+                    admin_note: order.admin_notes,
+                    order_type: orderType,
+                    custom_config,
+                    printing_config,
+                    shipping_address: order.shipping_address || order.shipping_address_snapshot,
+                    _source_table: 'orders'
+                },
+                profile: order.user,
+            });
         }, 'AdminOrderController.getOrder');
     }
 
     /**
      * PUT /api/admin/orders/[id]
-     * Update order with status timestamps - Multi-table support
+     * Update order - unified `orders` table only.
      */
     async updateOrder(request: NextRequest, orderId: string) {
         return this.wrapHandler(async () => {
@@ -430,102 +189,152 @@ export class AdminOrderController extends BaseController {
             const body = await request.json();
             console.log('[AdminOrder] Update request:', { orderId, body });
 
-            // CRITICAL: Start with ONLY columns that definitely exist in ALL tables
-            // custom_orders only has: id, user_id, status, updated_at, demo_image_url, etc.
-            // It does NOT have: admin_note, shipping_code, confirmed_at, etc.
+            // Build update object from whitelist only
+            const update: Record<string, unknown> = {};
 
-            // Try each table with table-specific update objects
-            const tables = ['custom_orders', 'print_orders', 'orders', 'master_orders'];
+            // Status
+            if (body.status !== undefined && body.status !== null) {
+                update.status = body.status;
+            }
 
-            for (const table of tables) {
-                try {
-                    // Build update object with ALL allowed fields
-                    const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+            // Payment fields
+            if (body.deposit_paid !== undefined) update.deposit_paid = body.deposit_paid;
+            if (body.paid_at !== undefined) update.paid_at = body.paid_at;
+            if (body.payment_status !== undefined) update.payment_status = body.payment_status;
 
-                    // Status
-                    if (body.status !== undefined && body.status !== null) {
-                        update.status = body.status;
+            // Shipping
+            if (body.shipping_code !== undefined) update.shipping_code = body.shipping_code;
+
+            // Admin notes (frontend sends `admin_note`, DB column is `admin_notes`)
+            if (body.admin_note !== undefined) {
+                update.admin_notes = body.admin_note;
+            }
+
+            // Demo fields
+            if (body.demo_image_url !== undefined) update.demo_image_url = body.demo_image_url;
+            if (body.demo_version !== undefined) update.demo_version = body.demo_version;
+            if (body.revision_feedback !== undefined) update.revision_feedback = body.revision_feedback;
+
+            // When confirming deposit, also update payment_status
+            if (body.deposit_paid === true && !body.payment_status) {
+                update.payment_status = 'confirmed';
+            }
+
+            // Auto-complete payment on Delivery/Completion
+            if (body.status === 'delivered' || body.status === 'completed') {
+                update.payment_status = 'paid';
+                if (!update.paid_at) update.paid_at = new Date().toISOString();
+                console.log('[AdminOrder] Auto-completing payment for delivery');
+            }
+
+            // If no fields to update, return early
+            if (Object.keys(update).length === 0) {
+                console.warn('[AdminOrder] No valid fields to update. Body:', body);
+                return this.handleSuccess({ success: true, message: 'No fields to update', updatedFields: [] as string[] });
+            }
+
+            console.log('[AdminOrder] Updating orders table for ID:', orderId, 'Fields:', update);
+
+            // Retry loop: handle missing columns (PGRST204) by removing them and retrying
+            let attemptUpdate = { ...update };
+            const removedFields: string[] = [];
+            const MAX_RETRIES = 5;
+
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                if (Object.keys(attemptUpdate).length === 0) {
+                    // All fields were removed due to missing columns — only status matters
+                    console.warn('[AdminOrder] All update fields removed due to missing DB columns:', removedFields);
+                    break;
+                }
+
+                const { data, error } = await (this.supabase
+                    .from('orders') as any)
+                    .update(attemptUpdate)
+                    .eq('id', orderId)
+                    .select('id, status')
+                    .maybeSingle();
+
+                if (error) {
+                    // PGRST204 = column not found in schema cache
+                    if (error.code === 'PGRST204') {
+                        // Extract column name from error: "Could not find the 'COLUMN' column..."
+                        const match = error.message.match(/Could not find the '(\w+)' column/);
+                        if (match) {
+                            const missingCol = match[1];
+                            console.warn(`[AdminOrder] Column '${missingCol}' missing from orders table, removing and retrying`);
+                            delete attemptUpdate[missingCol];
+                            removedFields.push(missingCol);
+                            continue; // Retry without this column
+                        }
                     }
 
-                    // Payment fields
-                    if (body.deposit_paid !== undefined) {
-                        update.deposit_paid = body.deposit_paid;
-                    }
-                    if (body.paid_at !== undefined) {
-                        update.paid_at = body.paid_at;
-                    }
-                    if (body.payment_status !== undefined) {
-                        update.payment_status = body.payment_status;
-                    }
+                    console.error('[AdminOrder] Update error:', error.message, '(Code:', error.code, ')');
+                    throw new Error(`Failed to update order: ${error.message}`);
+                }
 
-                    // When confirming deposit, also update payment_status
-                    if (body.deposit_paid === true && !body.payment_status) {
-                        update.payment_status = 'confirmed';
-                    }
+                if (!data) {
+                    console.error(`[AdminOrder] No order found with ID ${orderId} in orders table`);
+                    throw new NotFoundError(`Order ${orderId} not found in orders table`);
+                }
 
-                    // Admin notes
-                    if (body.admin_note !== undefined) {
-                        update.admin_notes = body.admin_note; // DB column is admin_notes (plural)
-                    }
+                console.log('[AdminOrder] ✓ Updated order:', data.id, 'Status:', data.status);
+                if (removedFields.length > 0) {
+                    console.warn('[AdminOrder] Skipped missing columns:', removedFields.join(', '));
+                }
 
-                    // Shipping
-                    if (body.shipping_code !== undefined) {
-                        update.shipping_code = body.shipping_code;
-                    }
+                return this.handleSuccess({
+                    success: true,
+                    message: 'Order updated successfully',
+                    updatedFields: Object.keys(attemptUpdate),
+                });
+            }
 
-                    // Auto-complete payment on Delivery/Completion (50/50 Model)
-                    if (body.status === 'delivered' || body.status === 'completed') {
-                        update.payment_status = 'paid';
-                        update.paid_at = new Date().toISOString();
-                        console.log('[AdminOrder] Auto-completing payment for delivery');
-                    }
+            // If we exhausted retries, try status-only update as last resort
+            if (update.status) {
+                console.log('[AdminOrder] Fallback: updating status only');
+                const { data, error } = await (this.supabase
+                    .from('orders') as any)
+                    .update({ status: update.status })
+                    .eq('id', orderId)
+                    .select('id, status')
+                    .maybeSingle();
 
-                    console.log(`[AdminOrder] Trying ${table} with update:`, update);
-
-                    const { data, error } = await (this.supabase
-                        .from(table) as any)
-                        .update(update)
-                        .eq('id', orderId)
-                        .select('id');
-
-                    if (error) {
-                        console.log(`[AdminOrder] ${table} error:`, error.message);
-                        continue;
-                    }
-
-                    if (data && data.length > 0) {
-                        console.log(`[AdminOrder] ✓ Updated ${table}:`, data.length, 'rows');
-                        return this.handleSuccess({ success: true, table, updatedFields: Object.keys(update) });
-                    }
-
-                    console.log(`[AdminOrder] ${table} - no rows matched`);
-                } catch (err) {
-                    console.log(`[AdminOrder] ${table} exception:`, (err as Error).message);
+                if (!error && data) {
+                    return this.handleSuccess({
+                        success: true,
+                        message: 'Order status updated (some fields skipped due to missing columns)',
+                        updatedFields: ['status'],
+                    });
                 }
             }
 
-            throw new NotFoundError('Order not found in any table');
+            throw new NotFoundError(`Order ${orderId} not found or update failed`);
         }, 'AdminOrderController.updateOrder');
     }
 
+    /**
+     * Infer order type from order items configuration
+     */
     private inferOrderType(items: any[]): string {
         try {
             if (!Array.isArray(items) || items.length === 0) return 'ready_made';
 
-            // Check first item config or product type if available
             const first = items[0];
             if (!first) return 'ready_made';
 
-            // Safety check for configuration object
-            const config = first.configuration || {};
+            // Check item_type first (most reliable)
+            if (first.item_type === 'custom') return 'custom';
+            if (first.item_type === 'printing') return 'printing';
 
-            if (config.print_tech) return 'printing';
-            if (config.style || (Array.isArray(config.photos) && config.photos.length > 0)) return 'custom';
+            // Fallback: check configuration object
+            const itemConfig = first.configuration || {};
+            if (itemConfig.print_tech) return 'printing';
+            if (itemConfig.style || (Array.isArray(itemConfig.photos) && itemConfig.photos.length > 0)) return 'custom';
 
             return 'ready_made';
         } catch (e) {
             console.error('Error inferring order type:', e);
-            return 'ready_made'; // Fallback to safe default
+            return 'ready_made';
         }
     }
 }

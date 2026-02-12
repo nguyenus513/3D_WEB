@@ -10,7 +10,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
-import { uploadToR2, generateReviewR2Key, isR2Configured, deleteFromR2, extractR2KeyFromUrl } from '@/lib/storage/r2';
+import { uploadToR2, isR2Configured, deleteFromR2, extractR2KeyFromUrl } from '@/lib/storage/r2';
+import { generateStudioR2Key, getExtension } from '@/lib/naming';
 
 interface DemoImage {
     url: string;
@@ -83,10 +84,17 @@ export async function POST(
         const imageIndex = existingImages.length + 1;
 
         // Get file extension
-        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const ext = getExtension(file.name);
 
-        // Generate R2 key and upload
-        const r2Key = generateReviewR2Key(orderCode, imageIndex, ext);
+        // Generate R2 key using studio naming convention
+        // e.g. orders/C494D49D/demo/ORD-C494D49D_DEMO_FULL_V01_01.jpg
+        const r2Key = generateStudioR2Key({
+            orderCode: orderCode,
+            stage: 'DEMO',
+            version: 1,
+            index: imageIndex,
+            extension: ext,
+        });
         const { url: demoImageUrl } = await uploadToR2(buffer, r2Key, file.type, {
             orderId,
             orderCode: orderCode,

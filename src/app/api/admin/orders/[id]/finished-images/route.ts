@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, isR2Configured } from '@/lib/storage/r2';
+import { generateStudioR2Key, getExtension } from '@/lib/naming';
 
 interface FinishedImage {
     url: string;
@@ -67,10 +68,17 @@ export async function POST(
 
         const existingImages: FinishedImage[] = Array.isArray(order.finished_images) ? order.finished_images : [];
         const imageIndex = existingImages.length + 1;
-        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const ext = getExtension(file.name);
 
-        // Upload to R2 under finished/ prefix
-        const r2Key = `orders/${orderCode}/finished/${imageIndex}.${ext}`;
+        // Upload to R2 using studio naming convention
+        // e.g. orders/C494D49D/final/ORD-C494D49D_FINAL_FULL_V01_01.jpg
+        const r2Key = generateStudioR2Key({
+            orderCode: orderCode,
+            stage: 'FINAL',
+            version: 1,
+            index: imageIndex,
+            extension: ext,
+        });
         const { url: imageUrl } = await uploadToR2(buffer, r2Key, file.type, {
             orderId,
             orderCode,

@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
         if (!authorized) return response;
 
         const authUrl = await getAuthUrl();
+        console.log('[Drive Auth] Generated URL:', authUrl);
         return NextResponse.redirect(authUrl);
     } catch (error) {
         console.error('OAuth auth error:', error);

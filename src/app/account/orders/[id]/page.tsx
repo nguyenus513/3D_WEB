@@ -14,6 +14,7 @@ import {
     SHIPPING_PROVIDERS,
     type ShippingProvider
 } from '@/lib/utils/orderStatus';
+import { buildUserTimeline } from '@/lib/utils/orderFlows';
 
 interface OrderItem {
     id: string;
@@ -226,89 +227,19 @@ export default function AccountOrderDetailPage() {
         return formatOrderDate(dateStr);
     };
 
+    // ═══════════════════════════════════════════════════════════════
+    // TIMELINE — Synced with admin via centralized orderFlows.ts
+    // ═══════════════════════════════════════════════════════════════
     const getTimeline = () => {
         if (!order) return [];
 
-        const s = order.status;
-
-        // ═══ CUSTOM ORDER TIMELINE (6 steps) ═══
-        if (order.order_type === 'custom') {
-            const customSteps = [
-                { key: 'ordered', label: 'Đã đặt hàng', statuses: ['pending', 'confirmed'] },
-                { key: 'designing', label: 'Đang thiết kế', statuses: ['designing', 'revising'] },
-                { key: 'review', label: 'Chờ duyệt Demo', statuses: ['review'] },
-                { key: 'producing', label: 'Đang sản xuất', statuses: ['approved', 'production_pending', 'producing'] },
-                { key: 'finished', label: 'Hoàn thiện', statuses: ['finished'] },
-                { key: 'delivered', label: 'Hoàn thành', statuses: ['shipping', 'delivered'] },
-            ];
-
-            // Find which step the current status belongs to
-            let currentStepIndex = 0;
-            for (let i = 0; i < customSteps.length; i++) {
-                if (customSteps[i].statuses.includes(s)) {
-                    currentStepIndex = i;
-                    break;
-                }
-            }
-
-            // Special: if delivered, all steps are complete
-            if (s === 'delivered') currentStepIndex = customSteps.length - 1;
-
-            return customSteps.map((step, idx) => {
-                let date = '';
-                if (idx === 0 && currentStepIndex >= 0) date = formatDate(order.created_at);
-                if (step.key === 'review' && s === 'review') date = 'Chờ bạn duyệt';
-                if (step.key === 'designing' && s === 'revising') date = 'Chỉnh sửa lần ' + (order.revision_count || 1);
-                if (step.key === 'producing' && ['approved', 'producing'].includes(s)) date = 'Đang thực hiện';
-                if (step.key === 'finished' && s === 'finished') date = 'Chờ giao hàng';
-                if (step.key === 'delivered' && s === 'delivered') date = order.delivered_at ? formatDate(order.delivered_at) : '';
-                if (step.key === 'delivered' && s === 'shipping') date = 'Đang giao';
-
-                return {
-                    status: step.key,
-                    label: step.label,
-                    date,
-                    completed: idx <= currentStepIndex,
-                };
-            });
-        }
-
-        // ═══ DEFAULT TIMELINE (4 steps for ready_made / printing) ═══
-        let currentLevel = 0;
-
-        if (s === 'delivered') currentLevel = 4;
-        else if (s === 'shipping') currentLevel = 3;
-        else if (['processing', 'designing', 'review', 'approved', 'production_pending', 'producing', 'printing', 'revising', 'finished'].includes(s)) currentLevel = 2;
-        else if (s === 'confirmed' || order.deposit_paid || (s !== 'pending' && s !== 'cancelled')) currentLevel = 1;
-
-        const timeline = [
-            {
-                status: 'confirmed',
-                label: 'Đã xác nhận',
-                date: order.paid_at ? formatDate(order.paid_at) : (currentLevel >= 1 ? formatDate(order.created_at) : ''),
-                completed: currentLevel >= 1
-            },
-            {
-                status: 'processing',
-                label: 'Đang xử lý',
-                date: (currentLevel >= 2 && currentLevel < 3) ? 'Đang thực hiện' : '',
-                completed: currentLevel >= 2
-            },
-            {
-                status: 'shipping',
-                label: 'Đang giao hàng',
-                date: order.shipped_at ? formatDate(order.shipped_at) : '',
-                completed: currentLevel >= 3
-            },
-            {
-                status: 'delivered',
-                label: 'Hoàn thành',
-                date: order.delivered_at ? formatDate(order.delivered_at) : '',
-                completed: currentLevel >= 4
-            }
-        ];
-
-        return timeline;
+        return buildUserTimeline(order.order_type, order.status, {
+            createdAt: order.created_at,
+            deliveredAt: order.delivered_at || undefined,
+            shippedAt: order.shipped_at || undefined,
+            revisionCount: order.revision_count,
+            formatDate,
+        });
     };
 
     if (loading) {
@@ -842,11 +773,16 @@ export default function AccountOrderDetailPage() {
                             className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                         >
                             <h2 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h2>
-                            <div className="space-y-2">
-                                <p className="text-white">{order.shipping_address.name}</p>
+                            <div className="space-y-1">
+                                <p className="text-white font-medium">{order.shipping_address.name}</p>
                                 <p className="text-white/70">{order.shipping_address.phone}</p>
-                                <p className="text-white/50">
-                                    {order.shipping_address.address}, {order.shipping_address.ward}, {order.shipping_address.district}, {order.shipping_address.province}
+                                <p className="text-white/50 leading-relaxed">
+                                    {[
+                                        order.shipping_address.address,
+                                        order.shipping_address.ward,
+                                        order.shipping_address.district,
+                                        order.shipping_address.province
+                                    ].filter(Boolean).join(', ')}
                                 </p>
                             </div>
                         </motion.div>

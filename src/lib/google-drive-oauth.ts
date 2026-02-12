@@ -174,58 +174,72 @@ export async function getStoredTokens() {
 /**
  * Get authenticated Drive client 
  * Priority:
- * 1. Service Account (if configured in env) - Recommended for server-side
- * 2. OAuth Token (if stored in DB) - Fallback for personal accounts
+ * 1. OAuth Token (from admin login) - ALWAYS preferred for personal Gmail
+ * 2. Service Account - ONLY if explicitly requested (read-only operations)
+ * 
+ * Service Accounts have 0 storage quota on personal Gmail - they CANNOT upload files.
+ * Only OAuth (user's own account) works for file uploads.
  */
 export async function getDriveClient(options: { useServiceAccount?: boolean } = {}) {
-    // 1. Try OAuth (User Account) FIRST - As requested by user to avoid Quota issues
-    // Unless explicitly asked to use Service Account
+    // 1. Try OAuth (User Account) FIRST — required for file uploads
     if (!options.useServiceAccount) {
-        const tokens = await getStoredTokens();
-        // console.log('[DRIVE] Checking stored tokens:', tokens ? 'Found' : 'Not Found');
+        try {
+            const tokens = await getStoredTokens();
+            console.log('[DRIVE] Token check: found=', !!tokens, 'has_refresh=', !!tokens?.refresh_token, 'has_access=', !!tokens?.access_token);
 
-        if (tokens && tokens.refresh_token) {
-            // console.log('[DRIVE] Using OAuth Tokens');
-            const oauth2Client = getOAuth2Client();
-            oauth2Client.setCredentials(tokens);
+            if (tokens && (tokens.refresh_token || tokens.access_token)) {
+                const oauth2Client = getOAuth2Client();
+                oauth2Client.setCredentials(tokens);
 
-            // Check refresh
-            if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
-                console.log('[DRIVE] Token expired, refreshing...');
-                try {
-                    const { credentials } = await oauth2Client.refreshAccessToken();
-                    await saveTokens({
-                        access_token: credentials.access_token,
-                        refresh_token: credentials.refresh_token || tokens.refresh_token,
-                        expiry_date: credentials.expiry_date,
-                    });
-                    oauth2Client.setCredentials(credentials);
-                } catch (error) {
-                    console.warn('[DRIVE] Failed to refresh OAuth token:', error);
-                    // If OAuth fails, we might fall through to Service Account below
+                // Check if token needs refresh
+                if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
+                    console.log('[DRIVE] Token expired, refreshing...');
+                    try {
+                        const { credentials } = await oauth2Client.refreshAccessToken();
+                        await saveTokens({
+                            access_token: credentials.access_token,
+                            refresh_token: credentials.refresh_token || tokens.refresh_token,
+                            expiry_date: credentials.expiry_date,
+                        });
+                        oauth2Client.setCredentials(credentials);
+                        console.log('[DRIVE] ✓ Token refreshed successfully');
+                    } catch (refreshError) {
+                        console.error('[DRIVE] Token refresh failed:', refreshError);
+                        throw new Error('Google Drive token expired and refresh failed. Please re-login as admin.');
+                    }
                 }
+
+                console.log('[DRIVE] ✓ Using OAuth (personal account)');
+                return google.drive({ version: 'v3', auth: oauth2Client });
             }
-            return google.drive({ version: 'v3', auth: oauth2Client });
-        } else {
-            console.log('[DRIVE] No OAuth tokens found in DB. Falling back to next method.');
+        } catch (tokenError) {
+            console.error('[DRIVE] OAuth token retrieval error:', tokenError);
+        }
+
+        console.warn('[DRIVE] ⚠ No OAuth tokens in DB. Admin needs to re-login with Google.');
+    }
+
+    // 2. Service Account — ONLY if explicitly requested
+    // WARNING: Service Accounts have 0 quota on personal Gmail. Cannot upload files.
+    if (options.useServiceAccount) {
+        const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+        const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+        if (SERVICE_ACCOUNT_EMAIL && PRIVATE_KEY) {
+            console.log('[DRIVE] Using Service Account (explicitly requested):', SERVICE_ACCOUNT_EMAIL);
+            const auth = new google.auth.JWT({
+                email: SERVICE_ACCOUNT_EMAIL,
+                key: PRIVATE_KEY,
+                scopes: ['https://www.googleapis.com/auth/drive'],
+            });
+            return google.drive({ version: 'v3', auth });
         }
     }
 
-    // 2. Fallback to Service Account (or if explicitly requested)
-    const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-    if (SERVICE_ACCOUNT_EMAIL && PRIVATE_KEY) {
-        console.log('[DRIVE] Using Service Account (Fallback):', SERVICE_ACCOUNT_EMAIL);
-        const auth = new google.auth.JWT({
-            email: SERVICE_ACCOUNT_EMAIL,
-            key: PRIVATE_KEY,
-            scopes: ['https://www.googleapis.com/auth/drive'],
-        });
-        return google.drive({ version: 'v3', auth });
-    }
-
-    throw new Error('Google Drive not connected. Please connect in Admin Settings (OAuth) or configure Service Account.');
+    throw new Error(
+        'Google Drive not connected. Admin must login with Google to auto-save Drive tokens. ' +
+        'Service Accounts cannot upload files to personal Gmail (0 quota).'
+    );
 }
 
 /**
@@ -237,15 +251,15 @@ export async function isDriveConnected(): Promise<boolean> {
 }
 
 export async function getDriveStatus(): Promise<{ connected: boolean; type?: 'service_account' | 'oauth' }> {
-    // 1. Check Service Account
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-        return { connected: true, type: 'service_account' };
+    // 1. Check OAuth Tokens FIRST (preferred for personal Gmail)
+    const tokens = await getStoredTokens();
+    if (tokens && (tokens.refresh_token || tokens.access_token)) {
+        return { connected: true, type: 'oauth' };
     }
 
-    // 2. Check OAuth Tokens
-    const tokens = await getStoredTokens();
-    if (tokens && tokens.refresh_token) {
-        return { connected: true, type: 'oauth' };
+    // 2. Check Service Account (read-only, cannot upload to personal Gmail)
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+        return { connected: true, type: 'service_account' };
     }
 
     return { connected: false };
@@ -401,35 +415,44 @@ export async function buildFolderPath(pathSegments: string[]): Promise<string> {
 /**
  * Folder path builders
  * 
- * Structure:
- * - products/                                           # Flat
- * - customers/{cusCode}/printing/{orderCode}/           # Printing STL
- * - customers/{cusCode}/custom/{orderCode}/image-main/  # Custom main
- * - customers/{cusCode}/custom/{orderCode}/image-accessory/ # Custom accessory
- * - customers/{cusCode}/custom/{orderCode}/preview/     # Custom preview
+ * LEGACY paths (kept for backward compatibility):
+ * - products/
+ * - customers/{cusCode}/printing/{orderCode}/
+ * - customers/{cusCode}/custom/{orderCode}/image-main/
+ * 
+ * STUDIO paths (new):
+ * - ORD-{orderCode}/01_SOURCE/
+ * - ORD-{orderCode}/02_DEMO/V01/
+ * - ORD-{orderCode}/04_STL/
+ * - ORD-{orderCode}/06_FINAL/
  */
 export const FolderPaths = {
-    // Products: products/ (flat folder)
+    // Products: products/ (flat folder — not order-based)
     product: () => ['products'],
 
-    // Printing: customers/{cusCode}/printing/{orderCode}/
+    // LEGACY: Printing: customers/{cusCode}/printing/{orderCode}/
     printing: (customerCode: string, orderCode: string) =>
         ['customers', customerCode, 'printing', orderCode],
 
-    // Custom: customers/{cusCode}/custom/{orderCode}/{type}/
+    // LEGACY: Custom
     customMain: (customerCode: string, orderCode: string) =>
         ['customers', customerCode, 'custom', orderCode, 'image-main'],
     customAccessory: (customerCode: string, orderCode: string) =>
         ['customers', customerCode, 'custom', orderCode, 'image-accessory'],
-    // Custom: customers/{cusCode}/custom/{orderCode}/preview/     # Custom preview
     customPreview: (customerCode: string, orderCode: string) =>
         ['customers', customerCode, 'custom', orderCode, 'preview'],
 
-    // NEW: Order-Centric: orders/{orderCode}/
+    // STUDIO: Order-Centric
+    orderStudio: (orderCode: string) =>
+        [`ORD-${orderCode}`],
+
+    // STUDIO: Order + Stage
+    orderStudioStage: (orderCode: string, stageFolder: string) =>
+        [`ORD-${orderCode}`, stageFolder],
+
+    // LEGACY: Order-Centric (kept for backward compat)
     orderCentric: (orderCode: string) =>
         ['orders', orderCode],
-
-    // NEW: Order-Centric with Category: orders/{orderCode}/{category}/
     orderCentricCategory: (orderCode: string, category: string) =>
         ['orders', orderCode, category],
 };
@@ -448,11 +471,12 @@ export async function uploadToPath(
 }
 
 /**
- * File naming conventions - SIMPLIFIED
+ * File naming conventions
+ * STUDIO naming is preferred for new files.
+ * Legacy naming kept for backward compatibility.
  */
 export const FileNames = {
-    // ... (existing) ...
-    // Keep existing as helper
+    // Legacy helpers
     product: (sku: string, index: number, ext: string) =>
         `${sku}_${String(index).padStart(2, '0')}.${ext}`,
     printing: (orderCode: string, index: number, ext: string) =>

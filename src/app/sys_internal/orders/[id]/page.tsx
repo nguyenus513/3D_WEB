@@ -330,25 +330,6 @@ export default function AdminOrderDetailPage() {
         setUpdating(true);
 
         const updates: Record<string, unknown> = { status: newStatus };
-        const now = new Date().toISOString();
-
-        // Save timestamp for each status
-        const timestampMap: Record<string, string> = {
-            confirmed: 'confirmed_at',
-            processing: 'processing_at',
-            designing: 'designing_at',
-            review: 'review_at',
-            revising: 'revising_at',
-            approved: 'approved_at',
-            producing: 'producing_at',
-            printing: 'printing_at',
-            shipping: 'shipped_at',
-            delivered: 'delivered_at',
-        };
-
-        if (timestampMap[newStatus]) {
-            updates[timestampMap[newStatus]] = now;
-        }
 
         if (newStatus === 'shipping') {
             updates.shipping_code = trackingCode;
