@@ -95,7 +95,13 @@ export async function POST(
             index: imageIndex,
             extension: ext,
         });
-        const { url: demoImageUrl } = await uploadToR2(buffer, r2Key, file.type, {
+
+        // ─── NEW: Apply Watermark ─────────────────────────────
+        const { addWatermark } = await import('@/lib/watermark');
+        const processedBuffer = await addWatermark(buffer);
+        // ──────────────────────────────────────────────────────
+
+        const { url: demoImageUrl } = await uploadToR2(processedBuffer, r2Key, file.type, {
             orderId,
             orderCode: orderCode,
             type: 'demo',
