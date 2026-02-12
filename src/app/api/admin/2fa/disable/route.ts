@@ -15,7 +15,8 @@ import { auditLog } from '@/lib/audit';
 const log = createLogger('2fa-disable');
 
 export async function POST(request: Request) {
-    const { authorized, response, userId } = await requireAdmin(request);
+    // skip2FA=true — admin verifies OTP directly in the request body
+    const { authorized, response, userId } = await requireAdmin(request, true);
     if (!authorized || !userId) return response;
 
     try {
