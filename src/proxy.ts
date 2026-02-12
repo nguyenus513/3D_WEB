@@ -130,15 +130,8 @@ export const proxy = auth((req) => {
             return NextResponse.redirect(new URL('/', nextUrl.origin));
         }
 
-        // ─── 2FA Check (before rewrite) ──────────────────────
-        const twoFactorEnabled = (req.auth?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled;
-        if (twoFactorEnabled) {
-            const twoFACookie = req.cookies.get('2fa-verified');
-            const userId = req.auth?.user?.id;
-            if (!twoFACookie || twoFACookie.value !== userId) {
-                return NextResponse.redirect(new URL('/admin/verify-2fa', nextUrl.origin));
-            }
-        }
+        // 2FA is enforced client-side (admin layout) + server-side (admin-guard)
+        // Proxy cannot check 2FA because JWT is stale in Edge Runtime
 
         // Rewrite to internal system
         const internalPath = pathname.replace(`/${phoenixToken}`, '/sys_internal');
@@ -155,16 +148,7 @@ export const proxy = auth((req) => {
         if (!isLoggedIn || !isAdmin) {
             return NextResponse.rewrite(new URL('/404', nextUrl.origin));
         }
-
-        // ─── 2FA Check for Admin Pages ────────────────────────
-        const twoFactorEnabled = (req.auth?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled;
-        if (twoFactorEnabled) {
-            const twoFACookie = req.cookies.get('2fa-verified');
-            const userId = req.auth?.user?.id;
-            if (!twoFACookie || twoFACookie.value !== userId) {
-                return NextResponse.redirect(new URL('/admin/verify-2fa', nextUrl.origin));
-            }
-        }
+        // 2FA enforced by admin layout (client-side gate) + admin-guard (API)
     }
 
     // ─── Correlation ID ──────────────────────────────────────

@@ -2,37 +2,40 @@
  * 2FA Status API
  *
  * GET /api/admin/2fa/status
- * Returns the current 2FA status for the authenticated admin.
+ * Returns 2FA status and whether admin has already verified.
+ * Uses skip2FA so this endpoint is always accessible to admins.
  */
 
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
+import { cookies } from 'next/headers';
 
-export async function GET() {
+export async function GET(request: Request) {
+    // skip2FA — this endpoint must always be accessible
+    const { authorized, response, userId } = await requireAdmin(request, true);
+    if (!authorized || !userId) return response;
+
     try {
-        const session = await auth();
-
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-
-        const role = (session.user as { role?: string }).role;
-        if (role !== 'admin') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
         const supabase = getAdminSupabase();
         const { data: profile } = await supabase
             .from('profiles')
             .select('totp_enabled')
-            .eq('id', session.user.id)
+            .eq('id', userId)
             .single();
 
-        return NextResponse.json({
-            enabled: profile?.totp_enabled || false,
-        });
+        const enabled = profile?.totp_enabled || false;
+
+        // Check if already verified via cookie
+        let verified = false;
+        if (enabled) {
+            const cookieStore = await cookies();
+            const twoFACookie = cookieStore.get('2fa-verified');
+            verified = twoFACookie?.value === userId;
+        }
+
+        return NextResponse.json({ enabled, verified });
     } catch {
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ enabled: false, verified: false });
     }
 }
