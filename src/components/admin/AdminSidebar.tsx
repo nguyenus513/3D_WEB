@@ -209,7 +209,11 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
             {/* User section */}
             <div className="p-4 border-t border-white/5">
                 <button
-                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    onClick={() => {
+                        // Clear 2FA cookie before signing out
+                        document.cookie = '2fa-verified=; path=/; max-age=0';
+                        signOut({ callbackUrl: '/login' });
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 transition-all cursor-pointer text-left border border-transparent hover:border-[var(--edge-light)] group"
                 >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-accent)] to-[#4F46E5] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">

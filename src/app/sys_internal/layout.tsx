@@ -1,7 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminSidebar, AdminHeader } from '@/components/admin';
+
+/**
+ * Global interceptor: detects 2FA-required 403 from admin APIs
+ * and redirects to verify-2fa page automatically.
+ * Self-heals if cookie expires mid-session.
+ */
+function useTwoFAInterceptor() {
+    useEffect(() => {
+        const originalFetch = window.fetch;
+
+        window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+
+            // Only intercept 403 on admin API routes
+            const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url;
+            if (response.status === 403 && url.includes('/api/admin/')) {
+                try {
+                    const cloned = response.clone();
+                    const data = await cloned.json();
+                    if (data.requires2FA) {
+                        window.location.href = '/admin/verify-2fa';
+                        return response;
+                    }
+                } catch {
+                    // Not JSON or parse error — ignore
+                }
+            }
+
+            return response;
+        };
+
+        return () => {
+            window.fetch = originalFetch;
+        };
+    }, []);
+}
 
 export default function AdminLayout({
     children,
@@ -9,6 +45,7 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    useTwoFAInterceptor();
 
     return (
         <div className="min-h-screen bg-[#0a0a0a]">
