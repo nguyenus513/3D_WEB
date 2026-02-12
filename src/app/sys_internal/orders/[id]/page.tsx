@@ -100,6 +100,7 @@ interface Order {
     revision_count?: number;
     revision_feedback?: string;
     approved_at?: string;
+    archived_at?: string;
 }
 
 const statusLabels: Record<string, string> = {
@@ -848,21 +849,29 @@ export default function AdminOrderDetailPage() {
                                         📦 Lưu trữ file
                                     </h3>
                                     <p className="text-white/50 text-sm mt-1">
-                                        Chuyển file từ R2 sang Google Drive để lưu trữ lâu dài
+                                        {order.archived_at
+                                            ? `Đã lưu trữ lúc ${new Date(order.archived_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                                            : 'Chuyển file từ R2 sang Google Drive để lưu trữ lâu dài'}
                                     </p>
                                 </div>
-                                <button
-                                    onClick={handleArchiveFiles}
-                                    disabled={archiving}
-                                    className="px-6 py-2.5 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
-                                >
-                                    {archiving ? (
-                                        <span className="flex items-center gap-2">
-                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            Đang lưu trữ...
-                                        </span>
-                                    ) : 'Archive to Drive'}
-                                </button>
+                                {order.archived_at ? (
+                                    <span className="px-4 py-2 rounded-xl bg-green-500/15 text-green-400 text-sm font-medium">
+                                        ✓ Đã lưu trữ
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={handleArchiveFiles}
+                                        disabled={archiving}
+                                        className="px-6 py-2.5 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
+                                    >
+                                        {archiving ? (
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Đang lưu trữ...
+                                            </span>
+                                        ) : 'Archive to Drive'}
+                                    </button>
+                                )}
                             </div>
                             {archiveError && (
                                 <p className="text-red-400 text-sm mt-3">❌ {archiveError}</p>

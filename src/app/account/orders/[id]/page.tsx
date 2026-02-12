@@ -735,31 +735,7 @@ export default function AccountOrderDetailPage() {
                         </motion.div>
                     )}
 
-                    {/* Tracking */}
-                    {order.shipping_code && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
-                        >
-                            <h2 className="text-lg font-semibold text-white mb-4">Theo dõi vận chuyển</h2>
-                            <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
-                                <div>
-                                    <p className="text-white/50 text-sm">Mã vận đơn (Viettel Post)</p>
-                                    <p className="text-white font-medium mt-1">{order.shipping_code}</p>
-                                </div>
-                                <a
-                                    href={`https://viettelpost.vn/tra-cuu-hanh-trinh-don?code=${order.shipping_code}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-4 py-2 rounded-xl bg-white text-black text-sm font-medium hover:bg-white/90 transition-colors"
-                                >
-                                    Theo dõi
-                                </a>
-                            </div>
-                        </motion.div>
-                    )}
+
                 </div>
 
                 {/* Sidebar */}
