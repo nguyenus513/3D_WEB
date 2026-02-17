@@ -139,8 +139,18 @@ export async function GET(request: NextRequest) {
         };
         const depositAmount = getDepositAmount(orderType, total, orderItems);
 
-        // Generate QR info
-        const bankConfig = await getBankConfigForOrderTypeAsync(orderType);
+        // Map canonical DB order_type to payment_configs order_type
+        // payment_configs uses: 'printing', 'ready_made', 'custom'
+        // DB orders uses:       'print_3d', 'product', 'custom'
+        const toPaymentOrderType = (type: string): 'printing' | 'ready_made' | 'custom' => {
+            switch (type) {
+                case 'print_3d': return 'printing';
+                case 'product': return 'ready_made';
+                case 'custom': return 'custom';
+                default: return 'ready_made';
+            }
+        };
+        const bankConfig = await getBankConfigForOrderTypeAsync(toPaymentOrderType(orderType));
 
         // Get customer_code from profiles table
         const { data: profile } = await supabaseAdmin
