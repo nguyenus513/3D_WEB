@@ -140,6 +140,70 @@ export interface ShippingAddressSnapshot {
     address_line: string;
 }
 
+// ==================== ORDER EXTENSIONS (NEW) ====================
+
+export interface OrderNote {
+    id: string;
+    order_id: string;
+    author_id: string;
+    content: string;
+    type: 'customer' | 'admin' | 'system';
+    created_at: string;
+}
+
+export interface OrderAddress {
+    id: string;
+    order_id: string;
+    full_name: string;
+    phone: string;
+    province: string | null;
+    district: string | null;
+    ward: string | null;
+    address_line: string;
+}
+
+export interface OrderRevision {
+    id: string;
+    order_id: string;
+    version: number;
+    status: 'pending' | 'approved' | 'rejected';
+    feedback: string | null;
+    created_at: string;
+}
+
+export interface PrintJob {
+    id: string;
+    order_item_id: string;
+    material: string | null;
+    color: string | null;
+    infill: number | null;
+    layer_height: number | null;
+    estimated_hours: number | null;
+    estimated_grams: number | null;
+    status: 'waiting' | 'slicing' | 'printing' | 'done' | 'failed';
+    created_at: string;
+}
+
+export interface FileRecord {
+    id: string;
+    file_url: string;
+    mime_type: string | null;
+    size_bytes: number | null;
+    provider: 'r2' | 's3' | 'local';
+    created_at: string;
+}
+
+export interface FileLink {
+    id: string;
+    file_id: string;
+    ref_type: 'order' | 'order_item' | 'revision';
+    ref_id: string;
+    tag: string | null; // e.g 'demo', 'final', 'stl'
+    created_at: string;
+    // Relation
+    file?: FileRecord;
+}
+
 export interface Order {
     id: string;
     order_code: string;
@@ -151,7 +215,7 @@ export interface Order {
     total_amount: number;
     deposit_amount: number;
     status: OrderStatus;
-    payment_status: PaymentStatus;
+    payment_status: PaymentStatus; // Now a real column in DB
     fulfillment_status: FulfillmentStatus; // NEW: Cart/order fulfillment
     shipping_address_snapshot: ShippingAddressSnapshot | null;
     notes: string | null;
@@ -166,6 +230,12 @@ export interface Order {
     payments?: Payment[];
     user?: Profile;
     address?: Address;
+
+    // New Relations (v3 Refactor)
+    shipping_address?: OrderAddress; // Joined from order_addresses
+    order_notes?: OrderNote[];
+    revisions?: OrderRevision[];
+    files?: FileLink[]; // Joined via file_links
 }
 
 // ==================== ORDER ITEMS ====================
@@ -207,6 +277,10 @@ export interface OrderItem {
     // Relations
     product?: Product;
     order?: Order;
+
+    // New Relations (v3 Refactor)
+    print_job?: PrintJob; // Joined from print_jobs
+    files?: FileLink[];
 }
 
 // ==================== PAYMENTS ====================

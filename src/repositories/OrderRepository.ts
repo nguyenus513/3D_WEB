@@ -91,7 +91,16 @@ export class OrderRepository {
 
         let query = this.db
             .from('orders')
-            .select('*, items:order_items(*)', { count: 'exact' })
+            .select(`
+                *,
+                items:order_items(
+                    *,
+                    print_job:print_jobs(*),
+                    files:file_links(*)
+                ),
+                shipping_address:order_addresses(*),
+                order_notes:order_notes(*)
+            `, { count: 'exact' })
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
@@ -146,7 +155,16 @@ export class OrderRepository {
     async findByCode(orderCode: string): Promise<OrderWithItems | null> {
         const { data, error } = await this.db
             .from('orders')
-            .select('*, items:order_items(*)')
+            .select(`
+                *,
+                items:order_items(
+                    *,
+                    print_job:print_jobs(*),
+                    files:file_links(*)
+                ),
+                shipping_address:order_addresses(*),
+                order_notes:order_notes(*)
+            `)
             .eq('order_code', orderCode)
             .single();
 
@@ -166,7 +184,16 @@ export class OrderRepository {
     async findByIdAndUserId(orderId: string, userId: string): Promise<OrderWithItems | null> {
         const { data, error } = await this.db
             .from('orders')
-            .select('*, items:order_items(*)')
+            .select(`
+                *,
+                items:order_items(
+                    *,
+                    print_job:print_jobs(*),
+                    files:file_links(*)
+                ),
+                shipping_address:order_addresses(*),
+                order_notes:order_notes(*)
+            `)
             .eq('id', orderId)
             .eq('user_id', userId)
             .single();
@@ -227,6 +254,20 @@ export class OrderRepository {
             // Generate full_code = {order_code}_{item_code}
             const fullCode = `${orderData.orderCode}_${itemCode}`;
 
+            // Enhance spec with custom fields and print config for redundancy/display
+            const spec = {
+                ...(item.configuration || {}),
+                customType: item.customType,
+                customSize: item.customSize,
+                printOptions: {
+                    type: item.printTech,
+                    infill: item.infill,
+                    layerHeight: item.layerHeight,
+                    material: item.material,
+                    color: item.color,
+                }
+            };
+
             return {
                 order_id: order.id,
                 product_id: item.productId || null,
@@ -235,7 +276,7 @@ export class OrderRepository {
                 quantity: item.quantity,
                 unit_price: item.unitPrice,
                 total_price: item.totalPrice,
-                spec: item.configuration || {}, // DB uses 'spec' not 'configuration'
+                spec, // Use enhanced spec
                 item_code: itemCode, // DB uses 'item_code' not 'item_order_code'
                 full_code: fullCode,
                 production_status: 'waiting',
@@ -254,6 +295,45 @@ export class OrderRepository {
             // Rollback: delete the order if items failed
             await this.db.from('orders').delete().eq('id', order.id);
             throw itemsError;
+        }
+
+        // Insert print configurations for relevant items
+        if (insertedItems && insertedItems.length > 0) {
+            const printConfigs = [];
+
+            // Map original items (with config) to inserted items (with IDs)
+            // They are mapped 1-to-1 in order
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const insertedItem = insertedItems[i];
+
+                // Check if item needs print config (print_3d or custom with print specs)
+                if (item.printTech || item.material || item.layerHeight || item.itemType === 'print_3d') {
+                    printConfigs.push({
+                        order_item_id: insertedItem.id,
+                        print_tech: item.printTech || 'fdm', // Default to FDM if missing but implies print
+                        material: item.material || undefined,
+                        color: item.color || undefined,
+                        infill: item.infill ? parseInt(item.infill.toString().replace('%', '')) : undefined,
+                        layer_height: item.layerHeight ? parseFloat(item.layerHeight) : undefined,
+                        // volume, grams, hours might be in configuration
+                        volume: item.configuration?.volume,
+                        estimated_grams: item.configuration?.grams || item.configuration?.estimated_grams,
+                        estimated_hours: item.configuration?.hours || item.configuration?.estimated_hours,
+                    });
+                }
+            }
+
+            if (printConfigs.length > 0) {
+                const { error: configError } = await this.db
+                    .from('order_item_print_configs')
+                    .insert(printConfigs);
+
+                if (configError) {
+                    console.error('[OrderRepository.create] Print config insert error:', configError);
+                    // Non-fatal? Maybe warnings. But better to log clearly.
+                }
+            }
         }
 
         return {

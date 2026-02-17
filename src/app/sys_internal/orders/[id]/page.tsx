@@ -1443,6 +1443,21 @@ export default function AdminOrderDetailPage() {
                         )}
                     </motion.div>
 
+                    {/* DEBUG: Raw Item Data Dump */}
+                    <div className="mt-8 p-4 bg-black/80 border border-red-500/50 rounded-xl overflow-hidden">
+                        <p className="text-red-400 font-bold mb-2 font-mono text-sm">DEBUG: Raw Order Items Data</p>
+                        <pre className="text-xs text-green-400 font-mono overflow-auto max-h-96 whitespace-pre-wrap">
+                            {JSON.stringify(order?.items?.map((i: any) => ({
+                                id: i.id,
+                                name: i.name,
+                                product_name: i.product_name,
+                                print_config: i.print_config,
+                                configuration: i.configuration,
+                                spec: i.spec
+                            })), null, 2)}
+                        </pre>
+                    </div>
+
                     {/* Payment */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
