@@ -1034,12 +1034,13 @@ export default function AdminOrderDetailPage() {
                                                     // Read from joined print_config table first (new schema)
                                                     const pc = (item as any).print_config;
                                                     // Fallback: parse spec JSON for legacy orders
-                                                    const rawSpec = (item.configuration as Record<string, unknown>) || {};
+                                                    // DB column is 'spec', not 'configuration' — check both for compat
+                                                    const rawSpec = ((item as any).spec || (item as any).configuration || {}) as Record<string, unknown>;
                                                     const opts = (rawSpec.printOptions as Record<string, unknown>) || rawSpec;
 
                                                     const fileCardData: PrintFileCardData = {
                                                         orderFile: matchedFile,
-                                                        itemName: item.product_name || (rawSpec.file_name as string) || (item as any).name || `File ${idx + 1}`,
+                                                        itemName: item.product_name || (rawSpec.file_name as string) || (rawSpec.fileName as string) || (item as any).name || `File ${idx + 1}`,
                                                         quantity: item.quantity,
                                                         unitPrice: item.unit_price,
                                                         totalPrice: item.total_price,
@@ -1047,7 +1048,7 @@ export default function AdminOrderDetailPage() {
                                                             print_tech: pc?.print_tech || (opts.print_tech as string) || (opts.type as string),
                                                             material: pc?.material || (opts.material as string) || undefined,
                                                             color: pc?.color || (opts.color as string),
-                                                            infill: pc?.infill?.toString() || (opts.infill as string),
+                                                            infill: pc?.infill?.toString() || (opts.infill as string)?.replace('%', ''),
                                                             layer_height: pc?.layer_height?.toString() || (opts.layer_height as string) || (opts.layerHeight as string),
                                                             volume: pc?.volume || (opts.volume as number),
                                                             grams: pc?.estimated_grams || (opts.grams as number),
