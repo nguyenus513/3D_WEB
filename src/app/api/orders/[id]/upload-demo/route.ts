@@ -49,12 +49,26 @@ export async function POST(
             }, { status: 400 });
         }
 
-        // Update status to review and save demo image
+        // Get current demo_images array
+        const { data: currentOrder } = await supabase
+            .from('orders')
+            .select('demo_images')
+            .eq('id', orderId)
+            .single();
+
+        const existingImages = (currentOrder?.demo_images as any[]) || [];
+        const newImage = {
+            url: demo_image_url,
+            label: `Demo V${existingImages.length + 1}`,
+            uploaded_at: new Date().toISOString(),
+        };
+
+        // Update status to review and append to demo_images array
         const { error: updateError } = await supabase
             .from('orders')
             .update({
                 status: 'review',
-                demo_image_url: demo_image_url,
+                demo_images: [...existingImages, newImage],
                 updated_at: new Date().toISOString()
             })
             .eq('id', orderId);

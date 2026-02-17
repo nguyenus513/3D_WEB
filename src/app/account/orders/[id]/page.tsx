@@ -59,10 +59,9 @@ interface Order {
     id: string;
     order_code: string;
     cart_code?: string; // 8 HEX - primary display identifier
-    order_type: 'ready_made' | 'custom' | 'printing';
+    order_type: 'product' | 'custom' | 'print_3d';
     status: string;
     subtotal: number;
-    shipping_fee: number;
     total: number;
     deposit_amount: number;
     deposit_paid: boolean;
@@ -186,7 +185,6 @@ export default function AccountOrderDetailPage() {
                 order_type: data.order_type || 'custom',
                 status: data.status,
                 subtotal: data.total,
-                shipping_fee: 0,
                 total: data.total,
                 // Calculate deposit based on order type: custom = 50%, others = 100%
                 deposit_amount: data.deposit_amount || (
@@ -380,7 +378,7 @@ export default function AccountOrderDetailPage() {
                                     // Determine item type
                                     const itemType = item.item_type || order.order_type;
                                     const isCustom = item.is_custom || itemType === 'custom';
-                                    const isPrinting = itemType === 'printing' || itemType === 'print';
+                                    const isPrinting = itemType === 'printing' || itemType === 'print' || itemType === 'print_3d';
 
                                     // Badge = item_status (trạng thái duy nhất của item)
                                     const itemStatus = item.production_status || item.status || 'waiting';
@@ -449,61 +447,65 @@ export default function AccountOrderDetailPage() {
                                                         </div>
                                                     )}
 
-                                                    {/* ═══ IN 3D: Hiển thị đầy đủ settings ═══ */}
-                                                    {isPrinting && (
-                                                        <>
-                                                            {/* Print Type: FDM or Resin */}
-                                                            {item.configuration?.type && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-white/40">•</span>
-                                                                    <span className="text-white/60">Loại in:</span>
-                                                                    <span className="text-white uppercase font-medium">{item.configuration.type}</span>
-                                                                </div>
-                                                            )}
-                                                            {/* Color */}
-                                                            {item.configuration?.color && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-white/40">•</span>
-                                                                    <span className="text-white/60">Màu:</span>
-                                                                    <span className="text-white capitalize">{item.configuration.color}</span>
-                                                                </div>
-                                                            )}
-                                                            {/* FDM-specific: Infill */}
-                                                            {item.configuration?.infill && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-white/40">•</span>
-                                                                    <span className="text-white/60">Infill:</span>
-                                                                    <span className="text-white">{item.configuration.infill}</span>
-                                                                </div>
-                                                            )}
-                                                            {/* FDM-specific: Layer Height */}
-                                                            {item.configuration?.layerHeight && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-white/40">•</span>
-                                                                    <span className="text-white/60">Layer:</span>
-                                                                    <span className="text-white">{item.configuration.layerHeight}</span>
-                                                                </div>
-                                                            )}
-                                                            {/* File Name */}
-                                                            {(item.configuration?.fileName || item.configuration?.file_name) && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-white/40">•</span>
-                                                                    <span className="text-white/60">File:</span>
-                                                                    <span className="text-white truncate max-w-[200px]">
-                                                                        {item.configuration.fileName || item.configuration.file_name}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                            {/* Weight */}
-                                                            {item.configuration?.grams && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-white/40">•</span>
-                                                                    <span className="text-white/60">Khối lượng:</span>
-                                                                    <span className="text-white">{item.configuration.grams}g</span>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
+                                                    {/* ═══ IN 3D: Hiển thị settings theo loại ═══ */}
+                                                    {isPrinting && (() => {
+                                                        const printType = item.configuration?.type?.toLowerCase();
+                                                        const isFdm = printType === 'fdm';
+                                                        return (
+                                                            <>
+                                                                {/* Print Type: FDM or Resin */}
+                                                                {item.configuration?.type && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-white/40">•</span>
+                                                                        <span className="text-white/60">Loại in:</span>
+                                                                        <span className="text-white uppercase font-medium">{item.configuration.type}</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* Color — all types */}
+                                                                {item.configuration?.color && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-white/40">•</span>
+                                                                        <span className="text-white/60">Màu:</span>
+                                                                        <span className="text-white capitalize">{item.configuration.color}</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* FDM-only: Infill */}
+                                                                {isFdm && item.configuration?.infill && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-white/40">•</span>
+                                                                        <span className="text-white/60">Infill:</span>
+                                                                        <span className="text-white">{item.configuration.infill}%</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* FDM-only: Layer Height */}
+                                                                {isFdm && item.configuration?.layerHeight && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-white/40">•</span>
+                                                                        <span className="text-white/60">Layer:</span>
+                                                                        <span className="text-white">{item.configuration.layerHeight}mm</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* File Name */}
+                                                                {(item.configuration?.fileName || item.configuration?.file_name) && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-white/40">•</span>
+                                                                        <span className="text-white/60">File:</span>
+                                                                        <span className="text-white truncate max-w-[200px]">
+                                                                            {item.configuration.fileName || item.configuration.file_name}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {/* Weight */}
+                                                                {item.configuration?.grams && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-white/40">•</span>
+                                                                        <span className="text-white/60">Khối lượng:</span>
+                                                                        <span className="text-white">{item.configuration.grams}g</span>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
 
 
                                                     {/* ═══ CUSTOM: Hiển thị loại custom ═══ */}
@@ -689,7 +691,7 @@ export default function AccountOrderDetailPage() {
 
 
                     {/* Printing Config */}
-                    {order.order_type === 'printing' && order.printing_config && (
+                    {order.order_type === 'print_3d' && order.printing_config && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -750,14 +752,16 @@ export default function AccountOrderDetailPage() {
                         >
                             <h2 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h2>
                             <div className="space-y-1">
-                                <p className="text-white font-medium">{order.shipping_address.name}</p>
+                                <p className="text-white font-medium">
+                                    {(order.shipping_address as any).full_name || order.shipping_address.name}
+                                </p>
                                 <p className="text-white/70">{order.shipping_address.phone}</p>
                                 <p className="text-white/50 leading-relaxed">
                                     {[
-                                        order.shipping_address.address,
-                                        order.shipping_address.ward,
-                                        order.shipping_address.district,
-                                        order.shipping_address.province
+                                        (order.shipping_address as any).address_line || order.shipping_address.address,
+                                        (order.shipping_address as any).ward || order.shipping_address.ward,
+                                        (order.shipping_address as any).district || order.shipping_address.district,
+                                        (order.shipping_address as any).province || order.shipping_address.province || (order.shipping_address as any).city
                                     ].filter(Boolean).join(', ')}
                                 </p>
                             </div>
@@ -783,11 +787,11 @@ export default function AccountOrderDetailPage() {
                             </div>
                             {order.deposit_amount !== undefined && order.deposit_amount > 0 && (
                                 <div className="flex justify-between text-green-400">
-                                    <span>{order.order_type === 'printing' ? 'Đã thanh toán' : 'Đã cọc'}</span>
+                                    <span>{order.deposit_amount >= (order.total || 0) ? 'Đã thanh toán' : 'Đã cọc'}</span>
                                     <span>{(order.deposit_amount || 0).toLocaleString('vi-VN')}đ</span>
                                 </div>
                             )}
-                            {remaining > 0 && order.order_type !== 'printing' && (
+                            {remaining > 0 && order.order_type !== 'print_3d' && (
                                 <div className="flex justify-between text-yellow-400">
                                     <span>Còn lại</span>
                                     <span>{remaining.toLocaleString('vi-VN')}đ</span>

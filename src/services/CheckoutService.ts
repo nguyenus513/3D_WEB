@@ -75,7 +75,6 @@ export class CheckoutService {
                 cartCode: cart.cart_code,
                 orderType,
                 subtotal: cart.subtotal || 0,
-                shippingFee: cart.shipping_fee || 0,
                 discount: cart.discount || 0,
                 totalAmount: cart.total_amount || 0,
                 depositAmount: cart.total_amount || 0,

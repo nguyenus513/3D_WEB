@@ -65,7 +65,7 @@ function determineCategory(params: UploadRequestInput, fileName: string): OrderF
 
 // Insert record into order_files table for tracking
 async function insertOrderFile(data: {
-    cartCode?: string; // Changed from orderCode to cartCode
+    orderCode?: string;
     orderId?: string;
     fileKey?: string;
     storageProvider: 'r2' | 'drive';
@@ -77,37 +77,42 @@ async function insertOrderFile(data: {
     category: OrderFileCategory;
     ownerId: string;
 }): Promise<string | null> {
-    // Skip if no cart code (e.g., product uploads)
-    if (!data.cartCode) return null;
-
     try {
         const supabase = getAdminSupabase();
 
-        // First try to get order_id from cart_code
+        // Resolve order_id if not provided
         let resolvedOrderId = data.orderId;
-        if (!resolvedOrderId && data.cartCode) {
+        if (!resolvedOrderId && data.orderCode) {
             const { data: order } = await supabase
                 .from('orders')
                 .select('id')
-                .eq('cart_code', data.cartCode)
+                .eq('order_code', data.orderCode)
                 .single();
             resolvedOrderId = order?.id;
         }
+
+        // Determine file_url based on storage provider
+        const fileUrl = data.storageProvider === 'drive' && data.driveUrl
+            ? data.driveUrl
+            : data.fileKey
+                ? `/api/files/${data.fileKey}`
+                : null;
+
+        // Determine file extension as file_type
+        const ext = data.fileName.split('.').pop()?.toLowerCase() || null;
 
         const { data: inserted, error } = await supabase
             .from('order_files')
             .insert({
                 order_id: resolvedOrderId || null,
-                cart_code: data.cartCode, // Use cart_code instead of order_code
-                file_key: data.fileKey || null,
-                storage_provider: data.storageProvider,
-                drive_file_id: data.driveFileId || null,
-                drive_url: data.driveUrl || null,
+                file_key: data.fileKey || data.driveFileId || null,
                 file_name: data.fileName,
+                file_type: ext,
+                file_url: fileUrl,
                 mime_type: data.mimeType,
                 size_bytes: data.sizeBytes,
+                storage_provider: data.storageProvider,
                 category: data.category,
-                owner_id: data.ownerId,
             })
             .select('id')
             .single();
@@ -180,12 +185,18 @@ export class UploadService {
         // Determine storage destination
         // STRATEGY:
         // - Images -> R2 (Hot Storage) for fast CDN delivery
-        // - 3D Models -> Google Drive (Production Storage) for manufacturing/archival
+        // - 3D Models (printing) -> R2 for reliable signed URL downloads
+        // - 3D Models (other) -> Google Drive (Production Storage) for manufacturing/archival
 
         try {
             console.log('[UploadService] Starting upload:', { type: params.type, filename: file.name, size: file.size });
 
             if (is3DModel) {
+                // Printing files go to R2 for reliable download via signed URLs
+                if (params.type === 'printing') {
+                    console.log('[UploadService] Routing 3D printing file to R2...');
+                    return await this.uploadToR2Storage(buffer, file, params, userId);
+                }
                 console.log('[UploadService] Routing 3D model to Google Drive...');
                 return await this.uploadToDrive(buffer, file, params);
             } else {
@@ -198,6 +209,7 @@ export class UploadService {
             // Fallback strategy
             if (is3DModel) {
                 // If Drive fails for 3D model, try R2 as backup? 
+
                 // Or typically we might just fail since Drive is required for production.
                 // But let's try R2 as backup if Drive fails, just to save the file.
                 console.warn('[UploadService] Google Drive upload failed. Retrying with R2 backup...');
@@ -258,7 +270,7 @@ export class UploadService {
         // Insert into order_files table for unified tracking
         const category = determineCategory(params, file.name);
         const orderFileId = await insertOrderFile({
-            cartCode: params.orderCode || undefined, // Using orderCode as cartCode for now
+            orderCode: params.orderCode || undefined,
             driveFileId: result.fileId,
             driveUrl: getDirectUrl(result.fileId),
             storageProvider: 'drive',
@@ -343,7 +355,7 @@ export class UploadService {
             // Insert into order_files table for unified tracking
             const category = determineCategory(params, file.name);
             const orderFileId = await insertOrderFile({
-                cartCode: params.orderCode ?? undefined, // Using orderCode as cartCode for now
+                orderCode: params.orderCode ?? undefined,
                 fileKey: key,
                 storageProvider: 'r2',
                 fileName: file.name,

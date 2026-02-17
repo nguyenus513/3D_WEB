@@ -30,11 +30,11 @@ export type FulfillmentStatus = 'pending' | 'processing' | 'completed';
 // Item/Sub-order production tracking
 export type ProductionStatus = 'waiting' | 'printing' | 'done' | 'error';
 
-export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'printing';
+export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'print_3d';
 
 // Order types for unified orders table
-export type OrderType = 'product' | 'print' | 'custom';
-export type OrderItemType = 'product' | 'print' | 'custom';
+export type OrderType = 'product' | 'print_3d' | 'custom';
+export type OrderItemType = 'product' | 'print_3d' | 'custom';
 
 export type PrintTech = 'fdm' | 'resin' | 'sla';
 
@@ -147,7 +147,6 @@ export interface Order {
     user_id: string | null;
     address_id: string | null;
     subtotal: number;
-    shipping_fee: number;
     discount: number;
     total_amount: number;
     deposit_amount: number;

@@ -8,7 +8,7 @@
  * - Mixed Orders: 50% of custom items + 100% of print/product items
  */
 
-export type OrderType = 'printing' | 'print' | 'ready_made' | 'product' | 'custom' | 'mixed';
+export type OrderType = 'printing' | 'print' | 'print_3d' | 'ready_made' | 'product' | 'custom' | 'mixed';
 
 export interface OrderItem {
     item_type?: string;
@@ -30,7 +30,7 @@ export function calculateDeposit(totalAmount: number, orderType: OrderType | str
     }
 
     // 3D Printing: 100% payment
-    if (orderType === 'printing' || orderType === 'print') {
+    if (orderType === 'printing' || orderType === 'print' || orderType === 'print_3d') {
         return totalAmount;
     }
 
@@ -126,6 +126,6 @@ export function determineOrderType(items: OrderItem[]): OrderType {
 
     const singleType = Array.from(types)[0];
     if (singleType === 'custom') return 'custom';
-    if (singleType === 'printing' || singleType === 'print') return 'printing';
+    if (singleType === 'printing' || singleType === 'print' || singleType === 'print_3d') return 'printing';
     return 'ready_made';
 }

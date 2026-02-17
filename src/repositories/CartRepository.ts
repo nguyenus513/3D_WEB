@@ -24,7 +24,6 @@ export interface Cart {
     cart_code: string;
     order_code: string;
     subtotal: number;
-    shipping_fee: number;
     discount: number;
     total_amount: number;
     payment_status: 'pending';
@@ -113,7 +112,6 @@ export class CartRepository {
                 fulfillment_status: 'pending',
                 status: 'pending',
                 subtotal: 0,
-                shipping_fee: 0,
                 discount: 0,
                 total_amount: 0,
                 deposit_amount: 0,
@@ -390,7 +388,6 @@ export class CartRepository {
             cart_code: data.cart_code || data.order_code,
             order_code: data.order_code,
             subtotal: data.subtotal ?? 0,
-            shipping_fee: data.shipping_fee ?? 0,
             discount: data.discount ?? 0,
             total_amount: data.total_amount,
             payment_status: data.payment_status,

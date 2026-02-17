@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
             .from('orders')
             .select(`
                 *,
-                items:order_items(*)
+                items:order_items(*, print_config:order_item_print_configs(*))
             `)
             .eq('user_id', userId)
             .eq('order_code', orderId)
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         if (!order) {
             const { data: orderByCart } = await supabaseAdmin
                 .from('orders')
-                .select(`*, items:order_items(*)`)
+                .select(`*, items:order_items(*, print_config:order_item_print_configs(*))`)
                 .eq('user_id', userId)
                 .eq('cart_code', orderId)
                 .maybeSingle();
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         if (!order) {
             const { data: orderById } = await supabaseAdmin
                 .from('orders')
-                .select(`*, items:order_items(*)`)
+                .select(`*, items:order_items(*, print_config:order_item_print_configs(*))`)
                 .eq('user_id', userId)
                 .eq('id', orderId)
                 .maybeSingle();
@@ -172,18 +172,20 @@ export async function GET(request: NextRequest) {
             // DB uses 'spec' column, not 'configuration' - merge with fallbacks
             configuration: {
                 ...(item.spec || {}),
-                // Include top-level DB fields as fallback
-                color: item.spec?.color || item.color,
-                material: item.spec?.material || item.material,
+                // Prefer relational print_config table over spec JSON
+                color: item.print_config?.color || item.spec?.color || item.color,
+                material: item.print_config?.material || item.spec?.material || item.material,
                 custom_type: item.spec?.custom_type || item.custom_type,
                 custom_size: item.spec?.custom_size || item.custom_size,
                 size: item.spec?.size || item.custom_size,
-                // Print-specific from spec
-                type: item.spec?.type || item.spec?.printOptions?.type,
-                infill: item.spec?.infill || item.spec?.printOptions?.infill,
-                layerHeight: item.spec?.layerHeight || item.spec?.printOptions?.layerHeight,
+                // Print-specific: prefer print_config table
+                type: item.print_config?.print_tech || item.spec?.type || item.spec?.printOptions?.type,
+                infill: item.print_config?.infill || item.spec?.infill || item.spec?.printOptions?.infill,
+                layerHeight: item.print_config?.layer_height || item.spec?.layerHeight || item.spec?.printOptions?.layerHeight,
                 fileName: item.spec?.fileName || item.spec?.file_name,
-                grams: item.spec?.grams,
+                grams: item.print_config?.estimated_grams || item.spec?.grams,
+                hours: item.print_config?.estimated_hours || item.spec?.hours,
+                volume: item.print_config?.volume || item.spec?.volume,
             },
             item_type: item.item_type,
             custom_type: item.custom_type,
@@ -198,9 +200,9 @@ export async function GET(request: NextRequest) {
             preview_status: item.preview_status,
         }));
 
-        // Virtual Status Logic: If demo_image_url exists but status is stuck, override to 'review'
+        // Virtual Status Logic: If demo exists but status is stuck, override to 'review'
         let finalStatus = order.status;
-        const demoUrl = order.demo_image_url;
+        const demoUrl = order.demo_images?.[0]?.url;
         if (demoUrl && ['pending', 'confirmed', 'designing'].includes(finalStatus)) {
             finalStatus = 'review';
         }
@@ -221,7 +223,6 @@ export async function GET(request: NextRequest) {
                 shipping_address: order.shipping_address || order.shipping_address_snapshot,
                 created_at: order.created_at,
                 items: items,
-                demo_image_url: demoUrl,
                 demo_images: order.demo_images || [],
                 finished_images: order.finished_images || [],
                 revision_count: order.revision_count || 0,

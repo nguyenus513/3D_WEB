@@ -36,7 +36,7 @@ export async function PATCH(
 
         // Parse request body
         const body = await request.json();
-        const { shipping_address, shipping_fee, total } = body;
+        const { shipping_address, total } = body;
 
         // Verify order ownership
         const { data: order, error: fetchError } = await supabase
@@ -62,7 +62,6 @@ export async function PATCH(
         // Build update object
         const updates: Record<string, unknown> = {};
         if (shipping_address) updates.shipping_address = shipping_address;
-        if (typeof shipping_fee === 'number') updates.shipping_fee = shipping_fee;
         if (typeof total === 'number') updates.total_amount = total;
         updates.updated_at = new Date().toISOString();
 

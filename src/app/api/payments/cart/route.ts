@@ -130,9 +130,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const shippingFee = 0;
         const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-        const totalAmount = subtotal + shippingFee;
+        const totalAmount = subtotal;
 
         // 1. Get or Generate Customer Code (10 hex)
         // Try to get from profile first
@@ -180,7 +179,7 @@ export async function POST(request: NextRequest) {
                 total_amount: totalAmount,
                 status: 'pending',
                 shipping_address: shippingAddress,
-                shipping_fee: shippingFee,
+                shipping_fee: 0,
                 note: idempotencyKey ? `idempotency:${idempotencyKey}` : note,
                 metadata: {
                     customer_code: customerCode,
@@ -306,8 +305,7 @@ export async function POST(request: NextRequest) {
             parentId: parentOrder.id,
             codeParent,
             customerCode,
-            totalAmount,
-            shippingFee,
+            subtotal,
             totalQrUrl: totalPaymentSetup.qrUrl,
             totalTransferContent: totalPaymentSetup.transferContent,
             correlationId,

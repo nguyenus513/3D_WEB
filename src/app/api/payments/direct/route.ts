@@ -113,8 +113,7 @@ export async function POST(request: NextRequest) {
         }
 
         const totalPrice = unitPrice * quantity;
-        const shippingFee = 0;
-        const finalAmount = totalPrice + shippingFee;
+        const finalAmount = totalPrice;
 
         // 1. Get or Generate Customer Code (10 hex)
         const rawCustomerCode = await getCustomerCode(session.user.id, session.user.email);
@@ -191,9 +190,8 @@ export async function POST(request: NextRequest) {
             .insert({
                 order_code: codeParent,
                 user_id: session.user.id,
-                order_type: productType === 'product' ? 'ready_made' : productType,
+                order_type: productType === 'printing' ? 'print_3d' : productType,
                 subtotal: totalPrice,
-                shipping_fee: shippingFee,
                 total_amount: finalAmount,
                 deposit_amount: finalAmount,
                 status: 'pending',

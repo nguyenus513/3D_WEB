@@ -31,8 +31,9 @@ export const ProductSizeSchema = z.object({
     price: z.coerce.number().int().min(0),
     stock: z.coerce.number().int().min(0).default(0),
     enabled: z.boolean().default(true),
-    images: z.array(z.string()).optional().default([]), // Multiple images per size
-});
+    images: z.array(z.string()).optional().default([]),
+    image_url: z.string().optional().nullable(),
+}); // Multiple images per size
 
 // =============================================================================
 // Create Product Schema

@@ -9,11 +9,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     // SECURITY: Verify admin
-    const { authorized } = await requireAdmin(request);
-    if (!authorized) {
-        const url = new URL(request.url);
-        return NextResponse.redirect(new URL('/', url.origin));
-    }
+    const { authorized, response: authResponse } = await requireAdmin(request);
+    if (!authorized) return authResponse!;
 
     // 3. Generate Random Phoenix Token (50 chars)
     const sessionToken = generateToken();

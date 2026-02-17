@@ -145,13 +145,13 @@ export default function AdminProductEditPage() {
                 base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : 0,
                 sale_price: null,
                 stock: pricingMode === 'original' ? parseInt(formData.stock) || 0 : 0,
-                images: formData.images.map((img, i) => ({ url: img.url, is_main: i === 0 })),
+                images: formData.images.filter(img => img?.url).map((img, i) => ({ url: img.url, is_main: i === 0 })),
                 sizes: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
                     name: s.name,
                     sku: s.sku,
                     price: parseInt(s.price) || 0,
                     stock: parseInt(s.stock) || 0,
-                    image_url: s.image_url,
+                    image_url: s.image_url ? s.image_url.split('?')[0] : undefined,
                     enabled: true,
                 })) : [],
             };
@@ -216,14 +216,15 @@ export default function AdminProductEditPage() {
                     body: formDataUpload,
                 });
                 const result = await res.json();
+                const fileUrl = result.data?.file?.url || result.file?.url;
 
-                if (result.success) {
+                if (result.success && fileUrl) {
                     setFormData(prev => ({
                         ...prev,
-                        images: [...prev.images, { url: result.file.url }]
+                        images: [...prev.images, { url: fileUrl }]
                     }));
                 } else {
-                    setError('Upload thất bại: ' + result.error);
+                    setError('Upload thất bại: ' + (result.error?.message || 'Unknown error'));
                 }
             } catch (err) {
                 setError('Lỗi upload: ' + (err as Error).message);
@@ -268,19 +269,24 @@ export default function AdminProductEditPage() {
     };
 
     const updateSize = (index: number, field: keyof SizeVariant, value: string | undefined) => {
-        const newSizes = [...formData.sizes];
-        if (value === undefined && field === 'image_url') {
-            delete newSizes[index].image_url;
-        } else {
-            (newSizes[index] as any)[field] = value;
-        }
-        setFormData({ ...formData, sizes: newSizes });
+        setFormData(prev => {
+            const newSizes = [...prev.sizes];
+            if (value === undefined && field === 'image_url') {
+                const { image_url, ...rest } = newSizes[index];
+                newSizes[index] = rest as SizeVariant;
+            } else {
+                newSizes[index] = { ...newSizes[index], [field]: value };
+            }
+            return { ...prev, sizes: newSizes };
+        });
     };
 
     const uploadSizeImage = async (index: number, file: File) => {
-        const newSizes = [...formData.sizes];
-        newSizes[index].uploading = true;
-        setFormData({ ...formData, sizes: newSizes });
+        setFormData(prev => {
+            const newSizes = [...prev.sizes];
+            newSizes[index] = { ...newSizes[index], uploading: true };
+            return { ...prev, sizes: newSizes };
+        });
 
         const formDataUpload = new FormData();
         formDataUpload.append('file', file);
@@ -294,18 +300,30 @@ export default function AdminProductEditPage() {
                 body: formDataUpload,
             });
             const result = await res.json();
+            const fileUrl = result.data?.file?.url || result.file?.url;
 
-            if (result.success) {
-                updateSize(index, 'image_url', result.file.url);
+            if (result.success && fileUrl) {
+                setFormData(prev => {
+                    const updatedSizes = [...prev.sizes];
+                    updatedSizes[index] = { ...updatedSizes[index], image_url: fileUrl, uploading: false };
+                    return { ...prev, sizes: updatedSizes };
+                });
             } else {
                 setError('Upload ảnh size thất bại');
+                setFormData(prev => {
+                    const updatedSizes = [...prev.sizes];
+                    updatedSizes[index] = { ...updatedSizes[index], uploading: false };
+                    return { ...prev, sizes: updatedSizes };
+                });
             }
         } catch (err) {
             setError('Lỗi upload ảnh size');
+            setFormData(prev => {
+                const updatedSizes = [...prev.sizes];
+                updatedSizes[index] = { ...updatedSizes[index], uploading: false };
+                return { ...prev, sizes: updatedSizes };
+            });
         }
-
-        newSizes[index].uploading = false;
-        setFormData({ ...formData, sizes: newSizes });
     };
 
     const removeSize = (index: number) => {
@@ -483,7 +501,7 @@ export default function AdminProductEditPage() {
                                                     {size.image_url ? (
                                                         <div className="w-full h-full rounded-lg overflow-hidden relative group">
                                                             <img
-                                                                src={size.image_url}
+                                                                src={`${size.image_url}${size.image_url.includes('?') ? '&' : '?'}v=${Date.now()}`}
                                                                 alt={size.name || 'Size'}
                                                                 className="w-full h-full object-cover"
                                                             />
@@ -634,7 +652,7 @@ export default function AdminProductEditPage() {
                         <h2 className="text-lg font-semibold text-white">Hình ảnh chung</h2>
                         {/* Existing Image Grid Code - Implicitly retained or updated if I want to match New Product exactly. I will reuse the existing block for now to minimize diff risk, but the content replacement should cover it. */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {formData.images.map((img, index) => (
+                            {formData.images.filter(img => img?.url).map((img, index) => (
                                 <div key={index} className="aspect-square rounded-xl relative group overflow-hidden bg-white/5">
                                     <img
                                         src={img.url}

@@ -39,10 +39,9 @@ export interface CreateOrderParams {
     orderCode: string;
     name?: string; // Order name (auto-generated if not provided)
     cartCode?: string; // 8-char hex, auto-generated if not provided
-    orderType?: string; // ready_made, custom, printing, mixed
+    orderType?: string; // product, print_3d, custom, mixed
     addressId?: string;
     subtotal: number;
-    shippingFee: number;
     discount: number;
     totalAmount: number;
     depositAmount?: number;
@@ -195,10 +194,9 @@ export class OrderRepository {
             .from('orders')
             .insert({
                 order_code: orderData.orderCode,
-                order_type: orderData.orderType || 'ready_made',
+                order_type: orderData.orderType || 'product',
                 user_id: orderData.userId,
                 subtotal: orderData.subtotal,
-                shipping_fee: orderData.shippingFee,
                 discount: orderData.discount,
                 total_amount: orderData.totalAmount,
                 deposit_amount: orderData.depositAmount || 0,

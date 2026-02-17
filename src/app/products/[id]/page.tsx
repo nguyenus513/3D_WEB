@@ -47,9 +47,9 @@ export default function ProductDetailPage() {
             sizeImages = [size.image_url];
         }
 
-        // Combine: product images FIRST, then size images (no duplicates)
-        const combined = [...productImages];
-        sizeImages.forEach(img => {
+        // Combine: size images FIRST, then product images (no duplicates)
+        const combined = [...sizeImages];
+        productImages.forEach(img => {
             if (!combined.includes(img)) {
                 combined.push(img);
             }
@@ -381,20 +381,22 @@ export default function ProductDetailPage() {
                                 <div className="mb-8">
                                     <h3 className="text-sm font-medium text-white/70 mb-3">Kích thước</h3>
                                     <div className="flex flex-wrap gap-3">
-                                        {product.sizes.filter(s => s.enabled).map((size, index) => (
-                                            <button
-                                                key={size.name}
-                                                onClick={() => handleSizeChange(index)}
-                                                className={`px-4 py-3 rounded-xl border transition-all ${selectedSize === index
-                                                    ? 'bg-white text-black border-white'
-                                                    : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
-                                                    }`}
-                                            >
-                                                <span className="block text-sm font-medium">{size.name}</span>
-                                                <span className="block text-xs opacity-70">
-                                                    {size.price.toLocaleString('vi-VN')}đ
-                                                </span>
-                                            </button>
+                                        {product.sizes.map((size, index) => (
+                                            size.enabled !== false && (
+                                                <button
+                                                    key={size.name}
+                                                    onClick={() => handleSizeChange(index)}
+                                                    className={`px-4 py-3 rounded-xl border transition-all ${selectedSize === index
+                                                        ? 'bg-white text-black border-white'
+                                                        : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
+                                                        }`}
+                                                >
+                                                    <span className="block text-sm font-medium">{size.name}</span>
+                                                    <span className="block text-xs opacity-70">
+                                                        {size.price.toLocaleString('vi-VN')}đ
+                                                    </span>
+                                                </button>
+                                            )
                                         ))}
                                     </div>
                                 </div>
@@ -471,16 +473,24 @@ export default function ProductDetailPage() {
                                 <ul className="mt-4 space-y-2">
                                     <li className="flex items-center gap-2 text-white/60">
                                         <span className="w-2 h-2 rounded-full bg-green-400" />
-                                        SKU: {product.sku}
+                                        SKU: {product.sizes && product.sizes.length > 0 && product.sizes[selectedSize]?.sku
+                                            ? product.sizes[selectedSize].sku
+                                            : product.sku}
                                     </li>
                                     <li className="flex items-center gap-2 text-white/60">
                                         <span className="w-2 h-2 rounded-full bg-green-400" />
                                         Còn hàng: {
-                                            product.sizes?.[selectedSize]?.stock ??
-                                            product.sizes?.reduce((sum, s) => sum + (s.stock || 0), 0) ??
-                                            product.stock
+                                            product.sizes && product.sizes.length > 0
+                                                ? (product.sizes[selectedSize]?.stock ?? product.sizes.reduce((sum, s) => sum + (s.stock || 0), 0))
+                                                : product.stock
                                         } sản phẩm
                                     </li>
+                                    {product.sizes && product.sizes.length > 0 && product.sizes[selectedSize] && (
+                                        <li className="flex items-center gap-2 text-white/60">
+                                            <span className="w-2 h-2 rounded-full bg-blue-400" />
+                                            Size: {product.sizes[selectedSize].name}
+                                        </li>
+                                    )}
                                 </ul>
                             </div>
                         </AnimatedSection>

@@ -183,7 +183,6 @@ export function CheckoutContent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 shipping_address: address,
-                shipping_fee: 0,
                 total: singleOrder?.subtotal || 0,
             }),
         });
@@ -226,12 +225,18 @@ export function CheckoutContent() {
                             notes: item.notes,
                         }
                     })),
-                    // Map to CreateOrderSchema: { name, phone, address, city }
+                    // Map to ShippingAddressSnapshot: { full_name, phone, address_line, ward, district, province }
                     shipping_address: {
                         name: shippingAddress.full_name,
                         phone: shippingAddress.phone,
                         address: shippingAddress.address_line || '',
-                        city: shippingAddress.province || ''
+                        ward: shippingAddress.ward || '',
+                        district: shippingAddress.district || '',
+                        city: shippingAddress.province || '',
+                        // Also save original field names for backward compatibility
+                        full_name: shippingAddress.full_name,
+                        address_line: shippingAddress.address_line || '',
+                        province: shippingAddress.province || '',
                     },
                     payment_method: 'bank_transfer', // Schema requires 'bank_transfer', not 'QR_TRANSFER'
                     notes: ''

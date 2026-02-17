@@ -118,11 +118,10 @@ export async function POST(
         // Append to demo_images array
         const updatedImages = [...existingImages, newImage];
 
-        // Update order: set demo_image_url (primary/first), demo_images (all)
+        // Update order: set demo_images (all)
         const { error: updateError } = await supabase
             .from('orders')
             .update({
-                demo_image_url: updatedImages[0]?.url || demoImageUrl,
                 demo_images: updatedImages,
                 updated_at: new Date().toISOString(),
             })
@@ -205,7 +204,6 @@ export async function DELETE(
             .from('orders')
             .update({
                 demo_images: updatedImages,
-                demo_image_url: updatedImages[0]?.url || null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);

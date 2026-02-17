@@ -104,7 +104,6 @@ export async function POST(request: NextRequest) {
                 status: 'pending',
                 payment_status: 'pending',
                 subtotal: totalPrice,
-                shipping_fee: 0,
                 discount: 0,
                 total_amount: totalPrice,
                 deposit_amount: depositAmount,

@@ -21,7 +21,6 @@ const ALLOWED_UPDATE_FIELDS: ReadonlySet<string> = new Set([
     'paid_at',
     'shipping_code',
     'admin_notes',
-    'demo_image_url',
     'demo_version',
     'revision_feedback',
 ]);
@@ -55,8 +54,8 @@ export class AdminOrderController extends BaseController {
      */
     async listOrders(request: NextRequest) {
         return this.wrapHandler(async () => {
-            const { authorized } = await requireAdmin(request);
-            if (!authorized) throw new UnauthorizedError('Admin access required');
+            const { authorized, response: authResponse } = await requireAdmin(request);
+            if (!authorized) return authResponse as any;
 
             const { searchParams } = new URL(request.url);
             const status = searchParams.get('status');
@@ -108,14 +107,14 @@ export class AdminOrderController extends BaseController {
      */
     async getOrder(request: NextRequest, orderId: string) {
         return this.wrapHandler(async () => {
-            const { authorized } = await requireAdmin(request);
-            if (!authorized) throw new UnauthorizedError('Admin access required');
+            const { authorized, response: authResponse } = await requireAdmin(request);
+            if (!authorized) return authResponse as any;
 
             console.log('[AdminOrder] getOrder - Looking for orderId:', orderId);
 
             const { data: order, error } = await this.supabase
                 .from('orders')
-                .select(`*, user:profiles(*), items:order_items(*)`)
+                .select(`*, user:profiles(*), items:order_items(*, print_config:order_item_print_configs(*)), files:order_files(*)`)
                 .eq('id', orderId)
                 .maybeSingle() as any;
 
@@ -132,7 +131,9 @@ export class AdminOrderController extends BaseController {
             const items = Array.isArray(order.items) ? order.items : [];
             const mainItem = items[0] || {};
             const itemConfig = mainItem.configuration || mainItem.spec || {};
-            const orderType = order.order_type || this.inferOrderType(items);
+            const rawOrderType = order.order_type || this.inferOrderType(items);
+            // Normalize order type: treat 'print_3d' as 'printing' for frontend
+            const orderType = rawOrderType === 'print_3d' ? 'printing' : rawOrderType;
 
             let custom_config = null;
             if (orderType === 'custom') {
@@ -149,20 +150,38 @@ export class AdminOrderController extends BaseController {
                 };
             }
 
+            // Printing config: per-item print specs come from JOINed print_config
+            // This object only carries order-level metadata (quantity, notes)
             let printing_config = null;
-            if (orderType === 'printing') {
+            if (orderType === 'printing' || rawOrderType === 'print_3d') {
+                const totalQuantity = items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
                 printing_config = {
-                    type: itemConfig.print_tech || itemConfig.type,
-                    color: itemConfig.color,
-                    file_url: itemConfig.file_url,
+                    quantity: totalQuantity,
+                    notes: order.notes || '',
                 };
             }
+
+            // Map order_files for admin consumption
+            const orderFiles = Array.isArray(order.files) ? order.files.map((f: any) => ({
+                id: f.id,
+                order_item_id: f.order_item_id,
+                file_name: f.file_name,
+                file_key: f.file_key,
+                file_type: f.file_type,
+                category: f.category,
+                storage_provider: f.storage_provider,
+                drive_url: f.drive_url,
+                drive_file_id: f.drive_file_id,
+                size_bytes: f.size_bytes,
+                created_at: f.created_at,
+            })) : [];
 
             return this.handleSuccess({
                 order: {
                     ...order,
                     profiles: order.user,
                     order_items: order.items,
+                    order_files: orderFiles,
                     total: order.total_amount,
                     customer_note: order.notes,
                     admin_note: order.admin_notes,
@@ -183,8 +202,8 @@ export class AdminOrderController extends BaseController {
      */
     async updateOrder(request: NextRequest, orderId: string) {
         return this.wrapHandler(async () => {
-            const { authorized } = await requireAdmin(request);
-            if (!authorized) throw new UnauthorizedError('Admin access required');
+            const { authorized, response: authResponse } = await requireAdmin(request);
+            if (!authorized) return authResponse as any;
 
             const body = await request.json();
             console.log('[AdminOrder] Update request:', { orderId, body });
@@ -211,13 +230,24 @@ export class AdminOrderController extends BaseController {
             }
 
             // Demo fields
-            if (body.demo_image_url !== undefined) update.demo_image_url = body.demo_image_url;
             if (body.demo_version !== undefined) update.demo_version = body.demo_version;
             if (body.revision_feedback !== undefined) update.revision_feedback = body.revision_feedback;
 
             // When confirming deposit, also update payment_status
             if (body.deposit_paid === true && !body.payment_status) {
-                update.payment_status = 'confirmed';
+                // Determine if it's full payment or deposit
+                const { data: currentOrder } = await (this.supabase
+                    .from('orders') as any)
+                    .select('deposit_amount, total, total_amount') // Fetch both total fields just in case
+                    .eq('id', orderId)
+                    .single();
+
+                const total = currentOrder?.total ?? currentOrder?.total_amount ?? 0;
+                const deposit = currentOrder?.deposit_amount ?? 0;
+
+                // If deposit covers total (100% payment) -> paid
+                // Otherwise -> deposit_paid
+                update.payment_status = deposit >= total ? 'paid' : 'deposit_paid';
             }
 
             // Auto-complete payment on Delivery/Completion
@@ -225,6 +255,37 @@ export class AdminOrderController extends BaseController {
                 update.payment_status = 'paid';
                 if (!update.paid_at) update.paid_at = new Date().toISOString();
                 console.log('[AdminOrder] Auto-completing payment for delivery');
+            }
+
+            // Determine if we need stock adjustment BEFORE the update
+            // We need the current order state to decide
+            let shouldDeductStock = false;
+            let shouldRestoreStock = false;
+
+            if (body.deposit_paid === true || body.status === 'confirmed') {
+                // Fetch current order to check if stock was already deducted
+                const { data: currentOrder } = await (this.supabase
+                    .from('orders') as any)
+                    .select('deposit_paid, status')
+                    .eq('id', orderId)
+                    .single();
+
+                if (currentOrder && !currentOrder.deposit_paid) {
+                    shouldDeductStock = true;
+                }
+            }
+
+            if (body.status === 'cancelled') {
+                // Fetch current order to check if stock was previously deducted
+                const { data: currentOrder } = await (this.supabase
+                    .from('orders') as any)
+                    .select('deposit_paid, status')
+                    .eq('id', orderId)
+                    .single();
+
+                if (currentOrder && currentOrder.deposit_paid && currentOrder.status !== 'cancelled') {
+                    shouldRestoreStock = true;
+                }
             }
 
             // If no fields to update, return early
@@ -282,6 +343,18 @@ export class AdminOrderController extends BaseController {
                     console.warn('[AdminOrder] Skipped missing columns:', removedFields.join(', '));
                 }
 
+                // Process stock adjustments after successful update
+                if (shouldDeductStock) {
+                    try { await this.adjustStockForOrder(orderId, 'deduct'); } catch (e) {
+                        console.error('[AdminOrder] Stock deduction failed (non-blocking):', e);
+                    }
+                }
+                if (shouldRestoreStock) {
+                    try { await this.adjustStockForOrder(orderId, 'restore'); } catch (e) {
+                        console.error('[AdminOrder] Stock restore failed (non-blocking):', e);
+                    }
+                }
+
                 return this.handleSuccess({
                     success: true,
                     message: 'Order updated successfully',
@@ -313,6 +386,99 @@ export class AdminOrderController extends BaseController {
     }
 
     /**
+     * Adjust stock for all items in an order
+     * @param orderId - The order ID
+     * @param action - 'deduct' to reduce stock, 'restore' to add back
+     */
+    /**
+     * Adjust stock for all items in an order
+     * @param orderId - The order ID
+     * @param action - 'deduct' to reduce stock, 'restore' to add back
+     */
+    private async adjustStockForOrder(orderId: string, action: 'deduct' | 'restore') {
+        const multiplier = action === 'deduct' ? -1 : 1;
+        console.log(`[StockAdjust] ${action.toUpperCase()} stock for order ${orderId}`);
+
+        // Fetch order items with product_id and configuration
+        const { data: items, error: itemsError } = await (this.supabase
+            .from('order_items') as any)
+            .select('product_id, quantity, configuration, product_name')
+            .eq('order_id', orderId);
+
+        if (itemsError || !items || items.length === 0) {
+            console.warn(`[StockAdjust] No items found for order ${orderId}:`, itemsError?.message);
+            return;
+        }
+
+        for (const item of items as any[]) {
+            if (!item.product_id) {
+                console.log(`[StockAdjust] Skipping item without product_id: ${item.product_name}`);
+                continue;
+            }
+
+            try {
+                // Get size from configuration or top-level if it exists (legacy)
+                const itemSize = item.configuration?.size || item.size;
+
+                // Fetch product
+                const { data: product, error: productError } = await (this.supabase
+                    .from('products') as any)
+                    .select('id, name, stock, sizes')
+                    .eq('id', item.product_id)
+                    .single();
+
+                if (productError || !product) {
+                    console.warn(`[StockAdjust] Product ${item.product_id} not found`);
+                    continue;
+                }
+
+                const qty = item.quantity * multiplier;
+                const sizes = product.sizes as any[] | null;
+
+                // Try to find matching size
+                if (sizes && sizes.length > 0 && itemSize) {
+                    const sizeIndex = sizes.findIndex(
+                        (s: any) => s.name === itemSize || s.sku === itemSize
+                    );
+
+                    if (sizeIndex >= 0) {
+                        // Update size-specific stock
+                        const updatedSizes = [...sizes];
+                        const currentStock = updatedSizes[sizeIndex].stock || 0;
+                        updatedSizes[sizeIndex] = {
+                            ...updatedSizes[sizeIndex],
+                            stock: Math.max(0, currentStock + qty),
+                        };
+
+                        await (this.supabase
+                            .from('products') as any)
+                            .update({ sizes: updatedSizes, updated_at: new Date().toISOString() })
+                            .eq('id', product.id);
+
+                        console.log(`[StockAdjust] ${action} size "${itemSize}" of "${product.name}": ${currentStock} → ${updatedSizes[sizeIndex].stock} (qty: ${item.quantity})`);
+                        continue;
+                    }
+                }
+
+                // Fallback: update product-level stock
+                const newStock = Math.max(0, (product.stock || 0) + qty);
+                await (this.supabase
+                    .from('products') as any)
+                    .update({ stock: newStock, updated_at: new Date().toISOString() })
+                    .eq('id', product.id);
+
+                console.log(`[StockAdjust] ${action} product "${product.name}" stock: ${product.stock} → ${newStock} (qty: ${item.quantity})`);
+            } catch (err) {
+                console.error(`[StockAdjust] Error adjusting stock for product ${item.product_id}:`, err);
+            }
+        }
+
+        console.log(`[StockAdjust] ✓ ${action.toUpperCase()} completed for order ${orderId}`);
+    }
+
+
+
+    /**
      * Infer order type from order items configuration
      */
     private inferOrderType(items: any[]): string {
@@ -324,10 +490,10 @@ export class AdminOrderController extends BaseController {
 
             // Check item_type first (most reliable)
             if (first.item_type === 'custom') return 'custom';
-            if (first.item_type === 'printing') return 'printing';
+            if (first.item_type === 'printing' || first.item_type === 'print_3d') return 'printing';
 
-            // Fallback: check configuration object
-            const itemConfig = first.configuration || {};
+            // Fallback: check configuration/spec object
+            const itemConfig = first.configuration || first.spec || {};
             if (itemConfig.print_tech) return 'printing';
             if (itemConfig.style || (Array.isArray(itemConfig.photos) && itemConfig.photos.length > 0)) return 'custom';
 

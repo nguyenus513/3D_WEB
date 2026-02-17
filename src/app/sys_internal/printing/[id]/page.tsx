@@ -12,7 +12,6 @@ interface Order {
     order_code: string;
     status: string;
     subtotal: number;
-    shipping_fee: number;
     total: number;
     deposit_amount: number;
     deposit_paid: boolean;

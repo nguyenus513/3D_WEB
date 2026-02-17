@@ -97,15 +97,38 @@ export class OrderService {
         // Prepare shipping address
         const shippingAddress = input.shipping_address || {};
 
+        // Determine order type from items
+        const itemTypes = new Set(input.items.map(i => (i as any).item_type || 'product'));
+        let orderType = 'ready_made'; // Default
+
+        if (itemTypes.has('custom')) {
+            orderType = itemTypes.has('product') || itemTypes.has('print') ? 'mixed' : 'custom';
+        } else if (itemTypes.has('print') || itemTypes.has('printing')) {
+            orderType = 'printing';
+        } else {
+            orderType = 'ready_made';
+        }
+
+        // Calculate deposit amount
+        // Policy: 
+        // - Ready-made / Printing: 100% upfront (Deposit = Total)
+        // - Custom / Mixed: 50% deposit
+        let depositAmount = totalAmount;
+        if (orderType === 'custom' || orderType === 'mixed') {
+            depositAmount = Math.round(totalAmount * 0.5);
+        }
+
         // Create order
         const order = await this.orderRepo.create(
             {
                 userId: profile.id,
                 orderCode: generateId.order(), // 8-char hex code
+                cartCode: (input as any).cart_code, // Optional if provided
+                orderType,
                 subtotal: totalAmount, // Note: input.items might need to sum up
-                shippingFee: 0, // Default or calculated
                 discount: 0,
                 totalAmount: totalAmount,
+                depositAmount: depositAmount,
                 // Repository create params: shippingAddressSnapshot, notes.
                 // input has shipping_address, notes.
                 shippingAddressSnapshot: shippingAddress as any,

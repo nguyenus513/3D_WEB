@@ -5,10 +5,12 @@ import { useState, useEffect, useRef } from 'react';
 import { OrderStatus } from '@/types/database';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
+import PrintFileCard, { PrintFileCardData, OrderFileRecord } from '@/components/admin/PrintFileCard';
+import PrintFileDetail from '@/components/admin/PrintFileDetail';
 
 // Force dynamic rendering and disable caching for this page
 // Note: 'dynamic' and 'revalidate' exports don't work in Client Components
@@ -48,10 +50,9 @@ interface OrderItem {
 interface Order {
     id: string;
     order_code: string;
-    order_type: 'ready_made' | 'custom' | 'printing';
+    order_type: 'ready_made' | 'custom' | 'printing' | 'print_3d';
     status: string;
     subtotal: number;
-    shipping_fee: number;
     total: number;
     deposit_amount: number;
     deposit_paid: boolean;
@@ -77,6 +78,8 @@ interface Order {
         customer_code: string;
     };
     order_items: OrderItem[];
+    // Order files from order_files table
+    order_files?: OrderFileRecord[];
     // Custom order config
     custom_config?: {
         type: string;
@@ -84,13 +87,9 @@ interface Order {
         notes?: string;
         images?: { id: string; name: string; url: string; thumbnail: string }[];
     };
-    // Printing order config
+    // Printing order config (order-level metadata only, per-item specs in print_config)
     printing_config?: {
-        type: string;
-        color: string;
         quantity: number;
-        analysis?: { grams: number; hours: number; price: number };
-        files?: { url: string; name: string }[];
         notes?: string;
     };
     // Demo image for review
@@ -160,6 +159,8 @@ export default function AdminOrderDetailPage() {
     const isOptimisticUpdate = useRef(false);
     // Explicit UI override state
     const [optimisticStatus, setOptimisticStatus] = useState<OrderStatus | null>(null);
+    // File detail drawer state
+    const [selectedPrintFile, setSelectedPrintFile] = useState<PrintFileCardData | null>(null);
 
     // Archive order files (R2 → Google Drive)
     const handleArchiveFiles = async () => {
@@ -279,6 +280,38 @@ export default function AdminOrderDetailPage() {
             setLoading(false);
         }
     };
+
+    const handleCancelOrder = async () => {
+        if (!order || !confirmCancel) return;
+        setUpdating(true);
+
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'cancelled',
+                    admin_note: order.admin_note ? order.admin_note + '\n[System] Đã hủy đơn bởi Admin' : '[System] Đã hủy đơn bởi Admin'
+                }),
+            });
+
+            if (res.ok) {
+                setOrder({ ...order, status: 'cancelled' });
+                alert('Đã hủy đơn hàng thành công (nếu đơn đã xác nhận, kho sẽ được hoàn lại)');
+            } else {
+                const error = await res.json();
+                alert(`Lỗi khi hủy đơn: ${error.message}`);
+            }
+        } catch (error) {
+            console.error('Error cancelling order:', error);
+            alert('Lỗi hệ thống khi hủy đơn');
+        } finally {
+            setUpdating(false);
+            setConfirmCancel(false);
+        }
+    };
+
+    const [confirmCancel, setConfirmCancel] = useState(false);
 
     const handleConfirmPayment = async () => {
         if (!order) return;
@@ -634,16 +667,26 @@ export default function AdminOrderDetailPage() {
                                 <div>
                                     <h3 className="text-yellow-400 font-semibold">Chờ xác nhận thanh toán</h3>
                                     <p className="text-yellow-400/70 text-sm mt-1">
-                                        Số tiền cọc: {order.deposit_amount.toLocaleString('vi-VN')}đ
+                                        {order.deposit_amount >= (order.total || 0) ? 'Tổng tiền thanh toán: ' : 'Số tiền cọc: '}
+                                        {order.deposit_amount.toLocaleString('vi-VN')}đ
                                     </p>
                                 </div>
-                                <button
-                                    onClick={handleConfirmPayment}
-                                    disabled={updating}
-                                    className="px-6 py-2.5 rounded-xl bg-yellow-500 text-black font-medium hover:bg-yellow-400 disabled:opacity-50"
-                                >
-                                    {updating ? 'Đang xử lý...' : 'Xác nhận đã nhận tiền'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setConfirmCancel(true)}
+                                        disabled={updating}
+                                        className="px-6 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/30 font-medium hover:bg-red-500/20 disabled:opacity-50"
+                                    >
+                                        Hủy đơn
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmPayment}
+                                        disabled={updating}
+                                        className="px-6 py-2.5 rounded-xl bg-yellow-500 text-black font-medium hover:bg-yellow-400 disabled:opacity-50"
+                                    >
+                                        {updating ? 'Đang xử lý...' : (order.deposit_amount >= (order.total || 0) ? 'Xác nhận thanh toán' : 'Xác nhận tiền cọc')}
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -665,6 +708,18 @@ export default function AdminOrderDetailPage() {
                                 onShippingClick={() => setShowTrackingModal(true)}
                                 updating={updating}
                             />
+
+                            {/* Allow cancelling confirmed orders to restore stock */}
+                            {order.status !== 'cancelled' && order.status !== 'delivered' && order.status !== 'completed' && (
+                                <div className="mt-4 flex justify-end">
+                                    <button
+                                        onClick={() => setConfirmCancel(true)}
+                                        className="text-xs text-red-400 hover:text-red-300 underline"
+                                    >
+                                        Hủy đơn hàng này (Hoàn kho)
+                                    </button>
+                                </div>
+                            )}
 
                             {/* ═══ DEMO IMAGES SECTION (Custom orders) ═══ */}
                             {order.order_type === 'custom' && (
@@ -836,8 +891,8 @@ export default function AdminOrderDetailPage() {
                         </motion.div>
                     )}
 
-                    {/* Archive Files Section - Show when order is delivered */}
-                    {order.status === 'delivered' && (
+                    {/* Archive Files Section - Show when order is delivered (not for ready-made products) */}
+                    {order.status === 'delivered' && order.order_type !== 'ready_made' && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -960,122 +1015,78 @@ export default function AdminOrderDetailPage() {
                                 </div>
                             )}
 
-                            {/* Printing Order - Show printing_config */}
-                            {order.order_type === 'printing' && order.printing_config && (
-                                <div className="space-y-4">
-                                    {/* Section 1: Options đã chọn */}
-                                    <div className="p-4 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl border border-orange-500/20">
-                                        <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                                            <span className="w-6 h-6 bg-orange-500/20 rounded-full flex items-center justify-center text-xs">1</span>
-                                            Thông số in 3D
-                                        </h3>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div className="p-3 bg-white/5 rounded-lg">
-                                                <p className="text-white/50 text-xs mb-1">Công nghệ</p>
-                                                <p className="text-white font-medium">
-                                                    {order.printing_config.type === 'fdm' ? '🔧 FDM' : '✨ Resin'}
-                                                </p>
-                                            </div>
-                                            <div className="p-3 bg-white/5 rounded-lg">
-                                                <p className="text-white/50 text-xs mb-1">Màu sắc</p>
-                                                <div className="flex items-center gap-2">
-                                                    <span
-                                                        className="w-4 h-4 rounded-full border border-white/30"
-                                                        style={{ backgroundColor: order.printing_config.color }}
-                                                    />
-                                                    <p className="text-white font-medium capitalize">{order.printing_config.color}</p>
-                                                </div>
-                                            </div>
-                                            <div className="p-3 bg-white/5 rounded-lg">
-                                                <p className="text-white/50 text-xs mb-1">Số lượng</p>
-                                                <p className="text-white font-medium">{order.printing_config.quantity} sản phẩm</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                            {/* Printing Order — per-item print config */}
+                            {(order.order_type === 'printing' || order.order_type === 'print_3d') && order.printing_config && (
+                                <div className="space-y-1">
+                                    {/* File List with per-item print specs */}
+                                    <div className="px-4 py-3">
+                                        <p className="text-white/30 text-[11px] uppercase tracking-wider font-medium mb-2">
+                                            Chi tiết đơn in 3D · {order.order_items?.length || 0} files
+                                        </p>
 
-                                    {/* Section 2: Phân tích file */}
-                                    {order.printing_config.analysis && (
-                                        <div className="p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl border border-blue-500/20">
-                                            <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                                                <span className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center text-xs">2</span>
-                                                Phân tích & Ước tính
-                                            </h3>
-                                            <div className="grid grid-cols-4 gap-3">
-                                                <div className="p-3 bg-white/5 rounded-lg text-center">
-                                                    <p className="text-white/50 text-xs mb-1">Trọng lượng</p>
-                                                    <p className="text-white font-bold text-lg">{order.printing_config.analysis.grams}g</p>
-                                                </div>
-                                                <div className="p-3 bg-white/5 rounded-lg text-center">
-                                                    <p className="text-white/50 text-xs mb-1">Thời gian in</p>
-                                                    <p className="text-white font-bold text-lg">{order.printing_config.analysis.hours}h</p>
-                                                </div>
-                                                <div className="p-3 bg-white/5 rounded-lg text-center">
-                                                    <p className="text-white/50 text-xs mb-1">Đơn giá</p>
-                                                    <p className="text-white font-bold text-lg">{order.printing_config.analysis.price.toLocaleString('vi-VN')}đ</p>
-                                                </div>
-                                                <div className="p-3 bg-emerald-500/10 rounded-lg text-center border border-emerald-500/30">
-                                                    <p className="text-emerald-400/70 text-xs mb-1">Tổng tiền</p>
-                                                    <p className="text-emerald-400 font-bold text-lg">
-                                                        {(order.printing_config.analysis.price * order.printing_config.quantity).toLocaleString('vi-VN')}đ
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Section 3: Files STL */}
-                                    <div className="p-4 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 rounded-xl border border-cyan-500/20">
-                                        <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                                            <span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">3</span>
-                                            File 3D (STL/OBJ)
-                                            {order.printing_config.files && (
-                                                <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full ml-auto">
-                                                    {order.printing_config.files.length} file
-                                                </span>
-                                            )}
-                                        </h3>
-                                        {order.printing_config.files && order.printing_config.files.length > 0 ? (
+                                        {order.order_items && order.order_items.length > 0 ? (
                                             <div className="space-y-2">
-                                                {order.printing_config.files.map((file, idx) => (
-                                                    <a
-                                                        key={idx}
-                                                        href={file.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors group"
-                                                    >
-                                                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center">
-                                                            <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                            </svg>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-white font-medium truncate">{file.name}</p>
-                                                            <p className="text-white/40 text-xs">File 3D • Click để tải xuống</p>
-                                                        </div>
-                                                        <svg className="w-5 h-5 text-white/40 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                        </svg>
-                                                    </a>
-                                                ))}
+                                                {order.order_items.map((item, idx) => {
+                                                    const matchedFile = order.order_files?.find(
+                                                        (f) => f.order_item_id === item.id
+                                                    ) || null;
+
+                                                    // Read from joined print_config table first (new schema)
+                                                    const pc = (item as any).print_config;
+                                                    // Fallback: parse spec JSON for legacy orders
+                                                    const rawSpec = (item.configuration as Record<string, unknown>) || {};
+                                                    const opts = (rawSpec.printOptions as Record<string, unknown>) || rawSpec;
+
+                                                    const fileCardData: PrintFileCardData = {
+                                                        orderFile: matchedFile,
+                                                        itemName: item.product_name || (rawSpec.file_name as string) || (item as any).name || `File ${idx + 1}`,
+                                                        quantity: item.quantity,
+                                                        unitPrice: item.unit_price,
+                                                        totalPrice: item.total_price,
+                                                        spec: {
+                                                            print_tech: pc?.print_tech || (opts.print_tech as string) || (opts.type as string),
+                                                            material: pc?.material || (opts.material as string) || undefined,
+                                                            color: pc?.color || (opts.color as string),
+                                                            infill: pc?.infill?.toString() || (opts.infill as string),
+                                                            layer_height: pc?.layer_height?.toString() || (opts.layer_height as string) || (opts.layerHeight as string),
+                                                            volume: pc?.volume || (opts.volume as number),
+                                                            grams: pc?.estimated_grams || (opts.grams as number),
+                                                            hours: pc?.estimated_hours || (opts.hours as number),
+                                                        },
+                                                    };
+
+                                                    return (
+                                                        <PrintFileCard
+                                                            key={item.id || idx}
+                                                            file={fileCardData}
+                                                            index={idx}
+                                                            onClick={() => setSelectedPrintFile(fileCardData)}
+                                                        />
+                                                    );
+                                                })}
                                             </div>
                                         ) : (
-                                            <p className="text-white/40 italic">Chưa có file</p>
+                                            <p className="text-white/30 text-sm">Chưa có file</p>
                                         )}
                                     </div>
 
-                                    {/* Section 4: Ghi chú (if exists) */}
+                                    {/* Notes (if any) */}
                                     {order.printing_config.notes && (
-                                        <div className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-xl border border-amber-500/20">
-                                            <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                                                <span className="w-6 h-6 bg-amber-500/20 rounded-full flex items-center justify-center text-xs">4</span>
-                                                Ghi chú của khách
-                                            </h3>
-                                            <div className="p-3 bg-white/5 rounded-lg">
-                                                <p className="text-white whitespace-pre-wrap">{order.printing_config.notes}</p>
+                                        <>
+                                            <div className="border-t border-white/[0.06]" />
+                                            <div className="px-4 py-3">
+                                                <p className="text-white/30 text-[11px] uppercase tracking-wider font-medium mb-1.5">Ghi chú</p>
+                                                <p className="text-white/60 text-sm whitespace-pre-wrap">{order.printing_config.notes}</p>
                                             </div>
-                                        </div>
+                                        </>
                                     )}
+
+                                    {/* File Detail Drawer */}
+                                    <PrintFileDetail
+                                        file={selectedPrintFile}
+                                        orderId={order.id}
+                                        onClose={() => setSelectedPrintFile(null)}
+                                    />
                                 </div>
                             )}
 
@@ -1089,7 +1100,7 @@ export default function AdminOrderDetailPage() {
                                 </div>
                             )}
 
-                            {order.order_items && order.order_items.length > 0 && order.order_items.map((item, idx) => {
+                            {order.order_type !== 'printing' && order.order_type !== 'print_3d' && order.order_items && order.order_items.length > 0 && order.order_items.map((item, idx) => {
                                 const config = item.configuration as CustomConfig | PrintingConfig | undefined;
                                 const isCustom = order.order_type === 'custom';
                                 const isPrinting = order.order_type === 'printing';
@@ -1331,7 +1342,7 @@ export default function AdminOrderDetailPage() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-white font-medium truncate">
-                                        {order.profiles?.full_name || order.shipping_address?.full_name || order.profiles?.email?.split('@')[0] || 'Khách hàng'}
+                                        {order.profiles?.full_name || (order.shipping_address as any)?.full_name || (order.shipping_address as any)?.name || order.profiles?.email?.split('@')[0] || 'Khách hàng'}
                                     </p>
                                     <p className="text-white/50 text-sm">Khách hàng</p>
                                 </div>
@@ -1384,18 +1395,24 @@ export default function AdminOrderDetailPage() {
                             </svg>
                             <h2 className="text-lg font-semibold text-white">Địa chỉ giao hàng</h2>
                         </div>
-                        {order.shipping_address ? (
-                            <div className="space-y-2">
-                                <p className="text-white font-medium">{order.shipping_address.full_name}</p>
-                                <p className="text-white/70">{order.shipping_address.phone}</p>
-                                <p className="text-white/50 text-sm">
-                                    {order.shipping_address.address_line}
-                                    {order.shipping_address.ward && `, ${order.shipping_address.ward}`}
-                                    {order.shipping_address.district && `, ${order.shipping_address.district}`}
-                                    , {order.shipping_address.province}
-                                </p>
-                            </div>
-                        ) : (
+                        {order.shipping_address ? (() => {
+                            const addr = order.shipping_address as any;
+                            const displayName = addr.full_name || addr.name || '';
+                            const displayPhone = addr.phone || '';
+                            const displayAddress = addr.address_line || addr.address || '';
+                            const displayWard = addr.ward || '';
+                            const displayDistrict = addr.district || '';
+                            const displayProvince = addr.province || addr.city || '';
+                            return (
+                                <div className="space-y-2">
+                                    <p className="text-white font-medium">{displayName}</p>
+                                    <p className="text-white/70">{displayPhone}</p>
+                                    <p className="text-white/50 text-sm leading-relaxed">
+                                        {[displayAddress, displayWard, displayDistrict, displayProvince].filter(Boolean).join(', ')}
+                                    </p>
+                                </div>
+                            );
+                        })() : (
                             <p className="text-white/50">Chưa có địa chỉ</p>
                         )}
                         {order.shipping_code && (
@@ -1494,6 +1511,40 @@ export default function AdminOrderDetailPage() {
                     </div>
                 )
             }
+
+            {/* Cancel Confirmation Modal */}
+            <AnimatePresence>
+                {confirmCancel && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-[#1D1D1F] rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-2xl"
+                        >
+                            <h3 className="text-xl font-bold text-white mb-2">Xác nhận hủy đơn?</h3>
+                            <p className="text-white/60 mb-6">
+                                Hành động này sẽ chuyển trạng thái đơn hàng sang "Đã hủy".
+                                {order?.deposit_paid ? ' Kho hàng sẽ được hoàn lại tự động.' : ''}
+                            </p>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setConfirmCancel(false)}
+                                    className="px-4 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors"
+                                >
+                                    Đóng
+                                </button>
+                                <button
+                                    onClick={handleCancelOrder}
+                                    className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                >
+                                    Xác nhận hủy
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div >
     );
 }

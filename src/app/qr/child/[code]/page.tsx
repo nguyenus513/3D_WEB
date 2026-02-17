@@ -24,7 +24,6 @@ interface OrderData {
             address_line?: string;
             province?: string;
         };
-        shipping_fee?: number;
         customer_code?: string;
         transfer_content?: string;
         correlation_id?: string;
@@ -104,7 +103,7 @@ export default function QRChildPage() {
         );
     }
 
-    const totalWithShipping = order.total_price + (order.metadata?.shipping_fee || 0);
+    const totalWithShipping = order.total_price;
 
     if (paymentStatus === 'paid') {
         return (

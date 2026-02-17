@@ -58,8 +58,8 @@ export class ProductController extends BaseController {
     async listProducts(request: NextRequest) {
         return this.wrapHandler(async () => {
             // Check admin access
-            const { authorized } = await requireAdmin(request);
-            if (!authorized) throw new UnauthorizedError('Admin access required');
+            const { authorized, response: authResponse } = await requireAdmin(request);
+            if (!authorized) return authResponse as any;
 
             // Parse query params
             const { searchParams } = new URL(request.url);
@@ -86,8 +86,8 @@ export class ProductController extends BaseController {
      */
     async createProduct(request: NextRequest) {
         return this.wrapHandler(async () => {
-            const { authorized } = await requireAdmin(request);
-            if (!authorized) throw new UnauthorizedError('Admin access required');
+            const { authorized, response: authResponse } = await requireAdmin(request);
+            if (!authorized) return authResponse as any;
 
             const body = await request.json();
             console.log('[ProductController] Create product body:', JSON.stringify(body, null, 2));
@@ -110,8 +110,8 @@ export class ProductController extends BaseController {
      */
     async updateProduct(request: NextRequest) {
         return this.wrapHandler(async () => {
-            const { authorized } = await requireAdmin(request);
-            if (!authorized) throw new UnauthorizedError('Admin access required');
+            const { authorized, response: authResponse } = await requireAdmin(request);
+            if (!authorized) return authResponse as any;
 
             const body = await request.json();
             const input = UpdateProductSchema.parse(body);
@@ -127,8 +127,8 @@ export class ProductController extends BaseController {
      */
     async deleteProduct(request: NextRequest) {
         return this.wrapHandler(async () => {
-            const { authorized } = await requireAdmin(request);
-            if (!authorized) throw new UnauthorizedError('Admin access required');
+            const { authorized, response: authResponse } = await requireAdmin(request);
+            if (!authorized) return authResponse as any;
 
             const { searchParams } = new URL(request.url);
             const id = searchParams.get('id');

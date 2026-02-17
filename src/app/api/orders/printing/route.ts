@@ -9,6 +9,7 @@ import { generateId } from '@/lib/generateId';
 interface FileInfo {
     id: string;
     name: string;
+    size?: number;
 }
 
 interface PrintItemAnalysis {
@@ -94,7 +95,6 @@ export async function POST(request: NextRequest) {
                 status: 'pending',
                 payment_status: 'pending',
                 subtotal: totalPrice,
-                shipping_fee: 0,
                 discount: 0,
                 total_amount: totalPrice,
                 deposit_amount: totalPrice,
@@ -130,19 +130,8 @@ export async function POST(request: NextRequest) {
                 total_price: item.analysis.price * item.quantity,
                 item_type: 'print_3d',
                 production_status: 'waiting',
-                // All config in spec JSONB
-                spec: {
-                    print_tech: type,
-                    material: type === 'resin' ? 'standard_resin' : 'petg',
-                    color: color,
-                    infill: infill,
-                    layer_height: layerHeight,
-                    volume: item.analysis.volume,
-                    grams: item.analysis.grams,
-                    hours: item.analysis.hours,
-                    file_name: file?.name,
-                    file_id: file?.id,
-                },
+                // Minimal spec — print config lives in order_item_print_configs
+                spec: {},
             };
         });
 
@@ -155,26 +144,75 @@ export async function POST(request: NextRequest) {
             console.error('Order items insert error:', itemsError);
             return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 });
         }
-        // Insert order_files (link files to order_items)
+
+        // Insert print configs (1:1 with order_items)
+        if (insertedItems && insertedItems.length > 0) {
+            const printConfigInserts = insertedItems.map((item, index) => ({
+                order_item_id: item.id,
+                print_tech: type,
+                material: type === 'resin' ? 'standard_resin' : 'petg',
+                color: color,
+                // FDM-only fields: infill and layer_height are irrelevant for SLA/Resin
+                infill: type === 'fdm' ? infill : null,
+                layer_height: type === 'fdm' ? layerHeight : null,
+                estimated_grams: items[index].analysis.grams,
+                estimated_hours: items[index].analysis.hours,
+                volume: items[index].analysis.volume,
+            }));
+
+            const { error: configError } = await supabase
+                .from('order_item_print_configs')
+                .insert(printConfigInserts);
+
+            if (configError) {
+                console.error('[PrintingOrder] Failed to insert print configs:', configError);
+                // Non-fatal: order still exists, config can be backfilled
+            }
+        }
+        // Link existing order_files to this order
+        // UploadService already created order_files records during upload.
+        // Here we UPDATE them to set order_id and order_item_id.
+        // If no record exists (e.g., insertOrderFile failed), INSERT as fallback.
         if (files && files.length > 0) {
-            const fileInserts = files.map((f, idx) => {
+            for (const [idx, f] of files.entries()) {
                 const linkedItem = insertedItems?.[idx];
-                return {
-                    order_id: orderData.id,
-                    order_item_id: linkedItem?.id || null,
-                    file_name: f.name || null,
-                    file_type: 'stl',
-                    file_key: f.id, // R2 file key
-                    category: 'models',
-                    storage_provider: 'r2',
-                };
-            });
+                const { data: updatedRows, error: fileError } = await supabase
+                    .from('order_files')
+                    .update({
+                        order_id: orderData.id,
+                        order_item_id: linkedItem?.id || null,
+                    })
+                    .eq('file_key', f.id)
+                    .select('id');
 
-            const { error: fileError } = await supabase
-                .from('order_files')
-                .insert(fileInserts);
+                if (fileError) {
+                    console.error(`[PrintingOrder] Failed to link order_file (key=${f.id}):`, fileError);
+                }
 
-            if (fileError) console.error('Order files error:', fileError);
+                // Fallback: INSERT if no existing record was updated
+                if (!fileError && (!updatedRows || updatedRows.length === 0)) {
+                    console.warn(`[PrintingOrder] No existing order_file for key=${f.id}, inserting new record`);
+                    const ext = f.name?.split('.').pop()?.toLowerCase() || null;
+                    const { error: insertError } = await supabase
+                        .from('order_files')
+                        .insert({
+                            order_id: orderData.id,
+                            order_item_id: linkedItem?.id || null,
+                            file_key: f.id,
+                            file_name: f.name || `file_${idx + 1}`,
+                            file_type: ext,
+                            file_url: `/api/files/${f.id}`,
+                            mime_type: 'application/octet-stream',
+                            size_bytes: f.size || null,
+                            storage_provider: 'r2',
+                            category: 'models',
+                        });
+
+                    if (insertError) {
+                        console.error(`[PrintingOrder] Fallback INSERT failed (key=${f.id}):`, insertError);
+                    }
+                }
+            }
         }
 
         return NextResponse.json({ success: true, orderId: orderData.id });

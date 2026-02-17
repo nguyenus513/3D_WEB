@@ -137,12 +137,11 @@ export async function POST(request: NextRequest) {
             .insert({
                 order_code: orderCode,
                 user_id: user.id,
-                order_type: orderType === 'ready_made' ? 'product' : orderType,
+                order_type: orderType === 'ready_made' ? 'product' : orderType === 'printing' ? 'print_3d' : orderType,
                 status: 'pending',
                 payment_status: 'pending',
                 deposit_paid: false,
                 subtotal: totalPrice,
-                shipping_fee: shippingFee,
                 discount: 0,
                 total_amount: total,
                 shipping_address: shippingAddress ? {
@@ -225,7 +224,7 @@ export async function POST(request: NextRequest) {
                 quantity: item.quantity,
                 unit_price: unitPrice,
                 total_price: unitPrice * item.quantity,
-                item_type: orderType === 'ready_made' ? 'product' : orderType,
+                item_type: orderType === 'ready_made' ? 'product' : orderType === 'printing' ? 'print_3d' : orderType,
                 production_status: 'waiting',
                 spec: {
                     size: item.size || null,

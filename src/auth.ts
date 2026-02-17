@@ -12,7 +12,6 @@ import NextAuth from 'next-auth';
 import type { NextAuthConfig, User } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
-import { saveTokens } from '@/lib/google-drive-oauth';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
@@ -154,19 +153,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
         }),
         // Google OAuth Provider - only add if credentials exist
+        // NOTE: Only basic scopes here. Drive access uses separate OAuth flow (/api/drive/callback)
         ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [
             Google({
                 clientId: process.env.GOOGLE_CLIENT_ID,
                 clientSecret: process.env.GOOGLE_CLIENT_SECRET,
                 allowDangerousEmailAccountLinking: true,
-                authorization: {
-                    params: {
-                        // Include Drive scope so admin login auto-grants Drive access
-                        scope: 'openid email profile https://www.googleapis.com/auth/drive.file',
-                        access_type: 'offline',
-                        prompt: 'consent',
-                    },
-                },
             }),
         ] : []),
     ],
@@ -237,22 +229,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         console.log('[AUTH DEBUG] Existing user, isNewUser:', isProfileIncomplete);
                     }
 
-                    // Auto-save Drive OAuth tokens for ADMIN
-                    const userRole = existingProfile?.role || 'customer';
-                    console.log('[AUTH] Checking Drive token save: role=', userRole, 'has_access_token=', !!account?.access_token, 'has_refresh_token=', !!account?.refresh_token);
-                    if (userRole === 'admin' && account?.access_token) {
-                        try {
-                            await saveTokens({
-                                access_token: account.access_token,
-                                refresh_token: account.refresh_token || null,
-                                expiry_date: account.expires_at ? account.expires_at * 1000 : null,
-                            });
-                            console.log('[AUTH] ✓ Auto-saved Drive OAuth tokens for admin');
-                        } catch (tokenError) {
-                            console.warn('[AUTH] Failed to save Drive tokens (non-blocking):', tokenError);
-                            // Non-blocking: don't prevent login if token save fails
-                        }
-                    }
+                    // NOTE: Drive tokens are NOT saved during login.
+                    // Admin must use dedicated Drive OAuth flow (/api/drive/callback) to authorize Drive access.
                 } catch (error) {
                     console.error('[AUTH DEBUG] Google signIn error:', error);
                     // Allow login to proceed even if profile check fails

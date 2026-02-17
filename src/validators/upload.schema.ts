@@ -60,7 +60,7 @@ export const UploadRequestSchema = z.object({
     type: UploadTypeSchema,
 
     // Index - optional with default
-    index: z.coerce.number().int().min(1).optional().default(1),
+    index: z.coerce.number().int().min(0).optional().default(1),
 
     // Product uploads - optional
     sku: z.string().max(50).nullish(),
