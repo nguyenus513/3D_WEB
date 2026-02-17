@@ -1032,10 +1032,24 @@ export default function AdminOrderDetailPage() {
                                                     ) || null;
 
                                                     // Read from joined print_config table first (new schema)
-                                                    const pc = (item as any).print_config;
+                                                    // Handle both object (1:1) and array (1:N) responses from Supabase
+                                                    const rawPc = (item as any).print_config;
+                                                    const pc = Array.isArray(rawPc) ? rawPc[0] : rawPc;
+
                                                     // Fallback: parse spec JSON for legacy orders
                                                     // DB column is 'spec', not 'configuration' — check both for compat
-                                                    const rawSpec = ((item as any).spec || (item as any).configuration || {}) as Record<string, unknown>;
+                                                    let rawSpec = (item as any).spec || (item as any).configuration || {};
+
+                                                    // Handle stringified JSON if Supabase returns text column
+                                                    if (typeof rawSpec === 'string') {
+                                                        try {
+                                                            rawSpec = JSON.parse(rawSpec);
+                                                        } catch (e) {
+                                                            console.error('Failed to parse spec JSON:', e);
+                                                            rawSpec = {};
+                                                        }
+                                                    }
+
                                                     const opts = (rawSpec.printOptions as Record<string, unknown>) || rawSpec;
 
                                                     const fileCardData: PrintFileCardData = {
