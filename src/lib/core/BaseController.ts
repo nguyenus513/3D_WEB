@@ -205,7 +205,8 @@ export abstract class BaseController {
             );
         }
 
-        // Unknown errors - always log to Sentry
+        // Unknown errors - always log to console and Sentry
+        console.error(`[${context || 'BaseController'}] Unhandled error:`, error);
         await captureException(error, errorContext);
 
         // Don't expose internal error details in production

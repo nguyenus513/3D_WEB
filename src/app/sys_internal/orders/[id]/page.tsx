@@ -1031,9 +1031,9 @@ export default function AdminOrderDetailPage() {
                                                         (f) => f.order_item_id === item.id
                                                     ) || null;
 
-                                                    // Read from joined print_config table first (new schema)
+                                                    // Read from joined print_jobs table (alias: print_job in Supabase select)
                                                     // Handle both object (1:1) and array (1:N) responses from Supabase
-                                                    const rawPc = (item as any).print_config;
+                                                    const rawPc = (item as any).print_job || (item as any).print_config;
                                                     const pc = Array.isArray(rawPc) ? rawPc[0] : rawPc;
 
                                                     // Fallback: parse spec JSON for legacy orders
@@ -1052,14 +1052,24 @@ export default function AdminOrderDetailPage() {
 
                                                     const opts = (rawSpec.printOptions as Record<string, unknown>) || rawSpec;
 
+                                                    // Derive print_tech from material since print_jobs has no print_tech column
+                                                    // petg = FDM, standard_resin = Resin/SLA
+                                                    const derivePrintTech = (material: string | null): string | undefined => {
+                                                        if (!material) return undefined;
+                                                        const m = material.toLowerCase();
+                                                        if (m === 'petg' || m === 'pla' || m === 'abs') return 'fdm';
+                                                        if (m.includes('resin')) return 'resin';
+                                                        return undefined;
+                                                    };
+
                                                     const fileCardData: PrintFileCardData = {
                                                         orderFile: matchedFile,
-                                                        itemName: item.product_name || (rawSpec.file_name as string) || (rawSpec.fileName as string) || (item as any).name || `File ${idx + 1}`,
+                                                        itemName: (item as any).name || `File ${idx + 1}`,
                                                         quantity: item.quantity,
                                                         unitPrice: item.unit_price,
                                                         totalPrice: item.total_price,
                                                         spec: {
-                                                            print_tech: pc?.print_tech || (opts.print_tech as string) || (opts.type as string),
+                                                            print_tech: derivePrintTech(pc?.material) || (opts.print_tech as string) || (opts.type as string),
                                                             material: pc?.material || (opts.material as string) || undefined,
                                                             color: pc?.color || (opts.color as string),
                                                             infill: pc?.infill?.toString() || (opts.infill as string)?.replace('%', ''),
@@ -1443,20 +1453,7 @@ export default function AdminOrderDetailPage() {
                         )}
                     </motion.div>
 
-                    {/* DEBUG: Raw Item Data Dump */}
-                    <div className="mt-8 p-4 bg-black/80 border border-red-500/50 rounded-xl overflow-hidden">
-                        <p className="text-red-400 font-bold mb-2 font-mono text-sm">DEBUG: Raw Order Items Data</p>
-                        <pre className="text-xs text-green-400 font-mono overflow-auto max-h-96 whitespace-pre-wrap">
-                            {JSON.stringify(order?.items?.map((i: any) => ({
-                                id: i.id,
-                                name: i.name,
-                                product_name: i.product_name,
-                                print_config: i.print_config,
-                                configuration: i.configuration,
-                                spec: i.spec
-                            })), null, 2)}
-                        </pre>
-                    </div>
+
 
                     {/* Payment */}
                     <motion.div

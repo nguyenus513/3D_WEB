@@ -20,17 +20,17 @@ export async function GET(request: Request) {
         if (!error && data.user) {
             // Use admin client to bypass RLS
             const { data: existingProfile } = await supabaseAdmin
-                .from('profiles')
+                .from('users')
                 .select('role')
                 .eq('id', data.user.id)
                 .single();
 
             if (!existingProfile) {
                 // Create profile for OAuth user
-                await supabaseAdmin.from('profiles').upsert({
+                await supabaseAdmin.from('users').upsert({
                     id: data.user.id,
                     email: data.user.email,
-                    full_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
+                    name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
                     role: 'customer',
                 });
             }

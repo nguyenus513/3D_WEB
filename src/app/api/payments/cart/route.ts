@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
 
             // Save to profile for future use
             const { error: profileError } = await supabaseAdmin
-                .from('profiles')
+                .from('users')
                 .update({ customer_code: customerCode })
                 .eq('id', session.user.id);
 

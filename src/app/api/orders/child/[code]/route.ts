@@ -80,7 +80,7 @@ export async function GET(
 
         // Get customer code from profile
         const { data: profile } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .select('customer_code')
             .eq('id', order.user_id)
             .single();

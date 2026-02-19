@@ -106,11 +106,11 @@ export async function GET(request: Request) {
         let profileMap = new Map<string, string>();
         if (allUserIds.size > 0) {
             const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, full_name')
+                .from('users')
+                .select('id, name')
                 .in('id', Array.from(allUserIds));
             if (profiles) {
-                profiles.forEach((p: any) => profileMap.set(p.id, p.full_name));
+                profiles.forEach((p: any) => profileMap.set(p.id, p.name));
             }
         }
 

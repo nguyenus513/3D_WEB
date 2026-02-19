@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
         // Get user from database
         const { data: user, error: userError } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .select('id, customer_code')
             .eq('email', session.user.email)
             .single();
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         // If user doesn't have customer code, update it
         if (!user.customer_code) {
             await supabaseAdmin
-                .from('profiles')
+                .from('users')
                 .update({ customer_code: customerCode })
                 .eq('id', user.id);
         }
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
             } else if (shippingAddress.province) {
                 // Create new address
                 const { data: newAddress } = await supabaseAdmin
-                    .from('addresses')
+                    .from('user_addresses')
                     .insert({
                         user_id: user.id,
                         full_name: (shippingAddress.full_name as string) || null,
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         } else {
             // Get default address
             const { data: defaultAddr } = await supabaseAdmin
-                .from('addresses')
+                .from('user_addresses')
                 .select('id')
                 .eq('user_id', user.id)
                 .eq('is_default', true)

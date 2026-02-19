@@ -45,7 +45,7 @@ export class AuthRepository {
         const customerCode = 'USR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
 
         const { data: user, error } = await this.db
-            .from('profiles')
+            .from('users')
             .insert({
                 id: userId,
                 email: data.email,
@@ -69,7 +69,7 @@ export class AuthRepository {
      */
     async emailExists(email: string): Promise<boolean> {
         const { data } = await this.db
-            .from('profiles')
+            .from('users')
             .select('id')
             .eq('email', email.toLowerCase())
             .single();
@@ -81,7 +81,7 @@ export class AuthRepository {
      */
     async getUserByEmail(email: string): Promise<{ id: string; email: string } | null> {
         const { data, error } = await this.db
-            .from('profiles')
+            .from('users')
             .select('id, email')
             .eq('email', email.toLowerCase())
             .single();
@@ -102,7 +102,7 @@ export class AuthRepository {
         district?: string;
         province: string;
     }): Promise<void> {
-        await this.db.from('addresses').insert({
+        await this.db.from('user_addresses').insert({
             user_id: userId,
             full_name: address.recipient_name,
             phone: address.recipient_phone,
@@ -192,7 +192,7 @@ export class AuthRepository {
      */
     async updatePassword(userId: string, hashedPassword: string): Promise<void> {
         const { error } = await this.db
-            .from('profiles')
+            .from('users')
             .update({ password: hashedPassword })
             .eq('id', userId);
         if (error) throw error;

@@ -20,7 +20,7 @@ export async function GET(
 
         // Fetch profile with service role (bypass RLS)
         const { data: profile, error: profileError } = await supabase
-            .from('profiles')
+            .from('users')
             .select('*')
             .eq('id', id)
             .single();
@@ -34,7 +34,7 @@ export async function GET(
 
         // Fetch addresses with service role (bypass RLS)
         const { data: addresses } = await supabase
-            .from('addresses')
+            .from('user_addresses')
             .select('*')
             .eq('user_id', id)
             .order('is_default', { ascending: false });

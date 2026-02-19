@@ -44,14 +44,14 @@ export async function GET(request: NextRequest) {
             .select(`
                 id, name, quantity, unit_price, total_price,
                 item_type, production_status,
-                item_code, full_code, spec,
-                notes, created_at,
+                item_code, full_code,
+                created_at,
                 order_id,
                 orders!inner (
                     id, order_code, user_id, status, payment_status,
                     created_at,
-                    profiles!user_id (
-                        id, full_name, phone
+                    users!user_id (
+                        id, name, phone
                     )
                 )
             `, { count: 'exact' })
@@ -85,8 +85,7 @@ export async function GET(request: NextRequest) {
         // Transform response - format as sub-orders with spec
         const response = (items || []).map(item => {
             const order = item.orders as any;
-            const profile = order?.profiles as any;
-            const spec = (item.spec || {}) as any;
+            const profile = order?.users as any;
 
             return {
                 // Sub-order identifiers
@@ -102,14 +101,8 @@ export async function GET(request: NextRequest) {
                 total_price: item.total_price || 0,
                 item_type: item.item_type || 'product',
 
-                // Production info (from spec JSONB)
+                // Production info
                 production_status: item.production_status || 'waiting',
-                print_tech: spec.print_tech,
-                color: spec.color,
-                material: spec.material,
-                infill: spec.infill,
-                layer_height: spec.layer_height,
-                spec: spec,
 
                 // Timestamps
                 created_at: item.created_at,
@@ -126,7 +119,7 @@ export async function GET(request: NextRequest) {
                 // Customer info
                 customer: profile ? {
                     id: profile.id,
-                    name: profile.full_name,
+                    name: profile.name,
                     phone: profile.phone,
                 } : null,
             };

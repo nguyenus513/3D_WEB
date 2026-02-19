@@ -32,7 +32,7 @@ export async function POST(
 
         // Get user ID
         const { data: user } = await supabase
-            .from('profiles')
+            .from('users')
             .select('id')
             .eq('email', session.user.email)
             .single();

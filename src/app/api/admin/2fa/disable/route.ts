@@ -33,7 +33,7 @@ export async function POST(request: Request) {
         const supabase = getAdminSupabase();
 
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('users')
             .select('totp_secret, totp_enabled')
             .eq('id', userId)
             .single();
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
         // Disable 2FA — clear all secrets
         await supabase
-            .from('profiles')
+            .from('users')
             .update({
                 totp_enabled: false,
                 totp_secret: null,

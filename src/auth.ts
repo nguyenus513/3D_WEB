@@ -106,7 +106,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 */
 
                 const { data: user, error } = await supabaseAdmin
-                    .from('profiles')
+                    .from('users')
                     .select('*')
                     .eq('email', email)
                     .single();
@@ -174,7 +174,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 try {
                     // Check if user exists in profiles
                     const { data: existingProfile, error: queryError } = await supabaseAdmin
-                        .from('profiles')
+                        .from('users')
                         .select('id, phone, role')
                         .eq('email', user.email.toLowerCase())
                         .maybeSingle();
@@ -191,7 +191,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         const customerCode = generateId.user();
 
                         const { error: insertError } = await supabaseAdmin
-                            .from('profiles')
+                            .from('users')
                             .insert({
                                 id: profileId,  // EXPLICIT ID - prevents mismatch
                                 email: user.email.toLowerCase(),
@@ -263,8 +263,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (email) {
                 try {
                     const { data: profile } = await supabaseAdmin
-                        .from('profiles')
-                        .select('id, role, customer_code, totp_enabled')
+                        .from('users')
+                        .select('id, role, customer_code')
                         .eq('email', (email as string).toLowerCase())
                         .single();
 
@@ -273,7 +273,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         token.id = profile.id;
                         token.role = profile.role;
                         token.customerCode = profile.customer_code;
-                        token.twoFactorEnabled = profile.totp_enabled || false;
                     } else {
                         console.warn('[AUTH DEBUG] Profile not found in DB for:', email);
                     }

@@ -61,7 +61,7 @@ export class AddressRepository {
      */
     async findByUserId(userId: string): Promise<Address[]> {
         const { data, error } = await this.db
-            .from('addresses')
+            .from('user_addresses')
             .select('*')
             .eq('user_id', userId)
             .order('is_default', { ascending: false })
@@ -79,7 +79,7 @@ export class AddressRepository {
      */
     async findById(addressId: string): Promise<Address | null> {
         const { data, error } = await this.db
-            .from('addresses')
+            .from('user_addresses')
             .select('*')
             .eq('id', addressId)
             .single();
@@ -99,7 +99,7 @@ export class AddressRepository {
      */
     async findByIdAndUserId(addressId: string, userId: string): Promise<Address | null> {
         const { data, error } = await this.db
-            .from('addresses')
+            .from('user_addresses')
             .select('*')
             .eq('id', addressId)
             .eq('user_id', userId)
@@ -120,7 +120,7 @@ export class AddressRepository {
      */
     async findDefaultByUserId(userId: string): Promise<Address | null> {
         const { data, error } = await this.db
-            .from('addresses')
+            .from('user_addresses')
             .select('*')
             .eq('user_id', userId)
             .eq('is_default', true)
@@ -146,7 +146,7 @@ export class AddressRepository {
         }
 
         const { data, error } = await this.db
-            .from('addresses')
+            .from('user_addresses')
             .insert({
                 user_id: userId,
                 label: input.label || 'Nhà',
@@ -178,7 +178,7 @@ export class AddressRepository {
         }
 
         const { data, error } = await this.db
-            .from('addresses')
+            .from('user_addresses')
             .update({
                 ...input,
             })

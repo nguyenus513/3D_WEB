@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
         // Get admin email for TOTP label
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('users')
             .select('email, totp_enabled')
             .eq('id', userId)
             .single();
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
         // Store secret temporarily (not enabled yet — enable after verification)
         await supabase
-            .from('profiles')
+            .from('users')
             .update({ totp_secret: secret })
             .eq('id', userId);
 

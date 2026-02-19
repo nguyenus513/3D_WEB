@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest) {
 
         // Find profiles with these emails that are old
         const { data: expiredAccounts, error: selectError } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .select('id, email, created_at')
             .in('email', expiredEmails)
             .lt('created_at', cutoffTime.toISOString());
@@ -83,13 +83,13 @@ export async function DELETE(request: NextRequest) {
 
         // Delete addresses for these users
         await supabaseAdmin
-            .from('addresses')
+            .from('user_addresses')
             .delete()
             .in('user_id', accountIds);
 
         // Delete the unverified profiles
         const { error: deleteError } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .delete()
             .in('id', accountIds);
 

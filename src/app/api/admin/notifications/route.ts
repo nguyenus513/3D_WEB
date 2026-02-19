@@ -33,8 +33,8 @@ export async function GET() {
                 status,
                 total: total_amount,
                 created_at,
-                profiles:user_id (
-                    full_name,
+                users:user_id (
+                    name,
                     email
                 )
             `)

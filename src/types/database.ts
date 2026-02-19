@@ -1,67 +1,90 @@
-// Database Types - Schema v3 Optimized
+// =============================================================================
+// Database Types — Generated from Supabase schema (2026-02-17)
+// DB is source of truth. DO NOT add fields that don't exist in DB.
+// =============================================================================
 
-// ==================== ENUMS ====================
+// ==================== ENUMS (match Postgres ENUMs exactly) ====================
+
 export type UserRole = 'customer' | 'admin' | 'staff';
 
 export type OrderStatus =
     | 'pending'
     | 'confirmed'
     | 'paid'
+    | 'review'
+    | 'approved'
+    | 'revising'
+    | 'production_pending'
     | 'processing'
     | 'designing'
-    | 'review'      // Chờ khách duyệt demo
-    | 'approved'    // Khách đã duyệt
-    | 'production_pending' // Chờ sản xuất (Đã duyệt + Đã cọc/thanh toán)
-    | 'revising'    // Yêu cầu chỉnh sửa
-    | 'producing'
-    | 'finished'      // Hoàn thiện (chờ xác nhận thành phẩm)
     | 'printing'
+    | 'producing'
     | 'shipping'
     | 'delivered'
     | 'completed'
     | 'cancelled'
-    | 'refunded';
+    | 'refunded'
+    | 'pending_confirmation'
+    | 'finished';
 
-export type PaymentStatus = 'pending' | 'partial' | 'deposit_paid' | 'paid' | 'refunded' | 'failed';
+export type PaymentStatus =
+    | 'pending'
+    | 'deposit_paid'
+    | 'partial'
+    | 'paid'
+    | 'refunded'
+    | 'failed';
 
-// Cart/Order fulfillment tracking
-export type FulfillmentStatus = 'pending' | 'processing' | 'completed';
+export type OrderType = 'product' | 'custom' | 'print_3d' | 'mixed';
 
-// Item/Sub-order production tracking
+export type ItemType = 'product' | 'custom' | 'print_3d';
+
 export type ProductionStatus = 'waiting' | 'printing' | 'done' | 'error';
 
-export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'print_3d';
-
-// Order types for unified orders table
-export type OrderType = 'product' | 'print_3d' | 'custom';
-export type OrderItemType = 'product' | 'print_3d' | 'custom';
+export type FulfillmentStatus = 'pending' | 'processing' | 'completed'; // fulfillment_status_enum in DB
 
 export type PrintTech = 'fdm' | 'resin' | 'sla';
 
-// ==================== PROFILES ====================
-export interface Profile {
+export type PrintStatus = 'waiting' | 'slicing' | 'printing' | 'done' | 'failed'; // print_status_enum in DB
+
+export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'printing';
+
+// ==================== USERS (replaces old Profile) ====================
+
+export interface User {
     id: string;
+    name: string | null;
     email: string;
-    full_name: string | null;
+    emailVerified: string | null;
+    image: string | null;
+    password: string | null;
     phone: string | null;
-    role: UserRole;
     customer_code: string | null;
-    avatar_url: string | null;
-    is_verified: boolean;
+    role: UserRole;
     created_at: string;
     updated_at: string;
-    deleted_at: string | null;
+    // Relations
+    profile?: UserProfile;
 }
 
-// ==================== ADDRESSES ====================
-export interface Address {
-    id: string;
+export interface UserProfile {
     user_id: string;
-    label: string;
+    full_name: string | null;
+    phone: string | null;
+    avatar_url: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+// ==================== USER ADDRESSES ====================
+
+export interface UserAddress {
+    id: string;
+    user_id: string; // NOT NULL
     full_name: string;
     phone: string;
-    province: string;
-    district: string;
+    province: string | null;
+    district: string | null;
     ward: string | null;
     address_line: string;
     is_default: boolean;
@@ -69,6 +92,7 @@ export interface Address {
 }
 
 // ==================== CATEGORIES ====================
+
 export interface Category {
     id: string;
     name: string;
@@ -79,6 +103,7 @@ export interface Category {
 }
 
 // ==================== PRODUCTS ====================
+
 export interface ProductSpecs {
     sizes?: { name: string; price: number; stock: number }[];
     colors?: string[];
@@ -88,17 +113,15 @@ export interface ProductSpecs {
     [key: string]: unknown;
 }
 
-// Product size with its own images
 export interface ProductSize {
     name: string;
     sku?: string;
     price: number;
     stock: number;
     enabled: boolean;
-    images: string[]; // Each size has its own gallery
+    images: string[];
 }
 
-// Product image can be string (legacy) or object (current)
 export type ProductImage = string | { url: string; is_main?: boolean };
 
 export interface Product {
@@ -106,31 +129,29 @@ export interface Product {
     category_id: string | null;
     sku: string | null;
     name: string;
-    type: ProductType;
     base_price: number;
     sale_price: number | null;
     stock: number;
-    images: ProductImage[]; // Default/fallback images
+    images: ProductImage[];
     specs: ProductSpecs;
-    is_active: boolean; // Computed or legacy? v3 has status.
-    status: 'draft' | 'active' | 'archived'; // Added for v3
-    // Restored fields (Patch v3)
+    is_active: boolean;
     description: string | null;
     short_description: string | null;
     is_featured: boolean;
     tags: string[];
-
+    low_stock_alert: number | null;
+    sizes: ProductSize[] | null;
     view_count: number;
     sold_count: number;
+    archived_at: string | null; // Soft delete
     created_at: string;
     updated_at: string;
     // Relations
     category?: Category;
-    // Sizes with per-size galleries
-    sizes?: ProductSize[];
 }
 
-// ==================== ORDERS ====================
+// ==================== SHIPPING ADDRESS SNAPSHOT ====================
+
 export interface ShippingAddressSnapshot {
     full_name: string;
     phone: string;
@@ -140,20 +161,78 @@ export interface ShippingAddressSnapshot {
     address_line: string;
 }
 
-// ==================== ORDER EXTENSIONS (NEW) ====================
+// ==================== ORDERS ====================
+// DB columns (23): id, order_code, user_id, subtotal, discount, total_amount,
+// deposit_amount, order_type, status, payment_status, fulfillment_status,
+// shipping_address_snapshot, notes, admin_notes, created_at, updated_at,
+// confirmed_at, paid_at, shipped_at, completed_at, approved_at, shipping_code, archived_at
 
-export interface OrderNote {
+export interface Order {
     id: string;
-    order_id: string;
-    author_id: string;
-    content: string;
-    type: 'customer' | 'admin' | 'system';
+    order_code: string;
+    user_id: string | null;
+    subtotal: number;
+    discount: number;
+    total_amount: number;
+    deposit_amount: number;
+    order_type: OrderType;
+    status: OrderStatus;
+    payment_status: PaymentStatus;
+    fulfillment_status: FulfillmentStatus;
+    shipping_address_snapshot: ShippingAddressSnapshot | null;
     created_at: string;
+    updated_at: string;
+    confirmed_at: string | null;
+    paid_at: string | null;
+    shipped_at: string | null;
+    completed_at: string | null;
+    approved_at: string | null;
+    shipping_code: string | null;
+    archived_at: string | null;
+    notes: string | null;
+    admin_notes: string | null;
+    // Relations (joined via Supabase select)
+    items?: OrderItem[];
+    payments?: Payment[];
+    user?: User;
+    shipping_address?: OrderAddress;     // 1:1 from order_addresses
+    order_notes?: OrderNote[];            // 1:N from order_notes
+    revisions?: OrderRevision[];          // 1:N from order_revisions
+    files?: FileLink[];                   // via file_links(ref_type='order')
+    status_history?: OrderStatusHistory[];
 }
+
+// ==================== ORDER ITEMS ====================
+// DB columns (14): id, order_id, product_id, item_code, full_code, name, sku,
+// quantity, unit_price, item_type, production_status, configuration, created_at, total_price(GENERATED)
+
+export interface OrderItem {
+    id: string;
+    order_id: string; // NOT NULL, CASCADE
+    product_id: string | null;
+    item_code: string;
+    full_code: string;
+    name: string;
+    sku: string | null;
+    quantity: number;
+    unit_price: number;
+    total_price: number; // GENERATED ALWAYS AS (quantity * unit_price) STORED — read-only
+    item_type: ItemType;
+    production_status: ProductionStatus;
+    configuration: Record<string, unknown> | null;
+    created_at: string;
+    // Relations
+    product?: Product;
+    order?: Order;
+    print_job?: PrintJob;   // 1:1 from print_jobs
+    files?: FileLink[];     // via file_links(ref_type='order_item')
+}
+
+// ==================== ORDER ADDRESS (1:1 with order) ====================
 
 export interface OrderAddress {
     id: string;
-    order_id: string;
+    order_id: string; // NOT NULL, UNIQUE
     full_name: string;
     phone: string;
     province: string | null;
@@ -162,187 +241,115 @@ export interface OrderAddress {
     address_line: string;
 }
 
+// ==================== ORDER NOTES ====================
+
+export interface OrderNote {
+    id: string;
+    order_id: string; // NOT NULL, CASCADE
+    author_id: string | null; // SET NULL on user delete
+    content: string;
+    type: 'customer' | 'admin' | 'system';
+    created_at: string;
+}
+
+// ==================== ORDER REVISIONS ====================
+
 export interface OrderRevision {
     id: string;
-    order_id: string;
+    order_id: string; // NOT NULL, CASCADE
     version: number;
     status: 'pending' | 'approved' | 'rejected';
     feedback: string | null;
     created_at: string;
 }
 
+// ==================== ORDER STATUS HISTORY ====================
+
+export interface OrderStatusHistory {
+    id: string;
+    order_id: string; // NOT NULL, CASCADE
+    status: OrderStatus;
+    changed_at: string;
+}
+
+// ==================== PRINT JOBS ====================
+
 export interface PrintJob {
     id: string;
-    order_item_id: string;
+    order_item_id: string; // NOT NULL, UNIQUE, CASCADE
     material: string | null;
     color: string | null;
     infill: number | null;
     layer_height: number | null;
     estimated_hours: number | null;
     estimated_grams: number | null;
-    status: 'waiting' | 'slicing' | 'printing' | 'done' | 'failed';
+    status: PrintStatus; // print_status_enum in DB
+    started_at: string | null;
+    completed_at: string | null;
     created_at: string;
 }
+
+// ==================== PAYMENTS ====================
+
+export interface Payment {
+    id: string;
+    order_id: string; // NOT NULL, CASCADE
+    transaction_code: string | null; // UNIQUE (allow null for pending)
+    amount: number; // CHECK >= 0
+    method: string;
+    status: PaymentStatus; // payment_status ENUM
+    gateway_response: Record<string, unknown> | null;
+    confirmed_at: string | null;
+    created_at: string;
+    // Relations
+    order?: Order;
+    events?: PaymentEvent[];
+}
+
+// ==================== PAYMENT EVENTS ====================
+
+export interface PaymentEvent {
+    id: string;
+    payment_id: string; // NOT NULL, CASCADE
+    event_type: string | null;
+    payload: Record<string, unknown> | null;
+    created_at: string;
+}
+
+// ==================== FILES & FILE LINKS ====================
 
 export interface FileRecord {
     id: string;
     file_url: string;
     mime_type: string | null;
     size_bytes: number | null;
-    provider: 'r2' | 's3' | 'local';
+    provider: string; // 'r2' | 's3' | 'local' (text in DB)
     created_at: string;
 }
 
 export interface FileLink {
     id: string;
-    file_id: string;
-    ref_type: 'order' | 'order_item' | 'revision';
-    ref_id: string;
-    tag: string | null; // e.g 'demo', 'final', 'stl'
+    file_id: string; // NOT NULL, CASCADE
+    ref_type: string; // text in DB (order, order_item, revision)
+    ref_id: string; // NOT NULL
+    tag: string | null; // e.g. 'demo', 'final', 'stl'
     created_at: string;
     // Relation
     file?: FileRecord;
 }
 
-export interface Order {
-    id: string;
-    order_code: string;
-    cart_code: string | null; // 8-char hex for display (new orders)
-    user_id: string | null;
-    address_id: string | null;
-    subtotal: number;
-    discount: number;
-    total_amount: number;
-    deposit_amount: number;
-    status: OrderStatus;
-    payment_status: PaymentStatus; // Now a real column in DB
-    fulfillment_status: FulfillmentStatus; // NEW: Cart/order fulfillment
-    shipping_address_snapshot: ShippingAddressSnapshot | null;
-    notes: string | null;
-    admin_notes: string | null;
-    created_at: string;
-    updated_at: string;
-    confirmed_at: string | null;
-    paid_at: string | null;
-    completed_at: string | null;
-    // Relations
-    items?: OrderItem[];
-    payments?: Payment[];
-    user?: Profile;
-    address?: Address;
+// ==================== ACTIVITY LOGS ====================
 
-    // New Relations (v3 Refactor)
-    shipping_address?: OrderAddress; // Joined from order_addresses
-    order_notes?: OrderNote[];
-    revisions?: OrderRevision[];
-    files?: FileLink[]; // Joined via file_links
-}
-
-// ==================== ORDER ITEMS ====================
-export interface OrderItemConfiguration {
-    // For 3D Printing
-    layer_height?: number;
-    infill?: string;
-    color?: string;
-    material?: string;
-    file_url?: string;
-    file_name?: string;
-    print_tech?: PrintTech;
-    // For Custom
-    photos?: { url: string; name: string }[];
-    style?: string;
-    // General
-    size?: string;
-    [key: string]: unknown;
-}
-
-export interface OrderItem {
-    id: string;
-    order_id: string;
-    product_id: string | null;
-    item_order_code: string | null; // 8-char hex for display (new orders)
-    cart_code: string | null; // Denormalized from parent order
-    full_code: string | null; // {cart_code}_{item_order_code}
-    production_status: ProductionStatus; // Item production tracking
-    file_path: string | null; // Storage path for production files
-    name: string;
-    sku: string | null;
-    quantity: number;
-    unit_price: number;
-    total_price: number;
-    configuration: OrderItemConfiguration;
-    created_at: string;
-    // Computed (client-side)
-    item_code?: string; // {cart_code}_{item_order_code}
-    // Relations
-    product?: Product;
-    order?: Order;
-
-    // New Relations (v3 Refactor)
-    print_job?: PrintJob; // Joined from print_jobs
-    files?: FileLink[];
-}
-
-// ==================== PAYMENTS ====================
-export interface Payment {
-    id: string;
-    order_id: string;
-    transaction_code: string | null;
-    amount: number;
-    method: string;
-    status: PaymentStatus;
-    gateway_response: Record<string, unknown> | null;
-    created_at: string;
-    // Relations
-    order?: Order;
-}
-
-// ==================== CARTS ====================
-export interface Cart {
-    id: string;
-    user_id: string;
-    created_at: string;
-    updated_at: string;
-    // Relations
-    items?: CartItem[];
-}
-
-export interface CartItem {
-    id: string;
-    cart_id: string;
-    product_id: string;
-    quantity: number;
-    configuration: OrderItemConfiguration;
-    created_at: string;
-    updated_at: string;
-    // Relations
-    product?: Product;
-}
-
-// ==================== SECURITY ====================
-export interface SecurityLog {
+export interface ActivityLog {
     id: string;
     user_id: string | null;
-    event_type: string;
-    ip_address: string | null;
-    user_agent: string | null;
-    details: Record<string, unknown> | null;
+    action: string | null;
+    metadata: Record<string, unknown> | null;
     created_at: string;
 }
 
-export interface RefreshToken {
-    id: string;
-    user_id: string;
-    token: string;
-    expires_at: string;
-    revoked: boolean;
-    created_at: string;
-}
+// ==================== SETTINGS (app-level, not DB tables) ====================
 
-// ==================== LEGACY COMPATIBILITY ====================
-// Legacy OrderType removed - now unified at top of file as OrderType | OrderItemType
-
-// ==================== SETTINGS (Not in DB, for app use) ====================
 export interface StoreSettings {
     name: string;
     phone: string;
@@ -374,3 +381,33 @@ export interface FAQ {
     created_at: string;
     updated_at: string;
 }
+
+// ==================== LEGACY COMPATIBILITY (use for migration period) ====================
+// These types exist for backward compatibility with old code.
+// Gradually remove as code is updated.
+
+/** @deprecated Use User instead */
+export type Profile = User;
+
+/** @deprecated Use UserAddress instead */
+export type Address = UserAddress;
+
+/** @deprecated Use OrderType instead */
+export type OrderItemType = ItemType;
+
+/** @deprecated Use ItemType instead */
+export type OrderItemConfiguration = {
+    layer_height?: number;
+    infill?: string;
+    color?: string;
+    material?: string;
+    file_url?: string;
+    file_name?: string;
+    print_tech?: PrintTech;
+    photos?: { url: string; name: string }[];
+    style?: string;
+    size?: string;
+    [key: string]: unknown;
+};
+
+// ShippingAddressSnapshot and FulfillmentStatus are now real DB columns — see Order interface above.

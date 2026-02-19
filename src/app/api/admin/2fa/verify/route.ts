@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         const supabase = getAdminSupabase();
 
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('users')
             .select('totp_secret, totp_enabled, totp_recovery_codes')
             .eq('id', userId)
             .single();
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
                 verified = true;
                 // Remove used recovery code
                 await supabase
-                    .from('profiles')
+                    .from('users')
                     .update({ totp_recovery_codes: updatedCodes })
                     .eq('id', userId);
 

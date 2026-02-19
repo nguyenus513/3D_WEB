@@ -67,7 +67,7 @@ export class AdminOrderController extends BaseController {
             // Query unified orders table
             let query = this.supabase
                 .from('orders')
-                .select('*, user:profiles(id, full_name, email, phone, customer_code), items:order_items(*)', { count: 'exact' })
+                .select('*, user:users(id, name, email, phone, customer_code), items:order_items(*)', { count: 'exact' })
                 .order('created_at', { ascending: false })
                 .range(start, end);
 
@@ -114,7 +114,7 @@ export class AdminOrderController extends BaseController {
 
             const { data: order, error } = await this.supabase
                 .from('orders')
-                .select(`*, user:profiles(*), items:order_items(*, print_config:order_item_print_configs(*)), files:order_files(*)`)
+                .select(`*, user:users(*), items:order_items(*, print_job:print_jobs(*))`)
                 .eq('id', orderId)
                 .maybeSingle() as any;
 
@@ -127,31 +127,74 @@ export class AdminOrderController extends BaseController {
                 throw new NotFoundError(`Order ${orderId} not found`);
             }
 
+            // Fetch file_links separately (polymorphic ref_type/ref_id, no FK)
+            // Files may be linked to the order OR to individual order_items
+            const itemIds = (Array.isArray(order.items) ? order.items : []).map((i: any) => i.id).filter(Boolean);
+            const allRefIds = [orderId, ...itemIds];
+            const { data: fileLinks } = await this.supabase
+                .from('file_links')
+                .select('*, file:files(*)')
+                .in('ref_id', allRefIds);
+
             // Map to frontend structure
             const items = Array.isArray(order.items) ? order.items : [];
             const mainItem = items[0] || {};
-            const itemConfig = mainItem.configuration || mainItem.spec || {};
+            const itemConfig = mainItem.configuration || {};
             const rawOrderType = order.order_type || this.inferOrderType(items);
             // Normalize order type: treat 'print_3d' as 'printing' for frontend
             const orderType = rawOrderType === 'print_3d' ? 'printing' : rawOrderType;
 
+            // Map file_links for admin consumption
+            // files table columns: id, file_url, mime_type, size_bytes, provider, created_at
+            const orderFiles = Array.isArray(fileLinks) ? fileLinks.map((fl: any) => {
+                const f = fl.file || {};
+                // Extract a display name from file_url (last segment or drive ID)
+                const fileUrl = f.file_url || '';
+                const displayName = fileUrl.split('/').pop() || fileUrl || 'unknown';
+                return {
+                    id: fl.id,
+                    file_id: fl.file_id,
+                    // Map order_item ref to order_item_id for frontend matching
+                    order_item_id: fl.ref_type === 'order_item' ? fl.ref_id : null,
+                    file_name: displayName,
+                    file_key: f.file_url,       // file_url serves as the key/path
+                    file_type: f.mime_type,
+                    file_url: f.file_url,
+                    tag: fl.tag,
+                    ref_type: fl.ref_type,
+                    storage_provider: f.provider,
+                    size_bytes: f.size_bytes,
+                    created_at: fl.created_at,
+                };
+            }) : [];
+
             let custom_config = null;
             if (orderType === 'custom') {
-                custom_config = {
-                    type: itemConfig.type || itemConfig.style || 'unknown',
-                    size: itemConfig.size || mainItem?.size || 'Chưa chọn',
-                    notes: order.notes || '',
-                    images: (Array.isArray(itemConfig.photos) ? itemConfig.photos : []).map((p: any) => ({
+                // Map images from either legacy itemConfig.photos OR new orderFiles (file_links)
+                const legacyPhotos = Array.isArray(itemConfig.photos) ? itemConfig.photos : [];
+                const images = legacyPhotos.length > 0
+                    ? legacyPhotos.map((p: any) => ({
                         id: p.drive_file_id || p.id,
                         name: p.file_name || p.name,
                         url: p.web_view_link || p.url,
                         thumbnail: p.thumbnail
-                    })),
+                    }))
+                    : orderFiles.map((f: any) => ({
+                        id: f.id,
+                        name: f.file_name,
+                        url: f.file_url,
+                        thumbnail: null
+                    }));
+
+                custom_config = {
+                    type: itemConfig.type || (mainItem.configuration as any)?.type || 'unknown',
+                    size: itemConfig.size || (mainItem.configuration as any)?.size || 'Chưa chọn',
+                    notes: order.notes || (mainItem.configuration as any)?.notes || '',
+                    images,
                 };
             }
 
-            // Printing config: per-item print specs come from JOINed print_config
-            // This object only carries order-level metadata (quantity, notes)
+            // Printing config: per-item print specs
             let printing_config = null;
             if (orderType === 'printing' || rawOrderType === 'print_3d') {
                 const totalQuantity = items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
@@ -160,21 +203,6 @@ export class AdminOrderController extends BaseController {
                     notes: order.notes || '',
                 };
             }
-
-            // Map order_files for admin consumption
-            const orderFiles = Array.isArray(order.files) ? order.files.map((f: any) => ({
-                id: f.id,
-                order_item_id: f.order_item_id,
-                file_name: f.file_name,
-                file_key: f.file_key,
-                file_type: f.file_type,
-                category: f.category,
-                storage_provider: f.storage_provider,
-                drive_url: f.drive_url,
-                drive_file_id: f.drive_file_id,
-                size_bytes: f.size_bytes,
-                created_at: f.created_at,
-            })) : [];
 
             return this.handleSuccess({
                 order: {

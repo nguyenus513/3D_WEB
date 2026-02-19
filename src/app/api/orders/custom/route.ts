@@ -107,8 +107,8 @@ export async function POST(request: NextRequest) {
                 discount: 0,
                 total_amount: totalPrice,
                 deposit_amount: depositAmount,
-                deposit_paid: false,
-                shipping_address: {
+                // deposit_paid removed from schema
+                shipping_address_snapshot: {
                     full_name: shippingAddress.full_name,
                     phone: shippingAddress.phone,
                     address_line: shippingAddress.address_line || '',
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
                     district: shippingAddress.district || '',
                     province: shippingAddress.province,
                 },
-                customer_note: notes || null,
+                notes: notes || null, // customer_note -> notes
             })
             .select()
             .single();
@@ -144,10 +144,10 @@ export async function POST(request: NextRequest) {
                 sku: null,
                 quantity: 1,
                 unit_price: totalPrice,
-                total_price: totalPrice,
+                total_price: totalPrice, // Computed column, but provided here just in case (will be ignored if generated always)
                 item_type: 'custom',
                 production_status: 'waiting',
-                spec: {
+                configuration: { // New JSONB column for custom specs
                     type: type,
                     size: size,
                     base_price: basePrice,
@@ -155,7 +155,6 @@ export async function POST(request: NextRequest) {
                     notes: notes || null,
                     image_count: images?.length || 0,
                 },
-                notes: notes || null,
             })
             .select()
             .single();
@@ -170,29 +169,60 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Step 3: Create order_files with full metadata
+        // Step 3: Link files via files + file_links tables
         if (images && images.length > 0) {
-            const fileInserts = images.map((img, idx) => ({
-                order_id: order.id,
-                order_item_id: orderItem.id,
-                file_name: img.name || `reference_${idx + 1}`,
-                file_type: img.type?.split('/')[1] || 'image',
-                file_key: img.id, // R2 key
-                file_url: img.url || null,
-                mime_type: img.type || 'image/jpeg',
-                size_bytes: img.size || null,
-                storage_provider: 'r2',
-                category: 'reference',
-                is_public: false,
-            }));
+            for (const img of images) {
+                // Check if file exists (by URL/Key) or create new one
+                // R2 images usually have a URL or ID
+                const fileKey = img.id || img.url;
+                if (!fileKey) continue;
 
-            const { error: fileError } = await supabase
-                .from('order_files')
-                .insert(fileInserts);
+                let fileId: string | null = null;
 
-            if (fileError) {
-                log.warn('Create files warning', { error: fileError });
-                // Non-fatal, continue
+                // Try to find existing file
+                const { data: existingFile } = await supabase
+                    .from('files')
+                    .select('id')
+                    .or(`file_url.eq.${fileKey},file_url.ilike.%${fileKey}%`)
+                    .maybeSingle();
+
+                if (existingFile) {
+                    fileId = existingFile.id;
+                } else {
+                    // Create new file record
+                    const { data: newFile, error: fileInsertError } = await supabase
+                        .from('files')
+                        .insert({
+                            file_url: img.url || img.id,
+                            mime_type: img.type || 'image/jpeg',
+                            size_bytes: img.size || 0,
+                            provider: 'r2',
+                        })
+                        .select('id')
+                        .single();
+
+                    if (!fileInsertError && newFile) {
+                        fileId = newFile.id;
+                    } else {
+                        log.warn('Failed to insert file record', { error: fileInsertError, img });
+                    }
+                }
+
+                // Link file to order_item
+                if (fileId) {
+                    const { error: linkError } = await supabase
+                        .from('file_links')
+                        .insert({
+                            file_id: fileId,
+                            ref_type: 'order_item',
+                            ref_id: orderItem.id,
+                            tag: 'reference', // Tag for custom order references
+                        });
+
+                    if (linkError) {
+                        log.warn('Failed to link file', { error: linkError, fileId });
+                    }
+                }
             }
         }
 
@@ -209,7 +239,7 @@ export async function POST(request: NextRequest) {
                 status: order.status,
             },
         });
-    } catch (error) {
+    } catch (error: any) {
         log.error('Unexpected error', error);
         return NextResponse.json(
             { success: false, error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },

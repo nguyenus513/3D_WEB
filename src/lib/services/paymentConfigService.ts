@@ -80,7 +80,7 @@ export function getDefaultPaymentConfig(): PaymentConfig | null {
 export async function getCustomerCode(userId: string, email?: string | null): Promise<string | null> {
     // First try by userId
     const { data, error } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .select('customer_code')
         .eq('id', userId)
         .single();
@@ -92,7 +92,7 @@ export async function getCustomerCode(userId: string, email?: string | null): Pr
     // Fallback to email lookup if userId not found
     if (email) {
         const { data: emailData } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .select('customer_code')
             .eq('email', email.toLowerCase())
             .single();

@@ -28,7 +28,7 @@ export async function GET() {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!,
         );
-        const { error } = await supabase.from('profiles').select('id').limit(1);
+        const { error } = await supabase.from('users').select('id').limit(1);
         checks.database = {
             status: error ? 'unhealthy' : 'healthy',
             latency: Date.now() - dbStart,

@@ -89,8 +89,10 @@ export async function middleware(request: NextRequest) {
 
     // Redirect logged-in users away from auth pages
     if (token && (pathname === '/login' || pathname === '/register')) {
-        console.log('[MIDDLEWARE DEBUG] Logged in user on auth page, redirecting to account');
-        return NextResponse.redirect(new URL('/account', request.url));
+        // Admin users go to admin dashboard, customers go to account
+        const redirectPath = token.role === 'admin' ? '/sys_internal' : '/account';
+        console.log(`[MIDDLEWARE DEBUG] Logged in user (role: ${token.role}) on auth page, redirecting to ${redirectPath}`);
+        return NextResponse.redirect(new URL(redirectPath, request.url));
     }
 
     return NextResponse.next();

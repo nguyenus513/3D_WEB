@@ -1,7 +1,7 @@
 /**
  * Profile Repository
  *
- * Data access layer for profiles table.
+ * Data access layer for the users table.
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -13,14 +13,45 @@ import { SupabaseClient } from '@supabase/supabase-js';
 export interface Profile {
     id: string;
     email: string;
-    full_name?: string | null;
-    phone?: string | null;
-    customer_code?: string | null;
-    avatar_url?: string | null;
-    is_verified?: boolean;
+    full_name: string | null;
+    phone: string | null;
+    customer_code: string | null;
     role: 'customer' | 'admin';
     created_at: string;
-    updated_at?: string | null;
+    updated_at: string | null;
+}
+
+// Raw DB row from users table (uses 'name' not 'full_name')
+interface UserRow {
+    id: string;
+    email: string;
+    name: string | null;
+    phone: string | null;
+    customer_code: string | null;
+    role: string;
+    created_at: string;
+    updated_at: string | null;
+}
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const PROFILE_SELECT_FIELDS =
+    'id, email, name, phone, customer_code, role, created_at, updated_at';
+
+/** Map DB row (name) → Profile interface (full_name) */
+function toProfile(row: UserRow): Profile {
+    return {
+        id: row.id,
+        email: row.email,
+        full_name: row.name,
+        phone: row.phone,
+        customer_code: row.customer_code,
+        role: row.role as 'customer' | 'admin',
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
 }
 
 // =============================================================================
@@ -31,91 +62,62 @@ export class ProfileRepository {
     constructor(private readonly db: SupabaseClient) { }
 
     /**
-     * Find profile by email
+     * Find a profile by email
      */
     async findByEmail(email: string): Promise<Profile | null> {
         const { data, error } = await this.db
-            .from('profiles')
-            .select('*')
+            .from('users')
+            .select(PROFILE_SELECT_FIELDS)
             .eq('email', email)
             .single();
 
-        if (error) {
-            if (error.code === 'PGRST116') {
-                return null;
-            }
-            console.error('[ProfileRepository.findByEmail] DB Error:', error);
-            throw error;
-        }
-
-        return data as Profile;
+        if (error?.code === 'PGRST116') return null;
+        if (error) throw error;
+        return toProfile(data as UserRow);
     }
 
     /**
-     * Find profile by ID
+     * Find a profile by ID
      */
     async findById(id: string): Promise<Profile | null> {
         const { data, error } = await this.db
-            .from('profiles')
-            .select('*')
+            .from('users')
+            .select(PROFILE_SELECT_FIELDS)
             .eq('id', id)
             .single();
 
-        if (error) {
-            if (error.code === 'PGRST116') {
-                return null;
-            }
-            console.error('[ProfileRepository.findById] DB Error:', error);
-            throw error;
-        }
-
-        return data as Profile;
+        if (error?.code === 'PGRST116') return null;
+        if (error) throw error;
+        return toProfile(data as UserRow);
     }
 
     /**
      * Create a new profile
      */
-    async create(data: {
-        id?: string;
+    async create(input: {
+        id: string;
         email: string;
-        full_name?: string;
-        phone?: string;
+        full_name?: string | null;
+        phone?: string | null;
     }): Promise<Profile> {
-        // Generate customer code
-        const { generateId } = await import('@/lib/generateId');
-        const customerCode = generateId.user();
+        const customerCode =
+            'USR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
 
-        // Use provided ID or generate fallback
-        let newId = data.id;
-        if (!newId) {
-            try {
-                newId = crypto.randomUUID();
-            } catch (e) {
-                console.warn('[ProfileRepository.create] crypto.randomUUID() failed, using fallback:', e);
-                newId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-            }
-        }
-
-        const { data: profile, error } = await this.db
-            .from('profiles')
+        const { data, error } = await this.db
+            .from('users')
             .insert({
-                id: newId,
-                email: data.email,
-                full_name: data.full_name || null,
-                phone: data.phone || null,
+                id: input.id,
+                email: input.email,
+                name: input.full_name ?? null,
+                phone: input.phone ?? null,
                 customer_code: customerCode,
                 role: 'customer',
-                is_verified: false,
             })
-            .select()
+            .select(PROFILE_SELECT_FIELDS)
             .single();
 
-        if (error) {
-            console.error('[ProfileRepository.create] DB Error:', error);
-            throw error;
-        }
-
-        return profile as Profile;
+        if (error) throw error;
+        return toProfile(data as UserRow);
     }
 
     /**
@@ -123,32 +125,26 @@ export class ProfileRepository {
      */
     async update(
         id: string,
-        data: {
-            full_name?: string;
-            phone?: string;
-            avatar_url?: string;
+        input: {
+            full_name?: string | null;
+            phone?: string | null;
         }
     ): Promise<Profile> {
-        const updateData: Record<string, unknown> = {
+        // Map full_name → name for the DB
+        const dbUpdate: Record<string, unknown> = {
             updated_at: new Date().toISOString(),
         };
+        if (input.full_name !== undefined) dbUpdate.name = input.full_name;
+        if (input.phone !== undefined) dbUpdate.phone = input.phone;
 
-        if (data.full_name !== undefined) updateData.full_name = data.full_name;
-        if (data.phone !== undefined) updateData.phone = data.phone;
-        if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
-
-        const { data: profile, error } = await this.db
-            .from('profiles')
-            .update(updateData)
+        const { data, error } = await this.db
+            .from('users')
+            .update(dbUpdate)
             .eq('id', id)
-            .select()
+            .select(PROFILE_SELECT_FIELDS)
             .single();
 
-        if (error) {
-            console.error('[ProfileRepository.update] DB Error:', error);
-            throw error;
-        }
-
-        return profile as Profile;
+        if (error) throw error;
+        return toProfile(data as UserRow);
     }
 }

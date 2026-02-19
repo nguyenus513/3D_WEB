@@ -21,14 +21,14 @@ export async function GET() {
         let profileId: string = session.user.id;
 
         const { data: profileById } = await supabase
-            .from('profiles')
+            .from('users')
             .select('id')
             .eq('id', session.user.id)
             .single();
 
         if (!profileById && session.user.email) {
             const { data: profileByEmail } = await supabase
-                .from('profiles')
+                .from('users')
                 .select('id')
                 .eq('email', session.user.email.toLowerCase())
                 .single();
@@ -39,7 +39,7 @@ export async function GET() {
         }
 
         const { data, error } = await supabase
-            .from('addresses')
+            .from('user_addresses')
             .select('*')
             .eq('user_id', profileId)
             .order('is_default', { ascending: false });
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         let profileId: string = session.user.id;
 
         const { data: profileById } = await supabase
-            .from('profiles')
+            .from('users')
             .select('id')
             .eq('id', session.user.id)
             .single();
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
             if (session.user.email) {
                 const { data: profileByEmail } = await supabase
-                    .from('profiles')
+                    .from('users')
                     .select('id')
                     .eq('email', session.user.email.toLowerCase())
                     .single();
@@ -134,22 +134,21 @@ export async function POST(request: NextRequest) {
         // If setting as default, unset other defaults first
         if (is_default) {
             await supabase
-                .from('addresses')
+                .from('user_addresses')
                 .update({ is_default: false })
                 .eq('user_id', profileId);
         }
 
         const { data, error } = await supabase
-            .from('addresses')
+            .from('user_addresses')
             .insert({
                 user_id: profileId,
                 full_name: full_name.trim().slice(0, 100),
                 phone: phone.trim().slice(0, 15),
                 address_line: address_line.trim().slice(0, 255),
                 ward: body.ward?.trim().slice(0, 50) || null,
-                district: district.trim().slice(0, 50), // Required field
+                district: district.trim().slice(0, 50),
                 province: province.trim().slice(0, 50),
-                label: body.label?.trim().slice(0, 20) || 'Nhà',
                 is_default: is_default || false,
             })
             .select()
@@ -199,7 +198,7 @@ export async function PUT(request: NextRequest) {
 
         // Verify ownership
         const { data: existing } = await supabase
-            .from('addresses')
+            .from('user_addresses')
             .select('user_id')
             .eq('id', id)
             .single();
@@ -211,7 +210,7 @@ export async function PUT(request: NextRequest) {
         // If setting as default, unset others
         if (updates.is_default) {
             await supabase
-                .from('addresses')
+                .from('user_addresses')
                 .update({ is_default: false })
                 .eq('user_id', session.user.id);
         }
@@ -224,11 +223,10 @@ export async function PUT(request: NextRequest) {
         if (updates.ward !== undefined) sanitized.ward = updates.ward?.trim().slice(0, 50) || null;
         if (updates.district !== undefined) sanitized.district = updates.district?.trim().slice(0, 50) || null;
         if (updates.province) sanitized.province = updates.province.trim().slice(0, 50);
-        if (updates.label) sanitized.label = updates.label.trim().slice(0, 20);
         if (updates.is_default !== undefined) sanitized.is_default = updates.is_default;
 
         const { error } = await supabase
-            .from('addresses')
+            .from('user_addresses')
             .update(sanitized)
             .eq('id', id);
 
@@ -263,7 +261,7 @@ export async function DELETE(request: NextRequest) {
 
         // Verify ownership
         const { data: existing } = await supabase
-            .from('addresses')
+            .from('user_addresses')
             .select('user_id')
             .eq('id', id)
             .single();
@@ -273,7 +271,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         const { error } = await supabase
-            .from('addresses')
+            .from('user_addresses')
             .delete()
             .eq('id', id);
 

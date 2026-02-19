@@ -41,7 +41,7 @@ interface UploadedFile {
     thumbnail: string;
     viewUrl?: string;
     downloadUrl?: string;
-    orderFileId?: string; // ID from order_files table
+    fileId?: string; // ID from files table
 }
 
 interface UploadResult {
@@ -63,8 +63,11 @@ function determineCategory(params: UploadRequestInput, fileName: string): OrderF
     return 'images'; // default
 }
 
-// Insert record into order_files table for tracking
-async function insertOrderFile(data: {
+/**
+ * Insert file record into `files` table and optionally link via `file_links`.
+ * Replaces the old `insertOrderFile` which referenced a non-existent table.
+ */
+async function insertFileRecord(data: {
     orderCode?: string;
     orderId?: string;
     fileKey?: string;
@@ -80,7 +83,33 @@ async function insertOrderFile(data: {
     try {
         const supabase = getAdminSupabase();
 
-        // Resolve order_id if not provided
+        // Determine file_url based on storage provider
+        const fileUrl = data.storageProvider === 'drive' && data.driveUrl
+            ? data.driveUrl
+            : data.fileKey
+                ? `/api/files/${data.fileKey}`
+                : null;
+
+        // 1. Insert into `files` table
+        const { data: inserted, error } = await supabase
+            .from('files')
+            .insert({
+                file_url: fileUrl,
+                mime_type: data.mimeType,
+                size_bytes: data.sizeBytes,
+                provider: data.storageProvider,
+            })
+            .select('id')
+            .single();
+
+        if (error || !inserted) {
+            console.error('[UploadService] Failed to insert into files:', error);
+            return null;
+        }
+
+        const fileId = inserted.id;
+
+        // 2. Resolve order_id if not provided
         let resolvedOrderId = data.orderId;
         if (!resolvedOrderId && data.orderCode) {
             const { data: order } = await supabase
@@ -91,40 +120,26 @@ async function insertOrderFile(data: {
             resolvedOrderId = order?.id;
         }
 
-        // Determine file_url based on storage provider
-        const fileUrl = data.storageProvider === 'drive' && data.driveUrl
-            ? data.driveUrl
-            : data.fileKey
-                ? `/api/files/${data.fileKey}`
-                : null;
+        // 3. Create file_link if we have an order to link to
+        if (resolvedOrderId) {
+            const { error: linkError } = await supabase
+                .from('file_links')
+                .insert({
+                    file_id: fileId,
+                    ref_type: 'order',
+                    ref_id: resolvedOrderId,
+                    tag: data.category,
+                });
 
-        // Determine file extension as file_type
-        const ext = data.fileName.split('.').pop()?.toLowerCase() || null;
-
-        const { data: inserted, error } = await supabase
-            .from('order_files')
-            .insert({
-                order_id: resolvedOrderId || null,
-                file_key: data.fileKey || data.driveFileId || null,
-                file_name: data.fileName,
-                file_type: ext,
-                file_url: fileUrl,
-                mime_type: data.mimeType,
-                size_bytes: data.sizeBytes,
-                storage_provider: data.storageProvider,
-                category: data.category,
-            })
-            .select('id')
-            .single();
-
-        if (error) {
-            console.error('[UploadService] Failed to insert order_files:', error);
-            return null;
+            if (linkError) {
+                console.error('[UploadService] Failed to insert file_link:', linkError);
+                // Non-fatal: file record exists, link can be created later
+            }
         }
 
-        return inserted?.id || null;
+        return fileId;
     } catch (err) {
-        console.error('[UploadService] Error inserting order_files:', err);
+        console.error('[UploadService] Error inserting file record:', err);
         return null;
     }
 }
@@ -267,9 +282,9 @@ export class UploadService {
             options
         );
 
-        // Insert into order_files table for unified tracking
+        // Insert into files + file_links for unified tracking
         const category = determineCategory(params, file.name);
-        const orderFileId = await insertOrderFile({
+        const fileId = await insertFileRecord({
             orderCode: params.orderCode || undefined,
             driveFileId: result.fileId,
             driveUrl: getDirectUrl(result.fileId),
@@ -291,7 +306,7 @@ export class UploadService {
                 thumbnail: getThumbnailUrl(result.fileId, 400),
                 viewUrl: result.webViewLink,
                 downloadUrl: result.webContentLink,
-                orderFileId: orderFileId || undefined,
+                fileId: fileId || undefined,
             },
         };
     }
@@ -352,9 +367,9 @@ export class UploadService {
                 }
             );
 
-            // Insert into order_files table for unified tracking
+            // Insert into files + file_links for unified tracking
             const category = determineCategory(params, file.name);
-            const orderFileId = await insertOrderFile({
+            const fileId = await insertFileRecord({
                 orderCode: params.orderCode ?? undefined,
                 fileKey: key,
                 storageProvider: 'r2',
@@ -379,7 +394,7 @@ export class UploadService {
                     thumbnail: secureUrl,
                     viewUrl: secureUrl, // Map to viewUrl for compatibility
                     downloadUrl: secureUrl,
-                    orderFileId: orderFileId || undefined,
+                    fileId: fileId || undefined,
                 },
             };
         } catch (error) {

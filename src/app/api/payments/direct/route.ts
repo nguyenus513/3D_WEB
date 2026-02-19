@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
             logger.info('Generated new 10-hex customer code', { customerCode });
 
             await supabaseAdmin
-                .from('profiles')
+                .from('users')
                 .update({ customer_code: customerCode })
                 .eq('id', session.user.id);
         }

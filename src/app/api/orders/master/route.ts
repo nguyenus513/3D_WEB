@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
         // Get user from database
         const { data: user, error: userError } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .select('id')
             .eq('email', session.user.email.toLowerCase())
             .single();
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
         // Verify address belongs to user
         const { data: address, error: addressError } = await supabaseAdmin
-            .from('addresses')
+            .from('user_addresses')
             .select('id')
             .eq('id', addressId)
             .eq('user_id', user.id)
@@ -279,7 +279,7 @@ export async function GET() {
 
         // Get user
         const { data: user } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .select('id')
             .eq('email', session.user.email.toLowerCase())
             .single();

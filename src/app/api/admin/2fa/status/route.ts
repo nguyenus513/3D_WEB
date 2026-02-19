@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     try {
         const supabase = getAdminSupabase();
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('users')
             .select('totp_enabled')
             .eq('id', userId)
             .single();

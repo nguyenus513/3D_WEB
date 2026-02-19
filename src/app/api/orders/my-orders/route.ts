@@ -27,18 +27,23 @@ export async function GET(request: NextRequest) {
         // Smart profile ID lookup with email fallback
         const userId = await getProfileId(session.user, supabaseAdmin);
         if (!userId) {
-            return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
+            // New user with no profile yet - return empty orders instead of error
+            return NextResponse.json({
+                success: true,
+                data: [],
+                meta: { total: 0 }
+            });
         }
 
         // Query orders with order_items - NEW SCHEMA
         const { data: orders, error } = await supabaseAdmin
             .from('orders')
             .select(`
-                id, user_id, total_amount, customer_note, created_at, 
+                id, user_id, total_amount, created_at, 
                 order_code, status, payment_status, order_type,
                 order_items (
                     id, name, quantity, unit_price, total_price, 
-                    item_type, production_status, item_code, full_code, spec
+                    item_type, production_status, item_code, full_code
                 )
             `)
             .eq('user_id', userId)
@@ -62,10 +67,8 @@ export async function GET(request: NextRequest) {
                 status: order.status || 'pending',
                 payment_status: order.payment_status || 'pending',
                 created_at: order.created_at,
-                notes: order.customer_note,
                 // ALWAYS return items as array (never null/undefined)
                 items: (order.order_items || []).map((item: any) => {
-                    const spec = (item.spec || {}) as any;
                     return {
                         id: item.id,
                         item_code: item.item_code,
@@ -76,10 +79,6 @@ export async function GET(request: NextRequest) {
                         total_price: item.total_price || 0,
                         item_type: item.item_type || 'product',
                         production_status: item.production_status || 'waiting',
-                        // Extract from spec JSONB
-                        print_tech: spec.print_tech,
-                        color: spec.color,
-                        material: spec.material,
                     };
                 }),
             };

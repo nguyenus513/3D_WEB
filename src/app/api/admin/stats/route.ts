@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         // Fetch all data in parallel from unified schema
         const [ordersRes, customersRes, productsRes] = await Promise.all([
             supabase.from('orders').select('*, items:order_items(*)').order('created_at', { ascending: false }),
-            supabase.from('profiles').select('id, role'),
+            supabase.from('users').select('id, role'),
             supabase.from('products').select('id'),
         ]);
 

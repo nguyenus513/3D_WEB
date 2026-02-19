@@ -43,15 +43,15 @@ export async function GET(request: NextRequest) {
         log.debug('Searching for order', { orderId, userId });
 
         // Search in unified orders table by multiple fields
+        // Actual order_items columns: id, order_id, product_id, item_code, full_code, name, sku, quantity, unit_price, item_type, production_status, created_at, total_price
+        // print_jobs columns: id, order_item_id, material, color, infill, layer_height, estimated_hours, estimated_grams, status
+        const ORDER_SELECT = `*, items:order_items(*, print_job:print_jobs(*))`;
         let order = null;
 
         // 1. Try by order_code
         const { data: orderByCode } = await supabaseAdmin
             .from('orders')
-            .select(`
-                *,
-                items:order_items(*, print_config:order_item_print_configs(*))
-            `)
+            .select(ORDER_SELECT)
             .eq('user_id', userId)
             .eq('order_code', orderId)
             .maybeSingle();
@@ -61,26 +61,11 @@ export async function GET(request: NextRequest) {
             log.debug('Found by order_code');
         }
 
-        // 2. Try by cart_code
-        if (!order) {
-            const { data: orderByCart } = await supabaseAdmin
-                .from('orders')
-                .select(`*, items:order_items(*, print_config:order_item_print_configs(*))`)
-                .eq('user_id', userId)
-                .eq('cart_code', orderId)
-                .maybeSingle();
-
-            if (orderByCart) {
-                order = orderByCart;
-                log.debug('Found by cart_code');
-            }
-        }
-
-        // 3. Try by id (UUID)
+        // 2. Try by id (UUID)
         if (!order) {
             const { data: orderById } = await supabaseAdmin
                 .from('orders')
-                .select(`*, items:order_items(*, print_config:order_item_print_configs(*))`)
+                .select(ORDER_SELECT)
                 .eq('user_id', userId)
                 .eq('id', orderId)
                 .maybeSingle();
@@ -154,90 +139,63 @@ export async function GET(request: NextRequest) {
 
         // Get customer_code from profiles table
         const { data: profile } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .select('customer_code')
             .eq('id', userId)
             .single();
 
         const customerCode = profile?.customer_code || userId.replace(/-/g, '').substring(0, 10).toUpperCase();
-        const orderCode = order.order_code || order.cart_code || orderId;
+        const orderCode = order.order_code || orderId;
         const transferContent = `${customerCode}_${orderCode}`;
         const qrUrl = `https://img.vietqr.io/image/${bankConfig.bankId}-${bankConfig.accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankConfig.accountName)}`;
 
-        // Normalize items for response - include all fields needed for UI
-        const items = (order.items || []).map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            product_name: item.name, // Alias for compatibility
-            product_sku: item.sku,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            item_order_code: item.item_code, // DB uses item_code
-            cart_order_code: item.full_code || (order.cart_code && item.item_code
-                ? `${order.cart_code}_${item.item_code}`
-                : null), // Full format: CARTCODE_ORDERCODE
-            production_status: item.production_status,
-            status: item.status,
-            // DB uses 'spec' column, not 'configuration' - merge with fallbacks
-            configuration: {
-                ...(item.spec || {}),
-                // Prefer relational print_config table over spec JSON
-                color: item.print_config?.color || item.spec?.color || item.color,
-                material: item.print_config?.material || item.spec?.material || item.material,
-                custom_type: item.spec?.custom_type || item.custom_type,
-                custom_size: item.spec?.custom_size || item.custom_size,
-                size: item.spec?.size || item.custom_size,
-                // Print-specific: prefer print_config table
-                type: item.print_config?.print_tech || item.spec?.type || item.spec?.printOptions?.type,
-                infill: item.print_config?.infill || item.spec?.infill || item.spec?.printOptions?.infill,
-                layerHeight: item.print_config?.layer_height || item.spec?.layerHeight || item.spec?.printOptions?.layerHeight,
-                fileName: item.spec?.fileName || item.spec?.file_name,
-                grams: item.print_config?.estimated_grams || item.spec?.grams,
-                hours: item.print_config?.estimated_hours || item.spec?.hours,
-                volume: item.print_config?.volume || item.spec?.volume,
-            },
-            item_type: item.item_type,
-            custom_type: item.custom_type,
-            custom_size: item.custom_size,
-            color: item.color,
-            material: item.material,
-            notes: item.notes,
-            // Custom order fields
-            is_custom: item.item_type === 'custom' || item.is_custom,
-            custom_note: item.custom_note || item.notes,
-            preview_images: item.preview_images || [],
-            preview_status: item.preview_status,
-        }));
-
-        // Virtual Status Logic: If demo exists but status is stuck, override to 'review'
-        let finalStatus = order.status;
-        const demoUrl = order.demo_images?.[0]?.url;
-        if (demoUrl && ['pending', 'confirmed', 'designing'].includes(finalStatus)) {
-            finalStatus = 'review';
-        }
+        // Normalize items for response
+        // order_items columns: id, order_id, product_id, item_code, full_code, name, sku, quantity, unit_price, item_type, production_status, created_at, total_price
+        // print_jobs (joined as print_job): material, color, infill, layer_height, estimated_hours, estimated_grams, status
+        const items = (order.items || []).map((item: any) => {
+            // print_job is an array from PostgREST join, take first entry
+            const pj = Array.isArray(item.print_job) ? item.print_job[0] : item.print_job;
+            return {
+                id: item.id,
+                name: item.name,
+                product_name: item.name,
+                product_sku: item.sku,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                total_price: item.total_price,
+                item_order_code: item.item_code,
+                cart_order_code: item.full_code || null,
+                production_status: item.production_status,
+                item_type: item.item_type,
+                is_custom: item.item_type === 'custom',
+                // Print specifications from print_jobs table
+                print_config: pj ? {
+                    material: pj.material,
+                    color: pj.color,
+                    infill: pj.infill,
+                    layer_height: pj.layer_height,
+                    estimated_grams: pj.estimated_grams,
+                    estimated_hours: pj.estimated_hours,
+                    print_status: pj.status,
+                } : null,
+            };
+        });
 
         return NextResponse.json({
             success: true,
             data: {
                 id: order.id,
                 order_code: order.order_code,
-                cart_code: order.cart_code,
                 order_type: orderType,
                 total,
                 deposit_amount: depositAmount,
-                deposit_paid: order.deposit_paid || false,
-                status: finalStatus,
+                status: order.status,
                 payment_status: order.payment_status || 'pending',
                 fulfillment_status: order.fulfillment_status || 'pending',
-                shipping_address: order.shipping_address || order.shipping_address_snapshot,
+                shipping_address: order.shipping_address_snapshot || null,
                 created_at: order.created_at,
-                items: items,
-                demo_images: order.demo_images || [],
-                finished_images: order.finished_images || [],
-                revision_count: order.revision_count || 0,
-                revision_feedback: order.revision_feedback || null,
                 approved_at: order.approved_at || null,
+                items: items,
                 payment: {
                     bank_id: bankConfig.bankId,
                     account_no: bankConfig.accountNo,

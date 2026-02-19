@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
         // Ensure customer code is not spoofed
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('users')
             .select('customer_code')
             .eq('id', profileId)
             .single();

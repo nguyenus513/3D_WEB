@@ -71,7 +71,7 @@ export async function requireAdmin(request?: Request, skip2FA = false): Promise<
             try {
                 const supabase = getAdminSupabase();
                 const { data: profile } = await supabase
-                    .from('profiles')
+                    .from('users')
                     .select('totp_enabled')
                     .eq('id', userId)
                     .single();

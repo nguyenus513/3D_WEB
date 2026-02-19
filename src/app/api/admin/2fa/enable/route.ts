@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
         // Get the pending secret
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('users')
             .select('totp_secret, totp_enabled')
             .eq('id', userId)
             .single();
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
         // Enable 2FA
         await supabase
-            .from('profiles')
+            .from('users')
             .update({
                 totp_enabled: true,
                 totp_recovery_codes: hashedCodes,

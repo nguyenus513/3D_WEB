@@ -28,7 +28,7 @@ export async function getProfileId(
 
     // First, try to find profile by session ID
     const { data: byId } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id')
         .eq('id', user.id)
         .single();
@@ -40,7 +40,7 @@ export async function getProfileId(
     // ID not found, try email fallback
     if (user.email) {
         const { data: byEmail } = await supabase
-            .from('profiles')
+            .from('users')
             .select('id')
             .eq('email', user.email.toLowerCase())
             .single();
@@ -51,7 +51,39 @@ export async function getProfileId(
         }
     }
 
-    // Neither found
+    // Neither found - auto-create profile if we have enough info
+    if (user.email) {
+        console.log('[getProfileId] Auto-creating profile for:', user.email);
+        try {
+            const { generateId } = await import('@/lib/generateId');
+            const { data: newProfile, error } = await supabase
+                .from('users')
+                .insert({
+                    id: user.id,
+                    email: user.email.toLowerCase(),
+                    name: user.email.split('@')[0]
+                        .replace(/[._]/g, ' ')
+                        .replace(/\d+/g, '')
+                        .trim()
+                        .split(' ')
+                        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                        .join(' ') || 'Khách hàng',
+                    customer_code: generateId.user(),
+                    role: 'customer',
+                })
+                .select('id')
+                .single();
+
+            if (!error && newProfile) {
+                console.log('[getProfileId] Auto-created profile:', newProfile.id);
+                return newProfile.id;
+            }
+            console.error('[getProfileId] Auto-create failed:', error?.message);
+        } catch (createError) {
+            console.error('[getProfileId] Auto-create exception:', createError);
+        }
+    }
+
     console.warn('[getProfileId] Profile not found for session user:', user.id, user.email);
     return null;
 }

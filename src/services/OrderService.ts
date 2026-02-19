@@ -82,32 +82,40 @@ export class OrderService {
         email: string,
         input: CreateOrderInput
     ): Promise<OrderWithItems> {
+        console.log('[OrderService.createOrder] START | email:', email);
+        console.log('[OrderService.createOrder] Input items count:', input.items.length);
+
         // Find user profile
+        console.log('[OrderService.createOrder] Step 1: Finding profile...');
         const profile = await this.profileRepo.findByEmail(email);
         if (!profile) {
             throw new NotFoundError('User profile not found');
         }
+        console.log('[OrderService.createOrder] Step 1 OK: profile.id =', profile.id);
 
         // Calculate total amount
         const totalAmount = input.items.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
         );
+        console.log('[OrderService.createOrder] Step 2: totalAmount =', totalAmount);
 
         // Prepare shipping address
         const shippingAddress = input.shipping_address || {};
 
         // Determine order type from items
+        // order_type_enum values: product, custom, print_3d, mixed
         const itemTypes = new Set(input.items.map(i => (i as any).item_type || 'product'));
-        let orderType = 'ready_made'; // Default
+        let orderType = 'product'; // Default
 
         if (itemTypes.has('custom')) {
             orderType = itemTypes.has('product') || itemTypes.has('print') ? 'mixed' : 'custom';
-        } else if (itemTypes.has('print') || itemTypes.has('printing')) {
-            orderType = 'printing';
+        } else if (itemTypes.has('print') || itemTypes.has('printing') || itemTypes.has('print_3d')) {
+            orderType = 'print_3d';
         } else {
-            orderType = 'ready_made';
+            orderType = 'product';
         }
+        console.log('[OrderService.createOrder] Step 3: orderType =', orderType, '| itemTypes =', [...itemTypes]);
 
         // Calculate deposit amount
         // Policy: 
@@ -117,24 +125,12 @@ export class OrderService {
         if (orderType === 'custom' || orderType === 'mixed') {
             depositAmount = Math.round(totalAmount * 0.5);
         }
+        console.log('[OrderService.createOrder] Step 4: depositAmount =', depositAmount);
 
-        // Create order
-        const order = await this.orderRepo.create(
-            {
-                userId: profile.id,
-                orderCode: generateId.order(), // 8-char hex code
-                cartCode: (input as any).cart_code, // Optional if provided
-                orderType,
-                subtotal: totalAmount, // Note: input.items might need to sum up
-                discount: 0,
-                totalAmount: totalAmount,
-                depositAmount: depositAmount,
-                // Repository create params: shippingAddressSnapshot, notes.
-                // input has shipping_address, notes.
-                shippingAddressSnapshot: shippingAddress as any,
-                notes: input.notes,
-            },
-            input.items.map((item) => ({
+        // Prepare order items
+        const orderItems = input.items.map((item) => {
+            const printOpts = (item.customization as any)?.printOptions;
+            return {
                 name: (item as any).product_name || 'Item',
                 productId: item.product_id ?? undefined,
                 quantity: item.quantity,
@@ -142,10 +138,41 @@ export class OrderService {
                 totalPrice: item.price * item.quantity,
                 configuration: item.customization,
                 itemType: (item as any).item_type || 'product',
-            }))
-        );
+                printTech: printOpts?.type || null,
+                material: printOpts?.material || null,
+                color: printOpts?.color || null,
+                infill: printOpts?.infill || null,
+                layerHeight: printOpts?.layerHeight || null,
+                notes: (item.customization as any)?.notes || null,
+            };
+        });
+        console.log('[OrderService.createOrder] Step 5: orderItems prepared:', JSON.stringify(orderItems, null, 2));
 
-        return order;
+        // Create order
+        console.log('[OrderService.createOrder] Step 6: Calling orderRepo.create...');
+        try {
+            const order = await this.orderRepo.create(
+                {
+                    userId: profile.id,
+                    orderCode: generateId.order(),
+                    cartCode: (input as any).cart_code,
+                    orderType,
+                    subtotal: totalAmount,
+                    discount: 0,
+                    totalAmount: totalAmount,
+                    depositAmount: depositAmount,
+                    shippingAddressSnapshot: shippingAddress as any,
+                    notes: input.notes,
+                },
+                orderItems
+            );
+            console.log('[OrderService.createOrder] Step 6 OK: order.id =', order.id);
+            return order;
+        } catch (error) {
+            console.error('[OrderService.createOrder] Step 6 FAILED:', JSON.stringify(error, null, 2));
+            console.error('[OrderService.createOrder] Error type:', typeof error, '| instanceof Error:', error instanceof Error);
+            throw error;
+        }
     }
 
     /**
