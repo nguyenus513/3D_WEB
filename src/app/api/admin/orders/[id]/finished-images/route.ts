@@ -77,7 +77,24 @@ export async function POST(
 
         const existingImages: FinishedImage[] = Array.isArray(order.finished_images) ? order.finished_images : [];
         const imageIndex = existingImages.length + 1;
-        const ext = getExtension(file.name);
+        const originalExt = getExtension(file.name);
+
+        // Non-web formats: browsers can't display HEIC/HEIF/RAW/TIFF/BMP/AVIF.
+        // Convert to JPEG for browser compatibility.
+        const nonWebExts = new Set(['heic', 'heif', 'avif', 'tiff', 'tif', 'bmp', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'srf', 'sr2', 'dng', 'rw2', 'orf', 'raf', 'pef', 'tga', 'ico']);
+        const isNonWeb = nonWebExts.has(originalExt.toLowerCase());
+        const ext = isNonWeb ? 'jpg' : originalExt;
+
+        // Convert non-web formats to JPEG buffer for browser display
+        let uploadBuffer = buffer;
+        if (isNonWeb) {
+            try {
+                const sharp = (await import('sharp')).default;
+                uploadBuffer = Buffer.from(await sharp(buffer).jpeg({ quality: 90 }).toBuffer());
+            } catch (convError) {
+                console.warn('[FinishedUpload] Format conversion failed, uploading original:', (convError as Error).message);
+            }
+        }
 
         // Upload to R2 using studio naming convention
         // e.g. orders/C494D49D/final/ORD-C494D49D_FINAL_FULL_V01_01.jpg
@@ -88,7 +105,8 @@ export async function POST(
             index: imageIndex,
             extension: ext,
         });
-        await uploadToR2(buffer, r2Key, file.type, {
+        const uploadContentType = isNonWeb ? 'image/jpeg' : file.type;
+        await uploadToR2(uploadBuffer, r2Key, uploadContentType, {
             orderId,
             orderCode,
             type: 'finished',

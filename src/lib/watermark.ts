@@ -13,7 +13,7 @@ import sharp from 'sharp';
  */
 export async function addWatermark(
     imageBuffer: Buffer,
-    text: string = 'MINIVER3D - DEMO PREVIEW'
+    text: string = 'miniver3D'
 ): Promise<Buffer> {
     try {
         let processableBuffer = imageBuffer;

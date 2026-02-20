@@ -93,7 +93,13 @@ export async function POST(
         const imageIndex = existingImages.length + 1;
 
         // Get file extension
-        const ext = getExtension(file.name);
+        const originalExt = getExtension(file.name);
+
+        // Non-web formats: browsers can't display HEIC/HEIF/RAW/TIFF/BMP/AVIF.
+        // Watermark converts them to JPEG, so store with .jpg extension.
+        const nonWebExts = new Set(['heic', 'heif', 'avif', 'tiff', 'tif', 'bmp', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'srf', 'sr2', 'dng', 'rw2', 'orf', 'raf', 'pef', 'tga', 'ico']);
+        const isNonWeb = nonWebExts.has(originalExt.toLowerCase());
+        const ext = isNonWeb ? 'jpg' : originalExt;
 
         // Generate R2 key using studio naming convention
         // e.g. orders/C494D49D/demo/ORD-C494D49D_DEMO_FULL_V01_01.jpg
@@ -110,7 +116,9 @@ export async function POST(
         const processedBuffer = await addWatermark(buffer);
         // ──────────────────────────────────────────────────────
 
-        await uploadToR2(processedBuffer, r2Key, file.type, {
+        // Upload with correct content type (JPEG for converted formats)
+        const uploadContentType = isNonWeb ? 'image/jpeg' : file.type;
+        await uploadToR2(processedBuffer, r2Key, uploadContentType, {
             orderId,
             orderCode: orderCode,
             type: 'demo',
