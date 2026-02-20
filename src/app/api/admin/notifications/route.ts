@@ -38,7 +38,7 @@ export async function GET() {
                     email
                 )
             `)
-            .in('status', ['pending', 'pending_confirmation', 'paid'])
+            .in('status', ['pending', 'pending_confirmation', 'paid', 'approved', 'revising'])
             .order('created_at', { ascending: false })
             .limit(10);
 

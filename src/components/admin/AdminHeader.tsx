@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAdminPath } from '@/hooks/useAdminPath';
-import { Menu, Search, Bell, ShoppingBag } from 'lucide-react';
+import { Menu, Search, Bell, ShoppingBag, CheckCircle, Pencil } from 'lucide-react';
 
 interface Notification {
     id: string;
@@ -70,7 +70,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         return `${diffDays} ngày trước`;
     };
 
-    const pendingCount = notifications.filter(n => ['pending', 'pending_confirmation'].includes(n.status)).length;
+    const pendingCount = notifications.filter(n => ['pending', 'pending_confirmation', 'approved', 'revising'].includes(n.status)).length;
 
     return (
         // Updated to matching Miniver theme #1D1D1F
@@ -142,22 +142,34 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                 className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.status === 'pending_confirmation' ? 'bg-orange-500/20' :
-                                                            n.status === 'pending' ? 'bg-yellow-500/20' : 'bg-blue-500/20'
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.status === 'approved' ? 'bg-emerald-500/20' :
+                                                            n.status === 'revising' ? 'bg-amber-500/20' :
+                                                                n.status === 'pending_confirmation' ? 'bg-orange-500/20' :
+                                                                    n.status === 'pending' ? 'bg-yellow-500/20' : 'bg-blue-500/20'
                                                         }`}>
-                                                        <ShoppingBag size={16} className={
-                                                            n.status === 'pending_confirmation' ? 'text-orange-400' :
-                                                                n.status === 'pending' ? 'text-yellow-400' : 'text-blue-400'
-                                                        } strokeWidth={1.5} />
+                                                        {n.status === 'approved' ? (
+                                                            <CheckCircle size={16} className="text-emerald-400" strokeWidth={1.5} />
+                                                        ) : n.status === 'revising' ? (
+                                                            <Pencil size={16} className="text-amber-400" strokeWidth={1.5} />
+                                                        ) : (
+                                                            <ShoppingBag size={16} className={
+                                                                n.status === 'pending_confirmation' ? 'text-orange-400' :
+                                                                    n.status === 'pending' ? 'text-yellow-400' : 'text-blue-400'
+                                                            } strokeWidth={1.5} />
+                                                        )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-white text-sm font-medium">{n.order_code}</span>
-                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'pending_confirmation' ? 'bg-orange-500/20 text-orange-400' :
-                                                                    n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
+                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                                    n.status === 'revising' ? 'bg-amber-500/20 text-amber-400' :
+                                                                        n.status === 'pending_confirmation' ? 'bg-orange-500/20 text-orange-400' :
+                                                                            n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
                                                                 }`}>
-                                                                {n.status === 'pending_confirmation' ? 'Chờ xác nhận' :
-                                                                    n.status === 'pending' ? 'Chờ TT' : 'Đã TT'}
+                                                                {n.status === 'approved' ? 'Khách duyệt demo' :
+                                                                    n.status === 'revising' ? 'Yêu cầu sửa demo' :
+                                                                        n.status === 'pending_confirmation' ? 'Chờ xác nhận' :
+                                                                            n.status === 'pending' ? 'Chờ TT' : 'Đã TT'}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2 mt-0.5">
