@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getProfileId } from '@/lib/utils/getProfileId';
 
 export async function POST(
     request: NextRequest,
@@ -22,6 +23,12 @@ export async function POST(
         const { id: orderId } = await props.params;
         const supabase = getAdminSupabase();
 
+        // Resolve correct profile ID (session.user.id may differ from users.id)
+        const profileId = await getProfileId(session.user, supabase);
+        if (!profileId) {
+            return NextResponse.json({ error: 'Profile not found' }, { status: 401 });
+        }
+
         // Find order and verify ownership
         const { data: order, error: findError } = await supabase
             .from('orders')
@@ -30,10 +37,11 @@ export async function POST(
             .maybeSingle();
 
         if (findError || !order) {
+            console.warn('[ApproveDemo] Order not found:', { orderId, findError: findError?.message });
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        if (order.user_id !== session.user.id) {
+        if (order.user_id !== profileId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
@@ -84,6 +92,12 @@ export async function DELETE(
 
         const supabase = getAdminSupabase();
 
+        // Resolve correct profile ID
+        const profileId = await getProfileId(session.user, supabase);
+        if (!profileId) {
+            return NextResponse.json({ error: 'Profile not found' }, { status: 401 });
+        }
+
         // Find order and verify ownership
         const { data: order, error: findError } = await supabase
             .from('orders')
@@ -92,10 +106,11 @@ export async function DELETE(
             .maybeSingle();
 
         if (findError || !order) {
+            console.warn('[RejectDemo] Order not found:', { orderId, findError: findError?.message });
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        if (order.user_id !== session.user.id) {
+        if (order.user_id !== profileId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
