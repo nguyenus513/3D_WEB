@@ -11,6 +11,7 @@ import { useAdminPath } from '@/hooks/useAdminPath';
 import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
 import PrintFileCard, { PrintFileCardData, OrderFileRecord } from '@/components/admin/PrintFileCard';
 import PrintFileDetail from '@/components/admin/PrintFileDetail';
+import VersionFeedbackCard from '@/components/ui/VersionFeedbackCard';
 
 // Force dynamic rendering and disable caching for this page
 // Note: 'dynamic' and 'revalidate' exports don't work in Client Components
@@ -827,36 +828,15 @@ export default function AdminOrderDetailPage() {
                                         const ver = designVersions[activeVersionTab];
                                         return (
                                             <div className="space-y-3">
-                                                {/* Version Status Bar */}
-                                                <div className="flex items-center gap-2 text-xs">
-                                                    <span className={`px-2 py-0.5 rounded-full ${ver.status === 'approved'
-                                                        ? 'bg-emerald-500/20 text-emerald-400'
-                                                        : ver.status === 'rejected'
-                                                            ? 'bg-pink-500/20 text-pink-400'
-                                                            : 'bg-orange-500/20 text-orange-400'
-                                                        }`}>
-                                                        {ver.status === 'approved' ? 'Đã duyệt' : ver.status === 'rejected' ? 'Bị từ chối' : 'Chờ duyệt'}
-                                                    </span>
-                                                    <span className="text-white/30">
-                                                        {new Date(ver.created_at).toLocaleDateString('vi-VN')}
-                                                    </span>
-                                                </div>
-
-                                                {/* Admin Note */}
-                                                {ver.admin_note && (
-                                                    <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
-                                                        <p className="text-cyan-400/70 text-[10px] font-medium mb-1">GHI CHÚ ADMIN</p>
-                                                        <p className="text-white/70 text-sm">{ver.admin_note}</p>
-                                                    </div>
-                                                )}
-
-                                                {/* User Feedback (if rejected) */}
-                                                {ver.user_feedback && (
-                                                    <div className="bg-pink-500/5 border border-pink-500/20 rounded-lg p-3">
-                                                        <p className="text-pink-400/70 text-[10px] font-medium mb-1">PHẢN HỒI KHÁCH</p>
-                                                        <p className="text-white/70 text-sm">{ver.user_feedback}</p>
-                                                    </div>
-                                                )}
+                                                {/* Version Feedback Card */}
+                                                <VersionFeedbackCard
+                                                    versionNumber={ver.version_number}
+                                                    status={ver.status}
+                                                    userFeedback={ver.user_feedback}
+                                                    adminNote={ver.admin_note}
+                                                    createdAt={ver.created_at}
+                                                    reviewedAt={ver.reviewed_at}
+                                                />
 
                                                 {/* Image Grid */}
                                                 {ver.design_images.length > 0 ? (

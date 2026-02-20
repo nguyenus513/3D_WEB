@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
+import VersionFeedbackCard from '@/components/ui/VersionFeedbackCard';
 
 interface DemoImage {
     url: string;
@@ -333,27 +334,16 @@ export default function DemoReviewPage() {
                             </p>
                         </div>
 
-                        {/* Version & Admin Note */}
+                        {/* Version & Feedback Card */}
                         {latestVersion && (
-                            <div className="space-y-3">
-                                {/* Version badge */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-full border border-cyan-500/20">
-                                        Version {latestVersion.version_number}
-                                    </span>
-                                    <span className="text-white/20 text-xs">
-                                        {new Date(latestVersion.created_at).toLocaleDateString('vi-VN')}
-                                    </span>
-                                </div>
-
-                                {/* Admin note */}
-                                {latestVersion.admin_note && (
-                                    <div className="p-3 bg-cyan-500/5 border border-cyan-500/10 rounded-xl">
-                                        <p className="text-cyan-400/60 text-[10px] font-medium mb-1 uppercase tracking-wider">Ghi chú từ designer</p>
-                                        <p className="text-white/60 text-sm">{latestVersion.admin_note}</p>
-                                    </div>
-                                )}
-                            </div>
+                            <VersionFeedbackCard
+                                versionNumber={latestVersion.version_number}
+                                status={latestVersion.status}
+                                userFeedback={latestVersion.user_feedback}
+                                adminNote={latestVersion.admin_note}
+                                createdAt={latestVersion.created_at}
+                                reviewedAt={latestVersion.reviewed_at}
+                            />
                         )}
 
                         {/* Revision info (if applicable) */}
@@ -486,62 +476,18 @@ export default function DemoReviewPage() {
 
                             <div className="space-y-4">
                                 {designVersions.slice().reverse().map(ver => (
-                                    <div
+                                    <VersionFeedbackCard
                                         key={ver.id}
-                                        className={`p-4 rounded-xl border ${ver.status === 'approved'
-                                                ? 'border-emerald-500/20 bg-emerald-500/5'
-                                                : ver.status === 'rejected'
-                                                    ? 'border-pink-500/20 bg-pink-500/5'
-                                                    : 'border-cyan-500/20 bg-cyan-500/5'
-                                            }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-white font-medium text-sm">
-                                                Version {ver.version_number}
-                                            </span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${ver.status === 'approved'
-                                                    ? 'bg-emerald-500/20 text-emerald-400'
-                                                    : ver.status === 'rejected'
-                                                        ? 'bg-pink-500/20 text-pink-400'
-                                                        : 'bg-orange-500/20 text-orange-400'
-                                                }`}>
-                                                {ver.status === 'approved' ? 'Đã duyệt' : ver.status === 'rejected' ? 'Yêu cầu chỉnh sửa' : 'Đang chờ duyệt'}
-                                            </span>
-                                        </div>
-
-                                        {/* Thumbnails */}
-                                        {ver.design_images.length > 0 && (
-                                            <div className="flex gap-2 mb-2">
-                                                {ver.design_images.slice(0, 4).map(img => (
-                                                    <img
-                                                        key={img.id}
-                                                        src={img.image_url}
-                                                        alt={img.label}
-                                                        className="w-12 h-12 rounded-lg object-cover border border-white/10"
-                                                    />
-                                                ))}
-                                                {ver.design_images.length > 4 && (
-                                                    <div className="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                                                        <span className="text-white/40 text-xs">+{ver.design_images.length - 4}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Admin note */}
-                                        {ver.admin_note && (
-                                            <p className="text-white/40 text-xs mt-1">💬 {ver.admin_note}</p>
-                                        )}
-
-                                        {/* User feedback */}
-                                        {ver.user_feedback && (
-                                            <p className="text-pink-400/60 text-xs mt-1">✏️ {ver.user_feedback}</p>
-                                        )}
-
-                                        <p className="text-white/20 text-[10px] mt-2">
-                                            {new Date(ver.created_at).toLocaleString('vi-VN')}
-                                        </p>
-                                    </div>
+                                        versionNumber={ver.version_number}
+                                        status={ver.status}
+                                        userFeedback={ver.user_feedback}
+                                        adminNote={ver.admin_note}
+                                        createdAt={ver.created_at}
+                                        reviewedAt={ver.reviewed_at}
+                                        images={ver.design_images}
+                                        isActive={ver.id === latestVersion?.id}
+                                        compact
+                                    />
                                 ))}
                             </div>
                         </motion.div>
