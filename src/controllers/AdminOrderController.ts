@@ -89,10 +89,10 @@ export class AdminOrderController extends BaseController {
             const start = (page - 1) * limit;
             const end = start + limit - 1;
 
-            // Query unified orders table
+            // Query unified orders table — join users AND user_profiles for full_name
             let query = this.supabase
                 .from('orders')
-                .select('*, user:users(id, name, email, phone, customer_code), items:order_items(*)', { count: 'exact' })
+                .select('*, user:users(id, name, email, phone, customer_code, profile:user_profiles(full_name, phone)), items:order_items(*)', { count: 'exact' })
                 .order('created_at', { ascending: false })
                 .range(start, end);
 
@@ -110,7 +110,12 @@ export class AdminOrderController extends BaseController {
             // Transform to expected frontend format
             const transformedOrders = (orders || []).map((o: any) => ({
                 ...o,
-                profiles: o.user,
+                profiles: o.user ? {
+                    ...o.user,
+                    // full_name: prefer user_profiles.full_name, fallback to users.name
+                    full_name: o.user.profile?.full_name || o.user.name || null,
+                    phone: o.user.profile?.phone || o.user.phone || null,
+                } : null,
                 total: o.total_amount,
                 order_items: o.items,
                 order_type: o.order_type || this.inferOrderType(o.items),
@@ -139,7 +144,7 @@ export class AdminOrderController extends BaseController {
 
             const { data: order, error } = await this.supabase
                 .from('orders')
-                .select(`*, user:users(*), items:order_items(*, print_job:print_jobs(*))`)
+                .select(`*, user:users(*, profile:user_profiles(full_name, phone)), items:order_items(*, print_job:print_jobs(*))`)
                 .eq('id', orderId)
                 .maybeSingle() as any;
 
@@ -229,10 +234,17 @@ export class AdminOrderController extends BaseController {
                 };
             }
 
+            // Build profile with full_name resolution
+            const resolvedProfile = order.user ? {
+                ...order.user,
+                full_name: order.user.profile?.full_name || order.user.name || null,
+                phone: order.user.profile?.phone || order.user.phone || null,
+            } : null;
+
             return this.handleSuccess({
                 order: {
                     ...order,
-                    profiles: order.user,
+                    profiles: resolvedProfile,
                     order_items: order.items,
                     order_files: orderFiles,
                     total: order.total_amount,
@@ -244,7 +256,7 @@ export class AdminOrderController extends BaseController {
                     shipping_address: order.shipping_address || order.shipping_address_snapshot,
                     _source_table: 'orders'
                 },
-                profile: order.user,
+                profile: resolvedProfile,
             });
         }, 'AdminOrderController.getOrder');
     }
