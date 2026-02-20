@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
-import { getPaymentConfig, generateQRUrl } from '@/lib/services/paymentConfigService';
+import { getPaymentConfig, getOrderTypeForProduct, generateQRUrl } from '@/lib/services/paymentConfigService';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -75,7 +75,7 @@ export async function GET(
         }
 
         // Get bank info for QR
-        const orderType = order.order_type || 'ready_made';
+        const orderType = getOrderTypeForProduct(order.order_type || 'product');
         const bankInfo = await getPaymentConfig(orderType);
 
         // Get customer code from profile
@@ -116,7 +116,7 @@ export async function GET(
                 status: order.status,
                 payment_status: order.payment_status,
                 payment_qr_url: qrUrl,
-                spec: orderItem.spec,
+                spec: orderItem.configuration,
                 created_at: orderItem.created_at,
                 // Bank info
                 metadata: bankInfo ? {
