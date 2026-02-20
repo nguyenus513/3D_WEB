@@ -79,19 +79,19 @@ export async function POST(request: NextRequest) {
         // Check idempotency - return cached result if exists
         if (idempotencyKey) {
             const { data: existingPayment } = await supabaseAdmin
-                .from('payment')
+                .from('payments')
                 .select('*')
-                .eq('idempotency_key', idempotencyKey)
+                .eq('gateway_response->>idempotency_key', idempotencyKey)
                 .single();
 
             if (existingPayment) {
                 logger.info('Returning cached idempotent response', { idempotencyKey });
+                const gw = existingPayment.gateway_response as Record<string, string> | null;
                 return NextResponse.json(createSuccessResponse({
                     orderId: existingPayment.order_id,
-                    codeChild: existingPayment.reference_code,
                     amount: existingPayment.amount,
-                    qrUrl: existingPayment.qr_url,
-                    expiresAt: existingPayment.expires_at,
+                    qrUrl: gw?.qr_url || '',
+                    transferContent: existingPayment.transaction_code,
                     cached: true,
                 }));
             }
@@ -196,8 +196,7 @@ export async function POST(request: NextRequest) {
                 deposit_amount: finalAmount,
                 status: 'pending',
                 payment_status: 'pending',
-                shipping_address: shippingAddress || null,
-                customer_note: null,
+                shipping_address_snapshot: shippingAddress || null,
             })
             .select()
             .single();
@@ -225,10 +224,9 @@ export async function POST(request: NextRequest) {
                 sku: body.productSku || null,
                 quantity,
                 unit_price: unitPrice,
-                total_price: totalPrice,
-                item_type: productType,
+                item_type: productType === 'printing' ? 'print_3d' : productType,
                 production_status: 'waiting',
-                spec: metadata || {},
+                configuration: metadata || {},
             })
             .select()
             .single();
