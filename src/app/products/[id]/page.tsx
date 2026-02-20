@@ -20,7 +20,6 @@ export default function ProductDetailPage() {
     const [selectedImage, setSelectedImage] = useState(0); // Current image within size
     const [quantity, setQuantity] = useState(1);
     const [addedToCart, setAddedToCart] = useState(false);
-    const [payingNow, setPayingNow] = useState(false);
 
     const addItem = useCartStore(state => state.addItem);
 
@@ -75,68 +74,25 @@ export default function ProductDetailPage() {
         setSelectedImage(0); // Reset to first image of new size
     };
 
-    // Handle direct payment (Pay Now) with retry logic
-    const handlePayNow = async () => {
-        if (!product || payingNow) return;
+    // Handle Buy Now — add to cart and redirect to unified checkout
+    const handleBuyNow = () => {
+        if (!product) return;
 
-        setPayingNow(true);
-        const idempotencyKey = crypto.randomUUID();
-        let retryCount = 0;
-        const maxRetries = 3;
+        const size = product.sizes?.[selectedSize];
+        const price = size?.price || product.sale_price || product.base_price;
 
-        try {
-            const size = product.sizes?.[selectedSize];
-            const price = size?.price || product.sale_price || product.base_price;
+        addItem({
+            type: 'product',
+            productId: product.id,
+            name: product.name,
+            sku: product.sku || undefined,
+            price: price,
+            quantity: quantity,
+            size: size?.name || 'Default',
+            image: typeof product.images?.[0] === 'string' ? product.images[0] : product.images?.[0]?.url,
+        });
 
-            const attemptPayment = async (): Promise<{ success: boolean; data?: any; error?: any }> => {
-                const res = await fetch('/api/payments/direct', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Idempotency-Key': idempotencyKey,
-                    },
-                    body: JSON.stringify({
-                        productId: product.id,
-                        productName: product.name,
-                        productType: 'product',
-                        quantity,
-                        unitPrice: price,
-                        metadata: {
-                            size: size?.name || 'Default',
-                            sku: product.sku,
-                            image: typeof product.images?.[0] === 'string' ? product.images[0] : product.images?.[0]?.url, // Handle both formats
-                        },
-                    }),
-                });
-
-                return res.json();
-            };
-
-            // Retry logic with exponential backoff
-            let result = await attemptPayment();
-
-            while (!result.success && retryCount < maxRetries) {
-                retryCount++;
-                const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
-                console.log(`Payment retry ${retryCount}/${maxRetries} in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                result = await attemptPayment();
-            }
-
-            if (!result.success) {
-                const errorMsg = result.error?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại sau.';
-                alert(`${errorMsg}\n\nMã lỗi: ${result.error?.details?.correlationId || 'N/A'}`);
-                return;
-            }
-
-            // Navigate to QR page with the child code
-            router.push(`/qr/child/${result.data.codeChild}`);
-        } catch (error) {
-            console.error('PayNow error:', error);
-            alert('Có lỗi xảy ra, vui lòng thử lại');
-        } finally {
-            setPayingNow(false);
-        }
+        router.push('/checkout');
     };
 
     useEffect(() => {
@@ -439,19 +395,13 @@ export default function ProductDetailPage() {
                                     {addedToCart ? '✓ Đã thêm vào giỏ' : 'Thêm vào giỏ hàng'}
                                 </button>
 
-                                {/* Secondary row: Pay Now + View Cart */}
+                                {/* Secondary row: Buy Now + View Cart */}
                                 <div className="flex gap-3">
                                     <button
-                                        onClick={handlePayNow}
-                                        disabled={payingNow}
-                                        className="flex-1 py-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer disabled:opacity-50"
+                                        onClick={handleBuyNow}
+                                        className="flex-1 py-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer"
                                     >
-                                        {payingNow ? (
-                                            <span className="flex items-center justify-center gap-2">
-                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                Đang xử lý...
-                                            </span>
-                                        ) : 'Thanh toán ngay'}
+                                        Thanh toán ngay
                                     </button>
                                     <Link
                                         href="/cart"

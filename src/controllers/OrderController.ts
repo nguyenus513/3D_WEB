@@ -16,6 +16,7 @@ import { OrderRepository } from '@/repositories/OrderRepository';
 import { ProfileRepository } from '@/repositories/ProfileRepository';
 import { OrderQuerySchema, CreateOrderSchema } from '@/validators/order.schema';
 import { config } from '@/config/unifiedConfig';
+import { notifyAllAdmins } from '@/lib/notifications';
 
 // =============================================================================
 // Supabase Admin Client (Singleton)
@@ -100,6 +101,19 @@ export class OrderController extends BaseController {
                 session.user.email,
                 input
             );
+
+            // Notify admins about new order (fire-and-forget)
+            const totalAmount = input.items.reduce(
+                (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
+                0
+            );
+            notifyAllAdmins({
+                title: `Đơn hàng mới #${order.order_code}`,
+                message: `${input.items.length} sản phẩm - ${totalAmount.toLocaleString('vi-VN')}đ`,
+                type: 'payment',
+                refId: order.id,
+                refType: 'order',
+            }).catch(err => console.error('[OrderController] Failed to notify admins:', err));
 
             return this.handleSuccess(order, { status: 201 });
         }, 'OrderController.createOrder');
