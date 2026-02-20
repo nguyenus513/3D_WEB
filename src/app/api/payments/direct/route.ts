@@ -190,7 +190,8 @@ export async function POST(request: NextRequest) {
             .insert({
                 order_code: codeParent,
                 user_id: session.user.id,
-                order_type: getOrderTypeForProduct(productType),
+                // DB enum: 'product' | 'custom' | 'print_3d' | 'mixed'
+                order_type: productType === 'printing' ? 'print_3d' : productType,
                 subtotal: totalPrice,
                 total_amount: finalAmount,
                 deposit_amount: finalAmount,
