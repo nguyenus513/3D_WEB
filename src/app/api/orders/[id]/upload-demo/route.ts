@@ -49,10 +49,10 @@ export async function POST(
             }, { status: 400 });
         }
 
-        // Get latest version number
+        // Get latest version
         const { data: latestVersion } = await supabase
             .from('design_versions')
-            .select('version_number, status')
+            .select('id, version_number, status')
             .eq('order_id', orderId)
             .order('version_number', { ascending: false })
             .limit(1)
@@ -82,15 +82,7 @@ export async function POST(
             }
             versionId = newVersion.id;
         } else {
-            versionId = latestVersion.id || '';
-            // Need to fetch the actual ID
-            const { data: existingVersion } = await supabase
-                .from('design_versions')
-                .select('id')
-                .eq('order_id', orderId)
-                .eq('version_number', versionNumber)
-                .single();
-            if (existingVersion) versionId = existingVersion.id;
+            versionId = latestVersion.id;
         }
 
         // Insert image

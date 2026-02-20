@@ -92,7 +92,7 @@ interface Order {
         quantity: number;
         notes?: string;
     };
-    // Demo image for review
+    // Demo image for review (legacy)
     demo_image_url?: string;
     demo_images?: { url: string; label: string; uploaded_at: string }[];
     finished_images?: { url: string; label: string; uploaded_at: string }[];
@@ -100,6 +100,25 @@ interface Order {
     revision_feedback?: string;
     approved_at?: string;
     archived_at?: string;
+}
+
+interface DesignImage {
+    id: string;
+    image_url: string;
+    label: string;
+    sort_order: number;
+    created_at: string;
+}
+
+interface DesignVersion {
+    id: string;
+    version_number: number;
+    status: 'pending_review' | 'approved' | 'rejected';
+    admin_note: string | null;
+    user_feedback: string | null;
+    created_at: string;
+    reviewed_at: string | null;
+    design_images: DesignImage[];
 }
 
 const statusLabels: Record<string, string> = {
@@ -153,6 +172,9 @@ export default function AdminOrderDetailPage() {
     const [adminNote, setAdminNote] = useState('');
     const [uploadingDemo, setUploadingDemo] = useState(false);
     const [uploadingFinished, setUploadingFinished] = useState(false);
+    // Design versioning state
+    const [designVersions, setDesignVersions] = useState<DesignVersion[]>([]);
+    const [activeVersionTab, setActiveVersionTab] = useState<number>(0);
     const [archiving, setArchiving] = useState(false);
     const [archiveError, setArchiveError] = useState('');
     // Lock fetches while optimistic update is in progress
@@ -190,6 +212,7 @@ export default function AdminOrderDetailPage() {
     useEffect(() => {
         if (params.id && typeof params.id === 'string') {
             fetchOrder();
+            fetchDesignVersions(params.id as string);
         }
     }, [params.id]);
 
@@ -455,7 +478,10 @@ export default function AdminOrderDetailPage() {
                 };
             });
 
-            alert(`Upload thành công! (${data.total_images} ảnh demo)`);
+            // Refresh design versions
+            fetchDesignVersions(order.id);
+
+            alert(`Upload thành công!`);
         } catch (error) {
             console.error('Demo upload error:', error);
             alert('Upload thất bại: ' + (error as Error).message);
@@ -465,8 +491,25 @@ export default function AdminOrderDetailPage() {
         }
     };
 
-    // Delete demo image (from DB + R2)
-    const handleDeleteDemoImage = async (imageIndex: number) => {
+    // Fetch design versions for this order
+    const fetchDesignVersions = async (orderId: string) => {
+        try {
+            const res = await fetch(`/api/orders/${orderId}/design-versions`);
+            const data = await res.json();
+            if (data.success && data.versions) {
+                setDesignVersions(data.versions);
+                // Set active tab to latest version
+                if (data.versions.length > 0) {
+                    setActiveVersionTab(data.versions.length - 1);
+                }
+            }
+        } catch (err) {
+            console.error('[DesignVersions] Fetch error:', err);
+        }
+    };
+
+    // Delete demo image by design_images ID
+    const handleDeleteDemoImage = async (imageId: string) => {
         if (!order) return;
         if (!confirm('Xóa ảnh demo này? (Ảnh sẽ bị xóa khỏi storage)')) return;
 
@@ -474,7 +517,7 @@ export default function AdminOrderDetailPage() {
             const res = await fetch(`/api/admin/orders/${order.id}/demo-image`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ index: imageIndex }),
+                body: JSON.stringify({ image_id: imageId }),
             });
 
             const data = await res.json();
@@ -486,9 +529,11 @@ export default function AdminOrderDetailPage() {
                 return {
                     ...prev,
                     demo_images: data.demo_images || [],
-                    demo_image_url: data.demo_images?.[0]?.url || null,
                 };
             });
+
+            // Refresh versions
+            fetchDesignVersions(order.id);
         } catch (error) {
             alert('Xóa thất bại: ' + (error as Error).message);
         }
@@ -723,23 +768,132 @@ export default function AdminOrderDetailPage() {
                                 </div>
                             )}
 
-                            {/* ═══ DEMO IMAGES SECTION (Custom orders) ═══ */}
+                            {/* ═══ DESIGN VERSIONS SECTION (Custom orders) ═══ */}
                             {order.order_type === 'custom' && (
                                 <div className="mt-6 pt-6 border-t border-white/10 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-white/80 font-semibold text-sm">🎨 Design Versions</p>
+                                        {designVersions.length > 0 && (
+                                            <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">
+                                                {designVersions.length} version{designVersions.length > 1 ? 's' : ''}
+                                            </span>
+                                        )}
+                                    </div>
+
                                     {/* Revision Feedback Alert */}
-                                    {order.status === 'revising' && order.revision_feedback && (
-                                        <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
-                                            <p className="text-pink-400 font-semibold text-sm mb-1">
-                                                ✏ Khách yêu cầu chỉnh sửa {order.revision_count ? `(lần ${order.revision_count})` : ''}
-                                            </p>
-                                            <p className="text-white/70 text-sm">{order.revision_feedback}</p>
+                                    {order.status === 'revising' && (() => {
+                                        const rejectedVer = designVersions.find(v => v.status === 'rejected' && v.user_feedback);
+                                        return rejectedVer ? (
+                                            <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
+                                                <p className="text-pink-400 font-semibold text-sm mb-1">
+                                                    ✏ Khách yêu cầu chỉnh sửa V{rejectedVer.version_number}
+                                                </p>
+                                                <p className="text-white/70 text-sm">{rejectedVer.user_feedback}</p>
+                                            </div>
+                                        ) : order.revision_feedback ? (
+                                            <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
+                                                <p className="text-pink-400 font-semibold text-sm mb-1">✏ Khách yêu cầu chỉnh sửa</p>
+                                                <p className="text-white/70 text-sm">{order.revision_feedback}</p>
+                                            </div>
+                                        ) : null;
+                                    })()}
+
+                                    {/* Version Tabs */}
+                                    {designVersions.length > 0 && (
+                                        <div className="flex gap-2 overflow-x-auto pb-1">
+                                            {designVersions.map((ver, idx) => (
+                                                <button
+                                                    key={ver.id}
+                                                    onClick={() => setActiveVersionTab(idx)}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${idx === activeVersionTab
+                                                        ? ver.status === 'approved'
+                                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
+                                                            : ver.status === 'rejected'
+                                                                ? 'bg-pink-500/20 text-pink-400 border border-pink-500/50'
+                                                                : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
+                                                        : 'bg-white/5 text-white/40 border border-white/10 hover:bg-white/10'
+                                                        }`}
+                                                >
+                                                    V{ver.version_number}
+                                                    {ver.status === 'approved' && ' ✓'}
+                                                    {ver.status === 'rejected' && ' ✕'}
+                                                </button>
+                                            ))}
                                         </div>
                                     )}
+
+                                    {/* Active Version Content */}
+                                    {designVersions[activeVersionTab] && (() => {
+                                        const ver = designVersions[activeVersionTab];
+                                        return (
+                                            <div className="space-y-3">
+                                                {/* Version Status Bar */}
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className={`px-2 py-0.5 rounded-full ${ver.status === 'approved'
+                                                        ? 'bg-emerald-500/20 text-emerald-400'
+                                                        : ver.status === 'rejected'
+                                                            ? 'bg-pink-500/20 text-pink-400'
+                                                            : 'bg-orange-500/20 text-orange-400'
+                                                        }`}>
+                                                        {ver.status === 'approved' ? 'Đã duyệt' : ver.status === 'rejected' ? 'Bị từ chối' : 'Chờ duyệt'}
+                                                    </span>
+                                                    <span className="text-white/30">
+                                                        {new Date(ver.created_at).toLocaleDateString('vi-VN')}
+                                                    </span>
+                                                </div>
+
+                                                {/* Admin Note */}
+                                                {ver.admin_note && (
+                                                    <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
+                                                        <p className="text-cyan-400/70 text-[10px] font-medium mb-1">GHI CHÚ ADMIN</p>
+                                                        <p className="text-white/70 text-sm">{ver.admin_note}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* User Feedback (if rejected) */}
+                                                {ver.user_feedback && (
+                                                    <div className="bg-pink-500/5 border border-pink-500/20 rounded-lg p-3">
+                                                        <p className="text-pink-400/70 text-[10px] font-medium mb-1">PHẢN HỒI KHÁCH</p>
+                                                        <p className="text-white/70 text-sm">{ver.user_feedback}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Image Grid */}
+                                                {ver.design_images.length > 0 ? (
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        {ver.design_images.map((img) => (
+                                                            <div key={img.id} className="group relative">
+                                                                <a href={img.image_url} target="_blank" rel="noopener noreferrer">
+                                                                    <img
+                                                                        src={img.image_url}
+                                                                        alt={img.label || 'Demo'}
+                                                                        className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-white/30 transition-all"
+                                                                    />
+                                                                </a>
+                                                                <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-white/80 px-2 py-0.5 rounded-full">
+                                                                    {img.label || `#${img.sort_order}`}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => handleDeleteDemoImage(img.id)}
+                                                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-400 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
+                                                                    title="Xóa ảnh"
+                                                                >
+                                                                    <span className="text-white text-xs font-bold">✕</span>
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-white/20 text-sm text-center py-4">Chưa có ảnh</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* Upload Demo (show when designing/revising/processing) */}
                                     {['designing', 'processing', 'revising', 'review'].includes(order.status) && (
                                         <>
-                                            <p className="text-white/50 text-sm">📷 Upload ảnh demo (nhiều góc):</p>
+                                            <p className="text-white/50 text-sm">📷 Upload ảnh demo:</p>
                                             <label className={`
                                                 flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
                                                 border-2 border-dashed border-cyan-500/30 hover:border-cyan-500/50 
@@ -770,49 +924,8 @@ export default function AdminOrderDetailPage() {
                                         </>
                                     )}
 
-                                    {/* Demo Image Gallery with Delete */}
-                                    {(order.demo_images && order.demo_images.length > 0) && (
-                                        <>
-                                            <p className="text-white/50 text-sm">🖼️ Ảnh demo ({order.demo_images.length}):</p>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {order.demo_images.map((img, idx) => (
-                                                    <div key={idx} className="group relative">
-                                                        <a href={img.url} target="_blank" rel="noopener noreferrer">
-                                                            <img
-                                                                src={img.url}
-                                                                alt={img.label || `Demo ${idx + 1}`}
-                                                                className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-white/30 transition-all"
-                                                            />
-                                                        </a>
-                                                        <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-white/80 px-2 py-0.5 rounded-full">
-                                                            {img.label || `#${idx + 1}`}
-                                                        </span>
-                                                        {/* Delete button (hover) */}
-                                                        <button
-                                                            onClick={() => handleDeleteDemoImage(idx)}
-                                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-400 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
-                                                            title="Xóa ảnh demo"
-                                                        >
-                                                            <span className="text-white text-xs font-bold">✕</span>
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {/* Single legacy image fallback */}
-                                    {order.demo_image_url && (!order.demo_images || order.demo_images.length === 0) && (
-                                        <div>
-                                            <p className="text-white/50 text-sm mb-2">🖼️ Ảnh demo:</p>
-                                            <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
-                                                <img src={order.demo_image_url} alt="Demo" className="w-full rounded-xl border border-white/10 hover:border-white/30 transition-all" />
-                                            </a>
-                                        </div>
-                                    )}
-
                                     {/* Send for Review Button */}
-                                    {['designing', 'revising'].includes(order.status) && (order.demo_images?.length || 0) > 0 && (
+                                    {['designing', 'revising'].includes(order.status) && designVersions.some(v => v.design_images.length > 0) && (
                                         <button
                                             onClick={handleSendForReview}
                                             disabled={updating}
