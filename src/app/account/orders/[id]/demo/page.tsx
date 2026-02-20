@@ -12,6 +12,25 @@ interface DemoImage {
     uploaded_at: string;
 }
 
+interface DesignImage {
+    id: string;
+    image_url: string;
+    label: string;
+    sort_order: number;
+    created_at: string;
+}
+
+interface DesignVersion {
+    id: string;
+    version_number: number;
+    status: 'pending_review' | 'approved' | 'rejected';
+    admin_note: string | null;
+    user_feedback: string | null;
+    created_at: string;
+    reviewed_at: string | null;
+    design_images: DesignImage[];
+}
+
 interface DemoOrder {
     id: string;
     order_code: string;
@@ -34,10 +53,14 @@ export default function DemoReviewPage() {
     const [submitting, setSubmitting] = useState(false);
     const [showRevisionModal, setShowRevisionModal] = useState(false);
     const [revisionFeedback, setRevisionFeedback] = useState('');
+    // Design versioning
+    const [designVersions, setDesignVersions] = useState<DesignVersion[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
         if (authStatus === 'authenticated' && session?.user?.email) {
             fetchOrder();
+            fetchDesignVersions();
         } else if (authStatus === 'unauthenticated') {
             router.push('/login?redirect=/account/orders');
         }
@@ -69,6 +92,18 @@ export default function DemoReviewPage() {
         } catch {
             setError('Lỗi kết nối');
             setLoading(false);
+        }
+    };
+
+    const fetchDesignVersions = async () => {
+        try {
+            const res = await fetch(`/api/orders/${params.id}/design-versions`);
+            const data = await res.json();
+            if (data.success && data.versions) {
+                setDesignVersions(data.versions);
+            }
+        } catch {
+            // Silent fail — versions are supplementary
         }
     };
 
@@ -115,12 +150,20 @@ export default function DemoReviewPage() {
         }
     };
 
-    // Get all images (multi or single legacy)
-    const images: DemoImage[] = order?.demo_images?.length
-        ? order.demo_images
-        : order?.demo_image_url
-            ? [{ url: order.demo_image_url, label: 'Demo', uploaded_at: '' }]
-            : [];
+    // Get latest version's images, fallback to legacy
+    const latestVersion = designVersions.length > 0
+        ? designVersions[designVersions.length - 1]
+        : null;
+
+    const images: { url: string; label: string }[] = latestVersion
+        ? latestVersion.design_images.map(img => ({ url: img.image_url, label: img.label || 'Demo' }))
+        : order?.demo_images?.length
+            ? order.demo_images.map(img => ({ url: img.url, label: img.label }))
+            : order?.demo_image_url
+                ? [{ url: order.demo_image_url, label: 'Demo' }]
+                : [];
+
+    const versionNumber = latestVersion?.version_number || (order?.revision_count ? order.revision_count + 1 : 1);
 
     // ─── LOADING ───
     if (loading) {
@@ -213,9 +256,7 @@ export default function DemoReviewPage() {
                     </div>
                     <div className="text-right">
                         <span className="text-xs text-white/30 tracking-wider uppercase">Design Preview</span>
-                        {order.revision_count > 0 && (
-                            <p className="text-amber-400/60 text-xs">Version {order.revision_count + 1}</p>
-                        )}
+                        <p className="text-cyan-400/80 text-xs font-medium">Version {versionNumber}</p>
                     </div>
                 </div>
             </header>
@@ -257,8 +298,8 @@ export default function DemoReviewPage() {
                                         key={i}
                                         onClick={() => setSelectedImage(i)}
                                         className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${i === selectedImage
-                                                ? 'border-white ring-1 ring-white/20'
-                                                : 'border-white/[0.06] opacity-50 hover:opacity-80'
+                                            ? 'border-white ring-1 ring-white/20'
+                                            : 'border-white/[0.06] opacity-50 hover:opacity-80'
                                             }`}
                                     >
                                         <img src={img.url} alt={img.label || `Angle ${i + 1}`} className="w-full h-full object-cover" />
@@ -292,11 +333,34 @@ export default function DemoReviewPage() {
                             </p>
                         </div>
 
+                        {/* Version & Admin Note */}
+                        {latestVersion && (
+                            <div className="space-y-3">
+                                {/* Version badge */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-full border border-cyan-500/20">
+                                        Version {latestVersion.version_number}
+                                    </span>
+                                    <span className="text-white/20 text-xs">
+                                        {new Date(latestVersion.created_at).toLocaleDateString('vi-VN')}
+                                    </span>
+                                </div>
+
+                                {/* Admin note */}
+                                {latestVersion.admin_note && (
+                                    <div className="p-3 bg-cyan-500/5 border border-cyan-500/10 rounded-xl">
+                                        <p className="text-cyan-400/60 text-[10px] font-medium mb-1 uppercase tracking-wider">Ghi chú từ designer</p>
+                                        <p className="text-white/60 text-sm">{latestVersion.admin_note}</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Revision info (if applicable) */}
-                        {order.revision_count > 0 && (
+                        {versionNumber > 1 && (
                             <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl">
                                 <p className="text-amber-400/80 text-xs font-medium mb-1">
-                                    Lần chỉnh sửa thứ {order.revision_count}
+                                    Lần chỉnh sửa thứ {versionNumber - 1}
                                 </p>
                                 {order.revision_feedback && (
                                     <p className="text-white/40 text-xs">{order.revision_feedback}</p>
@@ -322,6 +386,16 @@ export default function DemoReviewPage() {
                                 Yêu cầu chỉnh sửa
                             </button>
                         </div>
+
+                        {/* Version history link */}
+                        {designVersions.length > 1 && (
+                            <button
+                                onClick={() => setShowHistory(true)}
+                                className="w-full text-center text-white/30 hover:text-white/60 text-xs transition-colors"
+                            >
+                                📋 Xem lịch sử thiết kế ({designVersions.length} versions)
+                            </button>
+                        )}
 
                         {/* Fine print */}
                         <p className="text-white/20 text-xs leading-relaxed text-center">
@@ -377,6 +451,98 @@ export default function DemoReviewPage() {
                                 >
                                     {submitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
                                 </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ─── Version History Modal ─── */}
+            <AnimatePresence>
+                {showHistory && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+                        onClick={() => setShowHistory(false)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto space-y-4"
+                        >
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-white">Lịch sử thiết kế</h2>
+                                <button
+                                    onClick={() => setShowHistory(false)}
+                                    className="text-white/30 hover:text-white/60 transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {designVersions.slice().reverse().map(ver => (
+                                    <div
+                                        key={ver.id}
+                                        className={`p-4 rounded-xl border ${ver.status === 'approved'
+                                                ? 'border-emerald-500/20 bg-emerald-500/5'
+                                                : ver.status === 'rejected'
+                                                    ? 'border-pink-500/20 bg-pink-500/5'
+                                                    : 'border-cyan-500/20 bg-cyan-500/5'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-white font-medium text-sm">
+                                                Version {ver.version_number}
+                                            </span>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${ver.status === 'approved'
+                                                    ? 'bg-emerald-500/20 text-emerald-400'
+                                                    : ver.status === 'rejected'
+                                                        ? 'bg-pink-500/20 text-pink-400'
+                                                        : 'bg-orange-500/20 text-orange-400'
+                                                }`}>
+                                                {ver.status === 'approved' ? 'Đã duyệt' : ver.status === 'rejected' ? 'Yêu cầu chỉnh sửa' : 'Đang chờ duyệt'}
+                                            </span>
+                                        </div>
+
+                                        {/* Thumbnails */}
+                                        {ver.design_images.length > 0 && (
+                                            <div className="flex gap-2 mb-2">
+                                                {ver.design_images.slice(0, 4).map(img => (
+                                                    <img
+                                                        key={img.id}
+                                                        src={img.image_url}
+                                                        alt={img.label}
+                                                        className="w-12 h-12 rounded-lg object-cover border border-white/10"
+                                                    />
+                                                ))}
+                                                {ver.design_images.length > 4 && (
+                                                    <div className="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                                                        <span className="text-white/40 text-xs">+{ver.design_images.length - 4}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Admin note */}
+                                        {ver.admin_note && (
+                                            <p className="text-white/40 text-xs mt-1">💬 {ver.admin_note}</p>
+                                        )}
+
+                                        {/* User feedback */}
+                                        {ver.user_feedback && (
+                                            <p className="text-pink-400/60 text-xs mt-1">✏️ {ver.user_feedback}</p>
+                                        )}
+
+                                        <p className="text-white/20 text-[10px] mt-2">
+                                            {new Date(ver.created_at).toLocaleString('vi-VN')}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         </motion.div>
                     </motion.div>
