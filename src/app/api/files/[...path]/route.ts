@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { downloadFromR2, existsInR2, streamFromR2 } from '@/lib/storage/r2';
 import { canAccessFile, logFileAccess } from '@/lib/security/file-access';
+import { getProfileId } from '@/lib/utils/getProfileId';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 
 // MIME types for common files
 const MIME_TYPES: Record<string, string> = {
@@ -65,8 +67,12 @@ export async function GET(
     try {
         // Get session
         const session = await auth();
-        const userId = session?.user?.id || null;
         const userRole = (session?.user as { role?: string })?.role;
+
+        // Resolve correct profile ID (session.user.id may differ from users.id)
+        const userId = session?.user
+            ? await getProfileId(session.user, getAdminSupabase())
+            : null;
 
         // Check access permission
         const accessCheck = await canAccessFile(userId, fileKey, userRole);
