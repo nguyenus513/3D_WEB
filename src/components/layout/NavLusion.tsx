@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/lib/store/cart';
 import { useSession } from 'next-auth/react';
+import { useNotifications, Notification } from '@/hooks/useNotifications';
 
 const navLinks = [
     {
@@ -46,14 +47,63 @@ const navLinks = [
     },
 ];
 
+/** Get icon for notification type */
+function getNotifIcon(type: string) {
+    switch (type) {
+        case 'design_uploaded': return '🎨';
+        case 'design_approved': return '✅';
+        case 'design_rejected': return '❌';
+        case 'order_status': return '📦';
+        case 'payment': return '💰';
+        default: return '🔔';
+    }
+}
+
 export function NavLusion() {
     const [isOpen, setIsOpen] = useState(false);
+    const [showNotif, setShowNotif] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const { items } = useCart();
     const cartCount = items.length;
     const { data: session, status } = useSession();
     const isLoggedIn = status === 'authenticated' && session?.user;
     const pathname = usePathname();
+    const notifRef = useRef<HTMLDivElement>(null);
+
+    const {
+        notifications,
+        unreadCount,
+        loading: notifLoading,
+        markAsRead,
+        markAllAsRead,
+        latestNotification,
+        clearLatest,
+    } = useNotifications({
+        endpoint: '/api/notifications',
+        refreshInterval: 30000,
+    });
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+                setShowNotif(false);
+            }
+        };
+        if (showNotif) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showNotif]);
+
+    const handleNotifClick = async (n: Notification) => {
+        if (!n.is_read) await markAsRead(n.id);
+        setShowNotif(false);
+    };
+
+    const getNotifLink = (n: Notification): string => {
+        if (n.ref_id && n.ref_type === 'order') return `/account/orders/${n.ref_id}`;
+        if (n.ref_id && n.ref_type === 'design_version') return `/account/orders/${n.ref_id}/demo`;
+        return '/account';
+    };
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -92,8 +142,91 @@ export function NavLusion() {
                         </motion.button>
                     </div>
 
-                    {/* Right side - Cart + User Avatar/Auth */}
+                    {/* Right side - Notifications + Cart + User Avatar/Auth */}
                     <div className="flex items-center gap-3">
+                        {/* Notification Bell — logged in only */}
+                        {isLoggedIn && (
+                            <div className="relative" ref={notifRef}>
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => setShowNotif(!showNotif)}
+                                    className="relative w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center hover:bg-white/20 transition-colors border border-white/10"
+                                    aria-label="Thông báo"
+                                >
+                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
+                                    {unreadCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </motion.button>
+
+                                {/* Notification Dropdown */}
+                                <AnimatePresence>
+                                    {showNotif && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="absolute right-0 top-14 w-80 max-h-96 overflow-y-auto bg-[#1D1D1F]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-[200]"
+                                        >
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10">
+                                                <h3 className="text-white text-sm font-semibold">Thông báo</h3>
+                                                {unreadCount > 0 && (
+                                                    <button
+                                                        onClick={() => markAllAsRead()}
+                                                        className="text-[#0071E3] text-xs hover:underline"
+                                                    >
+                                                        Đánh dấu đã đọc
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="divide-y divide-white/5">
+                                                {notifLoading ? (
+                                                    <div className="p-6 text-center text-white/40 text-sm">Đang tải...</div>
+                                                ) : notifications.length === 0 ? (
+                                                    <div className="p-6 text-center text-white/40 text-sm">Chưa có thông báo</div>
+                                                ) : (
+                                                    notifications.slice(0, 10).map(n => (
+                                                        <Link
+                                                            key={n.id}
+                                                            href={getNotifLink(n)}
+                                                            onClick={() => handleNotifClick(n)}
+                                                            className={`flex items-start gap-3 p-3 hover:bg-white/5 transition-colors ${!n.is_read ? 'bg-white/[0.03]' : ''
+                                                                }`}
+                                                        >
+                                                            <span className="text-lg mt-0.5">{getNotifIcon(n.type)}</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={`text-sm ${!n.is_read ? 'text-white font-medium' : 'text-white/70'}`}>
+                                                                    {n.title}
+                                                                </p>
+                                                                {n.message && (
+                                                                    <p className="text-xs text-white/40 mt-0.5 truncate">{n.message}</p>
+                                                                )}
+                                                                <p className="text-[10px] text-white/30 mt-1">
+                                                                    {new Date(n.created_at).toLocaleDateString('vi-VN', {
+                                                                        day: '2-digit', month: '2-digit',
+                                                                        hour: '2-digit', minute: '2-digit',
+                                                                    })}
+                                                                </p>
+                                                            </div>
+                                                            {!n.is_read && (
+                                                                <span className="w-2 h-2 rounded-full bg-[#0071E3] mt-2 flex-shrink-0" />
+                                                            )}
+                                                        </Link>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        )}
+
                         {/* Cart Icon */}
                         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                             <Link
@@ -226,6 +359,31 @@ export function NavLusion() {
                             </Link>
                         </motion.div>
                     </>
+                )}
+            </AnimatePresence>
+
+            {/* Realtime Notification Toast */}
+            <AnimatePresence>
+                {isLoggedIn && latestNotification && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="fixed top-20 right-4 md:right-6 z-[150] max-w-xs"
+                    >
+                        <div
+                            className="bg-[#1D1D1F]/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-3 shadow-2xl cursor-pointer flex items-start gap-2"
+                            onClick={() => clearLatest()}
+                        >
+                            <span className="text-lg flex-shrink-0 mt-0.5">{getNotifIcon(latestNotification.type)}</span>
+                            <div className="min-w-0">
+                                <p className="text-white text-xs font-medium">{latestNotification.title}</p>
+                                {latestNotification.message && (
+                                    <p className="text-white/40 text-[10px] mt-0.5 truncate">{latestNotification.message}</p>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </>

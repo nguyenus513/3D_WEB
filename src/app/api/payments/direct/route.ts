@@ -33,6 +33,7 @@ import {
     generateQRUrl
 } from '@/lib/services/paymentConfigService';
 import { BANK_INFO } from '@/lib/vietqr';
+import { notifyAllAdmins } from '@/lib/notifications';
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -279,6 +280,15 @@ export async function POST(request: NextRequest) {
             customerCode: customerCode,
             transferContent: transferContent
         });
+
+        // Notify all admins about new order (fire-and-forget)
+        notifyAllAdmins({
+            title: `Đơn hàng mới #${codeParent}`,
+            message: `${body.productName} - ${finalAmount.toLocaleString('vi-VN')}đ`,
+            type: 'payment',
+            refId: newOrder.id,
+            refType: 'order',
+        }).catch(err => logger.error('Failed to notify admins', err));
 
 
         return NextResponse.json(createSuccessResponse({
