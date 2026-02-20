@@ -186,15 +186,26 @@ export async function GET(request: NextRequest) {
             data: {
                 id: order.id,
                 order_code: order.order_code,
+                cart_code: order.cart_code,
                 order_type: orderType,
                 total,
                 deposit_amount: depositAmount,
                 status: order.status,
                 payment_status: order.payment_status || 'pending',
                 fulfillment_status: order.fulfillment_status || 'pending',
-                shipping_address: order.shipping_address_snapshot || null,
+                shipping_address: order.shipping_address || order.shipping_address_snapshot || null,
+                shipping_code: order.shipping_code || null,
                 created_at: order.created_at,
                 approved_at: order.approved_at || null,
+                // Demo / review fields
+                demo_images: order.demo_images || [],
+                demo_image_url: order.demo_image_url || null,
+                finished_images: order.finished_images || [],
+                revision_count: order.revision_count || 0,
+                revision_feedback: order.revision_feedback || null,
+                // Config fields
+                custom_config: order.custom_config || null,
+                printing_config: order.printing_config || null,
                 items: items,
                 payment: {
                     bank_id: bankConfig.bankId,
