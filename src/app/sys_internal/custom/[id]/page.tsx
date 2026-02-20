@@ -106,6 +106,8 @@ export default function AdminCustomDetailPage() {
 
             setOrder({
                 ...orderData,
+                // deposit_paid column removed from DB — derive from payment_status
+                deposit_paid: orderData.payment_status === 'paid' || orderData.payment_status === 'deposit_paid',
                 profiles: profileData,
                 custom_config: orderData.custom_config
             });

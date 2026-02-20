@@ -11,13 +11,38 @@ import { BaseController, UnauthorizedError, NotFoundError } from '@/lib/core/Bas
 import { config } from '@/config/unifiedConfig';
 import { requireAdmin } from '@/lib/security/admin-guard';
 
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
+
+/**
+ * Resolve file_url (R2 key, proxy path, or full URL) to a usable URL.
+ * - Full URL (http/https): return as-is
+ * - Proxy path (/api/files/...): return as-is
+ * - Raw R2 key: prepend /api/files/ for secure proxy access
+ */
+function resolveFileUrl(fileUrl: string, provider?: string): string {
+    if (!fileUrl) return '';
+    // Already a full URL
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+        return fileUrl;
+    }
+    // Already a proxy path
+    if (fileUrl.startsWith('/api/files/')) {
+        return fileUrl;
+    }
+    // Raw R2 key — serve via proxy (e.g. "KH-xxx/2026-02-19/xxx/xxx.jpg")
+    if (provider === 'r2' || !fileUrl.startsWith('/')) {
+        return `/api/files/${fileUrl}`;
+    }
+    // Fallback
+    return fileUrl;
+}
+
 // =============================================================================
 // Allowed update fields (whitelist to prevent injection of invalid columns)
 // =============================================================================
 const ALLOWED_UPDATE_FIELDS: ReadonlySet<string> = new Set([
     'status',
     'payment_status',
-    'deposit_paid',
     'paid_at',
     'shipping_code',
     'admin_notes',
@@ -159,7 +184,7 @@ export class AdminOrderController extends BaseController {
                     file_name: displayName,
                     file_key: f.file_url,       // file_url serves as the key/path
                     file_type: f.mime_type,
-                    file_url: f.file_url,
+                    file_url: resolveFileUrl(f.file_url, f.provider),
                     tag: fl.tag,
                     ref_type: fl.ref_type,
                     storage_provider: f.provider,
@@ -182,7 +207,7 @@ export class AdminOrderController extends BaseController {
                     : orderFiles.map((f: any) => ({
                         id: f.id,
                         name: f.file_name,
-                        url: f.file_url,
+                        url: f.file_url, // Already resolved by orderFiles mapping
                         thumbnail: null
                     }));
 
@@ -244,8 +269,7 @@ export class AdminOrderController extends BaseController {
                 update.status = body.status;
             }
 
-            // Payment fields
-            if (body.deposit_paid !== undefined) update.deposit_paid = body.deposit_paid;
+            // Payment fields (deposit_paid column removed — derive payment_status instead)
             if (body.paid_at !== undefined) update.paid_at = body.paid_at;
             if (body.payment_status !== undefined) update.payment_status = body.payment_status;
 
@@ -261,16 +285,16 @@ export class AdminOrderController extends BaseController {
             if (body.demo_version !== undefined) update.demo_version = body.demo_version;
             if (body.revision_feedback !== undefined) update.revision_feedback = body.revision_feedback;
 
-            // When confirming deposit, also update payment_status
+            // When confirming deposit via legacy deposit_paid flag, derive payment_status
             if (body.deposit_paid === true && !body.payment_status) {
                 // Determine if it's full payment or deposit
                 const { data: currentOrder } = await (this.supabase
                     .from('orders') as any)
-                    .select('deposit_amount, total, total_amount') // Fetch both total fields just in case
+                    .select('deposit_amount, total_amount')
                     .eq('id', orderId)
                     .single();
 
-                const total = currentOrder?.total ?? currentOrder?.total_amount ?? 0;
+                const total = currentOrder?.total_amount ?? 0;
                 const deposit = currentOrder?.deposit_amount ?? 0;
 
                 // If deposit covers total (100% payment) -> paid
@@ -294,11 +318,12 @@ export class AdminOrderController extends BaseController {
                 // Fetch current order to check if stock was already deducted
                 const { data: currentOrder } = await (this.supabase
                     .from('orders') as any)
-                    .select('deposit_paid, status')
+                    .select('payment_status, status')
                     .eq('id', orderId)
                     .single();
 
-                if (currentOrder && !currentOrder.deposit_paid) {
+                // Stock not yet deducted if payment_status is not 'paid' or 'deposit_paid'
+                if (currentOrder && currentOrder.payment_status !== 'paid' && currentOrder.payment_status !== 'deposit_paid') {
                     shouldDeductStock = true;
                 }
             }
@@ -307,11 +332,13 @@ export class AdminOrderController extends BaseController {
                 // Fetch current order to check if stock was previously deducted
                 const { data: currentOrder } = await (this.supabase
                     .from('orders') as any)
-                    .select('deposit_paid, status')
+                    .select('payment_status, status')
                     .eq('id', orderId)
                     .single();
 
-                if (currentOrder && currentOrder.deposit_paid && currentOrder.status !== 'cancelled') {
+                // Stock was deducted if payment was confirmed
+                const isPaid = currentOrder?.payment_status === 'paid' || currentOrder?.payment_status === 'deposit_paid';
+                if (currentOrder && isPaid && currentOrder.status !== 'cancelled') {
                     shouldRestoreStock = true;
                 }
             }

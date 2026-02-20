@@ -98,7 +98,7 @@ async function handlePaymentSuccess(
         .from('orders')
         .update({
             status: 'confirmed',
-            deposit_paid: true,
+            payment_status: 'paid',
             paid_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         })

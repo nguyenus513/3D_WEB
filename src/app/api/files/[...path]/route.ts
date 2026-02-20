@@ -15,12 +15,34 @@ import { canAccessFile, logFileAccess } from '@/lib/security/file-access';
 
 // MIME types for common files
 const MIME_TYPES: Record<string, string> = {
+    // Standard images
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
     'png': 'image/png',
     'gif': 'image/gif',
     'webp': 'image/webp',
     'svg': 'image/svg+xml',
+    'bmp': 'image/bmp',
+    'tiff': 'image/tiff',
+    'tif': 'image/tiff',
+    // iOS / modern formats
+    'heic': 'image/heic',
+    'heif': 'image/heif',
+    'avif': 'image/avif',
+    // RAW camera formats
+    'cr2': 'image/x-canon-cr2',
+    'cr3': 'image/x-canon-cr2',
+    'nef': 'image/x-nikon-nef',
+    'nrw': 'image/x-nikon-nef',
+    'arw': 'image/x-sony-arw',
+    'srf': 'image/x-sony-arw',
+    'sr2': 'image/x-sony-arw',
+    'dng': 'image/x-adobe-dng',
+    'rw2': 'image/x-panasonic-rw2',
+    'orf': 'image/x-olympus-orf',
+    'raf': 'image/x-fuji-raf',
+    'pef': 'image/tiff',
+    // 3D / documents
     'stl': 'application/sla',
     'obj': 'text/plain',
     'pdf': 'application/pdf',

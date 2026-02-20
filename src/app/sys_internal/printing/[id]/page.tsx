@@ -109,6 +109,8 @@ export default function AdminPrintingDetailPage() {
 
             setOrder({
                 ...orderData,
+                // deposit_paid column removed from DB — derive from payment_status
+                deposit_paid: orderData.payment_status === 'paid' || orderData.payment_status === 'deposit_paid',
                 profiles: profileData,
                 printing_config: orderData.printing_config
             });

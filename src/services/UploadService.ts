@@ -23,7 +23,7 @@ import {
     type FileType,
     type OrderFileCategory
 } from '@/lib/storage/unified-keys';
-import { validateUploadedFile, sanitizeFilename } from '@/lib/security/file-validation';
+import { validateUploadedFile, sanitizeFilename, RAW_IMAGE_EXTENSIONS } from '@/lib/security/file-validation';
 import { trackFileUpload } from '@/lib/security/file-access';
 import { BadRequestError, ForbiddenError } from '@/lib/core/BaseController';
 import { UploadRequestInput } from '@/validators/upload.schema';
@@ -162,10 +162,13 @@ export class UploadService {
         // Validate file type
         const isImage = file.type.startsWith('image/');
         const lowerName = file.name.toLowerCase();
+        const ext = lowerName.split('.').pop() || '';
         const is3DModel = lowerName.endsWith('.stl') || lowerName.endsWith('.obj') || lowerName.endsWith('.3mf') || lowerName.endsWith('.step') || lowerName.endsWith('.stp');
+        // RAW images may report as application/octet-stream from the browser
+        const isRawImage = RAW_IMAGE_EXTENSIONS.has(ext);
 
-        if (!isImage && !is3DModel) {
-            throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF, STL, OBJ, 3MF, STEP');
+        if (!isImage && !is3DModel && !isRawImage) {
+            throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF, HEIC, HEIF, AVIF, TIFF, BMP, RAW (CR2, NEF, ARW, DNG, RW2, ORF, RAF), STL, OBJ, 3MF, STEP');
         }
 
         // Validate file size (max 100MB)
@@ -189,8 +192,8 @@ export class UploadService {
         // Sanitize filename
         const safeFilename = sanitizeFilename(file.name);
 
-        // Validate image magic bytes
-        if (isImage) {
+        // Validate image magic bytes (including RAW)
+        if (isImage || isRawImage) {
             const validation = validateUploadedFile(file, buffer, ['image']);
             if (!validation.valid) {
                 throw new BadRequestError(validation.error || 'Invalid image file');
@@ -215,7 +218,8 @@ export class UploadService {
                 console.log('[UploadService] Routing 3D model to Google Drive...');
                 return await this.uploadToDrive(buffer, file, params);
             } else {
-                console.log('[UploadService] Routing image to R2...');
+                // Images (standard + RAW) go to R2
+                console.log('[UploadService] Routing image/RAW to R2...');
                 return await this.uploadToR2Storage(buffer, file, params, userId);
             }
         } catch (error) {

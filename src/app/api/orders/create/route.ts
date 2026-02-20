@@ -140,7 +140,6 @@ export async function POST(request: NextRequest) {
                 order_type: orderType === 'ready_made' ? 'product' : orderType === 'printing' ? 'print_3d' : orderType,
                 status: 'pending',
                 payment_status: 'pending',
-                deposit_paid: false,
                 subtotal: totalPrice,
                 discount: 0,
                 total_amount: total,

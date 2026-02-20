@@ -7,38 +7,59 @@
 
 // Magic bytes signatures for common file types
 const MAGIC_SIGNATURES: Record<string, number[][]> = {
-    // Images
+    // Standard images
     'image/jpeg': [[0xFF, 0xD8, 0xFF]],
     'image/png': [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
     'image/gif': [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]],
-    'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF header, need additional check
+    'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF header
     'image/bmp': [[0x42, 0x4D]],
     'image/svg+xml': [[0x3C, 0x73, 0x76, 0x67], [0x3C, 0x3F, 0x78, 0x6D, 0x6C]], // <svg or <?xml
-    // iOS HEIC/HEIF - ftyp-based formats (check at offset 4)
-    'image/heic': [], // Validated separately via ftyp check
-    'image/heif': [], // Validated separately via ftyp check
-    'image/avif': [], // Validated separately via ftyp check
+    // TIFF (also base for many RAW formats)
+    'image/tiff': [[0x49, 0x49, 0x2A, 0x00], [0x4D, 0x4D, 0x00, 0x2A]], // II*\0 (LE) or MM\0* (BE)
+    // iOS HEIC/HEIF/AVIF - ftyp-based formats (validated separately)
+    'image/heic': [],
+    'image/heif': [],
+    'image/avif': [],
+    // RAW camera formats (many share TIFF structure; validated by extension + header)
+    'image/x-canon-cr2': [[0x49, 0x49, 0x2A, 0x00]],   // TIFF LE + CR2 marker at offset 8
+    'image/x-adobe-dng': [[0x49, 0x49, 0x2A, 0x00], [0x4D, 0x4D, 0x00, 0x2A]], // TIFF structure
+    'image/x-nikon-nef': [],     // TIFF-based, validated by extension
+    'image/x-sony-arw': [],      // TIFF-based, validated by extension
+    'image/x-panasonic-rw2': [[0x49, 0x49, 0x55, 0x00]], // RW2 specific header
+    'image/x-olympus-orf': [[0x49, 0x49, 0x52, 0x4F]],   // IIRO
+    'image/x-fuji-raf': [[0x46, 0x55, 0x4A, 0x49, 0x46, 0x49, 0x4C, 0x4D]], // FUJIFILM
 
     // 3D files
     'model/stl': [[0x73, 0x6F, 0x6C, 0x69, 0x64]], // "solid" for ASCII STL
     'application/octet-stream': [], // Binary STL has no magic bytes
 
-    // Documents (if needed later)
+    // Documents
     'application/pdf': [[0x25, 0x50, 0x44, 0x46]], // %PDF
 };
 
 // Allowed MIME types by category
 export const ALLOWED_MIME_TYPES = {
     image: [
+        // Standard web formats
         'image/jpeg',
         'image/png',
         'image/gif',
         'image/webp',
         'image/bmp',
-        // iOS HEIC/HEIF formats
+        'image/tiff',
+        'image/svg+xml',
+        // iOS / modern formats
         'image/heic',
         'image/heif',
         'image/avif',
+        // RAW camera formats
+        'image/x-canon-cr2',
+        'image/x-nikon-nef',
+        'image/x-sony-arw',
+        'image/x-adobe-dng',
+        'image/x-panasonic-rw2',
+        'image/x-olympus-orf',
+        'image/x-fuji-raf',
     ],
     model: [
         'application/octet-stream', // STL binary
@@ -46,6 +67,13 @@ export const ALLOWED_MIME_TYPES = {
         'model/obj',
     ],
 };
+
+// RAW file extensions for isImage detection in UploadService
+export const RAW_IMAGE_EXTENSIONS = new Set([
+    'cr2', 'cr3', 'nef', 'nrw', 'arw', 'srf', 'sr2',
+    'dng', 'rw2', 'orf', 'raf', 'pef', 'srw', 'x3f',
+    'heic', 'heif', 'avif', 'tiff', 'tif', 'bmp',
+]);
 
 /**
  * Validate file by checking magic bytes
@@ -82,7 +110,7 @@ export function validateFileMagicBytes(buffer: Buffer, declaredMimeType: string)
  * @param buffer - File buffer
  * @returns Detected MIME type or null
  */
-export function detectFileType(buffer: Buffer): string | null {
+export function detectFileType(buffer: Buffer, fileName?: string): string | null {
     if (!buffer || buffer.length < 8) {
         return null;
     }
@@ -93,44 +121,68 @@ export function detectFileType(buffer: Buffer): string | null {
         const ftypMagic = buffer.slice(4, 8).toString('ascii');
         if (ftypMagic === 'ftyp') {
             const brand = buffer.slice(8, 12).toString('ascii');
-            // HEIC brands: heic, heix, mif1
-            if (['heic', 'heix', 'mif1'].includes(brand)) {
-                return 'image/heic';
-            }
-            // HEIF brands: heif
-            if (brand === 'heif') {
-                return 'image/heif';
-            }
-            // AVIF brands: avif, avis
-            if (['avif', 'avis'].includes(brand)) {
-                return 'image/avif';
-            }
+            if (['heic', 'heix', 'mif1'].includes(brand)) return 'image/heic';
+            if (brand === 'heif') return 'image/heif';
+            if (['avif', 'avis'].includes(brand)) return 'image/avif';
         }
     }
 
-    // Check each known signature
+    // Check for Fuji RAF (starts with "FUJIFILM")
+    if (buffer.length >= 8) {
+        const fujiHeader = buffer.slice(0, 8).toString('ascii');
+        if (fujiHeader === 'FUJIFILM') return 'image/x-fuji-raf';
+    }
+
+    // Check for Olympus ORF (IIRO or IIRS)
+    if (buffer.length >= 4) {
+        const orfHeader = buffer.slice(0, 4).toString('ascii');
+        if (orfHeader === 'IIRO' || orfHeader === 'IIRS') return 'image/x-olympus-orf';
+    }
+
+    // Check for Panasonic RW2
+    if (buffer.length >= 4 && buffer[0] === 0x49 && buffer[1] === 0x49 && buffer[2] === 0x55 && buffer[3] === 0x00) {
+        return 'image/x-panasonic-rw2';
+    }
+
+    // Check TIFF-based formats (TIFF, CR2, NEF, ARW, DNG)
+    if (buffer.length >= 12) {
+        const isLE = buffer[0] === 0x49 && buffer[1] === 0x49 && buffer[2] === 0x2A && buffer[3] === 0x00;
+        const isBE = buffer[0] === 0x4D && buffer[1] === 0x4D && buffer[2] === 0x00 && buffer[3] === 0x2A;
+        if (isLE || isBE) {
+            // CR2: TIFF LE + CR marker at offset 8-9 (0x43 0x52 = 'CR')
+            if (isLE && buffer.length >= 10 && buffer[8] === 0x43 && buffer[9] === 0x52) {
+                return 'image/x-canon-cr2';
+            }
+            // Use filename extension to disambiguate other TIFF-based RAW formats
+            const ext = fileName?.toLowerCase().split('.').pop();
+            if (ext === 'nef' || ext === 'nrw') return 'image/x-nikon-nef';
+            if (ext === 'arw' || ext === 'srf' || ext === 'sr2') return 'image/x-sony-arw';
+            if (ext === 'dng') return 'image/x-adobe-dng';
+            if (ext === 'pef') return 'image/tiff'; // Pentax uses plain TIFF
+            // Default: plain TIFF
+            return 'image/tiff';
+        }
+    }
+
+    // Check each known signature (non-TIFF-based)
     for (const [mimeType, signatures] of Object.entries(MAGIC_SIGNATURES)) {
         if (signatures.length === 0) continue;
+        // Skip TIFF-based entries (already handled above)
+        if (['image/tiff', 'image/x-canon-cr2', 'image/x-adobe-dng', 'image/x-panasonic-rw2', 'image/x-olympus-orf', 'image/x-fuji-raf'].includes(mimeType)) continue;
 
         const matches = signatures.some(signature => {
             for (let i = 0; i < signature.length; i++) {
-                if (buffer[i] !== signature[i]) {
-                    return false;
-                }
+                if (buffer[i] !== signature[i]) return false;
             }
             return true;
         });
 
-        if (matches) {
-            return mimeType;
-        }
+        if (matches) return mimeType;
     }
 
     // Check for ASCII STL (starts with "solid")
     const header = buffer.slice(0, 5).toString('ascii');
-    if (header === 'solid') {
-        return 'model/stl';
-    }
+    if (header === 'solid') return 'model/stl';
 
     return null;
 }
@@ -159,12 +211,14 @@ export function validateUploadedFile(
     // Check declared MIME type
     const declaredType = file.type || 'application/octet-stream';
 
-    // Detect actual type from magic bytes
-    const detectedType = detectFileType(buffer);
+    // Detect actual type from magic bytes (pass filename for RAW disambiguation)
+    const detectedType = detectFileType(buffer, file.name);
 
     // For images, validate magic bytes match
-    if (declaredType.startsWith('image/')) {
-        if (!detectedType || !detectedType.startsWith('image/')) {
+    // Allow RAW formats where browser declares 'application/octet-stream'
+    const isRawExt = RAW_IMAGE_EXTENSIONS.has((file.name.toLowerCase().split('.').pop()) || '');
+    if (declaredType.startsWith('image/') || isRawExt) {
+        if (!detectedType || (!detectedType.startsWith('image/') && !isRawExt)) {
             return {
                 valid: false,
                 error: 'File không phải là hình ảnh hợp lệ.',

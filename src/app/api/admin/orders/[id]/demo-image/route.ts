@@ -69,10 +69,19 @@ export async function POST(
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // Validate file type
-        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        if (!validTypes.includes(file.type)) {
-            return NextResponse.json({ error: 'Invalid file type. Use JPEG, PNG, WebP or GIF' }, { status: 400 });
+        // Validate file type (browsers may report RAW as application/octet-stream)
+        const validTypes = [
+            'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg+xml',
+            'image/heic', 'image/heif', 'image/avif',
+            'image/x-canon-cr2', 'image/x-nikon-nef', 'image/x-sony-arw', 'image/x-adobe-dng',
+            'image/x-panasonic-rw2', 'image/x-olympus-orf', 'image/x-fuji-raf',
+        ];
+        const rawExts = ['cr2', 'cr3', 'nef', 'arw', 'dng', 'rw2', 'orf', 'raf', 'heic', 'heif', 'avif', 'tiff', 'tif', 'bmp'];
+        const fileExt = file.name.toLowerCase().split('.').pop() || '';
+        const isKnownImage = validTypes.includes(file.type) || file.type.startsWith('image/');
+        const isRawByExt = rawExts.includes(fileExt);
+        if (!isKnownImage && !isRawByExt) {
+            return NextResponse.json({ error: 'Loại file không hỗ trợ. Hỗ trợ: JPEG, PNG, WebP, GIF, HEIC, HEIF, AVIF, TIFF, BMP, RAW' }, { status: 400 });
         }
 
         // Convert File to Buffer
@@ -96,21 +105,24 @@ export async function POST(
             extension: ext,
         });
 
-        // ─── NEW: Apply Watermark ─────────────────────────────
+        // ─── Apply Watermark ─────────────────────────────────
         const { addWatermark } = await import('@/lib/watermark');
         const processedBuffer = await addWatermark(buffer);
         // ──────────────────────────────────────────────────────
 
-        const { url: demoImageUrl } = await uploadToR2(processedBuffer, r2Key, file.type, {
+        await uploadToR2(processedBuffer, r2Key, file.type, {
             orderId,
             orderCode: orderCode,
             type: 'demo',
             index: String(imageIndex),
         });
 
+        // Store persistent proxy URL (not expiring presigned URL)
+        const proxyUrl = `/api/files/${r2Key}`;
+
         // Build new image entry
         const newImage: DemoImage = {
-            url: demoImageUrl,
+            url: proxyUrl,
             label,
             uploaded_at: new Date().toISOString(),
         };

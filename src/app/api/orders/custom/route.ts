@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
                 sku: null,
                 quantity: 1,
                 unit_price: totalPrice,
-                total_price: totalPrice, // Computed column, but provided here just in case (will be ignored if generated always)
+                // total_price is GENERATED ALWAYS AS (quantity * unit_price) — do NOT insert
                 item_type: 'custom',
                 production_status: 'waiting',
                 configuration: { // New JSONB column for custom specs
@@ -169,59 +169,43 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Step 3: Link files via files + file_links tables
+        // Step 3: Link files to order_item via file_links
+        // Files were already uploaded and stored by UploadService (POST /api/upload).
+        // UploadService stored file_url as "/api/files/{key}" and linked to `order`.
+        // Here we just need to re-link those files to the `order_item`.
         if (images && images.length > 0) {
             for (const img of images) {
-                // Check if file exists (by URL/Key) or create new one
-                // R2 images usually have a URL or ID
-                const fileKey = img.id || img.url;
-                if (!fileKey) continue;
+                // img.id from frontend = R2 key (e.g. "KH-xxx/2026-02-19/xxx/xxx.jpg")
+                // img.name = original filename
+                const r2Key = img.id || img.name;
+                if (!r2Key) continue;
 
-                let fileId: string | null = null;
-
-                // Try to find existing file
+                // Find existing file record by matching file_url patterns:
+                // UploadService stores as "/api/files/{key}"
+                // Also check for raw key in case of older records
+                const proxyPath = `/api/files/${r2Key}`;
                 const { data: existingFile } = await supabase
                     .from('files')
                     .select('id')
-                    .or(`file_url.eq.${fileKey},file_url.ilike.%${fileKey}%`)
+                    .or(`file_url.eq.${proxyPath},file_url.eq.${r2Key}`)
                     .maybeSingle();
 
                 if (existingFile) {
-                    fileId = existingFile.id;
-                } else {
-                    // Create new file record
-                    const { data: newFile, error: fileInsertError } = await supabase
-                        .from('files')
-                        .insert({
-                            file_url: img.url || img.id,
-                            mime_type: img.type || 'image/jpeg',
-                            size_bytes: img.size || 0,
-                            provider: 'r2',
-                        })
-                        .select('id')
-                        .single();
-
-                    if (!fileInsertError && newFile) {
-                        fileId = newFile.id;
-                    } else {
-                        log.warn('Failed to insert file record', { error: fileInsertError, img });
-                    }
-                }
-
-                // Link file to order_item
-                if (fileId) {
+                    // Link existing file to order_item
                     const { error: linkError } = await supabase
                         .from('file_links')
                         .insert({
-                            file_id: fileId,
+                            file_id: existingFile.id,
                             ref_type: 'order_item',
                             ref_id: orderItem.id,
-                            tag: 'reference', // Tag for custom order references
+                            tag: 'reference',
                         });
 
                     if (linkError) {
-                        log.warn('Failed to link file', { error: linkError, fileId });
+                        log.warn('Failed to link file to order_item', { error: linkError, fileId: existingFile.id });
                     }
+                } else {
+                    log.warn('File record not found for R2 key', { r2Key, proxyPath });
                 }
             }
         }

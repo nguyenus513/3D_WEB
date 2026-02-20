@@ -258,6 +258,8 @@ export default function AdminOrderDetailPage() {
             if (!isOptimisticUpdate.current) {
                 setOrder({
                     ...orderData,
+                    // deposit_paid column removed from DB — derive from payment_status
+                    deposit_paid: orderData.payment_status === 'paid' || orderData.payment_status === 'deposit_paid',
                     profiles: profileData ? {
                         full_name: profileData.full_name || shippingAddr?.full_name || 'Khách vãng lai',
                         email: profileData.email || '',

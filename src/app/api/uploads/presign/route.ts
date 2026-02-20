@@ -9,10 +9,27 @@ import { getProfileId } from '@/lib/utils/getProfileId';
 import { requireCsrf } from '@/lib/security/csrf';
 
 const ALLOWED_CONTENT_TYPES = new Set([
+    // Standard image formats
     'image/jpeg',
     'image/png',
     'image/webp',
     'image/gif',
+    'image/bmp',
+    'image/tiff',
+    'image/svg+xml',
+    // iOS / modern formats
+    'image/heic',
+    'image/heif',
+    'image/avif',
+    // RAW camera formats
+    'image/x-canon-cr2',
+    'image/x-nikon-nef',
+    'image/x-sony-arw',
+    'image/x-adobe-dng',
+    'image/x-panasonic-rw2',
+    'image/x-olympus-orf',
+    'image/x-fuji-raf',
+    // 3D model formats
     'model/stl',
     'application/sla',
     'model/obj',
