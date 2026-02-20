@@ -1,19 +1,16 @@
+/**
+ * Admin Notifications API
+ * GET /api/admin/notifications
+ *
+ * Fetches notifications from the notifications table for admin users.
+ * Supports both the new notification system and legacy order-based notifications.
+ */
+
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getProfileId } from '@/lib/utils/getProfileId';
 
-// Supabase admin client to bypass RLS
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-/**
- * GET /api/admin/notifications
- * 
- * Fetches pending/paid orders for admin notifications dropdown.
- * Uses admin client to bypass RLS.
- */
 export async function GET() {
     try {
         // Verify admin auth
@@ -23,8 +20,34 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Fetch pending/pending_confirmation/paid orders using admin client
-        const { data, error } = await supabaseAdmin
+        const supabase = getAdminSupabase();
+        const profileId = await getProfileId(session.user, supabase);
+
+        if (!profileId) {
+            return NextResponse.json({ error: 'Profile not found' }, { status: 401 });
+        }
+
+        // Fetch notifications for this admin
+        const { data: notifications, error: notifError } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', profileId)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (notifError) {
+            console.error('[AdminNotifications] Fetch error:', notifError);
+        }
+
+        // Get unread count
+        const { count } = await supabase
+            .from('notifications')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', profileId)
+            .eq('is_read', false);
+
+        // Also fetch pending orders (legacy compatibility — actionable items)
+        const { data: pendingOrders } = await supabase
             .from('orders')
             .select(`
                 id,
@@ -38,18 +61,17 @@ export async function GET() {
                     email
                 )
             `)
-            .in('status', ['pending', 'pending_confirmation', 'paid', 'approved', 'revising'])
+            .in('status', ['pending', 'pending_confirmation', 'paid'])
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(5);
 
-        if (error) {
-            console.error('Notifications fetch error:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        return NextResponse.json({ orders: data || [] });
+        return NextResponse.json({
+            notifications: notifications || [],
+            orders: pendingOrders || [],
+            unread_count: count || 0,
+        });
     } catch (error) {
-        console.error('Notifications API error:', error);
+        console.error('[AdminNotifications] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

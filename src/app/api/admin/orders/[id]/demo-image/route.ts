@@ -13,6 +13,7 @@ import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, isR2Configured, deleteFromR2, extractR2KeyFromUrl } from '@/lib/storage/r2';
 import { generateStudioR2Key, getExtension } from '@/lib/naming';
+import { createNotification } from '@/lib/notifications';
 
 const MAX_IMAGES_PER_VERSION = 10;
 const MAX_REVISIONS = 5;
@@ -219,6 +220,18 @@ export async function POST(
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);
+
+        // Notify order owner
+        if (order.user_id) {
+            await createNotification({
+                userId: order.user_id,
+                title: 'Thiết kế mới đã sẵn sàng',
+                message: `Đơn hàng #${orderCode} - Vui lòng xem và duyệt thiết kế`,
+                type: 'design_uploaded',
+                refId: orderId,
+                refType: 'order',
+            });
+        }
 
         // Invalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');

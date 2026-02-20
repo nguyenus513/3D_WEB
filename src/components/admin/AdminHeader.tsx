@@ -1,18 +1,10 @@
 ﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAdminPath } from '@/hooks/useAdminPath';
-import { Menu, Search, Bell, ShoppingBag, CheckCircle, Pencil } from 'lucide-react';
-
-interface Notification {
-    id: string;
-    order_code: string;
-    order_type: string;
-    status: string;
-    total: number;
-    created_at: string;
-}
+import { useNotifications, Notification } from '@/hooks/useNotifications';
+import { Menu, Search, Bell, CheckCircle, Pencil, ShoppingBag, Upload, Check } from 'lucide-react';
 
 const typeLabels: Record<string, string> = {
     ready_made: 'Sản phẩm',
@@ -20,39 +12,48 @@ const typeLabels: Record<string, string> = {
     printing: 'In 3D',
 };
 
+/** Get notification icon and color based on type */
+function getNotificationStyle(notification: Notification) {
+    switch (notification.type) {
+        case 'design_approved':
+            return {
+                icon: <CheckCircle size={16} className="text-emerald-400" strokeWidth={1.5} />,
+                bg: 'bg-emerald-500/20',
+            };
+        case 'design_rejected':
+            return {
+                icon: <Pencil size={16} className="text-amber-400" strokeWidth={1.5} />,
+                bg: 'bg-amber-500/20',
+            };
+        case 'design_uploaded':
+            return {
+                icon: <Upload size={16} className="text-cyan-400" strokeWidth={1.5} />,
+                bg: 'bg-cyan-500/20',
+            };
+        default:
+            return {
+                icon: <ShoppingBag size={16} className="text-blue-400" strokeWidth={1.5} />,
+                bg: 'bg-blue-500/20',
+            };
+    }
+}
+
 export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     const { adminRoot } = useAdminPath();
     const [showNotifications, setShowNotifications] = useState(false);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        // Fetch on mount
-        fetchNotifications();
-        // Refresh every 5 seconds (reduced from 1s to avoid spam)
-        const interval = setInterval(fetchNotifications, 5000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Also fetch when dropdown opens
-    useEffect(() => {
-        if (showNotifications) {
-            fetchNotifications();
-        }
-    }, [showNotifications]);
-
-    const fetchNotifications = async () => {
-        try {
-            const res = await fetch('/api/admin/notifications');
-            if (res.ok) {
-                const data = await res.json();
-                setNotifications(data.orders || []);
-            }
-        } catch (error) {
-            console.error('Failed to fetch notifications:', error);
-        }
-        setLoading(false);
-    };
+    const {
+        notifications,
+        unreadCount,
+        loading,
+        markAsRead,
+        markAllAsRead,
+        latestNotification,
+        clearLatest,
+    } = useNotifications({
+        endpoint: '/api/admin/notifications',
+        refreshInterval: 15000,
+    });
 
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -70,10 +71,22 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         return `${diffDays} ngày trước`;
     };
 
-    const pendingCount = notifications.filter(n => ['pending', 'pending_confirmation', 'approved', 'revising'].includes(n.status)).length;
+    const handleNotificationClick = async (notification: Notification) => {
+        if (!notification.is_read) {
+            await markAsRead(notification.id);
+        }
+        setShowNotifications(false);
+    };
+
+    const getNotificationLink = (notification: Notification): string => {
+        if (notification.ref_id && notification.ref_type === 'order') {
+            return `${adminRoot}/orders/${notification.ref_id}`;
+        }
+        return `${adminRoot}/orders`;
+    };
 
     return (
-        // Updated to matching Miniver theme #1D1D1F
+        // Matching Miniver theme #1D1D1F
         <header className="sticky top-0 z-40 bg-[#1D1D1F] border-b border-white/5">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
                 {/* Mobile menu button */}
@@ -105,10 +118,10 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                             className="relative p-2.5 rounded-xl hover:bg-white/5 transition-colors"
                         >
                             <Bell size={20} className="text-white/70" strokeWidth={1.5} />
-                            {/* Badge - only show if there are pending orders */}
-                            {pendingCount > 0 && (
+                            {/* Badge */}
+                            {unreadCount > 0 && (
                                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-medium rounded-full flex items-center justify-center px-1">
-                                    {pendingCount > 9 ? '9+' : pendingCount}
+                                    {unreadCount > 9 ? '9+' : unreadCount}
                                 </span>
                             )}
                         </button>
@@ -118,11 +131,21 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                             <div className="absolute right-0 mt-2 w-96 bg-[#1D1D1F] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]">
                                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
                                     <h3 className="text-white font-semibold">Thông báo</h3>
-                                    {pendingCount > 0 && (
-                                        <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
-                                            {pendingCount} chờ xử lý
-                                        </span>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {unreadCount > 0 && (
+                                            <>
+                                                <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+                                                    {unreadCount} mới
+                                                </span>
+                                                <button
+                                                    onClick={markAllAsRead}
+                                                    className="text-xs text-white/40 hover:text-white/70 transition-colors flex items-center gap-1"
+                                                >
+                                                    <Check size={12} /> Đọc hết
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="max-h-80 overflow-y-auto">
                                     {loading ? (
@@ -134,54 +157,43 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                             Không có thông báo mới
                                         </div>
                                     ) : (
-                                        notifications.map((n) => (
-                                            <Link
-                                                key={n.id}
-                                                href={`${adminRoot}/orders/${n.id}`}
-                                                onClick={() => setShowNotifications(false)}
-                                                className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
-                                            >
-                                                <div className="flex items-start gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.status === 'approved' ? 'bg-emerald-500/20' :
-                                                            n.status === 'revising' ? 'bg-amber-500/20' :
-                                                                n.status === 'pending_confirmation' ? 'bg-orange-500/20' :
-                                                                    n.status === 'pending' ? 'bg-yellow-500/20' : 'bg-blue-500/20'
-                                                        }`}>
-                                                        {n.status === 'approved' ? (
-                                                            <CheckCircle size={16} className="text-emerald-400" strokeWidth={1.5} />
-                                                        ) : n.status === 'revising' ? (
-                                                            <Pencil size={16} className="text-amber-400" strokeWidth={1.5} />
-                                                        ) : (
-                                                            <ShoppingBag size={16} className={
-                                                                n.status === 'pending_confirmation' ? 'text-orange-400' :
-                                                                    n.status === 'pending' ? 'text-yellow-400' : 'text-blue-400'
-                                                            } strokeWidth={1.5} />
-                                                        )}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-white text-sm font-medium">{n.order_code}</span>
-                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                                    n.status === 'revising' ? 'bg-amber-500/20 text-amber-400' :
-                                                                        n.status === 'pending_confirmation' ? 'bg-orange-500/20 text-orange-400' :
-                                                                            n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
-                                                                }`}>
-                                                                {n.status === 'approved' ? 'Khách duyệt demo' :
-                                                                    n.status === 'revising' ? 'Yêu cầu sửa demo' :
-                                                                        n.status === 'pending_confirmation' ? 'Chờ xác nhận' :
-                                                                            n.status === 'pending' ? 'Chờ TT' : 'Đã TT'}
-                                                            </span>
+                                        notifications.map((n) => {
+                                            const style = getNotificationStyle(n);
+                                            return (
+                                                <Link
+                                                    key={n.id}
+                                                    href={getNotificationLink(n)}
+                                                    onClick={() => handleNotificationClick(n)}
+                                                    className={`block p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${!n.is_read ? 'bg-white/[0.02]' : ''
+                                                        }`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        {/* Unread indicator */}
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            {!n.is_read && (
+                                                                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                                            )}
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${style.bg}`}>
+                                                                {style.icon}
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-white/50 text-xs">{typeLabels[n.order_type] || n.order_type}</span>
-                                                            <span className="text-white/30">•</span>
-                                                            <span className="text-white/50 text-xs">{Number(n.total).toLocaleString('vi-VN')}đ</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`text-sm ${!n.is_read ? 'text-white font-medium' : 'text-white/60'}`}>
+                                                                {n.title}
+                                                            </p>
+                                                            {n.message && (
+                                                                <p className="text-white/40 text-xs mt-0.5 truncate">
+                                                                    {n.message}
+                                                                </p>
+                                                            )}
+                                                            <p className="text-white/30 text-xs mt-1">
+                                                                {formatTime(n.created_at)}
+                                                            </p>
                                                         </div>
-                                                        <p className="text-white/40 text-xs mt-1">{formatTime(n.created_at)}</p>
                                                     </div>
-                                                </div>
-                                            </Link>
-                                        ))
+                                                </Link>
+                                            );
+                                        })
                                     )}
                                 </div>
                                 <div className="p-3 border-t border-white/10">
@@ -198,6 +210,29 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                     </div>
                 </div>
             </div>
+
+            {/* Realtime Toast */}
+            {latestNotification && (
+                <div className="fixed top-20 right-6 z-[200] animate-in slide-in-from-right duration-300">
+                    <div className="bg-[#2a2a2c] border border-white/10 rounded-xl shadow-2xl p-4 max-w-sm flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getNotificationStyle(latestNotification).bg}`}>
+                            {getNotificationStyle(latestNotification).icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium">{latestNotification.title}</p>
+                            {latestNotification.message && (
+                                <p className="text-white/40 text-xs mt-0.5 truncate">{latestNotification.message}</p>
+                            )}
+                        </div>
+                        <button
+                            onClick={clearLatest}
+                            className="text-white/30 hover:text-white/60 flex-shrink-0"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
         </header>
     );
 }

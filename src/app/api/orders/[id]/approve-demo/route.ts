@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
+import { notifyAllAdmins } from '@/lib/notifications';
 
 export async function POST(
     request: NextRequest,
@@ -32,7 +33,7 @@ export async function POST(
         // Find order and verify ownership
         const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, user_id, status')
+            .select('id, user_id, status, order_code')
             .eq('id', orderId)
             .maybeSingle();
 
@@ -88,6 +89,15 @@ export async function POST(
             return NextResponse.json({ error: 'Update failed: ' + updateError.message }, { status: 500 });
         }
 
+        // Notify all admins
+        await notifyAllAdmins({
+            title: 'Khách đã duyệt thiết kế',
+            message: `Đơn hàng #${order.order_code} - Version ${latestVersion?.version_number || '?'}`,
+            type: 'design_approved',
+            refId: orderId,
+            refType: 'order',
+        });
+
         // Invalidate caches
         revalidatePath(`/account/orders/${orderId}`, 'page');
         revalidatePath('/account/orders', 'page');
@@ -130,7 +140,7 @@ export async function DELETE(
         // Find order and verify ownership
         const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, user_id, status')
+            .select('id, user_id, status, order_code')
             .eq('id', orderId)
             .maybeSingle();
 
@@ -183,6 +193,15 @@ export async function DELETE(
             console.error('[RejectDemo] Update failed:', updateError);
             return NextResponse.json({ error: 'Update failed: ' + updateError.message }, { status: 500 });
         }
+
+        // Notify all admins
+        await notifyAllAdmins({
+            title: 'Khách yêu cầu chỉnh sửa',
+            message: `Đơn hàng #${order.order_code} - "${feedback.substring(0, 100)}"`,
+            type: 'design_rejected',
+            refId: orderId,
+            refType: 'order',
+        });
 
         // Invalidate caches
         revalidatePath(`/account/orders/${orderId}`, 'page');
