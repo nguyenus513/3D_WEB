@@ -1,6 +1,6 @@
 /**
- * User Demo Approval API
- * POST /api/orders/[id]/approve-demo - Approve demo design
+ * User Demo Approval API (Design Versioning)
+ * POST /api/orders/[id]/approve-demo - Approve latest design version
  * DELETE /api/orders/[id]/approve-demo - Request revision with feedback
  */
 
@@ -23,7 +23,7 @@ export async function POST(
         const { id: orderId } = await props.params;
         const supabase = getAdminSupabase();
 
-        // Resolve correct profile ID (session.user.id may differ from users.id)
+        // Resolve correct profile ID
         const profileId = await getProfileId(session.user, supabase);
         if (!profileId) {
             return NextResponse.json({ error: 'Profile not found' }, { status: 401 });
@@ -37,7 +37,6 @@ export async function POST(
             .maybeSingle();
 
         if (findError || !order) {
-            console.warn('[ApproveDemo] Order not found:', { orderId, findError: findError?.message });
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
@@ -49,7 +48,32 @@ export async function POST(
             return NextResponse.json({ error: 'Order is not in review status' }, { status: 400 });
         }
 
-        // Update status to approved with timestamp
+        // Find latest pending_review version
+        const { data: latestVersion, error: versionError } = await supabase
+            .from('design_versions')
+            .select('id, version_number')
+            .eq('order_id', orderId)
+            .eq('status', 'pending_review')
+            .order('version_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (versionError) {
+            console.error('[ApproveDemo] Version lookup error:', versionError);
+        }
+
+        // Update version status to approved (if versioned)
+        if (latestVersion) {
+            await supabase
+                .from('design_versions')
+                .update({
+                    status: 'approved',
+                    reviewed_at: new Date().toISOString(),
+                })
+                .eq('id', latestVersion.id);
+        }
+
+        // Update order status to approved
         const { error: updateError } = await supabase
             .from('orders')
             .update({
@@ -69,7 +93,11 @@ export async function POST(
         revalidatePath('/account/orders', 'page');
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
 
-        return NextResponse.json({ success: true, status: 'approved' });
+        return NextResponse.json({
+            success: true,
+            status: 'approved',
+            version: latestVersion?.version_number || null,
+        });
     } catch (error) {
         console.error('[ApproveDemo] Error:', error);
         return NextResponse.json({ error: 'Internal error: ' + (error as Error).message }, { status: 500 });
@@ -119,35 +147,41 @@ export async function DELETE(
             return NextResponse.json({ error: 'Order is not in review status' }, { status: 400 });
         }
 
-        // Increment revision count safely
-        // Use raw SQL via rpc for atomic increment
-        const { error: updateError } = await supabase.rpc('exec_sql', {
-            query: `UPDATE orders SET 
-                status = 'revising', 
-                revision_feedback = $1, 
-                revision_count = COALESCE(revision_count, 0) + 1, 
-                updated_at = NOW() 
-            WHERE id = $2`,
-            params: [feedback, orderId]
-        }).maybeSingle();
+        // Find latest pending_review version and reject it
+        const { data: latestVersion } = await supabase
+            .from('design_versions')
+            .select('id, version_number')
+            .eq('order_id', orderId)
+            .eq('status', 'pending_review')
+            .order('version_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        // Fallback: if rpc doesn't exist, use regular update
-        if (updateError) {
-            console.warn('[RejectDemo] RPC failed, using regular update:', updateError.message);
-            const { error: fallbackError } = await supabase
-                .from('orders')
+        if (latestVersion) {
+            await supabase
+                .from('design_versions')
                 .update({
-                    status: 'revising',
-                    revision_feedback: feedback,
-                    revision_count: 1,
-                    updated_at: new Date().toISOString(),
+                    status: 'rejected',
+                    user_feedback: feedback,
+                    reviewed_at: new Date().toISOString(),
                 })
-                .eq('id', orderId);
+                .eq('id', latestVersion.id);
+        }
 
-            if (fallbackError) {
-                console.error('[RejectDemo] Update failed:', fallbackError);
-                return NextResponse.json({ error: 'Update failed: ' + fallbackError.message }, { status: 500 });
-            }
+        // Update order status to revising + increment revision count
+        const { error: updateError } = await supabase
+            .from('orders')
+            .update({
+                status: 'revising',
+                revision_feedback: feedback,
+                revision_count: (latestVersion?.version_number || 0),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', orderId);
+
+        if (updateError) {
+            console.error('[RejectDemo] Update failed:', updateError);
+            return NextResponse.json({ error: 'Update failed: ' + updateError.message }, { status: 500 });
         }
 
         // Invalidate caches
@@ -158,6 +192,7 @@ export async function DELETE(
         return NextResponse.json({
             success: true,
             status: 'revising',
+            rejected_version: latestVersion?.version_number || null,
         });
     } catch (error) {
         console.error('[RejectDemo] Error:', error);

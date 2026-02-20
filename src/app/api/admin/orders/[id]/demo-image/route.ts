@@ -1,9 +1,10 @@
 /**
- * Admin Demo Image Upload API (Multi-Image)
- * POST /api/admin/orders/[id]/demo-image - Upload demo/preview images for customer review
- * 
- * Supports multiple images (multi-angle). Each upload appends to demo_images array.
- * Storage: Cloudflare R2 (fast serving)
+ * Admin Demo Image Upload API (Design Versioning)
+ * POST /api/admin/orders/[id]/demo-image - Upload image to current or new design version
+ * DELETE /api/admin/orders/[id]/demo-image - Remove a design image by ID
+ *
+ * Uses design_versions + design_images tables for audit trail.
+ * Also syncs to orders.demo_images for backward compatibility.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,11 +14,8 @@ import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, isR2Configured, deleteFromR2, extractR2KeyFromUrl } from '@/lib/storage/r2';
 import { generateStudioR2Key, getExtension } from '@/lib/naming';
 
-interface DemoImage {
-    url: string;
-    label: string;
-    uploaded_at: string;
-}
+const MAX_IMAGES_PER_VERSION = 10;
+const MAX_REVISIONS = 5;
 
 export async function POST(
     request: NextRequest,
@@ -40,21 +38,15 @@ export async function POST(
 
         const supabase = getAdminSupabase();
 
-        // Find order - select minimal columns to avoid missing column errors
-        // Note: 'cart_code' column might be missing in some environments, so we exclude it to be safe
+        // Find order
         const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, order_code, user_id, demo_images')
+            .select('id, order_code, user_id, status')
             .eq('id', orderId)
             .maybeSingle();
 
-        if (findError) {
-            console.error('[DemoUpload] Supabase query error:', findError);
-            return NextResponse.json({ error: 'Database error: ' + findError.message }, { status: 500 });
-        }
-
-        if (!order) {
-            console.error('[DemoUpload] Order not found for ID:', orderId);
+        if (findError || !order) {
+            console.error('[DemoUpload] Order not found:', findError?.message);
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
@@ -64,12 +56,15 @@ export async function POST(
         const formData = await request.formData();
         const file = formData.get('file') as File;
         const label = (formData.get('label') as string) || 'Demo';
+        const adminNote = (formData.get('admin_note') as string) || null;
+        // If create_new_version=true, always create a new version
+        const createNewVersion = formData.get('create_new_version') === 'true';
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // Validate file type (browsers may report RAW as application/octet-stream)
+        // Validate file type
         const validTypes = [
             'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg+xml',
             'image/heic', 'image/heif', 'image/avif',
@@ -81,86 +76,163 @@ export async function POST(
         const isKnownImage = validTypes.includes(file.type) || file.type.startsWith('image/');
         const isRawByExt = rawExts.includes(fileExt);
         if (!isKnownImage && !isRawByExt) {
-            return NextResponse.json({ error: 'Loại file không hỗ trợ. Hỗ trợ: JPEG, PNG, WebP, GIF, HEIC, HEIF, AVIF, TIFF, BMP, RAW' }, { status: 400 });
+            return NextResponse.json({ error: 'Loại file không hỗ trợ' }, { status: 400 });
         }
+
+        // Get or create design version
+        const { data: latestVersion } = await supabase
+            .from('design_versions')
+            .select('id, version_number, status')
+            .eq('order_id', orderId)
+            .order('version_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        let versionId: string;
+        let versionNumber: number;
+
+        // Create new version if: no version exists, or explicitly requested, or latest was rejected
+        const needNewVersion = !latestVersion || createNewVersion || latestVersion.status === 'rejected';
+
+        if (needNewVersion) {
+            versionNumber = (latestVersion?.version_number || 0) + 1;
+
+            // Check max revisions
+            if (versionNumber > MAX_REVISIONS) {
+                return NextResponse.json({
+                    error: `Đã đạt giới hạn ${MAX_REVISIONS} lần chỉnh sửa`
+                }, { status: 400 });
+            }
+
+            const { data: newVersion, error: createError } = await supabase
+                .from('design_versions')
+                .insert({
+                    order_id: orderId,
+                    version_number: versionNumber,
+                    status: 'pending_review',
+                    admin_note: adminNote,
+                })
+                .select('id')
+                .single();
+
+            if (createError || !newVersion) {
+                console.error('[DemoUpload] Create version failed:', createError);
+                return NextResponse.json({ error: 'Failed to create version' }, { status: 500 });
+            }
+
+            versionId = newVersion.id;
+        } else {
+            // Append to existing pending_review version
+            versionId = latestVersion.id;
+            versionNumber = latestVersion.version_number;
+
+            // Check image count for this version
+            const { count } = await supabase
+                .from('design_images')
+                .select('id', { count: 'exact', head: true })
+                .eq('version_id', versionId);
+
+            if ((count || 0) >= MAX_IMAGES_PER_VERSION) {
+                return NextResponse.json({
+                    error: `Tối đa ${MAX_IMAGES_PER_VERSION} ảnh mỗi version`
+                }, { status: 400 });
+            }
+        }
+
+        // Get image count for naming
+        const { count: imageCount } = await supabase
+            .from('design_images')
+            .select('id', { count: 'exact', head: true })
+            .eq('version_id', versionId);
+
+        const imageIndex = (imageCount || 0) + 1;
 
         // Convert File to Buffer
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Get existing demo images
-        const existingImages: DemoImage[] = Array.isArray(order.demo_images) ? order.demo_images : [];
-        const imageIndex = existingImages.length + 1;
-
-        // Get file extension
+        // Handle non-web formats
         const originalExt = getExtension(file.name);
-
-        // Non-web formats: browsers can't display HEIC/HEIF/RAW/TIFF/BMP/AVIF.
-        // Watermark converts them to JPEG, so store with .jpg extension.
         const nonWebExts = new Set(['heic', 'heif', 'avif', 'tiff', 'tif', 'bmp', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'srf', 'sr2', 'dng', 'rw2', 'orf', 'raf', 'pef', 'tga', 'ico']);
         const isNonWeb = nonWebExts.has(originalExt.toLowerCase());
         const ext = isNonWeb ? 'jpg' : originalExt;
 
-        // Generate R2 key using studio naming convention
-        // e.g. orders/C494D49D/demo/ORD-C494D49D_DEMO_FULL_V01_01.jpg
+        // Generate R2 key with version number
         const r2Key = generateStudioR2Key({
             orderCode: orderCode,
             stage: 'DEMO',
-            version: 1,
+            version: versionNumber,
             index: imageIndex,
             extension: ext,
         });
 
-        // ─── Apply Watermark ─────────────────────────────────
+        // Apply watermark
         const { addWatermark } = await import('@/lib/watermark');
         const processedBuffer = await addWatermark(buffer);
-        // ──────────────────────────────────────────────────────
 
-        // Upload with correct content type (JPEG for converted formats)
+        // Upload to R2
         const uploadContentType = isNonWeb ? 'image/jpeg' : file.type;
         await uploadToR2(processedBuffer, r2Key, uploadContentType, {
             orderId,
             orderCode: orderCode,
             type: 'demo',
+            version: String(versionNumber),
             index: String(imageIndex),
         });
 
-        // Store persistent proxy URL (not expiring presigned URL)
         const proxyUrl = `/api/files/${r2Key}`;
 
-        // Build new image entry
-        const newImage: DemoImage = {
-            url: proxyUrl,
-            label,
-            uploaded_at: new Date().toISOString(),
-        };
+        // Insert design image
+        const { data: newImage, error: insertError } = await supabase
+            .from('design_images')
+            .insert({
+                version_id: versionId,
+                image_url: proxyUrl,
+                label,
+                sort_order: imageIndex,
+            })
+            .select('id, image_url, label, sort_order')
+            .single();
 
-        // Append to demo_images array
-        const updatedImages = [...existingImages, newImage];
+        if (insertError) {
+            console.error('[DemoUpload] Insert image failed:', insertError);
+            return NextResponse.json({ error: 'Failed to save image' }, { status: 500 });
+        }
 
-        // Update order: set demo_images (all)
-        const { error: updateError } = await supabase
+        // Sync to orders.demo_images for backward compatibility
+        const { data: allImages } = await supabase
+            .from('design_images')
+            .select('image_url, label, created_at')
+            .eq('version_id', versionId)
+            .order('sort_order', { ascending: true });
+
+        const demoImagesSync = (allImages || []).map(img => ({
+            url: img.image_url,
+            label: img.label || 'Demo',
+            uploaded_at: img.created_at,
+        }));
+
+        await supabase
             .from('orders')
             .update({
-                demo_images: updatedImages,
+                demo_images: demoImagesSync,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);
 
-        if (updateError) {
-            console.error('[DemoUpload] Update failed:', updateError);
-            return NextResponse.json({ error: 'Failed to update order: ' + updateError.message }, { status: 500 });
-        }
-
         // Invalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
         revalidatePath('/sys_internal/orders', 'page');
+        revalidatePath(`/account/orders/${orderId}`, 'page');
 
         return NextResponse.json({
             success: true,
             image: newImage,
-            total_images: updatedImages.length,
-            demo_images: updatedImages,
+            version: {
+                id: versionId,
+                version_number: versionNumber,
+            },
+            demo_images: demoImagesSync,
         });
     } catch (error) {
         console.error('[DemoUpload] Error:', error);
@@ -170,7 +242,7 @@ export async function POST(
 
 /**
  * DELETE /api/admin/orders/[id]/demo-image
- * Remove a demo image by index
+ * Remove a design image by image ID
  */
 export async function DELETE(
     request: NextRequest,
@@ -182,62 +254,106 @@ export async function DELETE(
 
         const { id: orderId } = await props.params;
         const body = await request.json().catch(() => ({}));
+
+        // Accept either image_id (new) or index (legacy)
+        const imageId = body.image_id;
         const imageIndex = body.index ?? -1;
 
         const supabase = getAdminSupabase();
 
-        const { data: order, error: findError } = await supabase
-            .from('orders')
-            .select('id, demo_images')
-            .eq('id', orderId)
-            .maybeSingle();
+        let imageToDelete: { id: string; image_url: string; version_id: string } | null = null;
 
-        if (findError || !order) {
-            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-        }
+        if (imageId) {
+            // New: delete by design_images.id
+            const { data } = await supabase
+                .from('design_images')
+                .select('id, image_url, version_id')
+                .eq('id', imageId)
+                .maybeSingle();
+            imageToDelete = data;
+        } else if (imageIndex >= 0) {
+            // Legacy: delete by index from orders.demo_images
+            const { data: order } = await supabase
+                .from('orders')
+                .select('demo_images')
+                .eq('id', orderId)
+                .maybeSingle();
 
-        const images: DemoImage[] = Array.isArray(order.demo_images) ? order.demo_images : [];
-        if (imageIndex < 0 || imageIndex >= images.length) {
-            return NextResponse.json({ error: 'Invalid image index' }, { status: 400 });
-        }
+            const images = Array.isArray(order?.demo_images) ? order.demo_images : [];
+            if (imageIndex < images.length) {
+                const imgUrl = images[imageIndex]?.url;
+                // Try to find matching design_image
+                const { data } = await supabase
+                    .from('design_images')
+                    .select('id, image_url, version_id')
+                    .eq('image_url', imgUrl)
+                    .maybeSingle();
+                imageToDelete = data;
 
-        // Delete from R2 storage first
-        const imageToDelete = images[imageIndex];
-        if (imageToDelete?.url) {
-            try {
-                const r2Key = extractR2KeyFromUrl(imageToDelete.url);
-                if (r2Key) {
-                    await deleteFromR2(r2Key);
-                    const { createLogger } = await import('@/lib/logger');
-                    createLogger('demo-image').info('Deleted from R2', { r2Key });
+                // Even if not found in design_images, remove from orders.demo_images
+                if (!imageToDelete) {
+                    // Legacy cleanup: just remove from JSONB array
+                    const updatedImages = images.filter((_: unknown, i: number) => i !== imageIndex);
+                    await supabase
+                        .from('orders')
+                        .update({ demo_images: updatedImages, updated_at: new Date().toISOString() })
+                        .eq('id', orderId);
+
+                    // Try R2 delete
+                    if (imgUrl) {
+                        try {
+                            const r2Key = extractR2KeyFromUrl(imgUrl);
+                            if (r2Key) await deleteFromR2(r2Key);
+                        } catch { /* non-blocking */ }
+                    }
+
+                    revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
+                    return NextResponse.json({ success: true, demo_images: updatedImages });
                 }
-            } catch (r2Error) {
-                // Log but don't block — DB cleanup is more important
-                console.error('[DemoDelete] R2 delete failed (non-blocking):', r2Error);
             }
         }
 
-        // Remove image at index from DB
-        const updatedImages = images.filter((_, i) => i !== imageIndex);
-
-        const { error: updateError } = await supabase
-            .from('orders')
-            .update({
-                demo_images: updatedImages,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', orderId);
-
-        if (updateError) {
-            return NextResponse.json({ error: 'Update failed: ' + updateError.message }, { status: 500 });
+        if (!imageToDelete) {
+            return NextResponse.json({ error: 'Image not found' }, { status: 404 });
         }
+
+        // Delete from R2
+        try {
+            const r2Key = extractR2KeyFromUrl(imageToDelete.image_url);
+            if (r2Key) await deleteFromR2(r2Key);
+        } catch (r2Error) {
+            console.error('[DemoDelete] R2 delete failed (non-blocking):', r2Error);
+        }
+
+        // Delete from design_images
+        await supabase
+            .from('design_images')
+            .delete()
+            .eq('id', imageToDelete.id);
+
+        // Sync orders.demo_images
+        const { data: remainingImages } = await supabase
+            .from('design_images')
+            .select('image_url, label, created_at')
+            .eq('version_id', imageToDelete.version_id)
+            .order('sort_order', { ascending: true });
+
+        const demoImagesSync = (remainingImages || []).map(img => ({
+            url: img.image_url,
+            label: img.label || 'Demo',
+            uploaded_at: img.created_at,
+        }));
+
+        await supabase
+            .from('orders')
+            .update({ demo_images: demoImagesSync, updated_at: new Date().toISOString() })
+            .eq('id', orderId);
 
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
 
         return NextResponse.json({
             success: true,
-            demo_images: updatedImages,
-            total_images: updatedImages.length,
+            demo_images: demoImagesSync,
         });
     } catch (error) {
         return NextResponse.json({ error: 'Delete failed: ' + (error as Error).message }, { status: 500 });
