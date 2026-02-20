@@ -67,35 +67,31 @@ export async function canAccessFile(
         }
 
         // Order files - check by path pattern
-        // Pattern 1: orders/{cart_code}/{full_code}/... (new format)
-        const fullCodeMatch = fileKey.match(/orders\/([0-9A-Fa-f]{8})\/([0-9A-Fa-f]{8}_[0-9A-Fa-f]{8})\//);
-        if (fullCodeMatch) {
-            const cartCode = fullCodeMatch[1].toUpperCase();
-            // Verify user owns the order via cart_code
-            const { data: order } = await supabase
-                .from('orders')
-                .select('user_id')
-                .eq('cart_code', cartCode)
-                .single();
-
-            if (order?.user_id === userId) {
-                return { allowed: true, reason: 'order_owner_by_cart_code' };
-            }
-        }
-
-        // Pattern 2: orders/{order_code}/... (legacy format)
+        // Pattern: orders/{order_code}/... (e.g. orders/DF637513/demo/...)
         const orderMatch = fileKey.match(/orders\/([^/]+)\//);
         if (orderMatch) {
             const orderCode = orderMatch[1];
-            // Try cart_code first, then order_code
-            const { data: order } = await supabase
+            const { data: order, error: orderError } = await supabase
                 .from('orders')
                 .select('user_id')
-                .or(`cart_code.eq.${orderCode},order_code.eq.${orderCode}`)
-                .single();
+                .eq('order_code', orderCode)
+                .maybeSingle();
+
+            if (orderError) {
+                console.warn('[FileAccess] Order lookup error:', orderError.message, { fileKey, orderCode });
+            }
 
             if (order?.user_id === userId) {
                 return { allowed: true, reason: 'order_owner' };
+            }
+
+            // Log mismatch for debugging
+            if (order) {
+                console.warn('[FileAccess] Owner mismatch', {
+                    fileKey,
+                    sessionUserId: userId,
+                    orderUserId: order.user_id,
+                });
             }
         }
 
