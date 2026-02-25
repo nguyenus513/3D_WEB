@@ -223,10 +223,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         user.id = existingProfile.id;
                         console.log('[AUTH DEBUG] Using existing profile ID:', existingProfile.id);
 
-                        // Check if complete (has phone)
-                        const isProfileIncomplete = !existingProfile.phone;
+                        // Admin users skip profile completion requirement
+                        const isProfileIncomplete = existingProfile.role !== 'admin' && !existingProfile.phone;
                         (user as { isNewUser?: boolean }).isNewUser = isProfileIncomplete;
-                        console.log('[AUTH DEBUG] Existing user, isNewUser:', isProfileIncomplete);
+                        console.log('[AUTH DEBUG] Existing user, role:', existingProfile.role, ', isNewUser:', isProfileIncomplete);
                     }
 
                     // NOTE: Drive tokens are NOT saved during login.

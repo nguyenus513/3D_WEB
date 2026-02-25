@@ -116,34 +116,25 @@ export default function CompleteProfilePage() {
             setError('Số điện thoại không hợp lệ');
             return false;
         }
-        if (!formData.provinceCode) {
-            setError('Vui lòng chọn Tỉnh/Thành phố');
-            return false;
-        }
-        if (!formData.districtCode) {
-            setError('Vui lòng chọn Quận/Huyện');
-            return false;
-        }
-        if (!formData.wardCode) {
-            setError('Vui lòng chọn Phường/Xã');
-            return false;
-        }
-        // Safety check for names
-        if (!formData.districtName && formData.districtCode) {
-            const d = districts.find(x => x.code === formData.districtCode);
-            if (d) {
-                setFormData(prev => ({ ...prev, districtName: d.name }));
+        // Address fields are OPTIONAL — validate only if partially filled
+        const hasAnyAddress = formData.provinceCode || formData.districtCode || formData.wardCode || formData.addressLine;
+        if (hasAnyAddress) {
+            if (!formData.provinceCode) {
+                setError('Vui lòng chọn Tỉnh/Thành phố');
+                return false;
             }
-        }
-        if (!formData.wardName && formData.wardCode) {
-            const w = wards.find(x => x.code === formData.wardCode);
-            if (w) {
-                setFormData(prev => ({ ...prev, wardName: w.name }));
+            if (!formData.districtCode) {
+                setError('Vui lòng chọn Quận/Huyện');
+                return false;
             }
-        }
-        if (!formData.addressLine) {
-            setError('Vui lòng nhập địa chỉ chi tiết');
-            return false;
+            if (!formData.wardCode) {
+                setError('Vui lòng chọn Phường/Xã');
+                return false;
+            }
+            if (!formData.addressLine) {
+                setError('Vui lòng nhập địa chỉ chi tiết');
+                return false;
+            }
         }
         return true;
     };
@@ -170,46 +161,50 @@ export default function CompleteProfilePage() {
                 throw new Error(data.error || 'Không thể cập nhật hồ sơ');
             }
 
-            // Robustly resolve names even if state is stale
-            let finalProvinceName = formData.provinceName;
-            let finalDistrictName = formData.districtName;
-            let finalWardName = formData.wardName;
+            // Only create address if user filled in address fields
+            const hasAddress = formData.provinceCode && formData.districtCode && formData.wardCode && formData.addressLine;
+            if (hasAddress) {
+                // Robustly resolve names even if state is stale
+                let finalProvinceName = formData.provinceName;
+                let finalDistrictName = formData.districtName;
+                let finalWardName = formData.wardName;
 
-            if (!finalProvinceName && formData.provinceCode) {
-                const ps = await getProvinces();
-                finalProvinceName = ps.find(p => p.code === formData.provinceCode)?.name || '';
-            }
+                if (!finalProvinceName && formData.provinceCode) {
+                    const ps = await getProvinces();
+                    finalProvinceName = ps.find(p => p.code === formData.provinceCode)?.name || '';
+                }
 
-            if (!finalDistrictName && formData.districtCode && formData.provinceCode) {
-                const ds = await getDistricts(formData.provinceCode);
-                finalDistrictName = ds.find(d => d.code === formData.districtCode)?.name || '';
-            }
+                if (!finalDistrictName && formData.districtCode && formData.provinceCode) {
+                    const ds = await getDistricts(formData.provinceCode);
+                    finalDistrictName = ds.find(d => d.code === formData.districtCode)?.name || '';
+                }
 
-            if (!finalWardName && formData.wardCode && formData.districtCode) {
-                const ws = await getWards(formData.districtCode);
-                finalWardName = ws.find(w => w.code === formData.wardCode)?.name || '';
-            }
+                if (!finalWardName && formData.wardCode && formData.districtCode) {
+                    const ws = await getWards(formData.districtCode);
+                    finalWardName = ws.find(w => w.code === formData.wardCode)?.name || '';
+                }
 
-            // Create address
-            const addressRes = await fetch('/api/addresses', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    label: 'Nhà riêng',
-                    full_name: formData.name,
-                    phone: formData.phone,
-                    address_line: formData.addressLine,
-                    ward: finalWardName,
-                    district: finalDistrictName,
-                    province: finalProvinceName,
-                    is_default: true,
-                }),
-            });
+                // Create address
+                const addressRes = await fetch('/api/addresses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        label: 'Nhà riêng',
+                        full_name: formData.name,
+                        phone: formData.phone,
+                        address_line: formData.addressLine,
+                        ward: finalWardName,
+                        district: finalDistrictName,
+                        province: finalProvinceName,
+                        is_default: true,
+                    }),
+                });
 
-            if (!addressRes.ok) {
-                const errorData = await addressRes.json();
-                console.error('Address creation failed:', errorData);
-                throw new Error(errorData.error || 'Không thể tạo địa chỉ');
+                if (!addressRes.ok) {
+                    const errorData = await addressRes.json();
+                    console.error('Address creation failed:', errorData);
+                    throw new Error(errorData.error || 'Không thể tạo địa chỉ');
+                }
             }
 
             // Update session to clear isNewUser flag
@@ -286,7 +281,7 @@ export default function CompleteProfilePage() {
 
                     {/* Address */}
                     <div className="space-y-4">
-                        <h3 className="text-white font-medium">Địa chỉ giao hàng</h3>
+                        <h3 className="text-white font-medium">Địa chỉ giao hàng <span className="text-white/40 text-sm font-normal">(không bắt buộc)</span></h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2">
                                 <label className="block text-white/60 text-sm mb-2">Tỉnh/Thành phố *</label>
