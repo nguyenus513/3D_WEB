@@ -50,10 +50,8 @@ export async function middleware(request: NextRequest) {
         secret: secret
     });
 
-    // Debug logging (remove in production)
-    console.log('[MIDDLEWARE DEBUG] Path:', pathname);
-    console.log('[MIDDLEWARE DEBUG] Token exists:', !!token);
-    console.log('[MIDDLEWARE DEBUG] Token role:', token?.role);
+    // Debug logging
+    console.log(`[MIDDLEWARE] Path: ${pathname} | Token: ${!!token} | Role: ${token?.role} | isNewUser: ${token?.isNewUser}`);
 
     // ==========================================================================
     // Route Protection Logic
@@ -63,7 +61,6 @@ export async function middleware(request: NextRequest) {
     const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
     if (isAdminRoute) {
         if (!token) {
-            console.log('[MIDDLEWARE DEBUG] No token, redirecting to login');
             const loginUrl = new URL('/login', request.url);
             loginUrl.searchParams.set('callbackUrl', pathname);
             return NextResponse.redirect(loginUrl);
@@ -71,7 +68,6 @@ export async function middleware(request: NextRequest) {
 
         // Check admin role from token
         if (token.role !== 'admin') {
-            console.log('[MIDDLEWARE DEBUG] Not admin, redirecting to home');
             const homeUrl = new URL('/', request.url);
             homeUrl.searchParams.set('error', 'unauthorized');
             return NextResponse.redirect(homeUrl);
@@ -81,7 +77,6 @@ export async function middleware(request: NextRequest) {
     // Check if route requires authentication
     const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
     if (isProtectedRoute && !token) {
-        console.log('[MIDDLEWARE DEBUG] Protected route without token, redirecting to login');
         const loginUrl = new URL('/login', request.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
@@ -89,10 +84,26 @@ export async function middleware(request: NextRequest) {
 
     // Redirect logged-in users away from auth pages
     if (token && (pathname === '/login' || pathname === '/register')) {
-        // Admin users go to admin dashboard, customers go to account
-        const redirectPath = token.role === 'admin' ? '/sys_internal' : '/account';
-        console.log(`[MIDDLEWARE DEBUG] Logged in user (role: ${token.role}) on auth page, redirecting to ${redirectPath}`);
-        return NextResponse.redirect(new URL(redirectPath, request.url));
+        // Admin users always go to admin dashboard
+        if (token.role === 'admin') {
+            return NextResponse.redirect(new URL('/sys_internal', request.url));
+        }
+        // Customer with incomplete profile → complete-profile
+        if (token.isNewUser) {
+            return NextResponse.redirect(new URL('/complete-profile', request.url));
+        }
+        // Customer with complete profile → account
+        return NextResponse.redirect(new URL('/account', request.url));
+    }
+
+    // If user visits /complete-profile but profile IS complete → redirect away
+    if (token && pathname === '/complete-profile') {
+        if (token.role === 'admin') {
+            return NextResponse.redirect(new URL('/sys_internal', request.url));
+        }
+        if (!token.isNewUser) {
+            return NextResponse.redirect(new URL('/account', request.url));
+        }
     }
 
     return NextResponse.next();
