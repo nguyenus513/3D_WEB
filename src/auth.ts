@@ -259,20 +259,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
             }
 
-            // ALWAYS fetch latest role from DB (handles role changes after login)
+            // ALWAYS fetch latest role + phone from DB (handles changes after login)
             if (email) {
                 try {
                     const { data: profile } = await supabaseAdmin
                         .from('users')
-                        .select('id, role, customer_code')
+                        .select('id, role, customer_code, phone')
                         .eq('email', (email as string).toLowerCase())
                         .single();
 
                     if (profile) {
-                        console.log(`[AUTH DEBUG] DB Query Success | Role: ${profile.role} | Token Before: ${token.role}`);
+                        console.log(`[AUTH DEBUG] DB Query Success | Role: ${profile.role} | Phone: ${!!profile.phone} | Token Before: ${token.role}`);
                         token.id = profile.id;
                         token.role = profile.role;
                         token.customerCode = profile.customer_code;
+                        // Refresh isNewUser: admin never needs profile completion
+                        token.isNewUser = profile.role !== 'admin' && !profile.phone;
                     } else {
                         console.warn('[AUTH DEBUG] Profile not found in DB for:', email);
                     }
