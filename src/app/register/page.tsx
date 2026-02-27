@@ -292,17 +292,21 @@ export default function RegisterPage() {
                 }),
             });
 
-            const data = await res.json();
+            const result = await res.json();
 
             if (!res.ok) {
-                const errorMessage = typeof data.error === 'object' && data.error !== null
-                    ? JSON.stringify(data.error)
-                    : (data.error || 'Đã có lỗi xảy ra');
+                // BaseController error format: { success: false, error: { code, message } }
+                const errorObj = result.error;
+                const errorMessage = typeof errorObj === 'object' && errorObj !== null
+                    ? (errorObj.message || JSON.stringify(errorObj))
+                    : (errorObj || 'Đã có lỗi xảy ra');
                 setError(errorMessage);
                 return;
             }
 
-            if (data.requiresVerification) {
+            // BaseController success format: { success: true, data: { requiresVerification, ... } }
+            const responseData = result.data || result;
+            if (responseData.requiresVerification) {
                 setCurrentStep('otp');
             }
         } catch {
@@ -347,9 +351,14 @@ export default function RegisterPage() {
                 body: JSON.stringify({ email: formData.email, otp: otpCode }),
             });
 
-            const data = await res.json();
+            const result = await res.json();
             if (!res.ok) {
-                setOtpError(data.error || 'Mã xác thực không đúng');
+                const errorObj = result.error;
+                setOtpError(
+                    typeof errorObj === 'object' && errorObj?.message
+                        ? errorObj.message
+                        : (errorObj || 'Mã xác thực không đúng')
+                );
                 return;
             }
 
