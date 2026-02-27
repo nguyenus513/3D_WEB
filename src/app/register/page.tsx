@@ -281,21 +281,24 @@ export default function RegisterPage() {
                     phone: formData.phone,
                     instagram: formData.instagram,
                     password: formData.password,
-                    shipping_address: {
+                    shipping_address: formData.provinceCode ? {
                         full_name: formData.recipientName,
                         phone: formData.recipientPhone,
                         address_line: formData.addressLine,
                         ward: formData.wardName,
                         district: formData.districtName,
                         province: formData.provinceName,
-                    },
+                    } : undefined,
                 }),
             });
 
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || 'Đã có lỗi xảy ra');
+                const errorMessage = typeof data.error === 'object' && data.error !== null
+                    ? JSON.stringify(data.error)
+                    : (data.error || 'Đã có lỗi xảy ra');
+                setError(errorMessage);
                 return;
             }
 

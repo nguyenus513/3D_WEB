@@ -95,17 +95,17 @@ export class AuthRepository {
      * Create address for user
      */
     async createAddress(userId: string, address: {
-        recipient_name?: string;
-        recipient_phone?: string;
+        full_name?: string;
+        phone?: string;
         address_line?: string;
         ward?: string;
         district?: string;
-        province: string;
+        province?: string;
     }): Promise<void> {
         await this.db.from('user_addresses').insert({
             user_id: userId,
-            full_name: address.recipient_name,
-            phone: address.recipient_phone,
+            full_name: address.full_name,
+            phone: address.phone,
             address_line: address.address_line,
             ward: address.ward,
             district: address.district,

@@ -29,12 +29,12 @@ export const RegisterSchema = z.object({
     password: passwordSchema,
     shipping_address: z
         .object({
-            recipient_name: z.string().optional(),
-            recipient_phone: z.string().optional(),
+            full_name: z.string().optional(),
+            phone: z.string().optional(),
             address_line: z.string().optional(),
             ward: z.string().optional(),
             district: z.string().optional(),
-            province: z.string(),
+            province: z.string().optional(),
         })
         .optional(),
 });

@@ -27,8 +27,6 @@ function LoginForm() {
         setIsMounted(true);
     }, []);
 
-    if (!isMounted) return null;
-
     // Initialize CSRF token on mount to prevent MissingCSRF error
     useEffect(() => {
         const initCsrf = async () => {
@@ -36,6 +34,8 @@ function LoginForm() {
         };
         initCsrf();
     }, []);
+
+    if (!isMounted) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
