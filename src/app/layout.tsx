@@ -30,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" data-scroll-behavior="smooth">
       <body className={`${beVietnamPro.variable} antialiased font-sans`} style={{ background: 'var(--bg-void)', color: 'var(--text-primary)' }}>
         <AuthProvider>
           <LayoutWrapper>{children}</LayoutWrapper>

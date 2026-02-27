@@ -81,6 +81,7 @@ export function NavLusion() {
     } = useNotifications({
         endpoint: '/api/notifications',
         refreshInterval: 30000,
+        enabled: !!isLoggedIn,
     });
 
     // Close dropdown on outside click

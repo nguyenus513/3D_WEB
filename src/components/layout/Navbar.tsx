@@ -44,6 +44,7 @@ export function Navbar() {
     } = useNotifications({
         endpoint: '/api/notifications',
         refreshInterval: 30000,
+        enabled: isLoggedIn,
     });
 
     const formatTime = (dateStr: string) => {

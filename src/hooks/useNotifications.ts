@@ -52,10 +52,11 @@ interface UseNotificationsReturn {
     clearLatest: () => void;
 }
 
-export function useNotifications(options: UseNotificationsOptions = {}): UseNotificationsReturn {
+export function useNotifications(options: UseNotificationsOptions & { enabled?: boolean } = {}): UseNotificationsReturn {
     const {
         endpoint = '/api/notifications',
         refreshInterval = 30000,
+        enabled = true,
     } = options;
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -65,6 +66,10 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     const isFirstLoad = useRef(true);
 
     const fetchNotifications = useCallback(async () => {
+        if (!enabled) {
+            setLoading(false);
+            return;
+        }
         try {
             const res = await fetch(endpoint, { cache: 'no-store' });
             if (!res.ok) return;
@@ -83,7 +88,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         } finally {
             setLoading(false);
         }
-    }, [endpoint]);
+    }, [endpoint, enabled]);
 
     // Initial fetch
     useEffect(() => {
@@ -92,14 +97,15 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
 
     // Auto-refresh interval
     useEffect(() => {
-        if (refreshInterval <= 0) return;
+        if (!enabled || refreshInterval <= 0) return;
 
         const interval = setInterval(fetchNotifications, refreshInterval);
         return () => clearInterval(interval);
-    }, [fetchNotifications, refreshInterval]);
+    }, [fetchNotifications, refreshInterval, enabled]);
 
     // Supabase Realtime subscription
     useEffect(() => {
+        if (!enabled) return;
         const supabase = getSupabase();
 
         const channel = supabase
