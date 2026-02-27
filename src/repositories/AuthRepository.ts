@@ -39,20 +39,17 @@ export class AuthRepository {
         hashedPassword: string;
         name?: string;
         phone?: string;
-        instagram?: string;
     }): Promise<{ id: string; customer_code: string }> {
         const userId = crypto.randomUUID();
-        const customerCode = 'USR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        const customerCode = 'KH-' + crypto.randomUUID().substring(0, 8).toUpperCase();
 
         const { data: user, error } = await this.db
             .from('users')
             .insert({
                 id: userId,
                 email: data.email,
-                full_name: data.name,
-                name: data.name,
-                phone: data.phone,
-                instagram_username: data.instagram,
+                name: data.name || null,
+                phone: data.phone || null,
                 password: data.hashedPassword,
                 customer_code: customerCode,
                 role: 'customer',
@@ -60,7 +57,10 @@ export class AuthRepository {
             .select('id, customer_code')
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('[AuthRepository.createUser] Supabase error:', JSON.stringify(error));
+            throw new Error(error.message || 'Failed to create user');
+        }
         return user;
     }
 

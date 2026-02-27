@@ -71,7 +71,19 @@ export async function checkRateLimit(
     const redis = getRedisClient();
 
     if (redis) {
-        return checkRateLimitRedis(redis, key, config);
+        try {
+            // Race with a 3-second timeout to prevent hanging
+            const timeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Redis timeout')), 3000)
+            );
+            return await Promise.race([
+                checkRateLimitRedis(redis, key, config),
+                timeout,
+            ]);
+        } catch (err) {
+            console.warn('[RateLimit] Redis failed, falling back to memory:', (err as Error).message);
+            return checkRateLimitMemory(key, config);
+        }
     }
 
     return checkRateLimitMemory(key, config);

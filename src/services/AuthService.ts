@@ -40,7 +40,6 @@ export class AuthService {
             hashedPassword,
             name: input.name,
             phone: input.phone,
-            instagram: input.instagram,
         });
 
         // Create address if provided
