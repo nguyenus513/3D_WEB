@@ -76,6 +76,9 @@ async function sendViaGmail(options: EmailOptions): Promise<{ success: boolean; 
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: { user, pass },
+        connectionTimeout: 5000, // 5s to connect
+        greetingTimeout: 5000,   // 5s for SMTP greeting
+        socketTimeout: 10000,    // 10s for socket idle
     });
 
     try {
@@ -151,21 +154,33 @@ async function sendViaBrevo(options: EmailOptions): Promise<{ success: boolean; 
  * Gmail (500/day) → Brevo (300/day)
  */
 export async function sendEmailWithFallback(options: EmailOptions): Promise<boolean> {
-    // Try Gmail first
-    const gmailResult = await sendViaGmail(options);
-    if (gmailResult.success) return true;
+    // Wrap entire email sending in a 10s timeout to prevent API hang
+    const timeout = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+            console.warn('[Email] Timeout after 10s, skipping email to:', options.to);
+            resolve(false);
+        }, 10000);
+    });
 
-    // If Gmail rate limited OR failed, try Brevo
-    if (gmailResult.rateLimited || !process.env.GMAIL_USER) {
-        const brevoResult = await sendViaBrevo(options);
-        if (brevoResult.success) return true;
+    const send = async (): Promise<boolean> => {
+        // Try Gmail first
+        const gmailResult = await sendViaGmail(options);
+        if (gmailResult.success) return true;
 
-        if (brevoResult.rateLimited) {
-            console.error('[Email] Both services rate limited! Email lost:', options.to);
+        // If Gmail rate limited OR failed, try Brevo
+        if (gmailResult.rateLimited || !process.env.GMAIL_USER) {
+            const brevoResult = await sendViaBrevo(options);
+            if (brevoResult.success) return true;
+
+            if (brevoResult.rateLimited) {
+                console.error('[Email] Both services rate limited! Email lost:', options.to);
+            }
         }
-    }
 
-    return false;
+        return false;
+    };
+
+    return Promise.race([send(), timeout]);
 }
 
 // =====================================================
