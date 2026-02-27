@@ -15,11 +15,19 @@ function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
     const [formData, setFormData] = useState({
         email: '',
         password: '',
         remember: false,
     });
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) return null;
 
     // Initialize CSRF token on mount to prevent MissingCSRF error
     useEffect(() => {

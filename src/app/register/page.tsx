@@ -46,6 +46,11 @@ export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const [formData, setFormData] = useState<FormData>({
         email: '',
@@ -170,30 +175,41 @@ export default function RegisterPage() {
                 return true;
 
             case 3:
-                if (!formData.provinceCode) {
-                    setError('Vui lòng chọn Tỉnh/Thành phố');
-                    return false;
+                const hasAnyAddress = !!(formData.provinceCode || formData.districtCode || formData.wardCode || formData.addressLine);
+
+                // Only validate address fields if user started filling them
+                if (hasAnyAddress) {
+                    if (!formData.provinceCode) {
+                        setError('Vui lòng chọn Tỉnh/Thành phố');
+                        return false;
+                    }
+                    if (!formData.districtCode) {
+                        setError('Vui lòng chọn Quận/Huyện');
+                        return false;
+                    }
+                    if (!formData.wardCode) {
+                        setError('Vui lòng chọn Phường/Xã');
+                        return false;
+                    }
+                    if (!formData.addressLine) {
+                        setError('Vui lòng nhập địa chỉ chi tiết');
+                        return false;
+                    }
                 }
-                if (!formData.districtCode) {
-                    setError('Vui lòng chọn Quận/Huyện');
-                    return false;
+
+                // If user doesn't provide recipient info but has address, require it
+                const hasAnyRecipientInfo = !!(formData.recipientName || formData.recipientPhone);
+                if (hasAnyAddress && !hasAnyRecipientInfo) {
+                    if (!formData.recipientName) {
+                        setError('Vui lòng nhập tên người nhận');
+                        return false;
+                    }
+                    if (!formData.recipientPhone) {
+                        setError('Vui lòng nhập SĐT người nhận');
+                        return false;
+                    }
                 }
-                if (!formData.wardCode) {
-                    setError('Vui lòng chọn Phường/Xã');
-                    return false;
-                }
-                if (!formData.addressLine) {
-                    setError('Vui lòng nhập địa chỉ chi tiết');
-                    return false;
-                }
-                if (!formData.recipientName) {
-                    setError('Vui lòng nhập tên người nhận');
-                    return false;
-                }
-                if (!formData.recipientPhone) {
-                    setError('Vui lòng nhập SĐT người nhận');
-                    return false;
-                }
+
                 return true;
 
             case 4:
