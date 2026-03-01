@@ -30,8 +30,18 @@ interface CustomOrderRequest {
         id: string;
         name: string;
         url?: string;
+        thumbnail?: string;
+        category?: 'main' | 'glasses' | 'hat';
+        characterIndex?: number;
         size?: number;
         type?: string;
+    }>;
+    characters?: Array<{
+        index: number;
+        hasGlasses: boolean;
+        glassesDescription?: string;
+        hasHat: boolean;
+        hatDescription?: string;
     }>;
 }
 
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
 
         // Parse request body
         const body: CustomOrderRequest = await request.json();
-        const { type, size, notes, shippingAddress, images } = body;
+        const { type, size, notes, shippingAddress, images, characters: charData } = body;
 
         // Validate required fields
         if (!type || !shippingAddress?.full_name || !shippingAddress?.phone || !shippingAddress?.province) {
@@ -154,6 +164,7 @@ export async function POST(request: NextRequest) {
                     size_multiplier: sizeMultiplier,
                     notes: notes || null,
                     image_count: images?.length || 0,
+                    characters: charData || [],
                 },
             })
             .select()
@@ -184,25 +195,34 @@ export async function POST(request: NextRequest) {
                 // UploadService stores as "/api/files/{key}"
                 // Also check for raw key in case of older records
                 const proxyPath = `/api/files/${r2Key}`;
-                const { data: existingFile } = await supabase
+                const { data: existingFiles } = await supabase
                     .from('files')
                     .select('id')
                     .or(`file_url.eq.${proxyPath},file_url.eq.${r2Key}`)
-                    .maybeSingle();
+                    .order('created_at', { ascending: true })
+                    .limit(1);
+
+                const existingFile = existingFiles?.[0] || null;
 
                 if (existingFile) {
-                    // Link existing file to order_item
+                    // Link existing file to order_item with enriched metadata
                     const { error: linkError } = await supabase
                         .from('file_links')
                         .insert({
                             file_id: existingFile.id,
                             ref_type: 'order_item',
                             ref_id: orderItem.id,
-                            tag: 'reference',
+                            tag: img.category || 'main',
+                            metadata: {
+                                character_index: img.characterIndex || 1,
+                                original_name: img.name,
+                            },
                         });
 
                     if (linkError) {
-                        log.warn('Failed to link file to order_item', { error: linkError, fileId: existingFile.id });
+                        log.warn('Failed to link file to order_item', { error: linkError, fileId: existingFile.id, orderItemId: orderItem.id });
+                    } else {
+                        log.info('Linked file to order_item', { fileId: existingFile.id, orderItemId: orderItem.id, category: img.category, characterIndex: img.characterIndex });
                     }
                 } else {
                     log.warn('File record not found for R2 key', { r2Key, proxyPath });

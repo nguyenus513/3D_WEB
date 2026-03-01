@@ -12,6 +12,7 @@ import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
 import PrintFileCard, { PrintFileCardData, OrderFileRecord } from '@/components/admin/PrintFileCard';
 import PrintFileDetail from '@/components/admin/PrintFileDetail';
 import VersionFeedbackCard from '@/components/ui/VersionFeedbackCard';
+import { ImageStack, ImageGallery, type OrderImage, type CharacterInfo } from '@/components/admin/ImageGallery';
 
 // Force dynamic rendering and disable caching for this page
 // Note: 'dynamic' and 'revalidate' exports don't work in Client Components
@@ -86,7 +87,8 @@ interface Order {
         type: string;
         size: string;
         notes?: string;
-        images?: { id: string; name: string; url: string; thumbnail: string }[];
+        images?: { id: string; name: string; url: string; thumbnail: string | null; category?: string; characterIndex?: number }[];
+        characters?: { index: number; hasGlasses: boolean; glassesDescription?: string; hasHat: boolean; hatDescription?: string }[];
     };
     // Printing order config (order-level metadata only, per-item specs in print_config)
     printing_config?: {
@@ -160,6 +162,50 @@ const statusColors: Record<string, string> = {
 
 // Statuses that trigger email notification
 const emailTriggerStatuses = ['confirmed', 'review', 'approved', 'shipping'];
+
+// =============================================================================
+// CustomImageSection — Bridge between order data and ImageGallery
+// =============================================================================
+
+function CustomImageSection({ images, characters }: {
+    images: { id: string; name: string; url: string; thumbnail: string | null; category?: string; characterIndex?: number }[];
+    characters?: CharacterInfo[];
+}) {
+    const [galleryOpen, setGalleryOpen] = useState(false);
+
+    // Convert to OrderImage format with defaults
+    const orderImages: OrderImage[] = images.map((img) => ({
+        id: img.id,
+        name: img.name,
+        url: img.url,
+        thumbnail: img.thumbnail,
+        category: (img.category || 'main') as OrderImage['category'],
+        characterIndex: img.characterIndex || 1,
+    }));
+
+    return (
+        <>
+            <div className="flex items-center gap-4">
+                <ImageStack images={orderImages} onOpen={() => setGalleryOpen(true)} />
+                <button
+                    onClick={() => setGalleryOpen(true)}
+                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                    Xem tất cả →
+                </button>
+            </div>
+
+            {/* Gallery Modal */}
+            {galleryOpen && (
+                <ImageGallery
+                    images={orderImages}
+                    characters={characters}
+                    onClose={() => setGalleryOpen(false)}
+                />
+            )}
+        </>
+    );
+}
 
 export default function AdminOrderDetailPage() {
     const params = useParams();
@@ -1074,38 +1120,15 @@ export default function AdminOrderDetailPage() {
                                         </p>
                                     </div>
 
-                                    {/* Row 4: Ảnh tham khảo */}
+                                    {/* Row 4: Ảnh tham khảo — ImageGallery */}
                                     <div className="py-3">
-                                        <p className="text-white/60 mb-2">
+                                        <p className="text-white/60 mb-3">
                                             Ảnh tham khảo ({order.custom_config.images?.length || 0} ảnh)
                                         </p>
-                                        {order.custom_config.images && order.custom_config.images.length > 0 ? (
-                                            <div className="space-y-2">
-                                                {order.custom_config.images.map((img, idx) => (
-                                                    <a
-                                                        key={idx}
-                                                        href={img.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                                                    >
-                                                        <img
-                                                            src={img.thumbnail || img.url}
-                                                            alt={img.name}
-                                                            className="w-12 h-12 object-cover rounded"
-                                                        />
-                                                        <span className="text-white text-sm flex-1 truncate">
-                                                            {img.name || `Ảnh ${idx + 1}`}
-                                                        </span>
-                                                        <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                        </svg>
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-white/40">—</p>
-                                        )}
+                                        <CustomImageSection
+                                            images={order.custom_config.images || []}
+                                            characters={order.custom_config.characters}
+                                        />
                                     </div>
                                 </div>
                             )}

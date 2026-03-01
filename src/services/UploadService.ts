@@ -1,9 +1,9 @@
 /**
- * Upload Service
- *
- * Business logic layer for file uploads.
- * Handles routing to R2 or Google Drive based on file type.
- */
+* Upload Service
+*
+* Business logic layer for file uploads.
+* Handles routing to R2 or Google Drive based on file type.
+*/
 
 import {
     uploadWithNaming,
@@ -24,7 +24,6 @@ import {
     type OrderFileCategory
 } from '@/lib/storage/unified-keys';
 import { validateUploadedFile, sanitizeFilename, RAW_IMAGE_EXTENSIONS } from '@/lib/security/file-validation';
-import { trackFileUpload } from '@/lib/security/file-access';
 import { BadRequestError, ForbiddenError } from '@/lib/core/BaseController';
 import { UploadRequestInput } from '@/validators/upload.schema';
 import { getAdminSupabase } from '@/lib/supabase/admin';
@@ -90,24 +89,57 @@ async function insertFileRecord(data: {
                 ? `/api/files/${data.fileKey}`
                 : null;
 
-        // 1. Insert into `files` table
-        const { data: inserted, error } = await supabase
-            .from('files')
-            .insert({
-                file_url: fileUrl,
-                mime_type: data.mimeType,
-                size_bytes: data.sizeBytes,
-                provider: data.storageProvider,
-            })
-            .select('id')
-            .single();
+        let fileId: string;
 
-        if (error || !inserted) {
-            console.error('[UploadService] Failed to insert into files:', error);
-            return null;
+        // Check for existing file with same URL to prevent duplicates
+        if (fileUrl) {
+            const { data: existing } = await supabase
+                .from('files')
+                .select('id')
+                .eq('file_url', fileUrl)
+                .limit(1);
+
+            if (existing && existing.length > 0) {
+                console.log('[UploadService] File already exists, reusing:', existing[0].id);
+                fileId = existing[0].id;
+            } else {
+                // Insert new file record
+                const { data: inserted, error } = await supabase
+                    .from('files')
+                    .insert({
+                        file_url: fileUrl,
+                        mime_type: data.mimeType,
+                        size_bytes: data.sizeBytes,
+                        provider: data.storageProvider,
+                    })
+                    .select('id')
+                    .single();
+
+                if (error || !inserted) {
+                    console.error('[UploadService] Failed to insert into files:', error);
+                    return null;
+                }
+                fileId = inserted.id;
+            }
+        } else {
+            // No file_url — insert without dedup check
+            const { data: inserted, error } = await supabase
+                .from('files')
+                .insert({
+                    file_url: fileUrl,
+                    mime_type: data.mimeType,
+                    size_bytes: data.sizeBytes,
+                    provider: data.storageProvider,
+                })
+                .select('id')
+                .single();
+
+            if (error || !inserted) {
+                console.error('[UploadService] Failed to insert into files:', error);
+                return null;
+            }
+            fileId = inserted.id;
         }
-
-        const fileId = inserted.id;
 
         // 2. Resolve order_id if not provided
         let resolvedOrderId = data.orderId;
@@ -358,18 +390,6 @@ export class UploadService {
 
             // Upload to R2
             await uploadToR2(buffer, key, file.type, metadata);
-
-            // Track file ownership
-            await trackFileUpload(
-                key,
-                userId,
-                params.orderCode || undefined,
-                {
-                    isPublic: params.type === 'product',
-                    fileName: file.name,
-                    fileType: file.type,
-                }
-            );
 
             // Insert into files + file_links for unified tracking
             const category = determineCategory(params, file.name);

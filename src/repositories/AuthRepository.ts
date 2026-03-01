@@ -102,17 +102,21 @@ export class AuthRepository {
         district?: string;
         province?: string;
     }): Promise<void> {
-        await this.db.from('user_addresses').insert({
+        const { error } = await this.db.from('user_addresses').insert({
             user_id: userId,
-            full_name: address.full_name,
-            phone: address.phone,
-            address_line: address.address_line,
-            ward: address.ward,
-            district: address.district,
-            province: address.province,
-            label: 'Mặc định',
+            full_name: address.full_name || '',
+            phone: address.phone || '',
+            address_line: address.address_line || '',
+            ward: address.ward || null,
+            district: address.district || null,
+            province: address.province || null,
             is_default: true,
         });
+
+        if (error) {
+            console.error('[AuthRepository.createAddress] Failed to save address:', JSON.stringify(error));
+            // Don't throw — address failure should not block registration
+        }
     }
 
     /**

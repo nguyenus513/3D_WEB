@@ -181,12 +181,13 @@ export class AdminOrderController extends BaseController {
                 // Extract a display name from file_url (last segment or drive ID)
                 const fileUrl = f.file_url || '';
                 const displayName = fileUrl.split('/').pop() || fileUrl || 'unknown';
+                const meta = fl.metadata || {};
                 return {
                     id: fl.id,
                     file_id: fl.file_id,
                     // Map order_item ref to order_item_id for frontend matching
                     order_item_id: fl.ref_type === 'order_item' ? fl.ref_id : null,
-                    file_name: displayName,
+                    file_name: meta.original_name || displayName,
                     file_key: f.file_url,       // file_url serves as the key/path
                     file_type: f.mime_type,
                     file_url: resolveFileUrl(f.file_url, f.provider),
@@ -195,6 +196,9 @@ export class AdminOrderController extends BaseController {
                     storage_provider: f.provider,
                     size_bytes: f.size_bytes,
                     created_at: fl.created_at,
+                    // Enriched metadata
+                    category: fl.tag || 'main',
+                    character_index: meta.character_index || 1,
                 };
             }) : [];
 
@@ -213,7 +217,9 @@ export class AdminOrderController extends BaseController {
                         id: f.id,
                         name: f.file_name,
                         url: f.file_url, // Already resolved by orderFiles mapping
-                        thumbnail: null
+                        thumbnail: f.file_url,
+                        category: f.category || 'main',
+                        characterIndex: f.character_index || 1,
                     }));
 
                 custom_config = {
@@ -221,6 +227,7 @@ export class AdminOrderController extends BaseController {
                     size: itemConfig.size || (mainItem.configuration as any)?.size || 'Chưa chọn',
                     notes: order.notes || (mainItem.configuration as any)?.notes || '',
                     images,
+                    characters: Array.isArray(itemConfig.characters) ? itemConfig.characters : [],
                 };
             }
 

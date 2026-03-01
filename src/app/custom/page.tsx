@@ -38,6 +38,8 @@ interface FileInfo {
     name: string;
     url: string;
     thumbnail: string;
+    category: 'main' | 'glasses' | 'hat';
+    characterIndex: number;
 }
 
 // ============================================================
@@ -328,7 +330,7 @@ export default function CustomPage() {
 
             const fileData = data.data?.file || data.file;
             if (!fileData) throw new Error('Invalid upload response');
-            uploaded.push(fileData);
+            uploaded.push({ ...fileData, category: 'main' as const, characterIndex: i + 1 });
 
             // Upload glasses image if exists
             if (char.hasGlasses && char.glassesMode === 'upload' && char.glassesImage) {
@@ -344,7 +346,7 @@ export default function CustomPage() {
                 const gData = await gRes.json();
                 if (gRes.ok && gData.success !== false) {
                     const gFile = gData.data?.file || gData.file;
-                    if (gFile) uploaded.push(gFile);
+                    if (gFile) uploaded.push({ ...gFile, category: 'glasses' as const, characterIndex: i + 1 });
                 }
             }
 
@@ -362,7 +364,7 @@ export default function CustomPage() {
                 const hData = await hRes.json();
                 if (hRes.ok && hData.success !== false) {
                     const hFile = hData.data?.file || hData.file;
-                    if (hFile) uploaded.push(hFile);
+                    if (hFile) uploaded.push({ ...hFile, category: 'hat' as const, characterIndex: i + 1 });
                 }
             }
         }
@@ -410,7 +412,14 @@ export default function CustomPage() {
                         district: shippingAddress.district || '',
                         province: shippingAddress.province,
                     },
-                    images: images.map(img => ({ id: img.id, name: img.name })),
+                    images: images.map(img => ({
+                        id: img.id,
+                        name: img.name,
+                        url: img.url,
+                        thumbnail: img.thumbnail,
+                        category: img.category,
+                        characterIndex: img.characterIndex,
+                    })),
                 }),
             });
 

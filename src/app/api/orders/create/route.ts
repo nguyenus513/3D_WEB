@@ -101,13 +101,12 @@ export async function POST(request: NextRequest) {
                     .from('user_addresses')
                     .insert({
                         user_id: user.id,
-                        full_name: (shippingAddress.full_name as string) || null,
-                        phone: (shippingAddress.phone as string) || null,
-                        address_line: (shippingAddress.address_line as string) || null,
+                        full_name: (shippingAddress.full_name as string) || '',
+                        phone: (shippingAddress.phone as string) || '',
+                        address_line: (shippingAddress.address_line as string) || '',
                         ward: (shippingAddress.ward as string) || null,
                         district: (shippingAddress.district as string) || null,
                         province: shippingAddress.province as string,
-                        label: 'Đơn hàng',
                         is_default: false,
                     })
                     .select('id')
