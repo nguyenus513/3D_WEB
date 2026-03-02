@@ -9,8 +9,10 @@
 
 import { OrderRepository, OrderWithItems, OrderQueryParams } from '@/repositories/OrderRepository';
 import { ProfileRepository } from '@/repositories/ProfileRepository';
+import { ProductRepository } from '@/repositories/ProductRepository';
 import { NotFoundError, ForbiddenError, BadRequestError } from '@/lib/core/BaseController';
 import { generateId } from '@/lib/generateId';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import {
     CreateOrderInput,
     UpdateOrderStatusInput,
@@ -22,10 +24,14 @@ import {
 // =============================================================================
 
 export class OrderService {
+    private readonly productRepo: ProductRepository;
+
     constructor(
         private readonly orderRepo: OrderRepository,
         private readonly profileRepo: ProfileRepository
-    ) { }
+    ) {
+        this.productRepo = new ProductRepository(getAdminSupabase());
+    }
 
     /**
      * Get orders for a user by email
@@ -167,6 +173,11 @@ export class OrderService {
                 orderItems
             );
             console.log('[OrderService.createOrder] Step 6 OK: order.id =', order.id);
+
+            // Step 7: Reserve stock + increment sold_count (fire-and-forget, non-blocking)
+            console.log('[OrderService.createOrder] Step 7: Reserving stock...');
+            await this.reserveStockForOrder(input.items);
+
             return order;
         } catch (error) {
             console.error('[OrderService.createOrder] Step 6 FAILED:', JSON.stringify(error, null, 2));
@@ -274,6 +285,66 @@ export class OrderService {
             // For now, let's just log or ignore strict validation given the migration state.
             // Or update the map to be more permissive.
             // throw new BadRequestError(...)
+        }
+    }
+
+    /**
+     * Reserve stock for each item in the order
+     * Matches item.size → product_variant, then calls reserveStock + increment_sold_count
+     */
+    private async reserveStockForOrder(items: CreateOrderInput['items']): Promise<void> {
+        const supabase = getAdminSupabase();
+
+        for (const item of items) {
+            const productId = item.product_id;
+            if (!productId) continue;
+
+            const size = (item as any).size || (item.customization as any)?.size;
+            const qty = item.quantity || 1;
+
+            try {
+                // Find matching variant
+                if (size) {
+                    const { data: variant } = await supabase
+                        .from('product_variants')
+                        .select('id, name, stock, reserved_stock')
+                        .eq('product_id', productId)
+                        .or(`name.eq.${size},sku.eq.${size}`)
+                        .maybeSingle();
+
+                    if (variant) {
+                        // Reserve stock atomically (FOR UPDATE locking via RPC)
+                        await this.productRepo.reserveStock(variant.id, qty);
+                        console.log(`[OrderService] Reserved ${qty} of variant "${variant.name}" (${variant.id})`);
+                    } else {
+                        console.warn(`[OrderService] No variant found for product ${productId} size "${size}"`);
+                    }
+                } else {
+                    // No size specified — try first active variant
+                    const { data: variants } = await supabase
+                        .from('product_variants')
+                        .select('id, name, stock, reserved_stock')
+                        .eq('product_id', productId)
+                        .eq('is_active', true)
+                        .order('sort_order', { ascending: true })
+                        .limit(1);
+
+                    if (variants && variants.length > 0) {
+                        await this.productRepo.reserveStock(variants[0].id, qty);
+                        console.log(`[OrderService] Reserved ${qty} of first variant (${variants[0].id})`);
+                    }
+                }
+
+                // Increment sold_count
+                await (supabase.rpc as any)('increment_sold_count', {
+                    p_product_id: productId,
+                    p_qty: qty,
+                });
+                console.log(`[OrderService] Incremented sold_count for product ${productId} by ${qty}`);
+            } catch (err) {
+                console.error(`[OrderService] Stock reserve/sold_count error for product ${productId}:`, err);
+                // Non-blocking: order already created, stock error shouldn't fail the transaction
+            }
         }
     }
 }

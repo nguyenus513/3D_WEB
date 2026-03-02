@@ -64,8 +64,8 @@ export default function AdminProductsPage() {
             // Map products to include stats
             const productsWithStats = (data.products || []).map((product: any) => ({
                 ...product,
-                // Map product_variants from JOIN to variants
-                variants: product.product_variants || [],
+                // Map product_variants from JOIN to variants (mapToProduct may have already renamed it)
+                variants: product.variants || product.product_variants || [],
                 status: product.status || (product.is_active ? 'active' : 'draft'),
                 sold_count: product.sold_count || 0,
                 buyer_count: 0,
