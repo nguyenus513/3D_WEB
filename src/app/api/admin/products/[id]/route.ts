@@ -30,7 +30,7 @@ export async function GET(
 
         const { data, error } = await supabase
             .from('products')
-            .select('*, category:categories(id, name)')
+            .select('*, category:categories(id, name), product_variants(*)')
             .eq('id', id)
             .single();
 
