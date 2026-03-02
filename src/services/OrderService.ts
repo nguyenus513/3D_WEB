@@ -301,39 +301,49 @@ export class OrderService {
 
             const size = (item as any).size || (item.customization as any)?.size;
             const qty = item.quantity || 1;
+            const unitPrice = item.price;
 
             try {
-                // Find matching variant
-                if (size) {
-                    const { data: variant } = await supabase
-                        .from('product_variants')
-                        .select('id, name, stock, reserved_stock')
-                        .eq('product_id', productId)
-                        .or(`name.eq.${size},sku.eq.${size}`)
-                        .maybeSingle();
+                // Fetch ALL variants for this product
+                const { data: allVariants } = await supabase
+                    .from('product_variants')
+                    .select('id, name, sku, price, stock, reserved_stock')
+                    .eq('product_id', productId)
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true });
 
-                    if (variant) {
-                        // Reserve stock atomically (FOR UPDATE locking via RPC)
-                        await this.productRepo.reserveStock(variant.id, qty);
-                        console.log(`[OrderService] Reserved ${qty} of variant "${variant.name}" (${variant.id})`);
-                    } else {
-                        console.warn(`[OrderService] No variant found for product ${productId} size "${size}"`);
-                    }
-                } else {
-                    // No size specified — try first active variant
-                    const { data: variants } = await supabase
-                        .from('product_variants')
-                        .select('id, name, stock, reserved_stock')
-                        .eq('product_id', productId)
-                        .eq('is_active', true)
-                        .order('sort_order', { ascending: true })
-                        .limit(1);
-
-                    if (variants && variants.length > 0) {
-                        await this.productRepo.reserveStock(variants[0].id, qty);
-                        console.log(`[OrderService] Reserved ${qty} of first variant (${variants[0].id})`);
-                    }
+                if (!allVariants || allVariants.length === 0) {
+                    console.warn(`[OrderService] No variants for product ${productId}, skipping stock reserve`);
+                    // Still increment sold_count
+                    await (supabase.rpc as any)('increment_sold_count', { p_product_id: productId, p_qty: qty });
+                    continue;
                 }
+
+                // Cascade matching: size → price → first
+                let matchedVariant = null;
+
+                // 1. Match by size name or SKU (if size is provided and non-empty)
+                if (size) {
+                    matchedVariant = allVariants.find(
+                        v => v.name === size || v.sku === size
+                    );
+                }
+
+                // 2. Match by unit price
+                if (!matchedVariant && unitPrice) {
+                    matchedVariant = allVariants.find(
+                        v => Number(v.price) === Number(unitPrice)
+                    );
+                }
+
+                // 3. Fallback: first active variant
+                if (!matchedVariant) {
+                    matchedVariant = allVariants[0];
+                }
+
+                // Reserve stock
+                await this.productRepo.reserveStock(matchedVariant.id, qty);
+                console.log(`[OrderService] Reserved ${qty} of variant "${matchedVariant.name || matchedVariant.sku}" (${matchedVariant.id})`);
 
                 // Increment sold_count
                 await (supabase.rpc as any)('increment_sold_count', {
@@ -343,7 +353,6 @@ export class OrderService {
                 console.log(`[OrderService] Incremented sold_count for product ${productId} by ${qty}`);
             } catch (err) {
                 console.error(`[OrderService] Stock reserve/sold_count error for product ${productId}:`, err);
-                // Non-blocking: order already created, stock error shouldn't fail the transaction
             }
         }
     }
