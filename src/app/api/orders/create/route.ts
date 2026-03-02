@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
 
         const { data: products, error: productsError } = await supabaseAdmin
             .from('products')
-            .select('*')
+            .select('*, product_variants(*)')
             .in('id', productIds);
 
         if (productsError) {
@@ -181,11 +181,12 @@ export async function POST(request: NextRequest) {
 
         const productMap = new Map((products || []).map(p => [p.id, p]));
 
-        // Calculate order items with server-side pricing - NEW SCHEMA
+        // Calculate order items with server-side pricing
         const orderItems = items.map((item, index) => {
             let unitPrice = item.price;
             let productName = item.name;
             let productSku = item.sku || null;
+            let matchedVariantId: string | null = null;
 
             if (orderType === 'ready_made' && item.productId) {
                 const product = productMap.get(item.productId);
@@ -193,18 +194,22 @@ export async function POST(request: NextRequest) {
                     productName = product.name;
                     productSku = product.sku || null;
 
-                    // Determine price from size or sale_price or base_price
-                    let sizePrice: number | null = null;
-                    if (item.size && Array.isArray(product.sizes)) {
-                        const sizeObj = product.sizes.find((s: any) =>
-                            typeof s === 'object' && s.name === item.size
+                    // Look up price from product_variants table
+                    const variants = product.product_variants || [];
+                    if (item.size && variants.length > 0) {
+                        const matchedVariant = variants.find((v: any) =>
+                            v.name === item.size || v.sku === item.size
                         );
-                        if (sizeObj && typeof sizeObj.price === 'number') {
-                            sizePrice = sizeObj.price;
+                        if (matchedVariant) {
+                            unitPrice = matchedVariant.price;
+                            matchedVariantId = matchedVariant.id;
                         }
                     }
 
-                    unitPrice = sizePrice ?? product.sale_price ?? product.base_price;
+                    // Fallback to product base/sale price if no variant match
+                    if (!matchedVariantId) {
+                        unitPrice = product.sale_price ?? product.base_price;
+                    }
                 }
             }
 
@@ -226,6 +231,7 @@ export async function POST(request: NextRequest) {
                 production_status: 'waiting',
                 spec: {
                     size: item.size || null,
+                    variant_id: matchedVariantId,
                 },
             };
         });
@@ -234,9 +240,6 @@ export async function POST(request: NextRequest) {
         // Recalculate total from secure items
         const calculatedSubtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
         const calculatedTotal = calculatedSubtotal + shippingFee;
-
-        // Verify total match (optional: strictly enforce or just warn/update)
-        // We will strictly enforce the server-calculated total
 
         // Update the order with calculated totals
         await supabaseAdmin
@@ -255,6 +258,39 @@ export async function POST(request: NextRequest) {
             console.error('Order items error:', itemsError);
             // Order was created but items failed - still return success
             // Admin can fix manually
+        }
+
+        // Reserve stock for each variant + increment sold_count
+        for (const item of orderItems) {
+            const variantId = item.spec?.variant_id;
+            if (variantId && item.quantity > 0) {
+                try {
+                    // Reserve stock atomically (FOR UPDATE locking)
+                    const { error: reserveError } = await (supabaseAdmin.rpc as any)(
+                        'reserve_variant_stock',
+                        { p_variant_id: variantId, p_qty: item.quantity }
+                    );
+                    if (reserveError) {
+                        console.error(`[OrderCreate] Failed to reserve stock for variant ${variantId}:`, reserveError.message);
+                    } else {
+                        console.log(`[OrderCreate] Reserved ${item.quantity} units for variant ${variantId}`);
+                    }
+                } catch (err) {
+                    console.error(`[OrderCreate] Reserve stock error:`, err);
+                }
+            }
+
+            // Increment sold_count on product
+            if (item.product_id) {
+                try {
+                    await (supabaseAdmin.rpc as any)('increment_sold_count', {
+                        p_product_id: item.product_id,
+                        p_qty: item.quantity,
+                    });
+                } catch (err) {
+                    console.error(`[OrderCreate] Failed to increment sold_count:`, err);
+                }
+            }
         }
 
         return NextResponse.json({

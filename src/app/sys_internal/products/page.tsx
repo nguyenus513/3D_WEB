@@ -67,7 +67,7 @@ export default function AdminProductsPage() {
                 // Map product_variants from JOIN to variants
                 variants: product.product_variants || [],
                 status: product.status || (product.is_active ? 'active' : 'draft'),
-                sold_count: 0,
+                sold_count: product.sold_count || 0,
                 buyer_count: 0,
             }));
 
