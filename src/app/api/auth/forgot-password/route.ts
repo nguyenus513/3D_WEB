@@ -16,4 +16,3 @@ import { authController } from '@/controllers/AuthController';
 export async function POST(request: NextRequest) {
     return authController.forgotPassword(request);
 }
-

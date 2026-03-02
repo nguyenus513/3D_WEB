@@ -36,9 +36,26 @@ export async function POST(request: NextRequest) {
         switch (event.type) {
             case 'payment_intent.succeeded': {
                 const paymentIntent = event.data.object;
+                const orderId = paymentIntent.metadata.orderId;
+
+                // Idempotency guard — check if already paid
+                if (orderId) {
+                    const supabase = getAdminSupabase();
+                    const { data: existing } = await supabase
+                        .from('payments')
+                        .select('status')
+                        .eq('order_id', orderId)
+                        .single();
+
+                    if (existing?.status === 'completed') {
+                        log.info('Duplicate webhook — payment already completed', { orderId });
+                        return NextResponse.json({ received: true, duplicate: true });
+                    }
+                }
+
                 await handlePaymentSuccess(
                     paymentIntent.id,
-                    paymentIntent.metadata.orderId,
+                    orderId,
                     paymentIntent.amount
                 );
                 break;

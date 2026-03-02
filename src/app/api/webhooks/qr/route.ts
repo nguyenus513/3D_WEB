@@ -1,13 +1,22 @@
 /**
  * QR Payment Webhook Handler
  * POST /api/webhooks/qr
- * 
- * Receives payment confirmation from gateway or admin
+ *
+ * Receives payment confirmation from gateway or admin.
+ *
+ * Security:
+ * - HMAC-SHA256 signature verification (x-webhook-signature header)
+ * - Idempotency guard (skips duplicate processing)
+ * - Rate limited
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config/unifiedConfig';
-import { SecurityLogger } from '@/lib/security';
+import { SecurityLogger, isRateLimited, rateLimitedResponse } from '@/lib/security';
+import { createLogger } from '@/lib/logger';
+import crypto from 'crypto';
+
+const log = createLogger('qr-webhook');
 
 const supabaseAdmin = createClient(
     config.supabase.url,
@@ -16,16 +25,90 @@ const supabaseAdmin = createClient(
 );
 
 interface WebhookPayload {
-    reference_code: string;      // code_child or code_parent
+    reference_code: string;
     status: 'paid' | 'failed' | 'expired';
     amount?: number;
     timestamp?: string;
-    signature?: string;          // For HMAC verification if needed
 }
+
+// =============================================================================
+// Webhook Signature Verification
+// =============================================================================
+
+/**
+ * Verify HMAC-SHA256 webhook signature.
+ * Returns true if signature is valid, or if WEBHOOK_SECRET is not configured (dev mode).
+ */
+function verifyWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
+    const secret = process.env.WEBHOOK_SECRET;
+
+    // In development without secret configured, allow unsigned requests with warning
+    if (!secret) {
+        if (process.env.NODE_ENV === 'production') {
+            log.error('WEBHOOK_SECRET not configured in production — rejecting request');
+            return false;
+        }
+        log.warn('WEBHOOK_SECRET not configured — skipping signature verification (dev only)');
+        return true;
+    }
+
+    if (!signatureHeader) {
+        return false;
+    }
+
+    const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(rawBody, 'utf8')
+        .digest('hex');
+
+    // Constant-time comparison to prevent timing attacks
+    const sigBuffer = Buffer.from(signatureHeader, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+    if (sigBuffer.length !== expectedBuffer.length) {
+        return false;
+    }
+
+    return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+}
+
+// =============================================================================
+// POST Handler
+// =============================================================================
 
 export async function POST(request: NextRequest) {
     try {
-        const body: WebhookPayload = await request.json();
+        // Rate limiting
+        const rateCheck = isRateLimited(request);
+        if (rateCheck.limited) {
+            log.warn('Webhook rate limited');
+            return rateLimitedResponse(rateCheck.resetIn);
+        }
+
+        // Read raw body for signature verification
+        const rawBody = await request.text();
+        const signature = request.headers.get('x-webhook-signature');
+
+        // Verify signature
+        if (!verifyWebhookSignature(rawBody, signature)) {
+            log.warn('Invalid webhook signature', {
+                hasSignature: !!signature,
+                ip: request.headers.get('x-forwarded-for') || 'unknown',
+            });
+
+            await SecurityLogger.log({
+                event_type: 'SUSPICIOUS_ACTIVITY',
+                severity: 'WARNING',
+                user_id: null,
+                ip_address: request.headers.get('x-forwarded-for') || 'webhook',
+                details: { action: 'invalid_webhook_signature', hasSignature: !!signature },
+            });
+
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        }
+
+        // Parse body after signature verification
+        const body: WebhookPayload = JSON.parse(rawBody);
         const { reference_code, status, amount, timestamp } = body;
 
         if (!reference_code || !status) {
@@ -40,13 +123,44 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (paymentError || !payment) {
-            console.error('[Webhook] Payment not found:', reference_code);
+            log.warn('Payment not found for webhook', { reference_code });
             return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
+        }
+
+        // =====================================================================
+        // Idempotency Guard — skip if already in target status
+        // =====================================================================
+        if (payment.status === status) {
+            log.info('Webhook duplicate — payment already in target status', {
+                reference_code,
+                status,
+            });
+            return NextResponse.json({
+                success: true,
+                message: 'Already processed (idempotent)',
+            });
+        }
+
+        // Prevent backward status transitions (e.g., paid → failed)
+        if (payment.status === 'paid' && status !== 'paid') {
+            log.warn('Attempted backward status transition', {
+                reference_code,
+                currentStatus: payment.status,
+                attemptedStatus: status,
+            });
+            return NextResponse.json({
+                success: false,
+                error: 'Cannot change status of a completed payment',
+            }, { status: 409 });
         }
 
         // Verify amount if provided
         if (amount && amount !== payment.amount) {
-            console.warn('[Webhook] Amount mismatch:', { expected: payment.amount, received: amount });
+            log.warn('Amount mismatch in webhook', {
+                reference_code,
+                expected: payment.amount,
+                received: amount,
+            });
         }
 
         // Update payment status
@@ -125,7 +239,7 @@ export async function POST(request: NextRequest) {
             user_id: null,
             ip_address: request.headers.get('x-forwarded-for') || 'webhook',
             details: {
-                action: 'payment_webhook_received',
+                action: 'payment_webhook_processed',
                 reference_code,
                 status,
                 amount,
@@ -133,9 +247,10 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        log.info('QR webhook processed', { reference_code, status });
         return NextResponse.json({ success: true, message: 'Webhook processed' });
     } catch (error) {
-        console.error('[Webhook] Error:', error);
+        log.error('Webhook processing failed', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

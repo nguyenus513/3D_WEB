@@ -76,6 +76,15 @@ export class AuthController extends BaseController {
      */
     async verifyEmail(request: NextRequest) {
         return this.wrapHandler(async () => {
+            const ip = getIpFromRequest(request);
+
+            // Rate limiting — prevent OTP brute force
+            const { allowed } = await checkRateLimit(`verify:${ip}`, 'auth:verify');
+            if (!allowed) {
+                securityLog.rateLimited(request, '/api/auth/verify');
+                throw new RateLimitError('Quá nhiều yêu cầu xác thực. Vui lòng thử lại sau.');
+            }
+
             const body = await request.json();
             const input = VerifyEmailSchema.parse(body);
 
@@ -93,6 +102,15 @@ export class AuthController extends BaseController {
      */
     async forgotPassword(request: NextRequest) {
         return this.wrapHandler(async () => {
+            const ip = getIpFromRequest(request);
+
+            // Rate limiting — prevent email spam (3 per hour)
+            const { allowed } = await checkRateLimit(`forgot:${ip}`, 'auth:forgot-password');
+            if (!allowed) {
+                securityLog.rateLimited(request, '/api/auth/forgot-password');
+                throw new RateLimitError('Quá nhiều yêu cầu. Vui lòng thử lại sau.');
+            }
+
             const body = await request.json();
             const input = ForgotPasswordSchema.parse(body);
 
