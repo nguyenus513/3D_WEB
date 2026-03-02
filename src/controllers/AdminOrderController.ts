@@ -460,17 +460,11 @@ export class AdminOrderController extends BaseController {
     }
 
     /**
-     * Adjust stock for all items in an order
+     * Adjust stock for all items in an order using atomic RPCs
      * @param orderId - The order ID
-     * @param action - 'deduct' to reduce stock, 'restore' to add back
-     */
-    /**
-     * Adjust stock for all items in an order
-     * @param orderId - The order ID
-     * @param action - 'deduct' to reduce stock, 'restore' to add back
+     * @param action - 'deduct' (confirm_variant_stock) or 'restore' (release_variant_stock)
      */
     private async adjustStockForOrder(orderId: string, action: 'deduct' | 'restore') {
-        const multiplier = action === 'deduct' ? -1 : 1;
         console.log(`[StockAdjust] ${action.toUpperCase()} stock for order ${orderId}`);
 
         // Fetch order items with product_id and configuration
@@ -498,26 +492,32 @@ export class AdminOrderController extends BaseController {
                 if (itemSize) {
                     const { data: variant } = await (this.supabase
                         .from('product_variants') as any)
-                        .select('id, name, sku, stock')
+                        .select('id, name, sku, stock, reserved_stock')
                         .eq('product_id', item.product_id)
                         .or(`name.eq.${itemSize},sku.eq.${itemSize}`)
                         .maybeSingle();
 
                     if (variant) {
-                        // Atomic stock update on variant
-                        const newStock = Math.max(0, variant.stock + (qty * multiplier));
-                        await (this.supabase
-                            .from('product_variants') as any)
-                            .update({ stock: newStock, updated_at: new Date().toISOString() })
-                            .eq('id', variant.id);
+                        // Use atomic RPCs with FOR UPDATE locking
+                        const rpcName = action === 'deduct'
+                            ? 'confirm_variant_stock'
+                            : 'release_variant_stock';
 
-                        // Note: products.stock is auto-synced by DB trigger
-                        console.log(`[StockAdjust] ${action} variant "${variant.name}" (${variant.id}): ${variant.stock} → ${newStock} (qty: ${qty})`);
+                        const { error: rpcError } = await (this.supabase.rpc as any)(rpcName, {
+                            p_variant_id: variant.id,
+                            p_qty: qty,
+                        });
+
+                        if (rpcError) {
+                            console.error(`[StockAdjust] RPC ${rpcName} failed for variant ${variant.id}:`, rpcError.message);
+                        } else {
+                            console.log(`[StockAdjust] ${action} variant "${variant.name}" (${variant.id}) qty: ${qty} via ${rpcName}`);
+                        }
                         continue;
                     }
                 }
 
-                // Fallback: update product-level stock directly
+                // Fallback: update product-level stock directly (no variant match)
                 const { data: product } = await (this.supabase
                     .from('products') as any)
                     .select('id, name, stock')
@@ -525,6 +525,7 @@ export class AdminOrderController extends BaseController {
                     .single();
 
                 if (product) {
+                    const multiplier = action === 'deduct' ? -1 : 1;
                     const newStock = Math.max(0, (product.stock || 0) + (qty * multiplier));
                     await (this.supabase
                         .from('products') as any)

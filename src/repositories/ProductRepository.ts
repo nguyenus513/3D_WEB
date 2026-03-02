@@ -32,6 +32,7 @@ export interface ProductVariant {
     name: string;
     price: number;
     stock: number;
+    reserved_stock?: number;
     image_url: string | null;
     images: string[];
     is_active: boolean;
@@ -310,12 +311,39 @@ export class ProductRepository {
     }
 
     /**
-     * Atomic stock deduction for a variant
+     * Reserve stock for a variant (checkout flow)
+     * Uses FOR UPDATE row locking to prevent oversell
      */
-    async deductVariantStock(variantId: string, quantity: number): Promise<void> {
-        const { error } = await this.db.rpc('deduct_variant_stock', {
+    async reserveStock(variantId: string, quantity: number): Promise<void> {
+        const { error } = await this.db.rpc('reserve_variant_stock', {
             p_variant_id: variantId,
-            p_quantity: quantity,
+            p_qty: quantity,
+        });
+
+        if (error) throw error;
+    }
+
+    /**
+     * Confirm stock deduction (payment confirmed)
+     * Atomically: stock -= qty, reserved_stock -= qty
+     */
+    async confirmStock(variantId: string, quantity: number): Promise<void> {
+        const { error } = await this.db.rpc('confirm_variant_stock', {
+            p_variant_id: variantId,
+            p_qty: quantity,
+        });
+
+        if (error) throw error;
+    }
+
+    /**
+     * Release reserved stock (order cancelled / timed out)
+     * reserved_stock -= qty
+     */
+    async releaseStock(variantId: string, quantity: number): Promise<void> {
+        const { error } = await this.db.rpc('release_variant_stock', {
+            p_variant_id: variantId,
+            p_qty: quantity,
         });
 
         if (error) throw error;
