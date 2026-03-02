@@ -95,7 +95,7 @@ export default function AdminProductNewPage() {
                 sale_price: null,
                 stock: pricingMode === 'original' ? parseInt(formData.stock) || 0 : 0,
                 images: formData.images.map((img, i) => ({ url: img.url, is_main: i === 0 })),
-                sizes: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
+                variants: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
                     name: s.name,
                     price: parseInt(s.price) || 0,
                     stock: parseInt(s.stock) || 0,

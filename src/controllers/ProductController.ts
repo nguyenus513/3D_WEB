@@ -16,6 +16,7 @@ import {
 } from '@/validators/product.schema';
 import { config } from '@/config/unifiedConfig';
 import { requireAdmin } from '@/lib/security/admin-guard';
+import { revalidateTag } from 'next/cache';
 
 // =============================================================================
 // Supabase Admin Client
@@ -100,6 +101,10 @@ export class ProductController extends BaseController {
             const input = parseResult.data;
 
             const product = await this.productService.createProduct(input);
+
+            // Invalidate cached product lists
+            revalidateTag('products', { expire: 0 });
+
             return this.handleSuccess({ product, success: true }, { status: 201 });
         }, 'ProductController.createProduct');
     }
@@ -117,6 +122,10 @@ export class ProductController extends BaseController {
             const input = UpdateProductSchema.parse(body);
 
             await this.productService.updateProduct(input);
+
+            // Invalidate cached product lists
+            revalidateTag('products', { expire: 0 });
+
             return this.handleSuccess({ success: true });
         }, 'ProductController.updateProduct');
     }
@@ -138,6 +147,10 @@ export class ProductController extends BaseController {
             }
 
             await this.productService.archiveProduct(id);
+
+            // Invalidate cached product lists
+            revalidateTag('products', { expire: 0 });
+
             return this.handleSuccess({ success: true });
         }, 'ProductController.deleteProduct');
     }

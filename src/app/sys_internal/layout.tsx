@@ -102,7 +102,7 @@ export default function AdminLayout({
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a]">
+        <div className="h-screen bg-[#0a0a0a] overflow-hidden">
             {/* Mobile overlay */}
             {sidebarOpen && (
                 <div
@@ -118,9 +118,9 @@ export default function AdminLayout({
             />
 
             {/* Main content */}
-            <div className="lg:pl-64">
+            <div className="lg:pl-64 h-full flex flex-col">
                 <AdminHeader onMenuClick={() => setSidebarOpen(true)} />
-                <main className="p-4 lg:p-6">
+                <main className="flex-1 overflow-y-auto p-4 lg:p-6">
                     {children}
                 </main>
             </div>

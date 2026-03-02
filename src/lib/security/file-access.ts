@@ -42,12 +42,13 @@ export async function canAccessFile(
         return { allowed: true, reason: 'admin' };
     }
 
-    // No user = only public files
+    // Product images are always public — regardless of auth status
+    if (fileKey.startsWith('products/')) {
+        return { allowed: true, reason: 'public_product', isPublic: true };
+    }
+
+    // No user = deny non-public files
     if (!userId) {
-        // Check if it's a public file (product images)
-        if (fileKey.startsWith('products/')) {
-            return { allowed: true, reason: 'public_product', isPublic: true };
-        }
         return { allowed: false, reason: 'unauthenticated' };
     }
 
@@ -61,11 +62,6 @@ export async function canAccessFile(
 
     // File not tracked in DB - check by path pattern
     if (!file) {
-        // Product images are public
-        if (fileKey.startsWith('products/')) {
-            return { allowed: true, reason: 'public_product', isPublic: true };
-        }
-
         // Order files - check by path pattern
         // Pattern: orders/{order_code}/... (e.g. orders/DF637513/demo/...)
         const orderMatch = fileKey.match(/orders\/([^/]+)\//);

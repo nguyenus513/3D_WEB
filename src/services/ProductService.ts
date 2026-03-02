@@ -4,7 +4,7 @@
  * Business logic layer for products.
  */
 
-import { ProductRepository, Product, ProductQueryParams } from '@/repositories/ProductRepository';
+import { ProductRepository, Product, ProductQueryParams, ProductVariant } from '@/repositories/ProductRepository';
 import { NotFoundError, ConflictError } from '@/lib/core/BaseController';
 import { CreateProductInput, UpdateProductInput } from '@/validators/product.schema';
 
@@ -41,46 +41,62 @@ export class ProductService {
     }
 
     /**
-     * Create a new product
+     * Create a new product with variants
      */
     async createProduct(input: CreateProductInput): Promise<Product> {
-        // Note: slug removed from DB - no longer needed
-
         try {
-            return await this.productRepo.create({
+            // 1. Create the product (without sizes JSONB)
+            const product = await this.productRepo.create({
                 sku: input.sku.trim(),
                 name: input.name.trim(),
-                // Note: 'slug' removed - column doesn't exist in DB
                 category_id: input.category_id,
-                // Note: 'type' removed - column doesn't exist in DB
                 status: input.status,
                 short_description: input.short_description,
                 description: input.description,
                 base_price: input.base_price,
                 sale_price: input.sale_price,
-                // Note: 'cost_price' removed - column doesn't exist in DB
-                stock: input.stock,
+                stock: 0, // Will be auto-computed by trigger
                 images: input.images,
-                sizes: input.sizes, // JSONB column in DB
                 tags: input.tags,
                 is_featured: input.is_featured,
                 is_active: input.status === 'active',
             });
+
+            // 2. Create variants if provided
+            if (input.variants && input.variants.length > 0) {
+                await this.productRepo.createVariants(
+                    product.id,
+                    input.variants.map((v, i) => ({
+                        sku: v.sku || null,
+                        name: v.name,
+                        price: v.price,
+                        stock: v.stock || 0,
+                        image_url: v.image_url || null,
+                        images: v.images || [],
+                        is_active: v.enabled !== false,
+                        sort_order: i,
+                    }))
+                );
+
+                // Re-fetch to include variants in response
+                const fullProduct = await this.productRepo.findById(product.id);
+                if (fullProduct) return fullProduct;
+            }
+
+            return product;
         } catch (error: unknown) {
-
-
             if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
-                throw new ConflictError('SKU hoặc slug đã tồn tại');
+                throw new ConflictError('SKU đã tồn tại');
             }
             throw error;
         }
     }
 
     /**
-     * Update a product
+     * Update a product with variants sync
      */
     async updateProduct(input: UpdateProductInput): Promise<void> {
-        const { id, ...updates } = input;
+        const { id, variants: inputVariants, ...updates } = input;
 
         // Check product exists
         const product = await this.productRepo.findById(id);
@@ -88,22 +104,41 @@ export class ProductService {
             throw new NotFoundError('Sản phẩm không tồn tại');
         }
 
-        // Build update object
+        // Build update object (product fields only)
         const updateData: Partial<Product> = {};
         if (updates.name) updateData.name = updates.name.trim();
         if (updates.sku) updateData.sku = updates.sku.trim();
-        // Note: slug removed from DB
         if (updates.status) updateData.status = updates.status;
         if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
         if (updates.base_price !== undefined) updateData.base_price = updates.base_price;
         if (updates.sale_price !== undefined) updateData.sale_price = updates.sale_price;
-        if (updates.stock !== undefined) updateData.stock = updates.stock;
         if (updates.is_featured !== undefined) updateData.is_featured = updates.is_featured;
         if (updates.images !== undefined) updateData.images = updates.images;
-        if (updates.sizes !== undefined) updateData.sizes = updates.sizes;
         if (updates.description !== undefined) updateData.description = updates.description;
 
         await this.productRepo.update(id, updateData);
+
+        // Sync variants if provided
+        if (inputVariants !== undefined) {
+            // Replace all variants (delete + re-create)
+            await this.productRepo.deleteVariantsByProduct(id);
+
+            if (inputVariants.length > 0) {
+                await this.productRepo.createVariants(
+                    id,
+                    inputVariants.map((v, i) => ({
+                        sku: v.sku || null,
+                        name: v.name,
+                        price: v.price,
+                        stock: v.stock || 0,
+                        image_url: v.image_url || null,
+                        images: v.images || [],
+                        is_active: v.enabled !== false,
+                        sort_order: i,
+                    }))
+                );
+            }
+        }
     }
 
     /**

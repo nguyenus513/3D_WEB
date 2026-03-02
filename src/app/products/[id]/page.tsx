@@ -5,9 +5,21 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { getSupabase } from '@/lib/supabase/client';
 import { useCartStore } from '@/lib/store/cart';
 import type { Product } from '@/types/database';
+
+// Variant type from API (product_variants table)
+interface Variant {
+    id: string;
+    name: string;
+    sku: string | null;
+    price: number;
+    stock: number;
+    image_url: string | null;
+    images: string[];
+    is_active: boolean;
+    sort_order: number;
+}
 
 export default function ProductDetailPage() {
     const params = useParams();
@@ -15,9 +27,10 @@ export default function ProductDetailPage() {
     const productId = params.id as string;
 
     const [product, setProduct] = useState<Product | null>(null);
+    const [variants, setVariants] = useState<Variant[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedSize, setSelectedSize] = useState(0);
-    const [selectedImage, setSelectedImage] = useState(0); // Current image within size
+    const [selectedVariant, setSelectedVariant] = useState(0);
+    const [selectedImage, setSelectedImage] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [addedToCart, setAddedToCart] = useState(false);
 
@@ -31,23 +44,23 @@ export default function ProductDetailPage() {
         );
     };
 
-    // Get current size's images combined with product images
+    // Get current variant's images combined with product images
     const getCurrentImages = (): string[] => {
         if (!product) return [];
 
         const productImages = getProductImages();
-        const size = product.sizes?.[selectedSize] as any;
+        const variant = variants[selectedVariant];
 
-        // Get size-specific images
-        let sizeImages: string[] = [];
-        if (size?.images && size.images.length > 0) {
-            sizeImages = size.images;
-        } else if (size?.image_url) {
-            sizeImages = [size.image_url];
+        // Get variant-specific images
+        let variantImages: string[] = [];
+        if (variant?.images && variant.images.length > 0) {
+            variantImages = variant.images;
+        } else if (variant?.image_url) {
+            variantImages = [variant.image_url];
         }
 
-        // Combine: size images FIRST, then product images (no duplicates)
-        const combined = [...sizeImages];
+        // Combine: variant images FIRST, then product images (no duplicates)
+        const combined = [...variantImages];
         productImages.forEach(img => {
             if (!combined.includes(img)) {
                 combined.push(img);
@@ -68,27 +81,27 @@ export default function ProductDetailPage() {
         setSelectedImage(prev => (prev + 1) % images.length);
     };
 
-    // Reset selected image when size changes
-    const handleSizeChange = (index: number) => {
-        setSelectedSize(index);
-        setSelectedImage(0); // Reset to first image of new size
+    // Reset selected image when variant changes
+    const handleVariantChange = (index: number) => {
+        setSelectedVariant(index);
+        setSelectedImage(0);
     };
 
-    // Handle Buy Now — add to cart and redirect to unified checkout
+    // Handle Buy Now
     const handleBuyNow = () => {
         if (!product) return;
 
-        const size = product.sizes?.[selectedSize];
-        const price = size?.price || product.sale_price || product.base_price;
+        const variant = variants[selectedVariant];
+        const price = variant?.price || product.sale_price || product.base_price;
 
         addItem({
             type: 'product',
             productId: product.id,
             name: product.name,
-            sku: product.sku || undefined,
+            sku: variant?.sku || product.sku || undefined,
             price: price,
             quantity: quantity,
-            size: size?.name || 'Default',
+            size: variant?.name || 'Default',
             image: typeof product.images?.[0] === 'string' ? product.images[0] : product.images?.[0]?.url,
         });
 
@@ -100,66 +113,51 @@ export default function ProductDetailPage() {
     }, [productId]);
 
     const fetchProduct = async () => {
-        const supabase = getSupabase();
+        try {
+            const res = await fetch(`/api/public/products`);
+            const json = await res.json();
+            const allProducts = json.data || [];
 
-        // Try to fetch by ID (UUID) or slug
-        let query = supabase.from('products').select('*');
+            // Find product by ID
+            const found = allProducts.find((p: any) => p.id === productId);
+            if (!found) {
+                setLoading(false);
+                return;
+            }
 
-        // Check if it's a UUID
-        if (productId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-            query = query.eq('id', productId);
-        } else {
-            // Try by ID as fallback (slug removed)
-            query = query.eq('id', productId);
-        }
+            // Extract variants from joined data
+            const productVariants: Variant[] = (found.product_variants || [])
+                .filter((v: Variant) => v.is_active)
+                .sort((a: Variant, b: Variant) => a.sort_order - b.sort_order);
 
-        const { data, error } = await query.single();
+            // Adapt images
+            const imagesAdapted = (found.images || []).map((img: string | { url: string }) =>
+                typeof img === 'string' ? { url: img } : img
+            );
 
-        if (error || !data) {
+            setProduct({ ...found, images: imagesAdapted } as any);
+            setVariants(productVariants);
+        } catch {
+            // Error fetching
+        } finally {
             setLoading(false);
-            return;
         }
-
-        // Schema v3 Adapter: Map DB fields to Component expectations
-        const adaptedProduct: Product = {
-            ...data,
-            // Use sizes from top-level column (not specs.sizes)
-            sizes: (data.sizes || []).map((s: any) => ({
-                ...s,
-                enabled: s.enabled !== false // Default to enabled if missing
-            })),
-            // Ensure images is string[] but component might check .url, need to inspect component usage
-            // The component uses product.images[0].url checks, so we might need object wrapping if we don't change component logic
-            // But let's verify if we can just update component logic.
-            // For now, let's cast/map strictly.
-        };
-
-        // Images handling: New schema is string[]. Component expects { url: string }[] logic? 
-        // Actually component lines 185: product.images?.[0]?.url 
-        // We should probably patch the component to handle string[] or map it here.
-        // Let's map it here for minimal component disruption:
-        const imagesAdapted = (data.images || []).map((img: string | { url: string }) =>
-            typeof img === 'string' ? { url: img } : img
-        );
-
-        setProduct({ ...adaptedProduct, images: imagesAdapted as any });
-        setLoading(false);
     };
 
     const handleAddToCart = () => {
         if (!product) return;
 
-        const size = product.sizes?.[selectedSize];
-        const price = size?.price || product.sale_price || product.base_price;
+        const variant = variants[selectedVariant];
+        const price = variant?.price || product.sale_price || product.base_price;
 
         addItem({
             type: 'product',
             productId: product.id,
             name: product.name,
-            sku: product.sku || undefined,
+            sku: variant?.sku || product.sku || undefined,
             price: price,
             quantity: quantity,
-            size: size?.name || 'Default',
+            size: variant?.name || 'Default',
             image: typeof product.images?.[0] === 'string' ? product.images[0] : product.images?.[0]?.url,
         });
 
@@ -192,7 +190,8 @@ export default function ProductDetailPage() {
         );
     }
 
-    const currentPrice = product.sizes?.[selectedSize]?.price || product.sale_price || product.base_price;
+    const currentVariant = variants[selectedVariant];
+    const currentPrice = currentVariant?.price || product.sale_price || product.base_price;
     const hasDiscount = product.sale_price && product.sale_price < product.base_price;
 
     return (
@@ -217,7 +216,7 @@ export default function ProductDetailPage() {
                             <div className="aspect-square rounded-3xl bg-gradient-to-br from-white/5 to-white/10 flex items-center justify-center relative overflow-hidden">
                                 {getCurrentImages()[selectedImage] ? (
                                     <motion.img
-                                        key={`${selectedSize}-${selectedImage}`}
+                                        key={`${selectedVariant}-${selectedImage}`}
                                         src={getCurrentImages()[selectedImage]}
                                         alt={product.name}
                                         className="w-full h-full object-cover"
@@ -292,10 +291,10 @@ export default function ProductDetailPage() {
                                 </div>
                             )}
 
-                            {/* Current size label */}
-                            {product.sizes && product.sizes.length > 0 && (
+                            {/* Current variant label */}
+                            {variants.length > 0 && (
                                 <p className="text-sm text-white/50 text-center">
-                                    Đang xem: <span className="text-white font-medium">{product.sizes[selectedSize]?.name}</span>
+                                    Đang xem: <span className="text-white font-medium">{variants[selectedVariant]?.name}</span>
                                 </p>
                             )}
                         </div>
@@ -331,28 +330,26 @@ export default function ProductDetailPage() {
                             </div>
                         </AnimatedSection>
 
-                        {/* Size Selection */}
-                        {product.sizes && product.sizes.length > 0 && (
+                        {/* Variant Selection */}
+                        {variants.length > 0 && (
                             <AnimatedSection delay={0.3}>
                                 <div className="mb-8">
                                     <h3 className="text-sm font-medium text-white/70 mb-3">Kích thước</h3>
                                     <div className="flex flex-wrap gap-3">
-                                        {product.sizes.map((size, index) => (
-                                            size.enabled !== false && (
-                                                <button
-                                                    key={size.name}
-                                                    onClick={() => handleSizeChange(index)}
-                                                    className={`px-4 py-3 rounded-xl border transition-all ${selectedSize === index
-                                                        ? 'bg-white text-black border-white'
-                                                        : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
-                                                        }`}
-                                                >
-                                                    <span className="block text-sm font-medium">{size.name}</span>
-                                                    <span className="block text-xs opacity-70">
-                                                        {size.price.toLocaleString('vi-VN')}đ
-                                                    </span>
-                                                </button>
-                                            )
+                                        {variants.map((variant, index) => (
+                                            <button
+                                                key={variant.id}
+                                                onClick={() => handleVariantChange(index)}
+                                                className={`px-4 py-3 rounded-xl border transition-all ${selectedVariant === index
+                                                    ? 'bg-white text-black border-white'
+                                                    : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
+                                                    }`}
+                                            >
+                                                <span className="block text-sm font-medium">{variant.name}</span>
+                                                <span className="block text-xs opacity-70">
+                                                    {variant.price.toLocaleString('vi-VN')}đ
+                                                </span>
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
@@ -423,22 +420,20 @@ export default function ProductDetailPage() {
                                 <ul className="mt-4 space-y-2">
                                     <li className="flex items-center gap-2 text-white/60">
                                         <span className="w-2 h-2 rounded-full bg-green-400" />
-                                        SKU: {product.sizes && product.sizes.length > 0 && product.sizes[selectedSize]?.sku
-                                            ? product.sizes[selectedSize].sku
-                                            : product.sku}
+                                        SKU: {currentVariant?.sku || product.sku}
                                     </li>
                                     <li className="flex items-center gap-2 text-white/60">
                                         <span className="w-2 h-2 rounded-full bg-green-400" />
                                         Còn hàng: {
-                                            product.sizes && product.sizes.length > 0
-                                                ? (product.sizes[selectedSize]?.stock ?? product.sizes.reduce((sum, s) => sum + (s.stock || 0), 0))
+                                            currentVariant
+                                                ? currentVariant.stock
                                                 : product.stock
                                         } sản phẩm
                                     </li>
-                                    {product.sizes && product.sizes.length > 0 && product.sizes[selectedSize] && (
+                                    {currentVariant && (
                                         <li className="flex items-center gap-2 text-white/60">
                                             <span className="w-2 h-2 rounded-full bg-blue-400" />
-                                            Size: {product.sizes[selectedSize].name}
+                                            Size: {currentVariant.name}
                                         </li>
                                     )}
                                 </ul>

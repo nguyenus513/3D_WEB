@@ -491,57 +491,48 @@ export class AdminOrderController extends BaseController {
             }
 
             try {
-                // Get size from configuration or top-level if it exists (legacy)
                 const itemSize = item.configuration?.size || item.size;
+                const qty = item.quantity || 1;
 
-                // Fetch product
-                const { data: product, error: productError } = await (this.supabase
-                    .from('products') as any)
-                    .select('id, name, stock, sizes')
-                    .eq('id', item.product_id)
-                    .single();
+                // Try to find matching variant in product_variants table
+                if (itemSize) {
+                    const { data: variant } = await (this.supabase
+                        .from('product_variants') as any)
+                        .select('id, name, sku, stock')
+                        .eq('product_id', item.product_id)
+                        .or(`name.eq.${itemSize},sku.eq.${itemSize}`)
+                        .maybeSingle();
 
-                if (productError || !product) {
-                    console.warn(`[StockAdjust] Product ${item.product_id} not found`);
-                    continue;
-                }
-
-                const qty = item.quantity * multiplier;
-                const sizes = product.sizes as any[] | null;
-
-                // Try to find matching size
-                if (sizes && sizes.length > 0 && itemSize) {
-                    const sizeIndex = sizes.findIndex(
-                        (s: any) => s.name === itemSize || s.sku === itemSize
-                    );
-
-                    if (sizeIndex >= 0) {
-                        // Update size-specific stock
-                        const updatedSizes = [...sizes];
-                        const currentStock = updatedSizes[sizeIndex].stock || 0;
-                        updatedSizes[sizeIndex] = {
-                            ...updatedSizes[sizeIndex],
-                            stock: Math.max(0, currentStock + qty),
-                        };
-
+                    if (variant) {
+                        // Atomic stock update on variant
+                        const newStock = Math.max(0, variant.stock + (qty * multiplier));
                         await (this.supabase
-                            .from('products') as any)
-                            .update({ sizes: updatedSizes, updated_at: new Date().toISOString() })
-                            .eq('id', product.id);
+                            .from('product_variants') as any)
+                            .update({ stock: newStock, updated_at: new Date().toISOString() })
+                            .eq('id', variant.id);
 
-                        console.log(`[StockAdjust] ${action} size "${itemSize}" of "${product.name}": ${currentStock} → ${updatedSizes[sizeIndex].stock} (qty: ${item.quantity})`);
+                        // Note: products.stock is auto-synced by DB trigger
+                        console.log(`[StockAdjust] ${action} variant "${variant.name}" (${variant.id}): ${variant.stock} → ${newStock} (qty: ${qty})`);
                         continue;
                     }
                 }
 
-                // Fallback: update product-level stock
-                const newStock = Math.max(0, (product.stock || 0) + qty);
-                await (this.supabase
+                // Fallback: update product-level stock directly
+                const { data: product } = await (this.supabase
                     .from('products') as any)
-                    .update({ stock: newStock, updated_at: new Date().toISOString() })
-                    .eq('id', product.id);
+                    .select('id, name, stock')
+                    .eq('id', item.product_id)
+                    .single();
 
-                console.log(`[StockAdjust] ${action} product "${product.name}" stock: ${product.stock} → ${newStock} (qty: ${item.quantity})`);
+                if (product) {
+                    const newStock = Math.max(0, (product.stock || 0) + (qty * multiplier));
+                    await (this.supabase
+                        .from('products') as any)
+                        .update({ stock: newStock, updated_at: new Date().toISOString() })
+                        .eq('id', product.id);
+
+                    console.log(`[StockAdjust] ${action} product "${product.name}" stock: ${product.stock} → ${newStock} (qty: ${qty})`);
+                }
             } catch (err) {
                 console.error(`[StockAdjust] Error adjusting stock for product ${item.product_id}:`, err);
             }

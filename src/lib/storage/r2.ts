@@ -121,12 +121,13 @@ export function generateCustomR2Key(
     orderCode: string,
     customType: 'single' | 'couple' | 'group',
     personCount: number,
-    photoCategory: 'main' | 'accessory',
+    photoCategory: 'main' | 'accessory' | 'glasses' | 'hat',
     photoIndex: number,
     extension: string
 ): string {
     const x = customType === 'single' ? 1 : customType === 'couple' ? 2 : Math.max(3, personCount);
-    const y = photoCategory === 'main' ? 1 : 2;
+    const categoryMap: Record<string, number> = { main: 1, accessory: 2, glasses: 3, hat: 4 };
+    const y = categoryMap[photoCategory] ?? 1;
     const ext = extension.startsWith('.') ? extension.slice(1) : extension;
     const fileName = `${orderCode}-${x}.${y}.${photoIndex}.${ext}`;
     return `orders/${orderCode}/${fileName}`;

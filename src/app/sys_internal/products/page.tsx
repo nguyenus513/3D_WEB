@@ -10,6 +10,7 @@ import { useAdminPath } from '@/hooks/useAdminPath';
 interface ProductWithStats extends Product {
     sold_count: number;
     buyer_count: number;
+    status: string;
 }
 
 export default function AdminProductsPage() {
@@ -63,7 +64,8 @@ export default function AdminProductsPage() {
             // Map products to include stats
             const productsWithStats = (data.products || []).map((product: any) => ({
                 ...product,
-                sizes: product.sizes || [],
+                // Map product_variants from JOIN to variants
+                variants: product.product_variants || [],
                 status: product.status || (product.is_active ? 'active' : 'draft'),
                 sold_count: 0,
                 buyer_count: 0,
@@ -114,15 +116,16 @@ export default function AdminProductsPage() {
     };
 
     const getDisplayPrice = (product: ProductWithStats) => {
-        if (product.sizes && product.sizes.length > 0) {
-            const prices = product.sizes.map(s => s.price);
+        const variants = (product as any).variants || [];
+        if (variants.length > 0) {
+            const prices = variants.map((v: any) => Number(v.price));
             const min = Math.min(...prices);
             const max = Math.max(...prices);
 
             if (min === max) {
-                return <span className="text-white">{Number(min).toLocaleString('vi-VN')}đ</span>;
+                return <span className="text-white">{min.toLocaleString('vi-VN')}đ</span>;
             }
-            return <span className="text-white">{Number(min).toLocaleString('vi-VN')}đ - {Number(max).toLocaleString('vi-VN')}đ</span>;
+            return <span className="text-white">{min.toLocaleString('vi-VN')}đ - {max.toLocaleString('vi-VN')}đ</span>;
         }
 
         return (
@@ -140,11 +143,8 @@ export default function AdminProductsPage() {
     };
 
     const getDisplayStock = (product: ProductWithStats) => {
-        let totalStock = product.stock;
-
-        if (product.sizes && product.sizes.length > 0) {
-            totalStock = product.sizes.reduce((sum, size) => sum + size.stock, 0);
-        }
+        // products.stock is auto-synced from SUM(variants.stock) by DB trigger
+        const totalStock = product.stock;
 
         return (
             <span className={`font-medium ${totalStock > 0 ? 'text-green-400' : 'text-red-400'}`}>

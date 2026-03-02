@@ -86,7 +86,7 @@ export async function middleware(request: NextRequest) {
     if (token && (pathname === '/login' || pathname === '/register')) {
         // Admin users always go to admin dashboard
         if (token.role === 'admin') {
-            return NextResponse.redirect(new URL('/sys_internal', request.url));
+            return NextResponse.redirect(new URL('/admin', request.url));
         }
         // Customer with incomplete profile → complete-profile
         if (token.isNewUser) {
@@ -99,7 +99,7 @@ export async function middleware(request: NextRequest) {
     // If user visits /complete-profile but profile IS complete → redirect away
     if (token && pathname === '/complete-profile') {
         if (token.role === 'admin') {
-            return NextResponse.redirect(new URL('/sys_internal', request.url));
+            return NextResponse.redirect(new URL('/admin', request.url));
         }
         if (!token.isNewUser) {
             return NextResponse.redirect(new URL('/account', request.url));

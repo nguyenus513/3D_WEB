@@ -87,10 +87,10 @@ export default function AdminProductEditPage() {
                 }))
                 : [];
 
-            // Map sizes (ensure array)
-            const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+            // Map variants from product_variants JOIN
+            const variants = Array.isArray(product.product_variants) ? product.product_variants : [];
 
-            setPricingMode(sizes.length > 0 ? 'multi_size' : 'original');
+            setPricingMode(variants.length > 0 ? 'multi_size' : 'original');
             setFormData({
                 name: product.name,
                 sku: product.sku || '',
@@ -98,13 +98,15 @@ export default function AdminProductEditPage() {
                 basePrice: String(product.base_price || 0),
                 stock: String(product.stock || 0),
                 images: images,
-                sizes: sizes.map((s: any) => ({
-                    name: s.name || '',
-                    sku: s.sku || '',
-                    price: String(s.price || 0),
-                    stock: String(s.stock || 0),
-                    image_url: s.image_url,
-                })),
+                sizes: variants
+                    .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                    .map((v: any) => ({
+                        name: v.name || '',
+                        sku: v.sku || '',
+                        price: String(v.price || 0),
+                        stock: String(v.stock || 0),
+                        image_url: v.image_url,
+                    })),
             });
         } catch (err) {
             console.error('Error fetching product:', err);
@@ -144,9 +146,8 @@ export default function AdminProductEditPage() {
                 is_active: formData.status === 'active',
                 base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : 0,
                 sale_price: null,
-                stock: pricingMode === 'original' ? parseInt(formData.stock) || 0 : 0,
                 images: formData.images.filter(img => img?.url).map((img, i) => ({ url: img.url, is_main: i === 0 })),
-                sizes: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
+                variants: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
                     name: s.name,
                     sku: s.sku,
                     price: parseInt(s.price) || 0,

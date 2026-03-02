@@ -54,6 +54,7 @@ export type ProductType = 'ready_made' | 'custom_template' | 'service' | 'printi
 export interface User {
     id: string;
     name: string | null;
+    full_name: string | null;
     email: string;
     emailVerified: string | null;
     image: string | null;

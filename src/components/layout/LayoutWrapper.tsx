@@ -8,11 +8,8 @@ import ContactWidget from '@/components/ui/ContactWidget';
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
-    // Admin pages detection:
-    // 1. sys_internal (internal path after rewrite)
-    // 2. Long random tokens (50 chars like /A7x...Z9k)
-    const pathSegment = pathname.split('/')[1] || '';
-    const isAdminPage = pathname.startsWith('/sys_internal') || pathSegment.length >= 40;
+    // Admin pages have their own layout (sidebar + header)
+    const isAdminPage = pathname.startsWith('/admin') || pathname.startsWith('/sys_internal');
 
     // Admin pages have their own layout - no nav/footer
     if (isAdminPage) {

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
-import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
 import { Search, X, Box, Star } from 'lucide-react';
 
@@ -32,26 +31,25 @@ export default function ProductsPage() {
     }, []);
 
     const fetchCategories = async () => {
-        const supabase = getSupabase();
-        const { data } = await supabase
-            .from('categories')
-            .select('*')
-            .order('sort_order', { ascending: true });
-        setCategories(data || []);
+        try {
+            const res = await fetch('/api/public/categories');
+            const json = await res.json();
+            setCategories(json.data || []);
+        } catch {
+            setCategories([]);
+        }
     };
 
     const fetchProducts = async () => {
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
-
-        if (!error && data) {
-            setProducts(data);
+        try {
+            const res = await fetch('/api/public/products');
+            const json = await res.json();
+            setProducts(json.data || []);
+        } catch {
+            setProducts([]);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     // Helper to get display price (handles sizes)

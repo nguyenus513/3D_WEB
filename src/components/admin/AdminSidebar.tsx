@@ -9,7 +9,7 @@
  * - Refractive Active State: Active items look like etched glass.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -72,21 +72,8 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
     const pathname = usePathname();
     const { data: session } = useSession();
     const [expandedItems, setExpandedItems] = useState<string[]>(['Khách hàng']);
-    const [adminRoot, setAdminRoot] = useState('');
 
-    useEffect(() => {
-        if (pathname) {
-            const parts = pathname.split('/');
-            if (parts.length >= 2) {
-                const rootSegment = parts[1];
-                if (rootSegment && rootSegment.length > 20) {
-                    setAdminRoot(`/${rootSegment}`);
-                }
-            }
-        }
-    }, [pathname]);
-
-    const effectiveRoot = adminRoot || '/sys_internal';
+    const effectiveRoot = '/admin';
 
     const toggleExpand = (name: string) => {
         setExpandedItems(prev =>
@@ -107,7 +94,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
         )}>
             {/* Logo */}
             <div className="p-6 border-b border-white/5">
-                <Link href={adminRoot || '/sys_internal'} className="flex items-center gap-3 group">
+                <Link href={effectiveRoot} className="flex items-center gap-3 group">
                     <div className="w-10 h-10 rounded-2xl bg-white shadow-lg flex items-center justify-center transition-transform group-hover:scale-105 group-hover:rotate-3">
                         <Layers size={24} className="text-black" strokeWidth={2} />
                     </div>

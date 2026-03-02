@@ -25,6 +25,7 @@ export const ProductImageSchema = z.object({
     is_main: z.boolean().optional().default(false),
 });
 
+/** @deprecated Use VariantInputSchema instead */
 export const ProductSizeSchema = z.object({
     name: z.string().min(1),
     sku: z.string().optional(),
@@ -33,7 +34,17 @@ export const ProductSizeSchema = z.object({
     enabled: z.boolean().default(true),
     images: z.array(z.string()).optional().default([]),
     image_url: z.string().optional().nullable(),
-}); // Multiple images per size
+});
+
+export const VariantInputSchema = z.object({
+    name: z.string().min(1),
+    sku: z.string().optional().nullable(),
+    price: z.coerce.number().int().min(0),
+    stock: z.coerce.number().int().min(0).default(0),
+    enabled: z.boolean().default(true),
+    image_url: z.string().optional().nullable(),
+    images: z.array(z.string()).optional().default([]),
+});
 
 // =============================================================================
 // Create Product Schema
@@ -52,9 +63,10 @@ export const CreateProductSchema = z.object({
     sale_price: z.coerce.number().int().min(0).optional().nullable(),
     cost_price: z.coerce.number().int().min(0).optional().nullable(),
     stock: z.coerce.number().int().min(0).default(0),
-    // low_stock_alert removed - column doesn't exist in database
     images: z.array(ProductImageSchema).optional().default([]),
+    /** @deprecated Use variants instead */
     sizes: z.array(ProductSizeSchema).optional().default([]),
+    variants: z.array(VariantInputSchema).optional().default([]),
     tags: z.array(z.string()).optional().default([]),
     is_featured: z.boolean().default(false),
 });
@@ -62,6 +74,7 @@ export const CreateProductSchema = z.object({
 export type CreateProductInput = z.infer<typeof CreateProductSchema>;
 export type ProductImageInput = z.infer<typeof ProductImageSchema>;
 export type ProductSizeInput = z.infer<typeof ProductSizeSchema>;
+export type VariantInput = z.infer<typeof VariantInputSchema>;
 
 // =============================================================================
 // Update Product Schema
@@ -73,13 +86,14 @@ export const UpdateProductSchema = z.object({
     sku: z.string().min(1).max(20).optional(),
     slug: z.string().max(150).optional(),
     status: ProductStatus.optional(),
-    is_active: z.boolean().optional(), // Direct is_active update
+    is_active: z.boolean().optional(),
     base_price: z.coerce.number().int().min(0).optional(),
     sale_price: z.coerce.number().int().min(0).nullable().optional(),
-    stock: z.coerce.number().int().min(0).optional(),
     is_featured: z.boolean().optional(),
-    images: z.array(ProductImageSchema).optional(), // Updated to use ProductImageSchema
-    sizes: z.array(ProductSizeSchema).optional(), // Added sizes support
+    images: z.array(ProductImageSchema).optional(),
+    /** @deprecated Use variants instead */
+    sizes: z.array(ProductSizeSchema).optional(),
+    variants: z.array(VariantInputSchema).optional(),
     description: z.string().nullable().optional(),
 });
 
