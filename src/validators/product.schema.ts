@@ -37,7 +37,7 @@ export const ProductSizeSchema = z.object({
 });
 
 export const VariantInputSchema = z.object({
-    name: z.string().min(1),
+    name: z.string().default(''),
     sku: z.string().optional().nullable(),
     price: z.coerce.number().int().min(0),
     stock: z.coerce.number().int().min(0).default(0),
