@@ -214,6 +214,12 @@ export class OrderService {
         // Update status
         await this.orderRepo.updateStatus(orderId, input.status, input.notes);
 
+        // If cancelled by admin, restore stock
+        if (input.status === 'cancelled' && order.status !== 'cancelled') {
+            console.log(`[OrderService] Admin cancelled order ${orderId}, restoring stock`);
+            await this.restoreStockForOrder(order);
+        }
+
         // Return updated order
         const updatedOrder = await this.orderRepo.findById(orderId);
         if (!updatedOrder) {
@@ -250,6 +256,10 @@ export class OrderService {
         }
 
         await this.orderRepo.cancel(orderId, reason);
+
+        // Restore stock for cancelled order
+        console.log(`[OrderService] Restoring stock for cancelled order ${orderId}`);
+        await this.restoreStockForOrder(order);
 
         const cancelledOrder = await this.orderRepo.findById(orderId);
         if (!cancelledOrder) {
@@ -341,9 +351,9 @@ export class OrderService {
                     matchedVariant = allVariants[0];
                 }
 
-                // Reserve stock
-                await this.productRepo.reserveStock(matchedVariant.id, qty);
-                console.log(`[OrderService] Reserved ${qty} of variant "${matchedVariant.name || matchedVariant.sku}" (${matchedVariant.id})`);
+                // Deduct stock immediately
+                await this.productRepo.deductStock(matchedVariant.id, qty);
+                console.log(`[OrderService] Deducted ${qty} from variant "${matchedVariant.name || matchedVariant.sku}" (${matchedVariant.id})`);
 
                 // Increment sold_count
                 await (supabase.rpc as any)('increment_sold_count', {
@@ -352,7 +362,53 @@ export class OrderService {
                 });
                 console.log(`[OrderService] Incremented sold_count for product ${productId} by ${qty}`);
             } catch (err) {
-                console.error(`[OrderService] Stock reserve/sold_count error for product ${productId}:`, err);
+                console.error(`[OrderService] Stock deduct/sold_count error for product ${productId}:`, err);
+            }
+        }
+    }
+
+    /**
+     * Restore stock for all items in a cancelled order
+     * stock += qty, sold_count -= qty
+     */
+    private async restoreStockForOrder(order: OrderWithItems): Promise<void> {
+        const supabase = getAdminSupabase();
+        const items = order.items || [];
+
+        for (const item of items) {
+            const productId = (item as any).product_id;
+            if (!productId) continue;
+
+            const qty = (item as any).quantity || 1;
+
+            try {
+                // Fetch variants for this product
+                const { data: allVariants } = await supabase
+                    .from('product_variants')
+                    .select('id, name, sku, price, stock')
+                    .eq('product_id', productId)
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true });
+
+                if (allVariants && allVariants.length > 0) {
+                    // Match by price, then fallback to first
+                    const unitPrice = (item as any).unit_price;
+                    let matchedVariant = allVariants.find(
+                        v => Number(v.price) === Number(unitPrice)
+                    ) || allVariants[0];
+
+                    await this.productRepo.restoreStock(matchedVariant.id, qty);
+                    console.log(`[OrderService] Restored ${qty} to variant "${matchedVariant.name || matchedVariant.sku}" (${matchedVariant.id})`);
+                }
+
+                // Decrement sold_count
+                await (supabase.rpc as any)('increment_sold_count', {
+                    p_product_id: productId,
+                    p_qty: -qty,
+                });
+                console.log(`[OrderService] Decremented sold_count for product ${productId} by ${qty}`);
+            } catch (err) {
+                console.error(`[OrderService] Stock restore error for product ${productId}:`, err);
             }
         }
     }

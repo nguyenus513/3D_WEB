@@ -144,22 +144,15 @@ export default function AdminProductsPage() {
 
     const getDisplayStock = (product: ProductWithStats) => {
         const variants = (product as any).variants || [];
-        // Sum reserved_stock across all variants
-        const totalReserved = variants.reduce((sum: number, v: any) => sum + (v.reserved_stock || 0), 0);
-        const totalStock = product.stock;
-        const available = totalStock - totalReserved;
+        // Sum stock across all variants, or use product.stock if no variants
+        const totalStock = variants.length > 0
+            ? variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0)
+            : product.stock;
 
         return (
-            <div className="flex flex-col">
-                <span className={`font-medium ${available > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {available > 0 ? available : 'Hết hàng'}
-                </span>
-                {totalReserved > 0 && (
-                    <span className="text-yellow-400/70 text-xs">
-                        🔒 {totalReserved} đang giữ
-                    </span>
-                )}
-            </div>
+            <span className={`font-medium ${totalStock > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {totalStock > 0 ? totalStock : 'Hết hàng'}
+            </span>
         );
     };
 

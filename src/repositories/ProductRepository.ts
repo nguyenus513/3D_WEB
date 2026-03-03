@@ -311,11 +311,11 @@ export class ProductRepository {
     }
 
     /**
-     * Reserve stock for a variant (checkout flow)
+     * Deduct stock immediately (order placed)
      * Uses FOR UPDATE row locking to prevent oversell
      */
-    async reserveStock(variantId: string, quantity: number): Promise<void> {
-        const { error } = await this.db.rpc('reserve_variant_stock', {
+    async deductStock(variantId: string, quantity: number): Promise<void> {
+        const { error } = await (this.db.rpc as any)('deduct_variant_stock_direct', {
             p_variant_id: variantId,
             p_qty: quantity,
         });
@@ -324,24 +324,11 @@ export class ProductRepository {
     }
 
     /**
-     * Confirm stock deduction (payment confirmed)
-     * Atomically: stock -= qty, reserved_stock -= qty
+     * Restore stock (order cancelled)
+     * stock += qty
      */
-    async confirmStock(variantId: string, quantity: number): Promise<void> {
-        const { error } = await this.db.rpc('confirm_variant_stock', {
-            p_variant_id: variantId,
-            p_qty: quantity,
-        });
-
-        if (error) throw error;
-    }
-
-    /**
-     * Release reserved stock (order cancelled / timed out)
-     * reserved_stock -= qty
-     */
-    async releaseStock(variantId: string, quantity: number): Promise<void> {
-        const { error } = await this.db.rpc('release_variant_stock', {
+    async restoreStock(variantId: string, quantity: number): Promise<void> {
+        const { error } = await (this.db.rpc as any)('restore_variant_stock', {
             p_variant_id: variantId,
             p_qty: quantity,
         });
