@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Switch } from '@/components/ui/Switch';
+import { Switch } from '@/components/ui/custom-switch';
 import { generateId } from '@/lib/generateId';
 import { useAdminPath } from '@/hooks/useAdminPath';
 

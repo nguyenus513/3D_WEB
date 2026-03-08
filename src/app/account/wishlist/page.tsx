@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWishlist } from '@/lib/hooks/useWishlist';
-import { ProductGridSkeleton } from '@/components/ui/Skeleton';
+import { ProductGridSkeleton } from '@/components/ui/custom-skeleton';
 import { Heart, Box, Trash2 } from 'lucide-react';
 
 /**

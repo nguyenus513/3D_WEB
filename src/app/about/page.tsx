@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/custom-input';
 import Link from 'next/link';
 
 const contactInfo = [
@@ -146,7 +146,7 @@ export default function AboutPage() {
                                     className="w-full p-4 bg-[#2D2D2F] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/30 border border-[var(--border-color)]"
                                     rows={5}
                                 />
-                                <Button variant="primary" size="lg" className="w-full">
+                                <Button variant="default" size="lg" className="w-full">
                                     Gửi tin nhắn
                                 </Button>
                             </form>

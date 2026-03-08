@@ -939,7 +939,7 @@ export default function PrintingPage() {
 
                                     {/* Direct order button */}
                                     <Button
-                                        variant="primary"
+                                        variant="default"
                                         size="lg"
                                         className="w-full"
                                         disabled={order.items.length === 0 || !order.items.some(item => item.analysis) || submitting || isAnalyzing || !shippingAddress}

@@ -131,7 +131,7 @@ export default function CheckoutSuccessPage() {
                                 </div>
                             </div>
 
-                            <Button variant="primary" className="w-full" onClick={() => setHasConfirmedPayment(true)}>
+                            <Button variant="default" className="w-full" onClick={() => setHasConfirmedPayment(true)}>
                                 I have paid
                             </Button>
                         </div>

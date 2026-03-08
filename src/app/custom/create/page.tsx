@@ -503,7 +503,7 @@ export default function CustomPage() {
 
                         {currentStep < 4 ? (
                             <Button
-                                variant="primary"
+                                variant="default"
                                 onClick={nextStep}
                                 disabled={currentStep === 2 && orderData.images.length === 0}
                             >
@@ -511,7 +511,7 @@ export default function CustomPage() {
                             </Button>
                         ) : (
                             <Button
-                                variant="primary"
+                                variant="default"
                                 onClick={handleSubmit}
                                 disabled={submitting || orderData.images.length === 0}
                             >

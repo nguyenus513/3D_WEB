@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { auth } from '@/auth';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +25,14 @@ const OTP_EXPIRATION_MINUTES = 15;
 
 export async function DELETE(request: NextRequest) {
     try {
+        const session = await auth();
+        const cronSecret = request.headers.get('x-cron-secret');
+        const isAuthorized = (session?.user as any)?.role === 'admin' || 
+                             (cronSecret && cronSecret === process.env.ADMIN_SECRET_KEY);
+        if (!isAuthorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         // Calculate cutoff time (accounts older than OTP expiration)
         const cutoffTime = new Date(Date.now() - OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -118,6 +127,11 @@ export async function DELETE(request: NextRequest) {
 // GET endpoint to check cleanup status (admin only)
 export async function GET(request: NextRequest) {
     try {
+        const session = await auth();
+        if (!(session?.user as any)?.role || (session?.user as any)?.role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const cutoffTime = new Date(Date.now() - OTP_EXPIRATION_MINUTES * 60 * 1000);
 
         // Count expired verification tokens

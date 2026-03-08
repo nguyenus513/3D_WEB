@@ -601,7 +601,7 @@ export default function CustomPage() {
                         </Button>
 
                         {currentPhase.type !== 'confirm' ? (
-                            <Button variant="primary" onClick={nextStep}>
+                            <Button variant="default" onClick={nextStep}>
                                 {currentPhase.type === 'character'
                                     ? (currentPhase.index < characterCount - 1
                                         ? `Sang mô hình ${currentPhase.index + 2} →`
@@ -619,7 +619,7 @@ export default function CustomPage() {
                                     🛒 Thêm vào giỏ
                                 </Button>
                                 <Button
-                                    variant="primary"
+                                    variant="default"
                                     onClick={handleSubmit}
                                     disabled={submitting}
                                 >

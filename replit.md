@@ -82,13 +82,24 @@ All secrets are configured in Replit's environment. Key groups:
 - **Security**: TOKEN_ENCRYPTION_KEY, ADMIN_SECRET_KEY
 
 ## Modernization Status
-- **Completed**: Core dependencies, shadcn/ui components, TanStack Query, next-themes, theme-aware styling across all pages, global error handling, API status page, loading states
+- **Completed**: Core dependencies, shadcn/ui components, TanStack Query, next-themes, theme-aware styling across all pages, global error handling, API status page, loading states, TypeScript clean (0 errors), security audit fixes applied
 - **Blocked**: Prisma schema (needs direct Supabase connection URL, not pooler), repository migration (depends on Prisma)
 - **Not yet configured**: Stripe secrets, Upstash Redis secrets
+
+## Testing & Validation
+- **TypeScript**: 0 errors (all variant="primary" fixed to "default", case-sensitivity conflicts resolved)
+- **Security**: Cleanup API route secured with admin auth + cron secret, CSRF protection on mutations, rate limiting on sensitive routes, file validation with magic bytes, admin 2FA enforced
+- **Imports**: All PascalCase duplicate UI files removed (9 files), custom components renamed to custom-*.tsx to avoid case conflicts
+- **Runtime**: No console errors, all API routes returning correct status codes, health endpoint working
+
+## UI Component Convention
+- **shadcn/ui** (lowercase): `button.tsx`, `card.tsx`, `input.tsx`, etc. — standard shadcn components
+- **Custom** (renamed): `custom-input.tsx`, `custom-skeleton.tsx`, `custom-switch.tsx` — project-specific components with extra features (e.g. ProductGridSkeleton, label/error support)
+- **Custom** (PascalCase, unique): `Animations.tsx`, `GlassCard.tsx`, `VersionFeedbackCard.tsx`, `FloatingDock.tsx`, etc.
+- **Barrel export**: `src/components/ui/index.ts` re-exports all components correctly
 
 ## Notes
 - GOOGLE_PRIVATE_KEY was truncated during migration — needs to be re-added with the full key
 - Stripe and Upstash Redis secrets are not yet configured
 - WebGL/Three.js content won't render in headless environments but works in real browsers
 - Admin route (`/admin/`) re-exports from `/sys_internal/` — actual admin code lives in `src/app/sys_internal/`
-- Old PascalCase UI components coexist with new lowercase shadcn/ui components — pages have been migrated to use lowercase imports

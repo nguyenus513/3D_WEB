@@ -6,46 +6,43 @@
  */
 
 // =============================================================================
-// Core Components (Existing)
+// shadcn/ui Components (lowercase)
 // =============================================================================
 
-export { Button } from './Button';
-export { Input } from './Input';
-export { Card } from './Card';
-export { Badge } from './Badge';
+export { Button, buttonVariants } from './button';
+export { Input } from './input';
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './card';
+export { Badge, badgeVariants } from './badge';
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './accordion';
+export { Avatar, AvatarImage, AvatarFallback } from './avatar';
+export { Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from './dialog';
+export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuCheckboxItem, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuGroup, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuRadioGroup } from './dropdown-menu';
+export { Progress } from './progress';
+export { Switch } from './switch';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip';
+export { Skeleton } from './skeleton';
+export { Separator } from './separator';
+export { Label } from './label';
+export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectLabel, SelectItem, SelectSeparator, SelectScrollUpButton, SelectScrollDownButton } from './select';
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption } from './table';
+export { Textarea } from './textarea';
+export { Checkbox } from './checkbox';
+export { ScrollArea, ScrollBar } from './scroll-area';
+export { Sheet, SheetPortal, SheetOverlay, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription } from './sheet';
+export { Popover, PopoverTrigger, PopoverContent } from './popover';
 
 // =============================================================================
-// New Components - Phase 1 UI/UX Overhaul
+// Custom Components (PascalCase - unique to this project)
 // =============================================================================
 
-// Accordion
-export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './Accordion';
-
-// Alert
 export { Alert } from './Alert';
-
-// Avatar
-export { Avatar, AvatarGroup } from './Avatar';
-
-// Breadcrumb
 export {
     Breadcrumb,
     BreadcrumbList,
     BreadcrumbItem,
     BreadcrumbSeparator
 } from './Breadcrumb';
-
-// Dialog/Modal
-export {
-    Dialog,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogBody,
-    DialogFooter
-} from './Dialog';
-
-// Dropdown
 export {
     Dropdown,
     DropdownTrigger,
@@ -55,26 +52,8 @@ export {
     DropdownSeparator,
     DropdownLabel
 } from './Dropdown';
-
-// Progress
-export { Progress, CircularProgress } from './Progress';
-
-// Slider
 export { Slider, RangeSlider } from './Slider';
-
-// Switch
-export { Switch } from './Switch';
-
-// Tabs
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
-
-// Toast
 export { Toast, ToastProvider, useToast } from './Toast';
-
-// Tooltip
-export { Tooltip } from './Tooltip';
-
-// GlassCard
 export {
     GlassCard,
     GlassCardHeader,
@@ -84,10 +63,7 @@ export {
     GlassCardFooter,
     StatCard
 } from './GlassCard';
-
-// Skeleton / Loading
 export {
-    Skeleton,
     ProductCardSkeleton,
     ProductGridSkeleton,
     OrderCardSkeleton,
@@ -97,4 +73,6 @@ export {
     ProfileSkeleton,
     Spinner,
     LoadingOverlay
-} from './Skeleton';
+} from './custom-skeleton';
+export { Input as CustomInput } from './custom-input';
+export { Switch as CustomSwitch } from './custom-switch';
