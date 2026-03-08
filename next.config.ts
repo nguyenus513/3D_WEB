@@ -23,10 +23,6 @@ const securityHeaders = [
     value: 'max-age=63072000; includeSubDomains; preload'
   },
   {
-    key: 'X-Frame-Options',
-    value: 'SAMEORIGIN'
-  },
-  {
     key: 'X-Content-Type-Options',
     value: 'nosniff'
   },
@@ -53,7 +49,7 @@ const securityHeaders = [
       "media-src 'self' blob:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://img.vietqr.io https://www.googleapis.com https://oauth2.googleapis.com https://provinces.open-api.vn https://accounts.google.com https://*.sentry.io",
       "frame-src 'self' https://accounts.google.com",
-      "frame-ancestors 'self'",
+      "frame-ancestors 'self' https://*.replit.dev https://*.replit.app",
       "base-uri 'self'",
       "form-action 'self'",
     ].join('; ')
@@ -61,7 +57,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Disable source maps in production for security
+  allowedDevOrigins: process.env.REPLIT_DEV_DOMAIN
+    ? [process.env.REPLIT_DEV_DOMAIN]
+    : [],
+
   productionBrowserSourceMaps: false,
 
   // Security headers

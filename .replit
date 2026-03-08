@@ -32,3 +32,33 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+NEXT_PUBLIC_SUPABASE_URL = "https://mhycgniqnhiechiiveda.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oeWNnbmlxbmhpZWNoaWl2ZWRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY5ODUsImV4cCI6MjA4NTQzMjk4NX0.OgSZ9Tu_hhUwmyMij7AQ1uc5ruYuszrFsnCWPch8mUE"
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oeWNnbmlxbmhpZWNoaWl2ZWRhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTg1Njk4NSwiZXhwIjoyMDg1NDMyOTg1fQ.zhS9Wkp3fefwh-ciXrNvS9YbSjO7EDwubnLXjq-OfOc"
+AUTH_SECRET = "5hdLOrcg/z7dUddM/qjE5/X4fCA7buV3uYWAJQUyqw4="
+NEXTAUTH_SECRET = "5hdLOrcg/z7dUddM/qjE5/X4fCA7buV3uYWAJQUyqw4="
+AUTH_URL = "https://1e63f846-9327-41d7-83e5-ffccf2351828-00-dkno75gm1btk.riker.replit.dev"
+NEXTAUTH_URL = "https://1e63f846-9327-41d7-83e5-ffccf2351828-00-dkno75gm1btk.riker.replit.dev"
+AUTH_TRUST_HOST = "true"
+TOKEN_ENCRYPTION_KEY = "520b760ed2f52054bbd5c2ee94d64d0a53b8d06ede0a00313a9c19071c2efcc6"
+GOOGLE_SERVICE_ACCOUNT_EMAIL = "miniver3dlab-storage@miniver3dlab.iam.gserviceaccount.com"
+GOOGLE_DRIVE_FOLDER_ID = "1r4lv4LUFcc5mHUpCHRZvHx6JgfN3o89F"
+GOOGLE_OAUTH_CLIENT_ID = "1068138232843-q5iu99qsjuo0olo74um088uicv19c3sh.apps.googleusercontent.com"
+GOOGLE_OAUTH_CLIENT_SECRET = "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"
+GOOGLE_CLIENT_ID = "1068138232843-q5iu99qsjuo0olo74um088uicv19c3sh.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "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"
+GMAIL_USER = "miniver.3dlab@gmail.com"
+GMAIL_APP_PASSWORD = "zkfz pzkv uixr qlre"
+BREVO_API_KEY = "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"
+ADMIN_SECRET_KEY = "Nhatminh2004@"
+ADMIN_STEALTH_TOKEN = "Nhatminh2004@"
+ARCHIVE_JOB_SECRET = "d29a7fe236af0c0d299676f9f6e2049904a11dd8aeeaedebe5ebceb257cb1183"
+ARCHIVE_DELAY_MINUTES = "2"
+CLOUDFLARE_ACCOUNT_ID = "df04b0cbc61f62cc46326e3bb52f1dba"
+R2_ACCESS_KEY_ID = "d49fed2d668275276b01a69a9a32e2b2"
+R2_SECRET_ACCESS_KEY = "a6186498ab717371b2eb1bf38cbe035d94dbf13f3ec5483fed094ad794884438"
+R2_BUCKET_NAME = "miniver"
