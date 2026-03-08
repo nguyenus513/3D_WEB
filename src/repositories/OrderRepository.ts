@@ -95,8 +95,7 @@ export class OrderRepository {
                 *,
                 items:order_items(
                     *,
-                    print_job:print_jobs(*),
-                    files:file_links(*)
+                    print_job:print_jobs(*)
                 ),
                 shipping_address:order_addresses(*),
                 order_notes:order_notes(*)
@@ -159,8 +158,7 @@ export class OrderRepository {
                 *,
                 items:order_items(
                     *,
-                    print_job:print_jobs(*),
-                    files:file_links(*)
+                    print_job:print_jobs(*)
                 ),
                 shipping_address:order_addresses(*),
                 order_notes:order_notes(*)
@@ -188,8 +186,7 @@ export class OrderRepository {
                 *,
                 items:order_items(
                     *,
-                    print_job:print_jobs(*),
-                    files:file_links(*)
+                    print_job:print_jobs(*)
                 ),
                 shipping_address:order_addresses(*),
                 order_notes:order_notes(*)

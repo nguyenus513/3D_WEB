@@ -470,7 +470,7 @@ export class AdminOrderController extends BaseController {
         // Fetch order items with product_id and configuration
         const { data: items, error: itemsError } = await (this.supabase
             .from('order_items') as any)
-            .select('product_id, quantity, configuration, product_name')
+            .select('product_id, quantity, configuration, name')
             .eq('order_id', orderId);
 
         if (itemsError || !items || items.length === 0) {
@@ -480,7 +480,7 @@ export class AdminOrderController extends BaseController {
 
         for (const item of items as any[]) {
             if (!item.product_id) {
-                console.log(`[StockAdjust] Skipping item without product_id: ${item.product_name}`);
+                console.log(`[StockAdjust] Skipping item without product_id: ${item.name}`);
                 continue;
             }
 

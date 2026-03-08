@@ -91,6 +91,15 @@ All secrets are configured in Replit's environment. Key groups:
 - **Security**: Cleanup API route secured with admin auth + cron secret, CSRF protection on mutations, rate limiting on sensitive routes, file validation with magic bytes, admin 2FA enforced
 - **Imports**: All PascalCase duplicate UI files removed (9 files), custom components renamed to custom-*.tsx to avoid case conflicts
 - **Runtime**: No console errors, all API routes returning correct status codes, health endpoint working
+- **E2E Tested Flows**:
+  - User: Browse products → Product detail → Add to cart → Cart → Checkout (with address) → Order creation ✅
+  - Admin: Login → View orders → Confirm payment → Update status (confirmed → processing → shipping) → Stock adjustment ✅
+  - API Security: All admin APIs return 401 without auth, cleanup route secured ✅
+  - Public pages: FAQ, About, Register, Forgot Password, 404, Theme toggle ✅
+- **Bug Fixes Found During E2E**:
+  - Fixed `file_links(*)` join in OrderRepository.ts — `file_links` uses polymorphic ref_id/ref_type (not FK), causing PGRST200 errors on customer order listing
+  - Fixed `product_name` → `name` column reference in AdminOrderController.ts stock adjustment code
+- **Test Accounts**: Admin (picapica10104@gmail.com) and Customer (ngynhaatminh@gmail.com) — passwords stored in Supabase
 
 ## UI Component Convention
 - **shadcn/ui** (lowercase): `button.tsx`, `card.tsx`, `input.tsx`, etc. — standard shadcn components
