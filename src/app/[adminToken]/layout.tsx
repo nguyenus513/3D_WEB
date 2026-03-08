@@ -11,7 +11,7 @@ export default function AdminTokenLayout({
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a]">
+        <div className="min-h-screen bg-[var(--bg-void)]">
             {/* Mobile overlay */}
             {sidebarOpen && (
                 <div

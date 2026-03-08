@@ -154,7 +154,7 @@ function Scene() {
 
 export function HeroJelly() {
     return (
-        <section className="relative min-h-screen w-full overflow-hidden bg-[#0a0a0a]">
+        <section className="relative min-h-screen w-full overflow-hidden bg-[var(--bg-void)]">
             {/* 3D Canvas */}
             <div className="absolute inset-0">
                 <Canvas
@@ -167,8 +167,8 @@ export function HeroJelly() {
             </div>
 
             {/* Gradient Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/80 via-transparent to-[#0a0a0a] pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-white/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[var(--bg-void)]/80 via-transparent to-[var(--bg-void)] pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[var(--material-glass)] via-transparent to-[var(--material-glass)] pointer-events-none" />
 
             {/* Content */}
             <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6">
@@ -183,15 +183,15 @@ export function HeroJelly() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.3 }}
-                        className="text-sm md:text-base text-white/50 font-medium tracking-widest uppercase mb-6"
+                        className="text-sm md:text-base text-[var(--text-secondary)] font-medium tracking-widest uppercase mb-6"
                     >
                         Miniver 3D Lab
                     </motion.p>
 
                     {/* Main Title */}
-                    <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1.2] tracking-[-0.04em] text-white mb-8 whitespace-nowrap">
+                    <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1.2] tracking-[-0.04em] text-[var(--text-primary)] mb-8 whitespace-nowrap">
                         <TextReveal text="Sản Phẩm " delay={0.4} />
-                        <span className="text-white/70">
+                        <span className="text-[var(--text-secondary)]">
                             <TextReveal text="Độc Đáo" delay={0.7} />
                         </span>
                     </h1>
@@ -201,7 +201,7 @@ export function HeroJelly() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 1 }}
-                        className="text-lg md:text-xl text-white/50 mb-12 max-w-lg mx-auto"
+                        className="text-lg md:text-xl text-[var(--text-secondary)] mb-12 max-w-lg mx-auto"
                     >
                         Chế tác thủ công tỉ mỉ • Cá nhân hóa hoàn toàn • Chất lượng cao cấp
                     </motion.p>
@@ -215,7 +215,7 @@ export function HeroJelly() {
                     >
                         <Link
                             href="/products"
-                            className="group px-8 py-4 rounded-full bg-white text-[#0a0a0a] font-medium text-base hover:scale-105 transition-all flex items-center gap-2"
+                            className="group px-8 py-4 rounded-full bg-[var(--text-primary)] text-[var(--bg-void)] font-medium text-base hover:scale-105 transition-all flex items-center gap-2"
                             data-cursor
                             data-cursor-text="View"
                         >
@@ -226,7 +226,7 @@ export function HeroJelly() {
                         </Link>
                         <Link
                             href="/custom"
-                            className="px-8 py-4 rounded-full border border-white/20 text-white font-medium text-base hover:bg-white/10 transition-all"
+                            className="px-8 py-4 rounded-full border border-[var(--border-color)] text-[var(--text-primary)] font-medium text-base hover:bg-[var(--material-glass)] transition-all"
                             data-cursor
                             data-cursor-text="Custom"
                         >
@@ -245,14 +245,14 @@ export function HeroJelly() {
                     <motion.div
                         animate={{ y: [0, 8, 0] }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                        className="flex flex-col items-center gap-2 text-white/30"
+                        className="flex flex-col items-center gap-2 text-[var(--text-tertiary)]"
                     >
                         <span className="text-[10px] uppercase tracking-[0.2em]">Scroll</span>
-                        <div className="w-5 h-8 rounded-full border border-white/30 flex justify-center pt-2">
+                        <div className="w-5 h-8 rounded-full border border-[var(--border-color)] flex justify-center pt-2">
                             <motion.div
                                 animate={{ y: [0, 8, 0], opacity: [1, 0, 1] }}
                                 transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                                className="w-1 h-1 rounded-full bg-white/50"
+                                className="w-1 h-1 rounded-full bg-[var(--material-glass)]"
                             />
                         </div>
                     </motion.div>

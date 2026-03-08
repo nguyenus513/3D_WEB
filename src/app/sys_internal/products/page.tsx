@@ -102,7 +102,7 @@ export default function AdminProductsPage() {
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             active: 'bg-green-500/20 text-green-400',
-            draft: 'bg-white/10 text-white/50',
+            draft: 'bg-[var(--material-glass)] text-[var(--text-secondary)]',
         };
         const labels: Record<string, string> = {
             active: 'Đang bán',
@@ -123,14 +123,14 @@ export default function AdminProductsPage() {
             const max = Math.max(...prices);
 
             if (min === max) {
-                return <span className="text-white">{min.toLocaleString('vi-VN')}đ</span>;
+                return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}đ</span>;
             }
-            return <span className="text-white">{min.toLocaleString('vi-VN')}đ - {max.toLocaleString('vi-VN')}đ</span>;
+            return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}đ - {max.toLocaleString('vi-VN')}đ</span>;
         }
 
         return (
             <>
-                <span className="text-white">
+                <span className="text-[var(--text-primary)]">
                     {Number(product.base_price).toLocaleString('vi-VN')}đ
                 </span>
                 {product.sale_price && (
@@ -177,10 +177,10 @@ export default function AdminProductsPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-white">Sản phẩm</h1>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Sản phẩm</h1>
                 <Link
                     href={`${adminRoot}/products/new`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-colors"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black rounded-xl font-medium hover:bg-[var(--material-glass)] transition-colors"
                 >
                     ＋ Thêm sản phẩm
                 </Link>
@@ -190,7 +190,7 @@ export default function AdminProductsPage() {
             <div className="space-y-4">
                 {/* Search */}
                 <div className="relative">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input
@@ -198,15 +198,15 @@ export default function AdminProductsPage() {
                         placeholder="Tìm theo tên, SKU..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-white/20"
                     />
                 </div>
 
                 {/* Horizontal Tabs */}
-                <div className="flex items-center gap-6 border-b border-white/10 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-6 border-b border-[var(--border-color)] overflow-x-auto no-scrollbar">
                     <button
                         onClick={() => setActiveTab('all')}
-                        className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'all' ? 'text-white' : 'text-white/50 hover:text-white'
+                        className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'all' ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                             }`}
                     >
                         Tất cả
@@ -222,7 +222,7 @@ export default function AdminProductsPage() {
                         <button
                             key={category.id}
                             onClick={() => setActiveTab(category.id)}
-                            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === category.id ? 'text-white' : 'text-white/50 hover:text-white'
+                            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === category.id ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                 }`}
                         >
                             {category.name}
@@ -238,7 +238,7 @@ export default function AdminProductsPage() {
                     {hasOtherProducts && (
                         <button
                             onClick={() => setActiveTab('other')}
-                            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'other' ? 'text-white' : 'text-white/50 hover:text-white'
+                            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'other' ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                 }`}
                         >
                             Khác
@@ -257,16 +257,16 @@ export default function AdminProductsPage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] overflow-hidden"
             >
                 {loading ? (
                     <div className="p-12 text-center">
-                        <div className="inline-block w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mb-4" />
-                        <p className="text-white/50">Đang tải sản phẩm...</p>
+                        <div className="inline-block w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mb-4" />
+                        <p className="text-[var(--text-secondary)]">Đang tải sản phẩm...</p>
                     </div>
                 ) : filteredProducts.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-white/50 mb-4">
+                        <p className="text-[var(--text-secondary)] mb-4">
                             {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm'}
                         </p>
                         {products.length === 0 && (
@@ -281,14 +281,14 @@ export default function AdminProductsPage() {
                 ) : (
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-white/10">
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Sản phẩm</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">SKU</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Giá</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Tồn kho</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Đã bán</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Trạng thái</th>
-                                <th className="text-right text-white/50 text-sm font-medium px-5 py-4">Thao tác</th>
+                            <tr className="border-b border-[var(--border-color)]">
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Sản phẩm</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">SKU</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Giá</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tồn kho</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Đã bán</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Trạng thái</th>
+                                <th className="text-right text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -329,8 +329,8 @@ export default function AdminProductsPage() {
                                     <Fragment key={group.name}>
                                         {/* Group Header - Only show if viewing all */}
                                         {activeTab === 'all' && (
-                                            <tr key={`group-${group.name}`} className="bg-white/5 border-b border-white/10">
-                                                <td colSpan={7} className="px-5 py-3 text-sm font-bold text-white/80 uppercase tracking-wider">
+                                            <tr key={`group-${group.name}`} className="bg-white/5 border-b border-[var(--border-color)]">
+                                                <td colSpan={7} className="px-5 py-3 text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">
                                                     {group.name} ({group.products.length})
                                                 </td>
                                             </tr>
@@ -338,10 +338,10 @@ export default function AdminProductsPage() {
 
                                         {/* Products in Group */}
                                         {group.products.map((product) => (
-                                            <tr key={product.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                            <tr key={product.id} className="border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors">
                                                 <td className="px-5 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
+                                                        <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center overflow-hidden">
                                                             {(() => {
                                                                 const mainImg = product.images?.[0];
                                                                 const imgUrl = typeof mainImg === 'string' ? mainImg : (mainImg as any)?.url;
@@ -360,7 +360,7 @@ export default function AdminProductsPage() {
                                                             })()}
                                                         </div>
                                                         <div>
-                                                            <span className="text-white font-medium block">{product.name}</span>
+                                                            <span className="text-[var(--text-primary)] font-medium block">{product.name}</span>
                                                             {product.is_featured && (
                                                                 <span className="text-xs text-yellow-400">⭐ Nổi bật</span>
                                                             )}
@@ -368,7 +368,7 @@ export default function AdminProductsPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-4">
-                                                    <code className="text-white/60 text-sm bg-white/5 px-2 py-1 rounded">
+                                                    <code className="text-[var(--text-secondary)] text-sm bg-[var(--material-glass)] px-2 py-1 rounded">
                                                         {product.sku}
                                                     </code>
                                                 </td>
@@ -380,8 +380,8 @@ export default function AdminProductsPage() {
                                                 </td>
                                                 <td className="px-5 py-4">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-white font-medium">{product.sold_count}</span>
-                                                        <span className="text-white/50 text-sm">({product.buyer_count} KH)</span>
+                                                        <span className="text-[var(--text-primary)] font-medium">{product.sold_count}</span>
+                                                        <span className="text-[var(--text-secondary)] text-sm">({product.buyer_count} KH)</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-4">
@@ -391,7 +391,7 @@ export default function AdminProductsPage() {
                                                     <div className="flex items-center justify-end gap-2">
                                                         <Link
                                                             href={`${adminRoot}/products/${product.id}`}
-                                                            className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                                            className="p-2 rounded-lg hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                                         >
                                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -400,7 +400,7 @@ export default function AdminProductsPage() {
                                                         <button
                                                             onClick={() => handleDelete(product.id)}
                                                             disabled={deleting === product.id}
-                                                            className="p-2 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-colors disabled:opacity-50"
+                                                            className="p-2 rounded-lg hover:bg-red-500/20 text-[var(--text-secondary)] hover:text-red-400 transition-colors disabled:opacity-50"
                                                         >
                                                             {deleting === product.id ? (
                                                                 <div className="w-5 h-5 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin" />
@@ -423,13 +423,13 @@ export default function AdminProductsPage() {
 
                 {/* Stats */}
                 {!loading && products.length > 0 && (
-                    <div className="p-4 border-t border-white/10 flex items-center justify-between">
-                        <span className="text-white/50 text-sm">
+                    <div className="p-4 border-t border-[var(--border-color)] flex items-center justify-between">
+                        <span className="text-[var(--text-secondary)] text-sm">
                             Hiển thị {filteredProducts.length} / {products.length} sản phẩm
                         </span>
                         <button
                             onClick={fetchProducts}
-                            className="text-sm text-white/50 hover:text-white transition-colors"
+                            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                         >
                             ↻ Làm mới
                         </button>

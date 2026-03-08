@@ -251,73 +251,73 @@ export default function EmailPreviewPage() {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white p-8">
+        <div className="min-h-screen bg-black text-[var(--text-primary)] p-8">
             <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Sidebar Controls */}
                 <div className="space-y-6">
                     <div>
                         <h1 className="text-2xl font-bold mb-2">Email Templates</h1>
-                        <p className="text-white/50 text-sm">Preview và kiểm tra giao diện mail</p>
+                        <p className="text-[var(--text-secondary)] text-sm">Preview và kiểm tra giao diện mail</p>
                     </div>
 
                     <div className="flex flex-col gap-2">
                         <button
                             onClick={() => setActiveTab('payment')}
-                            className={`p-4 rounded-xl text-left transition-all ${activeTab === 'payment' ? 'bg-white text-black font-medium' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                            className={`p-4 rounded-xl text-left transition-all ${activeTab === 'payment' ? 'bg-white text-black font-medium' : 'bg-[var(--material-glass)] hover:bg-[var(--material-glass)] text-[var(--text-primary)]'}`}
                         >
                             <div className="flex items-center gap-3">
                                 <span className="text-xl">✅</span>
                                 <div>
                                     <div className="font-medium">Xác nhận thanh toán</div>
-                                    <div className={`text-xs ${activeTab === 'payment' ? 'text-black/60' : 'text-white/40'}`}>Gửi khi khách ck cọc</div>
+                                    <div className={`text-xs ${activeTab === 'payment' ? 'text-black/60' : 'text-[var(--text-tertiary)]'}`}>Gửi khi khách ck cọc</div>
                                 </div>
                             </div>
                         </button>
 
                         <button
                             onClick={() => setActiveTab('completion')}
-                            className={`p-4 rounded-xl text-left transition-all ${activeTab === 'completion' ? 'bg-white text-black font-medium' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                            className={`p-4 rounded-xl text-left transition-all ${activeTab === 'completion' ? 'bg-white text-black font-medium' : 'bg-[var(--material-glass)] hover:bg-[var(--material-glass)] text-[var(--text-primary)]'}`}
                         >
                             <div className="flex items-center gap-3">
                                 <span className="text-xl">🎉</span>
                                 <div>
                                     <div className="font-medium">Hoàn thành đơn</div>
-                                    <div className={`text-xs ${activeTab === 'completion' ? 'text-black/60' : 'text-white/40'}`}>Gửi kèm ảnh demo</div>
+                                    <div className={`text-xs ${activeTab === 'completion' ? 'text-black/60' : 'text-[var(--text-tertiary)]'}`}>Gửi kèm ảnh demo</div>
                                 </div>
                             </div>
                         </button>
 
                         <button
                             onClick={() => setActiveTab('shipping')}
-                            className={`p-4 rounded-xl text-left transition-all ${activeTab === 'shipping' ? 'bg-white text-black font-medium' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                            className={`p-4 rounded-xl text-left transition-all ${activeTab === 'shipping' ? 'bg-white text-black font-medium' : 'bg-[var(--material-glass)] hover:bg-[var(--material-glass)] text-[var(--text-primary)]'}`}
                         >
                             <div className="flex items-center gap-3">
                                 <span className="text-xl">🚚</span>
                                 <div>
                                     <div className="font-medium">Đang giao hàng</div>
-                                    <div className={`text-xs ${activeTab === 'shipping' ? 'text-black/60' : 'text-white/40'}`}>Gửi kèm tracking code</div>
+                                    <div className={`text-xs ${activeTab === 'shipping' ? 'text-black/60' : 'text-[var(--text-tertiary)]'}`}>Gửi kèm tracking code</div>
                                 </div>
                             </div>
                         </button>
                     </div>
 
-                    <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+                    <div className="bg-[var(--material-glass)] p-6 rounded-2xl border border-[var(--border-color)]">
                         <h3 className="font-semibold mb-4">Supabase SMTP Config</h3>
-                        <div className="space-y-4 text-xs font-mono text-white/70">
+                        <div className="space-y-4 text-xs font-mono text-[var(--text-secondary)]">
                             <div>
-                                <div className="text-white/40 mb-1">Host</div>
+                                <div className="text-[var(--text-tertiary)] mb-1">Host</div>
                                 <div className="bg-black/50 p-2 rounded text-green-400">smtp-relay.brevo.com</div>
                             </div>
                             <div>
-                                <div className="text-white/40 mb-1">Port</div>
+                                <div className="text-[var(--text-tertiary)] mb-1">Port</div>
                                 <div className="bg-black/50 p-2 rounded text-green-400">587</div>
                             </div>
                             <div>
-                                <div className="text-white/40 mb-1">User</div>
+                                <div className="text-[var(--text-tertiary)] mb-1">User</div>
                                 <div className="bg-black/50 p-2 rounded text-green-400">ngynhaatminh@gmail.com</div>
                             </div>
                             <div>
-                                <div className="text-white/40 mb-1">Pass</div>
+                                <div className="text-[var(--text-tertiary)] mb-1">Pass</div>
                                 <div className="bg-black/50 p-2 rounded text-green-400 break-all">{`[YOUR_BREVO_API_KEY]`}</div>
                             </div>
                         </div>
@@ -325,9 +325,9 @@ export default function EmailPreviewPage() {
                 </div>
 
                 {/* Preview Area */}
-                <div className="lg:col-span-2 bg-[#1C1C1E] rounded-2xl border border-white/10 overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
-                        <span className="text-xs font-mono text-white/50">HTML Preview</span>
+                <div className="lg:col-span-2 bg-[#1C1C1E] rounded-2xl border border-[var(--border-color)] overflow-hidden flex flex-col">
+                    <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-black/20">
+                        <span className="text-xs font-mono text-[var(--text-secondary)]">HTML Preview</span>
                         <div className="flex gap-2">
                             <span className="w-3 h-3 rounded-full bg-red-500/50"></span>
                             <span className="w-3 h-3 rounded-full bg-yellow-500/50"></span>

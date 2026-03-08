@@ -11,10 +11,8 @@ import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressS
 import { PaymentQR } from '@/components/PaymentQR';
 import { Box, Boxes, PenLine } from 'lucide-react';
 
-// Item row in order summary
 function OrderItem({ item, onUpdateNotes }: { item: CartItem | any; onUpdateNotes?: (id: string, notes: string) => void }) {
     const getTypeIcon = () => {
-        // Handle both CartItem type and DB Order Item type
         const type = item.type || item.order_type;
         switch (type) {
             case 'product': return <Box size={20} strokeWidth={1.5} />;
@@ -25,37 +23,35 @@ function OrderItem({ item, onUpdateNotes }: { item: CartItem | any; onUpdateNote
     };
 
     return (
-        <div className="py-3 border-b border-white/10 last:border-b-0">
+        <div className="py-3 border-b border-[var(--border-color)] last:border-b-0">
             <div className="flex justify-between items-start">
                 <div className="flex items-start gap-3 flex-1">
-                    <span className="text-white/50 mt-0.5">{getTypeIcon()}</span>
+                    <span className="text-[var(--text-secondary)] mt-0.5">{getTypeIcon()}</span>
                     <div>
-                        <p className="text-white font-medium line-clamp-1">{item.name || item.product_name || 'Sản phẩm'}</p>
-                        <div className="text-white/50 text-sm">
-                            {/* Render details based on type */}
+                        <p className="text-[var(--text-primary)] font-medium line-clamp-1">{item.name || item.product_name || 'Sản phẩm'}</p>
+                        <div className="text-[var(--text-secondary)] text-sm">
                             {item.size && <span>Size: {item.size} • </span>}
                             {item.quantity && <span>SL: {item.quantity}</span>}
                         </div>
                     </div>
                 </div>
-                <p className="text-white font-medium whitespace-nowrap">
+                <p className="text-[var(--text-primary)] font-medium whitespace-nowrap">
                     {((item.price || item.total || 0) * (item.quantity || 1)).toLocaleString('vi-VN')}đ
                 </p>
             </div>
-            {/* Notes field */}
             {onUpdateNotes ? (
                 <div className="mt-3 ml-8">
                     <textarea
                         value={item.notes || ''}
                         onChange={(e) => onUpdateNotes(item.id, e.target.value)}
                         placeholder="Ghi chú (tùy chọn)..."
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 text-sm resize-none focus:outline-none focus:border-white/30"
+                        className="w-full bg-[var(--material-glass)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm resize-none focus:outline-none focus:border-[var(--border-color)]"
                         rows={2}
                     />
                 </div>
             ) : item.notes ? (
-                <div className="mt-2 ml-8 text-sm text-white/60 bg-white/5 rounded-lg px-3 py-2">
-                    <span className="text-white/40">Ghi chú:</span> {item.notes}
+                <div className="mt-2 ml-8 text-sm text-[var(--text-secondary)] bg-[var(--material-glass)] rounded-lg px-3 py-2">
+                    <span className="text-[var(--text-tertiary)]">Ghi chú:</span> {item.notes}
                 </div>
             ) : null}
         </div>
@@ -67,49 +63,37 @@ export function CheckoutContent() {
     const searchParams = useSearchParams();
     const orderIdParam = searchParams.get('orderId');
 
-    // Cart Data
     const { items, totalPrice: cartTotal, clearCart, updateItem } = useCart();
     const { data: session } = useSession();
 
-    // State
-    // State
-    // State
     const [loading, setLoading] = useState(true);
     const [singleOrder, setSingleOrder] = useState<any | null>(null);
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
     const [isAddressValid, setIsAddressValid] = useState(false);
     const [paymentConfig, setPaymentConfig] = useState<any>(null);
 
-    // Derived State
     const mode = orderIdParam ? 'single' : 'cart';
     const currentItems = mode === 'single' ? (singleOrder ? [singleOrder] : []) : items;
 
-    // Totals Calculation
     const subtotal = mode === 'single'
-        ? (singleOrder?.total || 0)  // Single order usually already includes price logic
+        ? (singleOrder?.total || 0)
         : cartTotal;
 
-    // Final Total is just subtotal since shipping is removed
     const finalTotal = subtotal;
 
-    // Cart Code: 8 Hex chars only - used for transfer content
     const cartCode = useMemo(() => {
         if (mode === 'single' && singleOrder) {
-            // Use cart_code if available, otherwise extract from order_code
             if (singleOrder.cart_code) {
                 return singleOrder.cart_code.toUpperCase();
             }
-            // Fallback: extract first 8 hex chars from order_code
             const rawCode = singleOrder.order_code || singleOrder.id;
             const cleanCode = rawCode.toString().replace(/[^a-fA-F0-9]/g, '').toUpperCase();
             return cleanCode.substring(0, 8).padEnd(8, '0');
         } else {
-            // Cart: Generate new random 8 hex
             return Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0');
         }
     }, [mode, singleOrder]);
 
-    // Fetch Payment Config
     useEffect(() => {
         const fetchPaymentConfig = async () => {
             try {
@@ -125,25 +109,21 @@ export function CheckoutContent() {
         fetchPaymentConfig();
     }, []);
 
-    // Fetch Single Order if needed
     useEffect(() => {
         if (mode === 'single' && orderIdParam) {
             setLoading(true);
             const fetchOrder = async () => {
                 try {
-                    // Use API route instead of direct Supabase query
                     const res = await fetch(`/api/orders/${orderIdParam}`);
                     if (res.ok) {
                         const data = await res.json();
-                        // Normalize single order to look like an item
                         setSingleOrder({
                             ...data,
                             name: `Đơn hàng ${data.order_code}`,
                             type: data.order_type,
-                            price: data.subtotal, // Use subtotal as base price
+                            price: data.subtotal,
                             quantity: 1
                         });
-                        // Pre-fill address if order has it
                         if (data.shipping_address) {
                             setShippingAddress(data.shipping_address);
                             setIsAddressValid(true);
@@ -163,21 +143,17 @@ export function CheckoutContent() {
         }
     }, [orderIdParam, mode]);
 
-    // Handle Address Change
     const handleAddressChange = (address: ShippingAddress) => {
         setShippingAddress(address);
-        // Basic validation
         const isValid = !!(address.full_name && address.phone && address.address_line && address.province);
         setIsAddressValid(isValid);
 
-        // If in Single Order mode, update the order's address in DB via API
         if (mode === 'single' && orderIdParam && isValid) {
             updateOrderAddress(orderIdParam, address);
         }
     };
 
     const updateOrderAddress = async (id: string, address: ShippingAddress) => {
-        // Update order address via API
         await fetch(`/api/orders/${id}/update-address`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -188,35 +164,29 @@ export function CheckoutContent() {
         });
     };
 
-    // Handle Payment Confirmation (Cart Mode)
-    // Handle Payment Confirmation (Cart Mode)
     const handleCartPayment = async () => {
         if (!shippingAddress || !isAddressValid) {
             alert('Vui lòng chọn địa chỉ giao hàng hợp lệ');
             return;
         }
 
-        // Validate address length strictly to match backend schema
         if ((shippingAddress.address_line || '').length < 5) {
             alert('Địa chỉ giao hàng quá ngắn. Vui lòng nhập chi tiết hơn (tối thiểu 5 ký tự).');
             return;
         }
 
         try {
-            // 1. Create Order
             const createRes = await fetch('/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     items: items.map(item => ({
-                        // Only use productId if it's a valid UUID (real product)
-                        // For print/custom items, productId is undefined, so send null
                         product_id: item.productId || null,
-                        product_name: item.name, // Pass actual product name
+                        product_name: item.name,
                         quantity: item.quantity,
                         price: item.price,
-                        size: item.size || null, // Pass selected size
-                        item_type: item.type, // 'product', 'print', 'custom'
+                        size: item.size || null,
+                        item_type: item.type,
                         customization: {
                             ...((item as any).customization || {}),
                             size: item.size,
@@ -225,7 +195,6 @@ export function CheckoutContent() {
                             notes: item.notes,
                         }
                     })),
-                    // Map to ShippingAddressSnapshot: { full_name, phone, address_line, ward, district, province }
                     shipping_address: {
                         name: shippingAddress.full_name,
                         phone: shippingAddress.phone,
@@ -233,12 +202,11 @@ export function CheckoutContent() {
                         ward: shippingAddress.ward || '',
                         district: shippingAddress.district || '',
                         city: shippingAddress.province || '',
-                        // Also save original field names for backward compatibility
                         full_name: shippingAddress.full_name,
                         address_line: shippingAddress.address_line || '',
                         province: shippingAddress.province || '',
                     },
-                    payment_method: 'bank_transfer', // Schema requires 'bank_transfer', not 'QR_TRANSFER'
+                    payment_method: 'bank_transfer',
                     notes: ''
                 })
             });
@@ -254,47 +222,41 @@ export function CheckoutContent() {
 
             const { data: newOrder } = await createRes.json();
 
-            // 2. Confirm Payment immediately (since user clicked "I Paid")
             const confirmRes = await fetch(`/api/orders/${newOrder.id}/payment-confirmation`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
 
             if (!confirmRes.ok) {
-                // If confirmation fails but order created, we still proceed but warn?
                 console.error('Payment confirmation failed for new order:', newOrder.id);
             }
 
-            // 3. Success
             clearCart();
-            // Redirect to order history or success page
             router.push('/account/orders');
         } catch (error) {
             console.error('Checkout failed details:', error);
-            // Display clean error message to user
             let userMsg = (error as Error).message;
-            if (userMsg.includes('[')) { // Determine if it's stringified JSON
+            if (userMsg.includes('[')) {
                 try {
                     const parsed = JSON.parse(userMsg);
-                    // If Zod error array, show first message
                     if (Array.isArray(parsed)) userMsg = parsed[0]?.message || 'Dữ liệu không hợp lệ';
                 } catch { }
             }
             alert(`Lỗi: ${userMsg}`);
-            throw error; // Re-throw to let PaymentQR know it failed (if it handled state)
+            throw error;
         }
     };
 
     if (loading) return (
         <div className="min-h-screen pt-24 pb-12 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
         </div>
     );
 
     if (mode === 'cart' && items.length === 0) {
         return (
             <div className="min-h-screen pt-24 pb-12 text-center">
-                <h1 className="text-2xl text-white mb-4">Giỏ hàng trống</h1>
+                <h1 className="text-2xl text-[var(--text-primary)] mb-4">Giỏ hàng trống</h1>
                 <Link href="/products" className="text-blue-400 hover:underline">Tiếp tục mua sắm</Link>
             </div>
         );
@@ -304,14 +266,12 @@ export function CheckoutContent() {
         <div className="min-h-screen pt-24 pb-12 px-4 md:px-6">
             <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                {/* Left Column: Info & Address */}
                 <div className="lg:col-span-2 space-y-6">
                     <AnimatedSection>
-                        <h1 className="text-2xl font-bold text-white mb-6">Thanh Toán</h1>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Thanh Toán</h1>
 
-                        {/* Address Selector */}
-                        <div className="bg-[#1D1D1F] rounded-3xl p-6 border border-white/10">
-                            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)]">
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                 <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs">1</span>
                                 Địa chỉ nhận hàng
                             </h2>
@@ -322,9 +282,8 @@ export function CheckoutContent() {
                             />
                         </div>
 
-                        {/* Order Items */}
-                        <div className="bg-[#1D1D1F] rounded-3xl p-6 border border-white/10 mt-6">
-                            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)] mt-6">
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                 <span className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs">2</span>
                                 Đơn hàng
                             </h2>
@@ -341,19 +300,17 @@ export function CheckoutContent() {
                     </AnimatedSection>
                 </div>
 
-                {/* Right Column: Payment & QR */}
                 <div className="lg:col-span-1">
                     <div className="sticky top-24 space-y-6">
-                        {/* Summary */}
-                        <div className="bg-[#1D1D1F] rounded-3xl p-6 border border-white/10">
-                            <h3 className="text-lg font-semibold text-white mb-4">Tổng cộng</h3>
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)]">
+                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Tổng cộng</h3>
                             <div className="space-y-3 text-sm">
-                                <div className="flex justify-between text-white/60">
+                                <div className="flex justify-between text-[var(--text-secondary)]">
                                     <span>Tạm tính</span>
                                     <span>{subtotal.toLocaleString('vi-VN')}đ</span>
                                 </div>
-                                <div className="pt-3 border-t border-white/10 flex justify-between items-end">
-                                    <span className="text-white font-medium">Thành tiền</span>
+                                <div className="pt-3 border-t border-[var(--border-color)] flex justify-between items-end">
+                                    <span className="text-[var(--text-primary)] font-medium">Thành tiền</span>
                                     <span className="text-2xl font-bold text-green-400">
                                         {finalTotal.toLocaleString('vi-VN')}đ
                                     </span>
@@ -361,7 +318,6 @@ export function CheckoutContent() {
                             </div>
                         </div>
 
-                        {/* QR Code Section - Enabled only when address valid */}
                         <AnimatePresence>
                             {isAddressValid && paymentConfig?.account_no ? (
                                 <motion.div
@@ -386,8 +342,8 @@ export function CheckoutContent() {
                                     <p className="text-red-400">Lỗi cấu hình thanh toán. Vui lòng liên hệ admin.</p>
                                 </div>
                             ) : (
-                                <div className="bg-white/5 rounded-3xl p-8 text-center border border-white/10 border-dashed">
-                                    <p className="text-white/50">Vui lòng nhập địa chỉ giao hàng để hiển thị mã QR thanh toán</p>
+                                <div className="bg-[var(--material-glass)] rounded-3xl p-8 text-center border border-[var(--border-color)] border-dashed">
+                                    <p className="text-[var(--text-secondary)]">Vui lòng nhập địa chỉ giao hàng để hiển thị mã QR thanh toán</p>
                                 </div>
                             )}
                         </AnimatePresence>
@@ -398,12 +354,11 @@ export function CheckoutContent() {
     );
 }
 
-// Wrap in Suspense for useSearchParams
 export default function CheckoutPage() {
     return (
         <Suspense fallback={
             <div className="min-h-screen pt-24 pb-12 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
             </div>
         }>
             <CheckoutContent />

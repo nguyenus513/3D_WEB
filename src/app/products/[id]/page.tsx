@@ -167,10 +167,10 @@ export default function ProductDetailPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-32 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-32 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/50">Đang tải...</p>
+                    <div className="w-12 h-12 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-[var(--text-secondary)]">Đang tải...</p>
                 </div>
             </div>
         );
@@ -178,10 +178,10 @@ export default function ProductDetailPage() {
 
     if (!product) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-32 flex items-center justify-center px-6">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-32 flex items-center justify-center px-6">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-white mb-4">Không tìm thấy sản phẩm</h1>
-                    <p className="text-white/50 mb-8">Sản phẩm này không tồn tại hoặc đã bị xóa.</p>
+                    <h1 className="text-4xl font-bold text-[var(--text-primary)] mb-4">Không tìm thấy sản phẩm</h1>
+                    <p className="text-[var(--text-secondary)] mb-8">Sản phẩm này không tồn tại hoặc đã bị xóa.</p>
                     <Link href="/products" className="px-6 py-3 bg-white text-black rounded-xl font-medium">
                         Xem sản phẩm khác
                     </Link>
@@ -195,16 +195,16 @@ export default function ProductDetailPage() {
     const hasDiscount = product.sale_price && product.sale_price < product.base_price;
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[1400px] mx-auto px-6">
                 {/* Breadcrumb */}
                 <nav className="mb-8">
-                    <ol className="flex items-center gap-2 text-sm text-white/50">
-                        <li><Link href="/" className="hover:text-white">Trang chủ</Link></li>
+                    <ol className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                        <li><Link href="/" className="hover:text-[var(--text-primary)]">Trang chủ</Link></li>
                         <li>/</li>
-                        <li><Link href="/products" className="hover:text-white">Sản phẩm</Link></li>
+                        <li><Link href="/products" className="hover:text-[var(--text-primary)]">Sản phẩm</Link></li>
                         <li>/</li>
-                        <li className="text-white">{product.name}</li>
+                        <li className="text-[var(--text-primary)]">{product.name}</li>
                     </ol>
                 </nav>
 
@@ -235,7 +235,7 @@ export default function ProductDetailPage() {
                                 )}
 
                                 {hasDiscount && (
-                                    <div className="absolute top-4 left-4 px-3 py-1 bg-red-500 text-white text-sm font-medium rounded-full">
+                                    <div className="absolute top-4 left-4 px-3 py-1 bg-red-500 text-[var(--text-primary)] text-sm font-medium rounded-full">
                                         SALE
                                     </div>
                                 )}
@@ -245,7 +245,7 @@ export default function ProductDetailPage() {
                                     <>
                                         <button
                                             onClick={handlePrevImage}
-                                            className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-[var(--text-primary)] transition-colors"
                                             aria-label="Previous image"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,7 +254,7 @@ export default function ProductDetailPage() {
                                         </button>
                                         <button
                                             onClick={handleNextImage}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-[var(--text-primary)] transition-colors"
                                             aria-label="Next image"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,7 +262,7 @@ export default function ProductDetailPage() {
                                             </svg>
                                         </button>
                                         {/* Image counter */}
-                                        <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/50 rounded-full text-white text-xs">
+                                        <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/50 rounded-full text-[var(--text-primary)] text-xs">
                                             {selectedImage + 1} / {getCurrentImages().length}
                                         </div>
                                     </>
@@ -278,7 +278,7 @@ export default function ProductDetailPage() {
                                             onClick={() => setSelectedImage(idx)}
                                             className={`w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-2 transition-all ${selectedImage === idx
                                                 ? 'border-white scale-105'
-                                                : 'border-white/20 hover:border-white/50'
+                                                : 'border-[var(--border-color)] hover:border-[var(--border-color)]0'
                                                 }`}
                                         >
                                             <img
@@ -293,8 +293,8 @@ export default function ProductDetailPage() {
 
                             {/* Current variant label */}
                             {variants.length > 0 && (
-                                <p className="text-sm text-white/50 text-center">
-                                    Đang xem: <span className="text-white font-medium">{variants[selectedVariant]?.name}</span>
+                                <p className="text-sm text-[var(--text-secondary)] text-center">
+                                    Đang xem: <span className="text-[var(--text-primary)] font-medium">{variants[selectedVariant]?.name}</span>
                                 </p>
                             )}
                         </div>
@@ -304,14 +304,14 @@ export default function ProductDetailPage() {
                     <div className="flex flex-col">
                         <AnimatedSection delay={0.1}>
                             {product.tags?.[0] && (
-                                <span className="text-sm text-white/50 font-medium tracking-widest uppercase">
+                                <span className="text-sm text-[var(--text-secondary)] font-medium tracking-widest uppercase">
                                     {product.tags[0]}
                                 </span>
                             )}
-                            <h1 className="text-4xl md:text-5xl font-bold text-white mt-2 mb-4">
+                            <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] mt-2 mb-4">
                                 {product.name}
                             </h1>
-                            <p className="text-white/60 text-lg mb-8">
+                            <p className="text-[var(--text-secondary)] text-lg mb-8">
                                 {product.short_description || product.description}
                             </p>
                         </AnimatedSection>
@@ -319,11 +319,11 @@ export default function ProductDetailPage() {
                         {/* Price */}
                         <AnimatedSection delay={0.2}>
                             <div className="mb-8 flex items-center gap-4">
-                                <span className="text-3xl font-bold text-white">
+                                <span className="text-3xl font-bold text-[var(--text-primary)]">
                                     {currentPrice.toLocaleString('vi-VN')}đ
                                 </span>
                                 {hasDiscount && (
-                                    <span className="text-xl text-white/40 line-through">
+                                    <span className="text-xl text-[var(--text-tertiary)] line-through">
                                         {product.base_price.toLocaleString('vi-VN')}đ
                                     </span>
                                 )}
@@ -334,7 +334,7 @@ export default function ProductDetailPage() {
                         {variants.length > 0 && (
                             <AnimatedSection delay={0.3}>
                                 <div className="mb-8">
-                                    <h3 className="text-sm font-medium text-white/70 mb-3">Kích thước</h3>
+                                    <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Kích thước</h3>
                                     <div className="flex flex-wrap gap-3">
                                         {variants.map((variant, index) => (
                                             <button
@@ -342,7 +342,7 @@ export default function ProductDetailPage() {
                                                 onClick={() => handleVariantChange(index)}
                                                 className={`px-4 py-3 rounded-xl border transition-all ${selectedVariant === index
                                                     ? 'bg-white text-black border-white'
-                                                    : 'bg-transparent text-white/70 border-white/20 hover:border-white/40'
+                                                    : 'bg-transparent text-[var(--text-secondary)] border-[var(--border-color)] hover:border-white/40'
                                                     }`}
                                             >
                                                 <span className="block text-sm font-medium">{variant.name}</span>
@@ -359,18 +359,18 @@ export default function ProductDetailPage() {
                         {/* Quantity */}
                         <AnimatedSection delay={0.4}>
                             <div className="mb-8">
-                                <h3 className="text-sm font-medium text-white/70 mb-3">Số lượng</h3>
+                                <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Số lượng</h3>
                                 <div className="flex items-center gap-4">
                                     <button
                                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                        className="w-12 h-12 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+                                        className="w-12 h-12 rounded-xl bg-[var(--material-glass)] text-[var(--text-primary)] flex items-center justify-center hover:bg-[var(--material-glass)]"
                                     >
                                         -
                                     </button>
-                                    <span className="text-xl font-semibold text-white w-12 text-center">{quantity}</span>
+                                    <span className="text-xl font-semibold text-[var(--text-primary)] w-12 text-center">{quantity}</span>
                                     <button
                                         onClick={() => setQuantity(quantity + 1)}
-                                        className="w-12 h-12 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+                                        className="w-12 h-12 rounded-xl bg-[var(--material-glass)] text-[var(--text-primary)] flex items-center justify-center hover:bg-[var(--material-glass)]"
                                     >
                                         +
                                     </button>
@@ -385,8 +385,8 @@ export default function ProductDetailPage() {
                                 <button
                                     onClick={handleAddToCart}
                                     className={`w-full py-4 rounded-xl font-semibold transition-all cursor-pointer ${addedToCart
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-white text-black hover:bg-white/90'
+                                        ? 'bg-green-500 text-[var(--text-primary)]'
+                                        : 'bg-white text-black hover:bg-[var(--material-glass)]'
                                         }`}
                                 >
                                     {addedToCart ? '✓ Đã thêm vào giỏ' : 'Thêm vào giỏ hàng'}
@@ -396,13 +396,13 @@ export default function ProductDetailPage() {
                                 <div className="flex gap-3">
                                     <button
                                         onClick={handleBuyNow}
-                                        className="flex-1 py-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer"
+                                        className="flex-1 py-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-[var(--text-primary)] hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer"
                                     >
                                         Thanh toán ngay
                                     </button>
                                     <Link
                                         href="/cart"
-                                        className="px-6 py-4 rounded-xl border border-white/20 text-white hover:bg-white/10 flex items-center justify-center"
+                                        className="px-6 py-4 rounded-xl border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--material-glass)] flex items-center justify-center"
                                     >
                                         Xem giỏ
                                     </Link>
@@ -412,17 +412,17 @@ export default function ProductDetailPage() {
 
                         {/* Product Details */}
                         <AnimatedSection delay={0.6}>
-                            <div className="mt-12 pt-8 border-t border-white/10">
-                                <h3 className="text-lg font-semibold text-white mb-4">Chi tiết sản phẩm</h3>
+                            <div className="mt-12 pt-8 border-t border-[var(--border-color)]">
+                                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiết sản phẩm</h3>
                                 <div className="prose prose-invert max-w-none">
-                                    <p className="text-white/60">{product.description}</p>
+                                    <p className="text-[var(--text-secondary)]">{product.description}</p>
                                 </div>
                                 <ul className="mt-4 space-y-2">
-                                    <li className="flex items-center gap-2 text-white/60">
+                                    <li className="flex items-center gap-2 text-[var(--text-secondary)]">
                                         <span className="w-2 h-2 rounded-full bg-green-400" />
                                         SKU: {currentVariant?.sku || product.sku}
                                     </li>
-                                    <li className="flex items-center gap-2 text-white/60">
+                                    <li className="flex items-center gap-2 text-[var(--text-secondary)]">
                                         <span className="w-2 h-2 rounded-full bg-green-400" />
                                         Còn hàng: {
                                             currentVariant
@@ -431,7 +431,7 @@ export default function ProductDetailPage() {
                                         } sản phẩm
                                     </li>
                                     {currentVariant && (
-                                        <li className="flex items-center gap-2 text-white/60">
+                                        <li className="flex items-center gap-2 text-[var(--text-secondary)]">
                                             <span className="w-2 h-2 rounded-full bg-blue-400" />
                                             Size: {currentVariant.name}
                                         </li>

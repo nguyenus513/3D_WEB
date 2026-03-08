@@ -145,32 +145,32 @@ function Verify2FAContent() {
 
     if (checking) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a] text-white/50">
+            <div className="flex items-center justify-center min-h-screen bg-[var(--bg-void)] text-[var(--text-secondary)]">
                 <Loader2 className="w-6 h-6 animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a] font-sans selection:bg-blue-500/30">
+        <div className="flex items-center justify-center min-h-screen bg-[var(--bg-void)] font-sans selection:bg-blue-500/30">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3 }}
-                className="w-full max-w-md p-8 sm:p-10 bg-[#141414] rounded-3xl border border-white/5 shadow-2xl"
+                className="w-full max-w-md p-8 sm:p-10 bg-[var(--material-panel)] rounded-3xl border border-[var(--border-color)] shadow-2xl"
             >
                 {/* Minimalist Flat Icon */}
                 <div className="flex justify-center mb-8">
-                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-blue-500 ring-1 ring-white/10">
+                    <div className="w-16 h-16 rounded-2xl bg-[var(--material-glass)] flex items-center justify-center text-blue-500 ring-1 ring-white/10">
                         <ShieldCheck size={32} strokeWidth={1.5} />
                     </div>
                 </div>
 
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-semibold text-white mb-2 tracking-tight">
+                    <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2 tracking-tight">
                         Xác thực 2 yếu tố
                     </h1>
-                    <p className="text-white/50 text-sm">
+                    <p className="text-[var(--text-secondary)] text-sm">
                         {showRecovery
                             ? 'Nhập mã khôi phục để đăng nhập'
                             : 'Nhập mã 6 chữ số từ ứng dụng xác thực'
@@ -201,11 +201,11 @@ function Verify2FAContent() {
                                         onPaste={i === 0 ? handlePaste : undefined}
                                         disabled={loading}
                                         className={`
-                                            w-12 h-14 text-center text-2xl font-bold font-mono bg-[#0a0a0a] 
+                                            w-12 h-14 text-center text-2xl font-bold font-mono bg-[var(--bg-void)] 
                                             border-2 rounded-xl outline-none transition-all duration-200
                                             ${digit
-                                                ? 'border-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.15)]'
-                                                : 'border-white/10 text-white/50 focus:border-blue-500/50 focus:text-white'
+                                                ? 'border-blue-500 text-[var(--text-primary)] shadow-[0_0_15px_rgba(59,130,246,0.15)]'
+                                                : 'border-[var(--border-color)] text-[var(--text-secondary)] focus:border-blue-500/50 focus:text-[var(--text-primary)]'
                                             }
                                             disabled:opacity-50 disabled:cursor-not-allowed
                                         `}
@@ -229,13 +229,13 @@ function Verify2FAContent() {
                                 onChange={e => setRecoveryCode(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleRecoverySubmit()}
                                 disabled={loading}
-                                className="w-full px-4 py-3.5 text-lg font-mono font-medium text-center tracking-widest bg-[#0a0a0a] border border-white/10 rounded-xl text-white outline-none focus:border-blue-500/50 transition-colors placeholder:text-white/20"
+                                className="w-full px-4 py-3.5 text-lg font-mono font-medium text-center tracking-widest bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] outline-none focus:border-blue-500/50 transition-colors placeholder:text-[var(--text-tertiary)]"
                                 autoFocus
                             />
                             <button
                                 onClick={handleRecoverySubmit}
                                 disabled={loading || !recoveryCode.trim()}
-                                className="w-full mt-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20 active:scale-[0.98]"
+                                className="w-full mt-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20 active:scale-[0.98]"
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center gap-2">
@@ -272,7 +272,7 @@ function Verify2FAContent() {
                             setRecoveryCode('');
                             setDigits(['', '', '', '', '', '']);
                         }}
-                        className="text-white/40 hover:text-white text-sm transition-colors flex items-center gap-2 mx-auto group"
+                        className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] text-sm transition-colors flex items-center gap-2 mx-auto group"
                     >
                         {showRecovery ? (
                             <>
@@ -290,8 +290,8 @@ function Verify2FAContent() {
 export default function Verify2FAPage() {
     return (
         <Suspense fallback={
-            <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a]">
-                <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+            <div className="flex items-center justify-center min-h-screen bg-[var(--bg-void)]">
+                <Loader2 className="w-6 h-6 animate-spin text-[var(--text-tertiary)]" />
             </div>
         }>
             <Verify2FAContent />

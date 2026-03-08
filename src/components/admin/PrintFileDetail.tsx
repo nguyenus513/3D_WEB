@@ -94,13 +94,13 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
             <div className="
                 fixed top-0 right-0 h-full w-full max-w-lg z-50
                 bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e]
-                border-l border-white/10
+                border-l border-[var(--border-color)]
                 shadow-2xl shadow-black/50
                 overflow-y-auto
                 animate-slide-in-right
             ">
                 {/* Header */}
-                <div className="sticky top-0 z-10 bg-[#0f0f1a]/95 backdrop-blur-md border-b border-white/10 p-6">
+                <div className="sticky top-0 z-10 bg-[var(--material-panel)]/95 backdrop-blur-md border-b border-[var(--border-color)] p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center">
@@ -109,15 +109,15 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
                                 </svg>
                             </div>
                             <div>
-                                <h2 className="text-white font-semibold text-lg">Chi tiết file</h2>
-                                <p className="text-white/40 text-xs">File Detail</p>
+                                <h2 className="text-[var(--text-primary)] font-semibold text-lg">Chi tiết file</h2>
+                                <p className="text-[var(--text-tertiary)] text-xs">File Detail</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                            className="w-9 h-9 rounded-full bg-[var(--material-glass)] hover:bg-[var(--material-glass)] flex items-center justify-center transition-colors"
                         >
-                            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
@@ -127,8 +127,8 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
                 <div className="p-6 space-y-6">
                     {/* File Name Card */}
                     <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20">
-                        <p className="text-white/50 text-xs uppercase tracking-wider mb-2">Tên file</p>
-                        <p className="text-white font-bold text-lg break-all">{file.itemName}</p>
+                        <p className="text-[var(--text-secondary)] text-xs uppercase tracking-wider mb-2">Tên file</p>
+                        <p className="text-[var(--text-primary)] font-bold text-lg break-all">{file.itemName}</p>
                         {file.orderFile?.file_type && (
                             <span className="inline-block mt-2 px-2.5 py-1 bg-cyan-500/15 text-cyan-400 text-xs rounded-full uppercase">
                                 {file.orderFile.file_type}
@@ -137,8 +137,8 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
                     </div>
 
                     {/* Print Specs — technology-aware layout */}
-                    <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
-                        <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Thông số in</p>
+                    <div className="p-5 rounded-2xl bg-[var(--material-glass)] border border-[var(--border-color)]">
+                        <p className="text-[var(--text-secondary)] text-xs uppercase tracking-wider mb-4">Thông số in</p>
                         {(() => {
                             const tech = file.spec.print_tech?.toLowerCase();
                             const isFdm = tech === 'fdm';
@@ -202,25 +202,25 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
 
                     {/* Analysis / Dimensions */}
                     {(file.spec.volume || file.spec.grams || file.spec.hours) && (
-                        <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
-                            <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Phân tích</p>
+                        <div className="p-5 rounded-2xl bg-[var(--material-glass)] border border-[var(--border-color)]">
+                            <p className="text-[var(--text-secondary)] text-xs uppercase tracking-wider mb-4">Phân tích</p>
                             <div className="grid grid-cols-3 gap-4 text-center">
                                 {file.spec.volume !== undefined && (
                                     <div>
-                                        <p className="text-2xl font-bold text-white">{file.spec.volume}</p>
-                                        <p className="text-white/40 text-xs mt-1">cm³</p>
+                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{file.spec.volume}</p>
+                                        <p className="text-[var(--text-tertiary)] text-xs mt-1">cm³</p>
                                     </div>
                                 )}
                                 {file.spec.grams !== undefined && (
                                     <div>
-                                        <p className="text-2xl font-bold text-white">{file.spec.grams}</p>
-                                        <p className="text-white/40 text-xs mt-1">gram</p>
+                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{file.spec.grams}</p>
+                                        <p className="text-[var(--text-tertiary)] text-xs mt-1">gram</p>
                                     </div>
                                 )}
                                 {file.spec.hours !== undefined && (
                                     <div>
-                                        <p className="text-2xl font-bold text-white">{file.spec.hours}</p>
-                                        <p className="text-white/40 text-xs mt-1">giờ</p>
+                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{file.spec.hours}</p>
+                                        <p className="text-[var(--text-tertiary)] text-xs mt-1">giờ</p>
                                     </div>
                                 )}
                             </div>
@@ -229,18 +229,18 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
 
                     {/* Pricing */}
                     <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-600/10 border border-emerald-500/20">
-                        <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Giá</p>
+                        <p className="text-[var(--text-secondary)] text-xs uppercase tracking-wider mb-4">Giá</p>
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
-                                <span className="text-white/60 text-sm">Đơn giá</span>
-                                <span className="text-white font-medium">{formatPrice(file.unitPrice)}</span>
+                                <span className="text-[var(--text-secondary)] text-sm">Đơn giá</span>
+                                <span className="text-[var(--text-primary)] font-medium">{formatPrice(file.unitPrice)}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-white/60 text-sm">Số lượng</span>
-                                <span className="text-white font-medium">×{file.quantity}</span>
+                                <span className="text-[var(--text-secondary)] text-sm">Số lượng</span>
+                                <span className="text-[var(--text-primary)] font-medium">×{file.quantity}</span>
                             </div>
-                            <div className="border-t border-white/10 pt-3 flex justify-between items-center">
-                                <span className="text-white font-medium">Tổng</span>
+                            <div className="border-t border-[var(--border-color)] pt-3 flex justify-between items-center">
+                                <span className="text-[var(--text-primary)] font-medium">Tổng</span>
                                 <span className="text-emerald-400 font-bold text-xl">{formatPrice(file.totalPrice)}</span>
                             </div>
                         </div>
@@ -257,14 +257,14 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
                                     bg-gradient-to-r from-cyan-500 to-blue-600
                                     hover:from-cyan-400 hover:to-blue-500
                                     disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed
-                                    text-white transition-all duration-300
+                                    text-[var(--text-primary)] transition-all duration-300
                                     flex items-center justify-center gap-3
                                     shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30
                                 "
                             >
                                 {downloading ? (
                                     <>
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <div className="w-5 h-5 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin" />
                                         Đang tải...
                                     </>
                                 ) : (
@@ -277,9 +277,9 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
                                 )}
                             </button>
                         ) : (
-                            <div className="w-full py-4 rounded-xl bg-white/5 border border-white/10 text-center">
-                                <p className="text-white/40 text-sm">File chưa được upload lên hệ thống</p>
-                                <p className="text-white/30 text-xs mt-1">Không có file để tải</p>
+                            <div className="w-full py-4 rounded-xl bg-[var(--material-glass)] border border-[var(--border-color)] text-center">
+                                <p className="text-[var(--text-tertiary)] text-sm">File chưa được upload lên hệ thống</p>
+                                <p className="text-[var(--text-tertiary)] text-xs mt-1">Không có file để tải</p>
                             </div>
                         )}
 
@@ -336,18 +336,18 @@ function SpecItem({ label, value, capitalize, colorPreview }: {
 
     return (
         <div>
-            <p className="text-white/40 text-xs mb-1">{label}</p>
+            <p className="text-[var(--text-tertiary)] text-xs mb-1">{label}</p>
             <div className="flex items-center gap-2">
                 {cssColor && (
                     <span
-                        className="w-3.5 h-3.5 rounded-full border border-white/20 flex-shrink-0"
+                        className="w-3.5 h-3.5 rounded-full border border-[var(--border-color)] flex-shrink-0"
                         style={{
                             backgroundColor: cssColor,
                             ...(cssColor === 'transparent' ? { background: 'repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 50% / 6px 6px' } : {}),
                         }}
                     />
                 )}
-                <p className={`text-white font-medium text-sm ${capitalize ? 'capitalize' : ''}`}>{value}</p>
+                <p className={`text-[var(--text-primary)] font-medium text-sm ${capitalize ? 'capitalize' : ''}`}>{value}</p>
             </div>
         </div>
     );

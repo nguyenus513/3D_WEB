@@ -167,14 +167,14 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">{title}</h1>
-                    <p className="text-white/50 mt-1">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
+                    <p className="text-[var(--text-secondary)] mt-1">
                         {loading ? 'Đang tải...' : subtitle || `${filteredItems.length} đơn con`}
                     </p>
                 </div>
                 <button
                     onClick={fetchItems}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -193,12 +193,12 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
                             flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all
                             ${activeStatus === tab.key
                                 ? 'bg-white text-black'
-                                : 'bg-[#1D1D1F] text-white/70 hover:text-white border border-white/10'
+                                : 'bg-[var(--material-panel)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]'
                             }
                         `}
                     >
                         {tab.label}
-                        <span className={`px-1.5 py-0.5 rounded text-xs ${activeStatus === tab.key ? 'bg-black/10' : 'bg-white/10'}`}>
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${activeStatus === tab.key ? 'bg-black/10' : 'bg-[var(--material-glass)]'}`}>
                             {getStatusCount(tab.key)}
                         </span>
                     </button>
@@ -207,7 +207,7 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
 
             {/* Search */}
             <div className="relative max-w-md">
-                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -215,7 +215,7 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
                     placeholder="Tìm theo mã đơn con hoặc khách hàng..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white placeholder:text-white/40 text-sm"
+                    className="w-full pl-12 pr-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] text-sm"
                 />
             </div>
 
@@ -223,28 +223,28 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] overflow-hidden"
             >
                 {loading ? (
                     <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
                     </div>
                 ) : filteredItems.length === 0 ? (
                     <div className="text-center py-20">
-                        <p className="text-white/50">Không có đơn con nào</p>
+                        <p className="text-[var(--text-secondary)]">Không có đơn con nào</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-white/5">
+                            <thead className="bg-[var(--material-glass)]">
                                 <tr>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Mã đơn con</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Thuộc đơn</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Sản phẩm</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Khách hàng</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Thông số</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Trạng thái</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Ngày tạo</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Mã đơn con</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Thuộc đơn</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Sản phẩm</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Khách hàng</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Thông số</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Trạng thái</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Ngày tạo</th>
                                     <th className="px-5 py-4"></th>
                                 </tr>
                             </thead>
@@ -252,10 +252,10 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
                                 {filteredItems.map((item) => (
                                     <tr
                                         key={item.id}
-                                        className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                                        className="border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors"
                                     >
                                         <td className="px-5 py-4">
-                                            <span className="text-white font-mono font-medium">
+                                            <span className="text-[var(--text-primary)] font-mono font-medium">
                                                 {item.cart_order_code}
                                             </span>
                                         </td>
@@ -269,34 +269,34 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
                                         </td>
                                         <td className="px-5 py-4">
                                             <div>
-                                                <span className="text-white block">{item.name}</span>
-                                                <span className="text-white/50 text-sm">x{item.quantity}</span>
+                                                <span className="text-[var(--text-primary)] block">{item.name}</span>
+                                                <span className="text-[var(--text-secondary)] text-sm">x{item.quantity}</span>
                                             </div>
                                         </td>
                                         <td className="px-5 py-4">
-                                            <span className="text-white">
+                                            <span className="text-[var(--text-primary)]">
                                                 {item.customer?.name || 'N/A'}
                                             </span>
                                         </td>
                                         <td className="px-5 py-4">
                                             {itemType === 'printing' && (
-                                                <div className="text-white/70 text-sm space-y-0.5">
+                                                <div className="text-[var(--text-secondary)] text-sm space-y-0.5">
                                                     {item.print_tech && <div>Tech: {item.print_tech}</div>}
                                                     {item.color && <div>Màu: {item.color}</div>}
                                                     {item.material && <div>Vật liệu: {item.material}</div>}
                                                 </div>
                                             )}
                                             {itemType !== 'printing' && (
-                                                <span className="text-white/50 text-sm">-</span>
+                                                <span className="text-[var(--text-secondary)] text-sm">-</span>
                                             )}
                                         </td>
                                         <td className="px-5 py-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[item.production_status] || 'bg-white/10 text-white/50'}`}>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[item.production_status] || 'bg-[var(--material-glass)] text-[var(--text-secondary)]'}`}>
                                                 {statusLabels[item.production_status] || item.production_status}
                                             </span>
                                         </td>
                                         <td className="px-5 py-4">
-                                            <span className="text-white/70 text-sm">
+                                            <span className="text-[var(--text-secondary)] text-sm">
                                                 {new Date(item.created_at).toLocaleString('vi-VN', {
                                                     day: '2-digit',
                                                     month: '2-digit',

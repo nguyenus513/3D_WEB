@@ -21,7 +21,7 @@ const footerLinks = {
 export function Footer() {
     return (
         <footer
-            className="relative backdrop-blur-xl border-t border-white/10"
+            className="relative backdrop-blur-xl border-t border-[var(--border-color)]"
             style={{
                 background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.08) 0%, rgba(168, 85, 247, 0.04) 30%, rgba(10, 10, 10, 0.95) 100%)'
             }}
@@ -30,21 +30,21 @@ export function Footer() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     {/* Brand */}
                     <div className="space-y-4">
-                        <Link href="/" className="text-xl font-semibold text-white">
+                        <Link href="/" className="text-xl font-semibold text-[var(--text-primary)]">
                             Miniver 3D Lab
                         </Link>
-                        <p className="text-sm text-[#A1A1A6]">
+                        <p className="text-sm text-[var(--text-secondary)]">
                             Chuyên tạo mô hình 3D độc đáo, cá nhân hóa theo yêu cầu.
                         </p>
                     </div>
 
                     {/* Products */}
                     <div>
-                        <h3 className="text-sm font-semibold text-white mb-4">Sản phẩm</h3>
+                        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Sản phẩm</h3>
                         <ul className="space-y-3">
                             {footerLinks.products.map((link) => (
                                 <li key={link.name}>
-                                    <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
+                                    <Link href={link.href} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                                         {link.name}
                                     </Link>
                                 </li>
@@ -54,11 +54,11 @@ export function Footer() {
 
                     {/* Support */}
                     <div>
-                        <h3 className="text-sm font-semibold text-white mb-4">Hỗ trợ</h3>
+                        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Hỗ trợ</h3>
                         <ul className="space-y-3">
                             {footerLinks.support.map((link) => (
                                 <li key={link.name}>
-                                    <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
+                                    <Link href={link.href} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                                         {link.name}
                                     </Link>
                                 </li>
@@ -68,11 +68,11 @@ export function Footer() {
 
                     {/* Account */}
                     <div>
-                        <h3 className="text-sm font-semibold text-white mb-4">Tài khoản</h3>
+                        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Tài khoản</h3>
                         <ul className="space-y-3">
                             {footerLinks.account.map((link) => (
                                 <li key={link.name}>
-                                    <Link href={link.href} className="text-sm text-[#A1A1A6] hover:text-white transition-colors">
+                                    <Link href={link.href} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                                         {link.name}
                                     </Link>
                                 </li>
@@ -82,16 +82,16 @@ export function Footer() {
                 </div>
 
                 {/* Bottom */}
-                <div className="mt-12 pt-8 border-t border-white/[0.08]">
+                <div className="mt-12 pt-8 border-t border-[var(--border-color)]">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                        <p className="text-xs text-[#6E6E73]">
+                        <p className="text-xs text-[var(--text-tertiary)]">
                             Copyright © 2026 Miniver 3D Lab. All rights reserved.
                         </p>
                         <div className="flex items-center gap-6">
-                            <Link href="/privacy" className="text-xs text-[#6E6E73] hover:text-white transition-colors">
+                            <Link href="/privacy" className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
                                 Chính sách bảo mật
                             </Link>
-                            <Link href="/terms" className="text-xs text-[#6E6E73] hover:text-white transition-colors">
+                            <Link href="/terms" className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
                                 Điều khoản sử dụng
                             </Link>
                         </div>

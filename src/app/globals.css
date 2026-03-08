@@ -63,6 +63,11 @@
   /* Status */
   --color-success: #30D158;
   --color-error: #FF453A;
+  --color-warning: #FFD60A;
+
+  /* shadcn/ui compatibility */
+  --border-color: rgba(255, 255, 255, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.05);
 
   /* --- FONTS --- */
   --font-body: var(--font-be-vietnam-pro), -apple-system, BlinkMacSystemFont, sans-serif;
@@ -117,9 +122,15 @@
 
   /* Text: High Contrast on Glass */
   --text-primary: #1D1D1F;
-  /* "Dark Sulfate" */
   --text-secondary: #6E6E73;
-  /* "Graphite" */
+  --text-tertiary: #A1A1A6;
+
+  --color-success: #34C759;
+  --color-error: #FF3B30;
+  --color-warning: #FF9500;
+
+  --border-color: rgba(0, 0, 0, 0.12);
+  --input-bg: rgba(0, 0, 0, 0.03);
 }
 
 /* Dark Mode Adaptation (Vision Pro Night Mode) */
@@ -141,6 +152,10 @@
 
   --text-primary: #F5F5F7;
   --text-secondary: #A1A1A6;
+
+  --color-warning: #FFD60A;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.05);
 }
 
 @theme inline {

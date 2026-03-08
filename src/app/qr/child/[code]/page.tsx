@@ -87,17 +87,17 @@ export default function QRChildPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
             </div>
         );
     }
 
     if (error || !order) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-center px-4">
-                <h1 className="text-2xl text-white mb-4">Không tìm thấy đơn hàng</h1>
-                <p className="text-white/50 mb-6">Mã đơn hàng không tồn tại hoặc đã hết hạn</p>
+            <div className="min-h-screen bg-[var(--bg-void)] flex flex-col items-center justify-center text-center px-4">
+                <h1 className="text-2xl text-[var(--text-primary)] mb-4">Không tìm thấy đơn hàng</h1>
+                <p className="text-[var(--text-secondary)] mb-6">Mã đơn hàng không tồn tại hoặc đã hết hạn</p>
                 <Link href="/" className="text-blue-400 hover:underline">Về trang chủ</Link>
             </div>
         );
@@ -107,22 +107,22 @@ export default function QRChildPage() {
 
     if (paymentStatus === 'paid') {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-center px-4">
+            <div className="min-h-screen bg-[var(--bg-void)] flex flex-col items-center justify-center text-center px-4">
                 <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-6"
                 >
-                    <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-10 h-10 text-[var(--text-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                 </motion.div>
-                <h1 className="text-3xl font-bold text-white mb-2">Thanh toán thành công!</h1>
-                <p className="text-white/60 mb-2">Mã đơn hàng: <span className="font-mono text-white">{code}</span></p>
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Thanh toán thành công!</h1>
+                <p className="text-[var(--text-secondary)] mb-2">Mã đơn hàng: <span className="font-mono text-[var(--text-primary)]">{code}</span></p>
                 <p className="text-green-400 text-lg mb-8">{totalWithShipping.toLocaleString('vi-VN')}đ</p>
                 <Link
                     href="/account/orders"
-                    className="px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90"
+                    className="px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-[var(--material-glass)]"
                 >
                     Xem đơn hàng của tôi
                 </Link>
@@ -131,7 +131,7 @@ export default function QRChildPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-12 px-4">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-24 pb-12 px-4">
             <div className="max-w-4xl mx-auto">
                 {/* Check if bank info exists in order metadata */}
                 {order.metadata?.account_no ? (
@@ -157,13 +157,13 @@ export default function QRChildPage() {
                 ) : (
                     <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
                         <p className="text-red-400 text-lg mb-2">Lỗi cấu hình thanh toán</p>
-                        <p className="text-white/50">Thông tin ngân hàng không tồn tại trong đơn hàng. Vui lòng liên hệ admin.</p>
+                        <p className="text-[var(--text-secondary)]">Thông tin ngân hàng không tồn tại trong đơn hàng. Vui lòng liên hệ admin.</p>
                     </div>
                 )}
 
                 {/* Back link */}
                 <div className="text-center mt-8">
-                    <Link href="/" className="text-white/50 hover:text-white text-sm">
+                    <Link href="/" className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm">
                         ← Về trang chủ
                     </Link>
                 </div>

@@ -697,7 +697,7 @@ export default function AdminOrderDetailPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
             </div>
         );
     }
@@ -705,7 +705,7 @@ export default function AdminOrderDetailPage() {
     if (!order) {
         return (
             <div className="text-center py-12">
-                <h2 className="text-xl text-white">Không tìm thấy đơn hàng</h2>
+                <h2 className="text-xl text-[var(--text-primary)]">Không tìm thấy đơn hàng</h2>
                 <Link href={`${adminRoot}/orders`} className="text-blue-400 mt-4 inline-block">
                     ← Quay lại
                 </Link>
@@ -722,7 +722,7 @@ export default function AdminOrderDetailPage() {
                 <div className="flex items-center gap-4">
                     <Link
                         href={`${adminRoot}/orders`}
-                        className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                        className="p-2 rounded-xl hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -731,7 +731,7 @@ export default function AdminOrderDetailPage() {
                     <div>
                         <div className="flex items-center gap-3">
                             {/* Display cart_code if available, fallback to order_code */}
-                            <h1 className="text-2xl font-bold text-white">
+                            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
                                 {(order as any).cart_code || order.order_code}
                             </h1>
                             <span className={`px-3 py-1 rounded-full text-sm ${statusColors[order.status]}`}>
@@ -740,9 +740,9 @@ export default function AdminOrderDetailPage() {
                         </div>
                         {/* Show legacy order_code if cart_code exists */}
                         {(order as any).cart_code && (
-                            <p className="text-white/40 text-sm mt-0.5">Code: {order.order_code}</p>
+                            <p className="text-[var(--text-tertiary)] text-sm mt-0.5">Code: {order.order_code}</p>
                         )}
-                        <p className="text-white/50 mt-1">Tạo lúc {formatDate(order.created_at)}</p>
+                        <p className="text-[var(--text-secondary)] mt-1">Tạo lúc {formatDate(order.created_at)}</p>
                     </div>
                 </div>
             </div>
@@ -790,9 +790,9 @@ export default function AdminOrderDetailPage() {
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Tiến trình đơn hàng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Tiến trình đơn hàng</h2>
 
                             {/* New Square Block Stepper */}
                             <OrderStatusStepper
@@ -817,9 +817,9 @@ export default function AdminOrderDetailPage() {
 
                             {/* ═══ DESIGN VERSIONS SECTION (Custom orders) ═══ */}
                             {order.order_type === 'custom' && (
-                                <div className="mt-6 pt-6 border-t border-white/10 space-y-4">
+                                <div className="mt-6 pt-6 border-t border-[var(--border-color)] space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <p className="text-white/80 font-semibold text-sm">🎨 Design Versions</p>
+                                        <p className="text-[var(--text-secondary)] font-semibold text-sm">🎨 Design Versions</p>
                                         {designVersions.length > 0 && (
                                             <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">
                                                 {designVersions.length} version{designVersions.length > 1 ? 's' : ''}
@@ -835,12 +835,12 @@ export default function AdminOrderDetailPage() {
                                                 <p className="text-pink-400 font-semibold text-sm mb-1">
                                                     ✏ Khách yêu cầu chỉnh sửa V{rejectedVer.version_number}
                                                 </p>
-                                                <p className="text-white/70 text-sm">{rejectedVer.user_feedback}</p>
+                                                <p className="text-[var(--text-secondary)] text-sm">{rejectedVer.user_feedback}</p>
                                             </div>
                                         ) : order.revision_feedback ? (
                                             <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
                                                 <p className="text-pink-400 font-semibold text-sm mb-1">✏ Khách yêu cầu chỉnh sửa</p>
-                                                <p className="text-white/70 text-sm">{order.revision_feedback}</p>
+                                                <p className="text-[var(--text-secondary)] text-sm">{order.revision_feedback}</p>
                                             </div>
                                         ) : null;
                                     })()}
@@ -858,7 +858,7 @@ export default function AdminOrderDetailPage() {
                                                             : ver.status === 'rejected'
                                                                 ? 'bg-pink-500/20 text-pink-400 border border-pink-500/50'
                                                                 : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
-                                                        : 'bg-white/5 text-white/40 border border-white/10 hover:bg-white/10'
+                                                        : 'bg-white/5 text-[var(--text-tertiary)] border border-[var(--border-color)] hover:bg-[var(--material-glass)]'
                                                         }`}
                                                 >
                                                     V{ver.version_number}
@@ -893,10 +893,10 @@ export default function AdminOrderDetailPage() {
                                                                     <img
                                                                         src={img.image_url}
                                                                         alt={img.label || 'Demo'}
-                                                                        className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-white/30 transition-all"
+                                                                        className="w-full aspect-square object-cover rounded-xl border border-[var(--border-color)] group-hover:border-white/30 transition-all"
                                                                     />
                                                                 </a>
-                                                                <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-white/80 px-2 py-0.5 rounded-full">
+                                                                <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-[var(--text-secondary)] px-2 py-0.5 rounded-full">
                                                                     {img.label || `#${img.sort_order}`}
                                                                 </span>
                                                                 <button
@@ -904,13 +904,13 @@ export default function AdminOrderDetailPage() {
                                                                     className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-400 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
                                                                     title="Xóa ảnh"
                                                                 >
-                                                                    <span className="text-white text-xs font-bold">✕</span>
+                                                                    <span className="text-[var(--text-primary)] text-xs font-bold">✕</span>
                                                                 </button>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <p className="text-white/20 text-sm text-center py-4">Chưa có ảnh</p>
+                                                    <p className="text-[var(--text-tertiary)] text-sm text-center py-4">Chưa có ảnh</p>
                                                 )}
                                             </div>
                                         );
@@ -919,7 +919,7 @@ export default function AdminOrderDetailPage() {
                                     {/* Upload Demo (show when designing/revising/processing) */}
                                     {['designing', 'processing', 'revising', 'review'].includes(order.status) && (
                                         <>
-                                            <p className="text-white/50 text-sm">📷 Upload ảnh demo:</p>
+                                            <p className="text-[var(--text-secondary)] text-sm">📷 Upload ảnh demo:</p>
                                             <label className={`
                                                 flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
                                                 border-2 border-dashed border-cyan-500/30 hover:border-cyan-500/50 
@@ -955,7 +955,7 @@ export default function AdminOrderDetailPage() {
                                         <button
                                             onClick={handleSendForReview}
                                             disabled={updating}
-                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-[var(--text-primary)] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
                                         >
                                             {updating ? 'Đang gửi...' : '📤 Gửi cho khách duyệt'}
                                         </button>
@@ -965,8 +965,8 @@ export default function AdminOrderDetailPage() {
 
                             {/* ═══ FINISHED PRODUCT SECTION (Custom orders in producing/finished) ═══ */}
                             {order.order_type === 'custom' && ['producing', 'finished', 'shipping', 'delivered'].includes(order.status) && (
-                                <div className="mt-6 pt-6 border-t border-white/10 space-y-4">
-                                    <p className="text-white/50 text-sm">📸 Ảnh thành phẩm:</p>
+                                <div className="mt-6 pt-6 border-t border-[var(--border-color)] space-y-4">
+                                    <p className="text-[var(--text-secondary)] text-sm">📸 Ảnh thành phẩm:</p>
 
                                     {/* Upload button (only when producing) */}
                                     {order.status === 'producing' && (
@@ -1007,9 +1007,9 @@ export default function AdminOrderDetailPage() {
                                                     <img
                                                         src={img.url}
                                                         alt={img.label || `Thành phẩm ${idx + 1}`}
-                                                        className="w-full aspect-square object-cover rounded-xl border border-white/10 group-hover:border-teal-400/50 transition-all"
+                                                        className="w-full aspect-square object-cover rounded-xl border border-[var(--border-color)] group-hover:border-teal-400/50 transition-all"
                                                     />
-                                                    <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-white/80 px-2 py-0.5 rounded-full">
+                                                    <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-[var(--text-secondary)] px-2 py-0.5 rounded-full">
                                                         {img.label || `#${idx + 1}`}
                                                     </span>
                                                 </a>
@@ -1022,7 +1022,7 @@ export default function AdminOrderDetailPage() {
                                         <button
                                             onClick={handleMarkFinished}
                                             disabled={updating}
-                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-[var(--text-primary)] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
                                         >
                                             {updating ? 'Đang xử lý...' : '✅ Xác nhận hoàn thiện đơn hàng'}
                                         </button>
@@ -1037,14 +1037,14 @@ export default function AdminOrderDetailPage() {
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-white font-semibold flex items-center gap-2">
+                                    <h3 className="text-[var(--text-primary)] font-semibold flex items-center gap-2">
                                         📦 Lưu trữ file
                                     </h3>
-                                    <p className="text-white/50 text-sm mt-1">
+                                    <p className="text-[var(--text-secondary)] text-sm mt-1">
                                         {order.archived_at
                                             ? `Đã lưu trữ lúc ${new Date(order.archived_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
                                             : 'Chuyển file từ R2 sang Google Drive để lưu trữ lâu dài'}
@@ -1058,7 +1058,7 @@ export default function AdminOrderDetailPage() {
                                     <button
                                         onClick={handleArchiveFiles}
                                         disabled={archiving}
-                                        className="px-6 py-2.5 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
+                                        className="px-6 py-2.5 rounded-xl bg-indigo-500 text-[var(--text-primary)] font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
                                     >
                                         {archiving ? (
                                             <span className="flex items-center gap-2">
@@ -1080,9 +1080,9 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
                             {order.order_type === 'custom' ? 'Chi tiết đơn Custom' :
                                 order.order_type === 'printing' ? 'Chi tiết đơn In 3D' : 'Sản phẩm'}
                         </h2>
@@ -1091,9 +1091,9 @@ export default function AdminOrderDetailPage() {
                             {order.order_type === 'custom' && order.custom_config && (
                                 <div className="space-y-3">
                                     {/* Row 1: Loại tranh */}
-                                    <div className="flex items-center justify-between py-3 border-b border-white/10">
-                                        <span className="text-white/60">Loại tranh</span>
-                                        <span className="text-white font-medium">
+                                    <div className="flex items-center justify-between py-3 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Loại tranh</span>
+                                        <span className="text-[var(--text-primary)] font-medium">
                                             {order.custom_config.type === 'single' ? 'Cá nhân (1 người)' :
                                                 order.custom_config.type === 'couple' ? 'Couple (2 người)' :
                                                     'Nhóm (3+ người)'}
@@ -1101,9 +1101,9 @@ export default function AdminOrderDetailPage() {
                                     </div>
 
                                     {/* Row 2: Kích thước */}
-                                    <div className="flex items-center justify-between py-3 border-b border-white/10">
-                                        <span className="text-white/60">Kích thước</span>
-                                        <span className="text-white font-medium">
+                                    <div className="flex items-center justify-between py-3 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Kích thước</span>
+                                        <span className="text-[var(--text-primary)] font-medium">
                                             {order.custom_config.size === 'S' ? 'S - 10cm' :
                                                 order.custom_config.size === 'M' ? 'M - 15cm' :
                                                     order.custom_config.size === 'L' ? 'L - 20cm' :
@@ -1113,16 +1113,16 @@ export default function AdminOrderDetailPage() {
                                     </div>
 
                                     {/* Row 3: Ghi chú */}
-                                    <div className="py-3 border-b border-white/10">
-                                        <p className="text-white/60 mb-2">Ghi chú của khách</p>
-                                        <p className="text-white">
+                                    <div className="py-3 border-b border-[var(--border-color)]">
+                                        <p className="text-[var(--text-secondary)] mb-2">Ghi chú của khách</p>
+                                        <p className="text-[var(--text-primary)]">
                                             {order.custom_config.notes || '—'}
                                         </p>
                                     </div>
 
                                     {/* Row 4: Ảnh tham khảo — ImageGallery */}
                                     <div className="py-3">
-                                        <p className="text-white/60 mb-3">
+                                        <p className="text-[var(--text-secondary)] mb-3">
                                             Ảnh tham khảo ({order.custom_config.images?.length || 0} ảnh)
                                         </p>
                                         <CustomImageSection
@@ -1138,7 +1138,7 @@ export default function AdminOrderDetailPage() {
                                 <div className="space-y-1">
                                     {/* File List with per-item print specs */}
                                     <div className="px-4 py-3">
-                                        <p className="text-white/30 text-[11px] uppercase tracking-wider font-medium mb-2">
+                                        <p className="text-[var(--text-tertiary)] text-[11px] uppercase tracking-wider font-medium mb-2">
                                             Chi tiết đơn in 3D · {order.order_items?.length || 0} files
                                         </p>
 
@@ -1209,7 +1209,7 @@ export default function AdminOrderDetailPage() {
                                                 })}
                                             </div>
                                         ) : (
-                                            <p className="text-white/30 text-sm">Chưa có file</p>
+                                            <p className="text-[var(--text-tertiary)] text-sm">Chưa có file</p>
                                         )}
                                     </div>
 
@@ -1218,8 +1218,8 @@ export default function AdminOrderDetailPage() {
                                         <>
                                             <div className="border-t border-white/[0.06]" />
                                             <div className="px-4 py-3">
-                                                <p className="text-white/30 text-[11px] uppercase tracking-wider font-medium mb-1.5">Ghi chú</p>
-                                                <p className="text-white/60 text-sm whitespace-pre-wrap">{order.printing_config.notes}</p>
+                                                <p className="text-[var(--text-tertiary)] text-[11px] uppercase tracking-wider font-medium mb-1.5">Ghi chú</p>
+                                                <p className="text-[var(--text-secondary)] text-sm whitespace-pre-wrap">{order.printing_config.notes}</p>
                                             </div>
                                         </>
                                     )}
@@ -1236,10 +1236,10 @@ export default function AdminOrderDetailPage() {
                             {/* Ready Made Order - Show order_items */}
                             {order.order_type === 'ready_made' && (!order.order_items || order.order_items.length === 0) && (
                                 <div className="p-8 text-center">
-                                    <svg className="w-12 h-12 mx-auto text-white/20 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-12 h-12 mx-auto text-[var(--text-tertiary)] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                     </svg>
-                                    <p className="text-white/40">Không có sản phẩm trong đơn hàng này</p>
+                                    <p className="text-[var(--text-tertiary)]">Không có sản phẩm trong đơn hàng này</p>
                                 </div>
                             )}
 
@@ -1256,7 +1256,7 @@ export default function AdminOrderDetailPage() {
                                 const displayItemCode = itemOrderCode ? `${cartCode}_${itemOrderCode}` : null;
 
                                 return (
-                                    <div key={item.id || idx} className="p-4 bg-white/5 rounded-xl space-y-4">
+                                    <div key={item.id || idx} className="p-4 bg-[var(--material-glass)] rounded-xl space-y-4">
                                         {/* Item code badge (if available) */}
                                         {displayItemCode && (
                                             <div className="flex items-center gap-2 mb-2">
@@ -1267,7 +1267,7 @@ export default function AdminOrderDetailPage() {
                                         )}
                                         {/* Main product info */}
                                         <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
+                                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-[var(--material-glass)] flex-shrink-0">
                                                 {item.product_image ? (
                                                     <img
                                                         src={item.product_image}
@@ -1280,27 +1280,27 @@ export default function AdminOrderDetailPage() {
                                                     />
                                                 ) : null}
                                                 <div className={`w-full h-full flex items-center justify-center ${item.product_image ? 'hidden' : ''}`}>
-                                                    <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <svg className="w-8 h-8 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                                     </svg>
                                                 </div>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-white font-medium truncate">{item.product_name}</p>
-                                                <p className="text-white/50 text-sm">
+                                                <p className="text-[var(--text-primary)] font-medium truncate">{item.product_name}</p>
+                                                <p className="text-[var(--text-secondary)] text-sm">
                                                     {item.product_sku} • {item.size} × {item.quantity}
                                                 </p>
-                                                <p className="text-white/40 text-xs mt-1">
+                                                <p className="text-[var(--text-tertiary)] text-xs mt-1">
                                                     {(item.unit_price || (item.total_price / (item.quantity || 1))).toLocaleString('vi-VN')}đ/sp
                                                 </p>
                                             </div>
-                                            <p className="text-white font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
+                                            <p className="text-[var(--text-primary)] font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
                                         </div>
 
                                         {/* Custom Order: Photo uploads & style */}
                                         {
                                             isCustom && customConfig && (
-                                                <div className="pt-4 border-t border-white/10 space-y-3">
+                                                <div className="pt-4 border-t border-[var(--border-color)] space-y-3">
                                                     {/* Style & Type */}
                                                     <div className="flex flex-wrap gap-2">
                                                         {customConfig.type && (
@@ -1314,7 +1314,7 @@ export default function AdminOrderDetailPage() {
                                                             </span>
                                                         )}
                                                         {customConfig.size && (
-                                                            <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full">
+                                                            <span className="px-2 py-1 bg-[var(--material-glass)] text-[var(--text-secondary)] text-xs rounded-full">
                                                                 Size: {customConfig.size}
                                                             </span>
                                                         )}
@@ -1323,7 +1323,7 @@ export default function AdminOrderDetailPage() {
                                                     {/* Uploaded photos */}
                                                     {customConfig.photos && customConfig.photos.length > 0 && (
                                                         <div>
-                                                            <p className="text-white/50 text-xs mb-2">📸 Ảnh khách gửi ({customConfig.photos.length})</p>
+                                                            <p className="text-[var(--text-secondary)] text-xs mb-2">📸 Ảnh khách gửi ({customConfig.photos.length})</p>
                                                             <div className="flex flex-wrap gap-2">
                                                                 {customConfig.photos.map((photo, idx) => (
                                                                     <a
@@ -1331,7 +1331,7 @@ export default function AdminOrderDetailPage() {
                                                                         href={photo.web_view_link || `https://drive.google.com/file/d/${photo.drive_file_id}/view`}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
-                                                                        className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-cyan-500 transition-all"
+                                                                        className="w-16 h-16 rounded-lg overflow-hidden bg-[var(--material-glass)] hover:ring-2 hover:ring-cyan-500 transition-all"
                                                                     >
                                                                         <img
                                                                             src={`https://lh3.googleusercontent.com/d/${photo.drive_file_id}=w200`}
@@ -1339,7 +1339,7 @@ export default function AdminOrderDetailPage() {
                                                                             className="w-full h-full object-cover"
                                                                             onError={(e) => {
                                                                                 e.currentTarget.src = '';
-                                                                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/30"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>';
+                                                                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-[var(--text-tertiary)]"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>';
                                                                             }}
                                                                         />
                                                                     </a>
@@ -1352,7 +1352,7 @@ export default function AdminOrderDetailPage() {
                                                     {customConfig.demo_photo && (
                                                         <div>
                                                             <div className="flex items-center gap-2 mb-2">
-                                                                <p className="text-white/50 text-xs">🎨 Demo</p>
+                                                                <p className="text-[var(--text-secondary)] text-xs">🎨 Demo</p>
                                                                 {customConfig.customer_approved && (
                                                                     <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">✓ Đã duyệt</span>
                                                                 )}
@@ -1361,7 +1361,7 @@ export default function AdminOrderDetailPage() {
                                                                 href={customConfig.demo_photo.web_view_link || `https://drive.google.com/file/d/${customConfig.demo_photo.drive_file_id}/view`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="inline-block w-24 h-24 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-emerald-500 transition-all"
+                                                                className="inline-block w-24 h-24 rounded-lg overflow-hidden bg-[var(--material-glass)] hover:ring-2 hover:ring-emerald-500 transition-all"
                                                             >
                                                                 <img
                                                                     src={`https://lh3.googleusercontent.com/d/${customConfig.demo_photo.drive_file_id}=w200`}
@@ -1378,7 +1378,7 @@ export default function AdminOrderDetailPage() {
                                         {/* Printing Order: STL file & specs */}
                                         {
                                             isPrinting && printingConfig && (
-                                                <div className="pt-4 border-t border-white/10 space-y-3">
+                                                <div className="pt-4 border-t border-[var(--border-color)] space-y-3">
                                                     {/* Print specs */}
                                                     <div className="flex flex-wrap gap-2">
                                                         {printingConfig.print_type && (
@@ -1392,7 +1392,7 @@ export default function AdminOrderDetailPage() {
                                                             </span>
                                                         )}
                                                         {printingConfig.color && (
-                                                            <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full flex items-center gap-1">
+                                                            <span className="px-2 py-1 bg-[var(--material-glass)] text-[var(--text-secondary)] text-xs rounded-full flex items-center gap-1">
                                                                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: printingConfig.color.toLowerCase() }}></span>
                                                                 {printingConfig.color}
                                                             </span>
@@ -1401,7 +1401,7 @@ export default function AdminOrderDetailPage() {
 
                                                     {/* Technical specs */}
                                                     {(printingConfig.infill || printingConfig.layer_height) && (
-                                                        <div className="flex gap-4 text-xs text-white/50">
+                                                        <div className="flex gap-4 text-xs text-[var(--text-secondary)]">
                                                             {printingConfig.infill && <span>Infill: {printingConfig.infill}%</span>}
                                                             {printingConfig.layer_height && <span>Layer: {printingConfig.layer_height}mm</span>}
                                                         </div>
@@ -1413,7 +1413,7 @@ export default function AdminOrderDetailPage() {
                                                             href={printingConfig.stl_file.web_view_link || `https://drive.google.com/file/d/${printingConfig.stl_file.drive_file_id}/view`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                                                            className="flex items-center gap-3 p-3 bg-[var(--material-glass)] rounded-lg hover:bg-[var(--material-glass)] transition-colors"
                                                         >
                                                             <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
                                                                 <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1421,10 +1421,10 @@ export default function AdminOrderDetailPage() {
                                                                 </svg>
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="text-white text-sm truncate">{printingConfig.stl_file.file_name}</p>
-                                                                <p className="text-white/40 text-xs">File STL • Click để xem</p>
+                                                                <p className="text-[var(--text-primary)] text-sm truncate">{printingConfig.stl_file.file_name}</p>
+                                                                <p className="text-[var(--text-tertiary)] text-xs">File STL • Click để xem</p>
                                                             </div>
-                                                            <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <svg className="w-4 h-4 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                                             </svg>
                                                         </a>
@@ -1443,15 +1443,15 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">Ghi chú Admin</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú Admin</h2>
                         <textarea
                             value={adminNote}
                             onChange={(e) => setAdminNote(e.target.value)}
                             onBlur={handleSaveNote}
                             placeholder="Ghi chú nội bộ..."
-                            className="w-full p-4 bg-[#0a0a0a] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/20 border border-white/10"
+                            className="w-full p-4 bg-[var(--bg-void)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/20 border border-[var(--border-color)]"
                             rows={3}
                         />
                     </motion.div>
@@ -1464,12 +1464,12 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-white">Thông tin khách hàng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thông tin khách hàng</h2>
                             {order.profiles?.customer_code && (
-                                <span className="text-xs bg-white/10 text-white/70 px-2 py-1 rounded-full font-mono">
+                                <span className="text-xs bg-[var(--material-glass)] text-[var(--text-secondary)] px-2 py-1 rounded-full font-mono">
                                     {order.profiles.customer_code}
                                 </span>
                             )}
@@ -1477,17 +1477,17 @@ export default function AdminOrderDetailPage() {
 
                         {/* Profile Info */}
                         <div className="space-y-4">
-                            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
-                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex items-center gap-3 p-3 bg-[var(--material-glass)] rounded-xl">
+                                <div className="w-10 h-10 rounded-full bg-[var(--material-glass)] flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-white font-medium truncate">
+                                    <p className="text-[var(--text-primary)] font-medium truncate">
                                         {order.profiles?.full_name || (order.shipping_address as any)?.full_name || (order.shipping_address as any)?.name || order.profiles?.email?.split('@')[0] || 'Khách hàng'}
                                     </p>
-                                    <p className="text-white/50 text-sm">Khách hàng</p>
+                                    <p className="text-[var(--text-secondary)] text-sm">Khách hàng</p>
                                 </div>
                             </div>
 
@@ -1495,28 +1495,28 @@ export default function AdminOrderDetailPage() {
                             <div className="grid gap-3">
                                 {order.profiles?.email && (
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="w-8 h-8 rounded-lg bg-[var(--material-glass)] flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="text-white/50 text-xs">Email</p>
-                                            <p className="text-white text-sm">{order.profiles.email}</p>
+                                            <p className="text-[var(--text-secondary)] text-xs">Email</p>
+                                            <p className="text-[var(--text-primary)] text-sm">{order.profiles.email}</p>
                                         </div>
                                     </div>
                                 )}
 
                                 {(order.profiles?.phone || order.shipping_address?.phone) && (
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="w-8 h-8 rounded-lg bg-[var(--material-glass)] flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="text-white/50 text-xs">Số điện thoại</p>
-                                            <p className="text-white text-sm">{order.profiles?.phone || order.shipping_address?.phone}</p>
+                                            <p className="text-[var(--text-secondary)] text-xs">Số điện thoại</p>
+                                            <p className="text-[var(--text-primary)] text-sm">{order.profiles?.phone || order.shipping_address?.phone}</p>
                                         </div>
                                     </div>
                                 )}
@@ -1529,14 +1529,14 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
                         <div className="flex items-center gap-2 mb-4">
-                            <svg className="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            <h2 className="text-lg font-semibold text-white">Địa chỉ giao hàng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Địa chỉ giao hàng</h2>
                         </div>
                         {order.shipping_address ? (() => {
                             const addr = order.shipping_address as any;
@@ -1548,25 +1548,25 @@ export default function AdminOrderDetailPage() {
                             const displayProvince = addr.province || addr.city || '';
                             return (
                                 <div className="space-y-2">
-                                    <p className="text-white font-medium">{displayName}</p>
-                                    <p className="text-white/70">{displayPhone}</p>
-                                    <p className="text-white/50 text-sm leading-relaxed">
+                                    <p className="text-[var(--text-primary)] font-medium">{displayName}</p>
+                                    <p className="text-[var(--text-secondary)]">{displayPhone}</p>
+                                    <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
                                         {[displayAddress, displayWard, displayDistrict, displayProvince].filter(Boolean).join(', ')}
                                     </p>
                                 </div>
                             );
                         })() : (
-                            <p className="text-white/50">Chưa có địa chỉ</p>
+                            <p className="text-[var(--text-secondary)]">Chưa có địa chỉ</p>
                         )}
                         {order.shipping_code && (
-                            <div className="mt-4 pt-4 border-t border-white/10">
+                            <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                                 <div className="flex items-center gap-2">
                                     <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                                     </svg>
-                                    <p className="text-white/70 text-sm">Mã vận đơn</p>
+                                    <p className="text-[var(--text-secondary)] text-sm">Mã vận đơn</p>
                                 </div>
-                                <p className="text-white font-mono text-lg mt-1">{order.shipping_code}</p>
+                                <p className="text-[var(--text-primary)] font-mono text-lg mt-1">{order.shipping_code}</p>
                             </div>
                         )}
                     </motion.div>
@@ -1578,27 +1578,27 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">Thanh toán</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toán</h2>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-white/70">Tổng sản phẩm</span>
-                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Tổng sản phẩm</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-white/70">Tổng sản phẩm</span>
-                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Tổng sản phẩm</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="border-t border-white/10 pt-3 flex justify-between">
-                                <span className="text-white font-medium">Tổng cộng</span>
-                                <span className="text-white font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                            <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
+                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
+                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className={`flex justify-between ${order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}`}>
                                 <span>Tiền cọc {order.deposit_paid ? '(đã nhận)' : '(chờ)'}</span>
                                 <span>{order.deposit_amount.toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="flex justify-between text-white/50">
+                            <div className="flex justify-between text-[var(--text-secondary)]">
                                 <span>Còn lại (COD)</span>
                                 <span>{remaining.toLocaleString('vi-VN')}đ</span>
                             </div>
@@ -1611,10 +1611,10 @@ export default function AdminOrderDetailPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Ghi chú khách</h2>
-                            <p className="text-white/70">{order.customer_note}</p>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú khách</h2>
+                            <p className="text-[var(--text-secondary)]">{order.customer_note}</p>
                         </motion.div>
                     )}
                 </div>
@@ -1627,15 +1627,15 @@ export default function AdminOrderDetailPage() {
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="w-full max-w-md bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="w-full max-w-md bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-xl font-bold text-white mb-4">Nhập mã vận đơn</h2>
+                            <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Nhập mã vận đơn</h2>
                             <input
                                 type="text"
                                 value={trackingCode}
                                 onChange={(e) => setTrackingCode(e.target.value)}
                                 placeholder="VD: VTP123456789"
-                                className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 mb-4"
+                                className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-white/30 mb-4"
                             />
                             <div className="flex gap-3">
                                 <button
@@ -1647,7 +1647,7 @@ export default function AdminOrderDetailPage() {
                                 </button>
                                 <button
                                     onClick={() => setShowTrackingModal(false)}
-                                    className="px-6 py-3 rounded-xl border border-white/20 text-white/70"
+                                    className="px-6 py-3 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)]"
                                 >
                                     Hủy
                                 </button>
@@ -1665,23 +1665,23 @@ export default function AdminOrderDetailPage() {
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-[#1D1D1F] rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-2xl"
+                            className="bg-[var(--material-panel)] rounded-2xl p-6 max-w-md w-full border border-[var(--border-color)] shadow-2xl"
                         >
-                            <h3 className="text-xl font-bold text-white mb-2">Xác nhận hủy đơn?</h3>
-                            <p className="text-white/60 mb-6">
+                            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">Xác nhận hủy đơn?</h3>
+                            <p className="text-[var(--text-secondary)] mb-6">
                                 Hành động này sẽ chuyển trạng thái đơn hàng sang "Đã hủy".
                                 {order?.deposit_paid ? ' Kho hàng sẽ được hoàn lại tự động.' : ''}
                             </p>
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={() => setConfirmCancel(false)}
-                                    className="px-4 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors"
+                                    className="px-4 py-2 rounded-lg bg-[var(--material-glass)] text-[var(--text-primary)] hover:bg-[var(--material-glass)] transition-colors"
                                 >
                                     Đóng
                                 </button>
                                 <button
                                     onClick={handleCancelOrder}
-                                    className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                    className="px-4 py-2 rounded-lg bg-red-500 text-[var(--text-primary)] hover:bg-red-600 transition-colors"
                                 >
                                     Xác nhận hủy
                                 </button>

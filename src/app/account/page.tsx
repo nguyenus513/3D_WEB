@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { ShoppingBag, Clock, CheckCircle, Box, PenLine } from 'lucide-react';
-import { getSupabase } from '@/lib/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
 interface OrderStats {
     total: number;
@@ -59,13 +61,11 @@ export default function AccountPage() {
     const fetchData = async () => {
         if (!session?.user?.email) return;
 
-        // Get user from API to avoid RLS 401
         let user: any = null;
         try {
             const res = await fetch('/api/profile');
             if (res.ok) {
                 const response = await res.json();
-                // API returns { success: true, data: profile }
                 user = response.data || response;
             }
         } catch (e) {
@@ -77,24 +77,19 @@ export default function AccountPage() {
             return;
         }
 
-        // Set user name
         setUserName(user.full_name || session.user.email?.split('@')[0] || 'Bạn');
 
-        // Fetch orders via API to avoid RLS 401
         try {
             const ordersRes = await fetch('/api/orders/my-orders');
             if (ordersRes.ok) {
                 const response = await ordersRes.json();
-                // API returns { success: true, data: [...], meta: {...} }
                 const orders = Array.isArray(response.data) ? response.data : [];
 
-                // Calculate stats
                 const total = orders.length;
                 const processing = orders.filter((o: any) => ['paid', 'preparing', 'shipped', 'confirmed', 'processing', 'designing', 'review', 'revising', 'approved', 'producing', 'printing', 'shipping'].includes(o.status)).length;
                 const completed = orders.filter((o: any) => o.status === 'delivered').length;
                 setStats({ total, processing, completed });
 
-                // Get recent orders (top 3)
                 const recent = orders.slice(0, 3).map((o: any) => ({
                     id: o.id,
                     order_code: o.order_code,
@@ -133,8 +128,8 @@ export default function AccountPage() {
     if (status === 'loading' || loading) {
         return (
             <div className="p-12 text-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-white/50">Đang tải...</p>
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-[var(--text-tertiary)]">Đang tải...</p>
             </div>
         );
     }
@@ -143,21 +138,22 @@ export default function AccountPage() {
 
     return (
         <div className="space-y-6">
-            {/* Welcome */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10"
             >
-                <h1 className="text-2xl font-bold text-white mb-2">
-                    Xin chào, {displayName}!
-                </h1>
-                <p className="text-white/50">
-                    Chào mừng bạn quay trở lại. Quản lý đơn hàng và thông tin cá nhân tại đây.
-                </p>
+                <Card className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border-[var(--border-color)]">
+                    <CardContent className="p-6">
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+                            Xin chào, {displayName}!
+                        </h1>
+                        <p className="text-[var(--text-tertiary)]">
+                            Chào mừng bạn quay trở lại. Quản lý đơn hàng và thông tin cá nhân tại đây.
+                        </p>
+                    </CardContent>
+                </Card>
             </motion.div>
 
-            {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {statCards.map((stat, index) => (
                     <motion.div
@@ -165,105 +161,110 @@ export default function AccountPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-white/10 text-white/70">
-                                {stat.icon}
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-white">{stat.value}</p>
-                                <p className="text-white/50 text-sm">{stat.name}</p>
-                            </div>
-                        </div>
+                        <Card className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border-[var(--border-color)]">
+                            <CardContent className="p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-xl bg-[var(--material-glass)] text-[var(--text-secondary)]">
+                                        {stat.icon}
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{stat.value}</p>
+                                        <p className="text-[var(--text-tertiary)] text-sm">{stat.name}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Recent orders */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden"
             >
-                <div className="p-5 border-b border-white/10 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-white">Đơn hàng gần đây</h2>
-                    <Link href="/account/orders" className="text-sm text-white/50 hover:text-white transition-colors">
-                        Xem tất cả →
-                    </Link>
-                </div>
-                <div className="divide-y divide-white/5">
-                    {recentOrders.length > 0 ? (
-                        recentOrders.map((order) => (
-                            <Link
-                                key={order.id}
-                                href={`/account/orders/${order.id}`}
-                                className="flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                        </svg>
+                <Card className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border-[var(--border-color)] overflow-hidden">
+                    <CardHeader className="p-5 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="text-lg font-semibold text-[var(--text-primary)]">Đơn hàng gần đây</CardTitle>
+                        <Link href="/account/orders" className="text-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
+                            Xem tất cả →
+                        </Link>
+                    </CardHeader>
+                    <Separator className="bg-[var(--border-color)]" />
+                    <div className="divide-y divide-[var(--border-color)]/50">
+                        {recentOrders.length > 0 ? (
+                            recentOrders.map((order) => (
+                                <Link
+                                    key={order.id}
+                                    href={`/account/orders/${order.id}`}
+                                    className="flex items-center justify-between p-5 hover:bg-[var(--material-glass)] transition-colors"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-primary)] font-medium font-mono tracking-wider">{order.order_code}</p>
+                                            <p className="text-[var(--text-tertiary)] text-sm">
+                                                {new Date(order.created_at).toLocaleString('vi-VN', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })} • {order.item_count} sản phẩm
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-white font-medium font-mono tracking-wider">{order.order_code}</p>
-                                        <p className="text-white/50 text-sm">
-                                            {new Date(order.created_at).toLocaleString('vi-VN', {
-                                                day: '2-digit',
-                                                month: '2-digit',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })} • {order.item_count} sản phẩm
-                                        </p>
+                                    <div className="text-right">
+                                        <p className="text-[var(--text-primary)] font-medium">{Number(order.total).toLocaleString('vi-VN')}đ</p>
+                                        <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-500/20 text-gray-400'}`}>
+                                            {statusLabels[order.status] || order.status}
+                                        </span>
                                     </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-white font-medium">{Number(order.total).toLocaleString('vi-VN')}đ</p>
-                                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-500/20 text-gray-400'}`}>
-                                        {statusLabels[order.status] || order.status}
-                                    </span>
-                                </div>
-                            </Link>
-                        ))
-                    ) : (
-                        <div className="p-8 text-center">
-                            <p className="text-white/50">Chưa có đơn hàng nào</p>
-                            <Link href="/products" className="inline-block mt-4 px-6 py-2 bg-white text-black rounded-xl font-medium">
-                                Mua sắm ngay
-                            </Link>
-                        </div>
-                    )}
-                </div>
+                                </Link>
+                            ))
+                        ) : (
+                            <div className="p-8 text-center">
+                                <p className="text-[var(--text-tertiary)]">Chưa có đơn hàng nào</p>
+                                <Button asChild className="mt-4 rounded-xl">
+                                    <Link href="/products">Mua sắm ngay</Link>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </Card>
             </motion.div>
 
-            {/* Quick actions */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Link
-                    href="/products"
-                    className="flex items-center gap-4 p-5 bg-[#1D1D1F] rounded-2xl border border-white/10 hover:bg-white/5 transition-colors"
-                >
-                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                        <Box size={24} className="text-white/70" strokeWidth={1.5} />
-                    </div>
-                    <div>
-                        <p className="text-white font-medium">Xem sản phẩm</p>
-                        <p className="text-white/50 text-sm">Khám phá bộ sưu tập</p>
-                    </div>
+                <Link href="/products">
+                    <Card className="bg-[var(--material-panel)] rounded-2xl border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors cursor-pointer">
+                        <CardContent className="flex items-center gap-4 p-5">
+                            <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center">
+                                <Box size={24} className="text-[var(--text-secondary)]" strokeWidth={1.5} />
+                            </div>
+                            <div>
+                                <p className="text-[var(--text-primary)] font-medium">Xem sản phẩm</p>
+                                <p className="text-[var(--text-tertiary)] text-sm">Khám phá bộ sưu tập</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </Link>
-                <Link
-                    href="/custom"
-                    className="flex items-center gap-4 p-5 bg-[#1D1D1F] rounded-2xl border border-white/10 hover:bg-white/5 transition-colors"
-                >
-                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                        <PenLine size={24} className="text-white/70" strokeWidth={1.5} />
-                    </div>
-                    <div>
-                        <p className="text-white font-medium">Đặt custom</p>
-                        <p className="text-white/50 text-sm">Tạo mô hình riêng</p>
-                    </div>
+                <Link href="/custom">
+                    <Card className="bg-[var(--material-panel)] rounded-2xl border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors cursor-pointer">
+                        <CardContent className="flex items-center gap-4 p-5">
+                            <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center">
+                                <PenLine size={24} className="text-[var(--text-secondary)]" strokeWidth={1.5} />
+                            </div>
+                            <div>
+                                <p className="text-[var(--text-primary)] font-medium">Đặt custom</p>
+                                <p className="text-[var(--text-tertiary)] text-sm">Tạo mô hình riêng</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </Link>
             </div>
         </div>

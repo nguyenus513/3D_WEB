@@ -71,10 +71,10 @@ export function Navbar() {
 
     return (
         <>
-            <nav className="fixed top-0 left-0 right-0 h-12 bg-black/80 backdrop-blur-xl backdrop-saturate-[180%] z-[1000] border-b border-white/[0.08]">
+            <nav className="fixed top-0 left-0 right-0 h-12 bg-black/80 backdrop-blur-xl backdrop-saturate-[180%] z-[1000] border-b border-[var(--border-color)]">
                 <div className="max-w-[1200px] mx-auto px-6 h-full flex items-center justify-between">
                     {/* Logo */}
-                    <Link href="/" className="text-xl font-semibold text-white hover:text-white/80 transition-colors">
+                    <Link href="/" className="text-xl font-semibold text-[var(--text-primary)] hover:text-[var(--text-secondary)] transition-colors">
                         3D Print
                     </Link>
 
@@ -84,7 +84,7 @@ export function Navbar() {
                             <Link
                                 key={link.name}
                                 href={link.href}
-                                className="text-sm text-[#F5F5F7]/80 hover:text-white transition-colors"
+                                className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                             >
                                 {link.name}
                             </Link>
@@ -94,7 +94,7 @@ export function Navbar() {
                     {/* Right side - Cart & Account */}
                     <div className="flex items-center gap-4">
                         {/* Cart */}
-                        <Link href="/cart" className="text-[#F5F5F7]/80 hover:text-white transition-colors">
+                        <Link href="/cart" className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                             <ShoppingBag size={20} strokeWidth={1.5} />
                         </Link>
 
@@ -103,24 +103,24 @@ export function Navbar() {
                             <div className="relative">
                                 <button
                                     onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-                                    className="relative text-[#F5F5F7]/80 hover:text-white transition-colors"
+                                    className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                 >
                                     <Bell size={20} strokeWidth={1.5} />
                                     {unreadCount > 0 && (
-                                        <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                                        <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-red-500 text-[var(--text-primary)] text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
                                             {unreadCount > 9 ? '9+' : unreadCount}
                                         </span>
                                     )}
                                 </button>
 
                                 {showNotifDropdown && (
-                                    <div className="absolute right-0 top-10 w-80 bg-[#1D1D1F] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
-                                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                                            <span className="text-white text-sm font-semibold">Thông báo</span>
+                                    <div className="absolute right-0 top-10 w-80 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden z-50">
+                                        <div className="p-3 border-b border-[var(--border-color)] flex items-center justify-between">
+                                            <span className="text-[var(--text-primary)] text-sm font-semibold">Thông báo</span>
                                             {unreadCount > 0 && (
                                                 <button
                                                     onClick={markAllAsRead}
-                                                    className="text-xs text-white/40 hover:text-white/70 transition-colors"
+                                                    className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
                                                 >
                                                     Đọc hết
                                                 </button>
@@ -129,28 +129,28 @@ export function Navbar() {
                                         <div className="max-h-64 overflow-y-auto">
                                             {notifLoading ? (
                                                 <div className="p-6 text-center">
-                                                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                                                    <div className="w-5 h-5 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto" />
                                                 </div>
                                             ) : notifications.length === 0 ? (
-                                                <div className="p-6 text-center text-white/40 text-sm">Không có thông báo</div>
+                                                <div className="p-6 text-center text-[var(--text-tertiary)] text-sm">Không có thông báo</div>
                                             ) : (
                                                 notifications.slice(0, 10).map(n => (
                                                     <Link
                                                         key={n.id}
                                                         href={getNotifLink(n)}
                                                         onClick={() => handleNotifClick(n)}
-                                                        className={`block px-3 py-2.5 border-b border-white/5 hover:bg-white/5 transition-colors ${!n.is_read ? 'bg-white/[0.02]' : ''
+                                                        className={`block px-3 py-2.5 border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors ${!n.is_read ? 'bg-[var(--material-glass)]' : ''
                                                             }`}
                                                     >
                                                         <div className="flex items-start gap-2">
                                                             {!n.is_read && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />}
                                                             <div className="flex-shrink-0 mt-0.5">{getNotifIcon(n.type)}</div>
                                                             <div className="flex-1 min-w-0">
-                                                                <p className={`text-xs ${!n.is_read ? 'text-white font-medium' : 'text-white/50'}`}>
+                                                                <p className={`text-xs ${!n.is_read ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}>
                                                                     {n.title}
                                                                 </p>
-                                                                {n.message && <p className="text-white/30 text-[10px] mt-0.5 truncate">{n.message}</p>}
-                                                                <p className="text-white/20 text-[10px] mt-0.5">{formatTime(n.created_at)}</p>
+                                                                {n.message && <p className="text-[var(--text-tertiary)] text-[10px] mt-0.5 truncate">{n.message}</p>}
+                                                                <p className="text-[var(--text-tertiary)] text-[10px] mt-0.5">{formatTime(n.created_at)}</p>
                                                             </div>
                                                         </div>
                                                     </Link>
@@ -160,7 +160,7 @@ export function Navbar() {
                                         <Link
                                             href="/account/orders"
                                             onClick={() => setShowNotifDropdown(false)}
-                                            className="block p-2.5 text-center text-xs text-white/40 hover:text-white/70 border-t border-white/10 transition-colors"
+                                            className="block p-2.5 text-center text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] border-t border-[var(--border-color)] transition-colors"
                                         >
                                             Xem tất cả
                                         </Link>
@@ -171,35 +171,35 @@ export function Navbar() {
 
                         {/* Account - Show different UI based on login status */}
                         {status === 'loading' ? (
-                            <div className="w-5 h-5 rounded-full bg-white/10 animate-pulse" />
+                            <div className="w-5 h-5 rounded-full bg-[var(--material-glass)] animate-pulse" />
                         ) : isLoggedIn ? (
                             <div className="relative">
                                 <button
                                     onClick={() => setShowUserMenu(!showUserMenu)}
-                                    className="flex items-center gap-2 text-[#F5F5F7]/80 hover:text-white transition-colors"
+                                    className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                 >
-                                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-medium text-white">
+                                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-medium text-[var(--text-primary)]">
                                         {session.user?.name?.[0]?.toUpperCase() || session.user?.email?.[0]?.toUpperCase() || 'U'}
                                     </div>
                                 </button>
 
                                 {/* Dropdown menu */}
                                 {showUserMenu && (
-                                    <div className="absolute right-0 top-10 w-48 bg-[#1D1D1F] rounded-xl border border-white/10 shadow-xl py-2 z-50">
-                                        <div className="px-4 py-2 border-b border-white/10">
-                                            <p className="text-white text-sm font-medium truncate">{session.user?.name || 'User'}</p>
-                                            <p className="text-white/50 text-xs truncate">{session.user?.email}</p>
+                                    <div className="absolute right-0 top-10 w-48 bg-[var(--material-panel)] rounded-xl border border-[var(--border-color)] shadow-xl py-2 z-50">
+                                        <div className="px-4 py-2 border-b border-[var(--border-color)]">
+                                            <p className="text-[var(--text-primary)] text-sm font-medium truncate">{session.user?.name || 'User'}</p>
+                                            <p className="text-[var(--text-secondary)] text-xs truncate">{session.user?.email}</p>
                                         </div>
                                         <Link
                                             href="/account"
-                                            className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5"
+                                            className="block px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--material-glass)]"
                                             onClick={() => setShowUserMenu(false)}
                                         >
                                             Tài khoản
                                         </Link>
                                         <Link
                                             href="/account/orders"
-                                            className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5"
+                                            className="block px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--material-glass)]"
                                             onClick={() => setShowUserMenu(false)}
                                         >
                                             Đơn hàng
@@ -207,7 +207,7 @@ export function Navbar() {
                                         {isAdmin && (
                                             <Link
                                                 href="/api/admin/launch"
-                                                className="block px-4 py-2 text-sm text-blue-400 hover:text-blue-300 hover:bg-white/5"
+                                                className="block px-4 py-2 text-sm text-blue-400 hover:text-blue-300 hover:bg-[var(--material-glass)]"
                                                 onClick={() => setShowUserMenu(false)}
                                             >
                                                 🛡️ Admin Panel
@@ -215,7 +215,7 @@ export function Navbar() {
                                         )}
                                         <button
                                             onClick={() => signOut({ callbackUrl: '/' })}
-                                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5"
+                                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-[var(--material-glass)]"
                                         >
                                             Đăng xuất
                                         </button>
@@ -223,14 +223,14 @@ export function Navbar() {
                                 )}
                             </div>
                         ) : (
-                            <Link href="/login" className="text-[#F5F5F7]/80 hover:text-white transition-colors">
+                            <Link href="/login" className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                                 <User size={20} strokeWidth={1.5} />
                             </Link>
                         )}
 
                         {/* Mobile menu button */}
                         <button
-                            className="md:hidden text-[#F5F5F7]/80 hover:text-white"
+                            className="md:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         >
                             {isMobileMenuOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
@@ -240,13 +240,13 @@ export function Navbar() {
 
                 {/* Mobile Menu */}
                 {isMobileMenuOpen && (
-                    <div className="md:hidden absolute top-12 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-white/[0.08]">
+                    <div className="md:hidden absolute top-12 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-[var(--border-color)]">
                         <div className="px-6 py-4 space-y-4">
                             {navLinks.map((link) => (
                                 <Link
                                     key={link.name}
                                     href={link.href}
-                                    className="block text-base text-[#F5F5F7]/80 hover:text-white transition-colors"
+                                    className="block text-base text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
                                     {link.name}
@@ -256,7 +256,7 @@ export function Navbar() {
                                 <>
                                     <Link
                                         href="/account"
-                                        className="block text-base text-[#F5F5F7]/80 hover:text-white transition-colors"
+                                        className="block text-base text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
                                         Tài khoản
@@ -280,7 +280,7 @@ export function Navbar() {
                             ) : (
                                 <Link
                                     href="/login"
-                                    className="block text-base text-[#F5F5F7]/80 hover:text-white transition-colors"
+                                    className="block text-base text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
                                     Đăng nhập
@@ -294,15 +294,15 @@ export function Navbar() {
             {/* Realtime Toast */}
             {isLoggedIn && latestNotification && (
                 <div className="fixed top-16 right-4 z-[2000] animate-in slide-in-from-right duration-300">
-                    <div className="bg-[#2a2a2c] border border-white/10 rounded-xl shadow-2xl p-3 max-w-xs flex items-start gap-2">
+                    <div className="bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl shadow-2xl p-3 max-w-xs flex items-start gap-2">
                         <div className="flex-shrink-0 mt-0.5">{getNotifIcon(latestNotification.type)}</div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-medium">{latestNotification.title}</p>
+                            <p className="text-[var(--text-primary)] text-xs font-medium">{latestNotification.title}</p>
                             {latestNotification.message && (
-                                <p className="text-white/40 text-[10px] mt-0.5 truncate">{latestNotification.message}</p>
+                                <p className="text-[var(--text-tertiary)] text-[10px] mt-0.5 truncate">{latestNotification.message}</p>
                             )}
                         </div>
-                        <button onClick={clearLatest} className="text-white/30 hover:text-white/60 text-xs flex-shrink-0">✕</button>
+                        <button onClick={clearLatest} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] text-xs flex-shrink-0">✕</button>
                     </div>
                 </div>
             )}

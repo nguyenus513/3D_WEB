@@ -167,11 +167,11 @@ function ResetPasswordForm() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full py-3 bg-[var(--color-accent)] text-white rounded-full font-medium hover:bg-[var(--color-accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-[var(--color-accent)] text-[var(--text-primary)] rounded-full font-medium hover:bg-[var(--color-accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {loading ? (
                                         <>
-                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span className="w-4 h-4 border-2 border-[var(--text-tertiary)] border-t-[var(--text-primary)] rounded-full animate-spin" />
                                             Đang cập nhật...
                                         </>
                                     ) : (

@@ -44,7 +44,7 @@ export function NavbarLusion() {
                   backdrop-blur-xl
                   transition-all duration-500
                   ${scrolled
-                                        ? 'bg-white/10 border border-white/10'
+                                        ? 'bg-[var(--material-glass)] border border-[var(--border-color)]'
                                         : 'bg-transparent'
                                     }
                 `}
@@ -52,7 +52,7 @@ export function NavbarLusion() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.6 }}
                             >
-                                <span className="text-lg font-semibold text-white">3D Print</span>
+                                <span className="text-lg font-semibold text-[var(--text-primary)]">3D Print</span>
                             </motion.div>
                         </Link>
                     </Magnetic>
@@ -67,15 +67,15 @@ export function NavbarLusion() {
                   w-12 h-12 rounded-full flex items-center justify-center
                   backdrop-blur-xl transition-all duration-500
                   ${scrolled
-                                        ? 'bg-white/10 border border-white/10'
-                                        : 'bg-white/5'
+                                        ? 'bg-[var(--material-glass)] border border-[var(--border-color)]'
+                                        : 'bg-[var(--material-glass)]'
                                     }
-                  hover:bg-white/20
+                  hover:bg-[var(--material-glass)]
                 `}
                                 data-cursor
                                 data-cursor-text="Cart"
                             >
-                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                 </svg>
                             </Link>
@@ -88,7 +88,7 @@ export function NavbarLusion() {
                                 className={`
                   px-5 py-3 rounded-full text-sm font-medium
                   backdrop-blur-xl transition-all duration-500
-                  bg-white text-black
+                  bg-[var(--text-primary)] text-black
                   hover:scale-105
                 `}
                                 data-cursor
@@ -106,10 +106,10 @@ export function NavbarLusion() {
                   px-5 py-3 rounded-full text-sm font-medium
                   backdrop-blur-xl transition-all duration-500
                   ${scrolled
-                                        ? 'bg-white/10 border border-white/10'
-                                        : 'bg-white/5'
+                                        ? 'bg-[var(--material-glass)] border border-[var(--border-color)]'
+                                        : 'bg-[var(--material-glass)]'
                                     }
-                  text-white hover:bg-white/20
+                  text-[var(--text-primary)] hover:bg-[var(--material-glass)]
                 `}
                                 data-cursor
                                 data-cursor-text=""
@@ -134,7 +134,7 @@ export function NavbarLusion() {
                         {/* Close Button */}
                         <button
                             onClick={() => setIsMenuOpen(false)}
-                            className="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+                            className="absolute top-6 right-6 w-12 h-12 rounded-full bg-[var(--material-glass)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--material-glass)] transition-colors"
                             data-cursor
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,7 +156,7 @@ export function NavbarLusion() {
                                         <Link
                                             href={link.href}
                                             onClick={() => setIsMenuOpen(false)}
-                                            className="block text-5xl md:text-7xl font-semibold text-white hover:text-[#0071E3] transition-colors"
+                                            className="block text-5xl md:text-7xl font-semibold text-[var(--text-primary)] hover:text-[var(--color-accent)] transition-colors"
                                             data-cursor
                                             data-cursor-text="View"
                                         >
@@ -173,11 +173,11 @@ export function NavbarLusion() {
                                 transition={{ delay: 0.5 }}
                                 className="absolute bottom-8 left-0 right-0 px-8"
                             >
-                                <div className="flex justify-between items-center text-sm text-white/50">
+                                <div className="flex justify-between items-center text-sm text-[var(--text-secondary)]">
                                     <span>© 2026 3D Print</span>
                                     <div className="flex gap-6">
-                                        <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-                                        <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+                                        <Link href="/privacy" className="hover:text-[var(--text-primary)] transition-colors">Privacy</Link>
+                                        <Link href="/terms" className="hover:text-[var(--text-primary)] transition-colors">Terms</Link>
                                     </div>
                                 </div>
                             </motion.div>

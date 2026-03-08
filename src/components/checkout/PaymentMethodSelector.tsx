@@ -3,10 +3,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// =============================================================================
-// Types
-// =============================================================================
-
 interface PaymentMethodProps {
     amount: number;
     orderId: string;
@@ -15,10 +11,6 @@ interface PaymentMethodProps {
 }
 
 type PaymentMethod = 'card' | 'bank';
-
-// =============================================================================
-// Icons
-// =============================================================================
 
 const CardIcon = () => (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,10 +30,6 @@ const CheckIcon = () => (
     </svg>
 );
 
-// =============================================================================
-// Payment Method Selector Component
-// =============================================================================
-
 export function PaymentMethodSelector({
     amount,
     orderId,
@@ -58,7 +46,6 @@ export function PaymentMethodSelector({
         qrCodeUrl: string;
     } | null>(null);
 
-    // Load bank transfer info when selected
     useEffect(() => {
         if (method === 'bank' && !bankInfo && orderId) {
             loadBankInfo();
@@ -102,8 +89,6 @@ export function PaymentMethodSelector({
 
             const data = await res.json();
             if (data.success && data.clientSecret) {
-                // TODO: Initialize Stripe Elements with clientSecret
-                // For now, redirect to Stripe Checkout
                 onSuccess(data.paymentIntentId);
             } else {
                 onError(data.error || 'Không thể khởi tạo thanh toán');
@@ -117,23 +102,22 @@ export function PaymentMethodSelector({
 
     return (
         <div className="space-y-4">
-            {/* Method Selection */}
             <div className="grid grid-cols-2 gap-3">
                 <button
                     onClick={() => setMethod('bank')}
                     className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${method === 'bank'
                             ? 'border-green-500 bg-green-500/10'
-                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                            : 'border-[var(--border-color)] bg-[var(--material-glass)] hover:bg-[var(--material-glass)]'
                         }`}
                 >
-                    <div className={method === 'bank' ? 'text-green-400' : 'text-white/60'}>
+                    <div className={method === 'bank' ? 'text-green-400' : 'text-[var(--text-secondary)]'}>
                         <BankIcon />
                     </div>
                     <div className="text-left">
-                        <p className={`font-medium ${method === 'bank' ? 'text-white' : 'text-white/80'}`}>
+                        <p className={`font-medium ${method === 'bank' ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                             Chuyển khoản
                         </p>
-                        <p className="text-xs text-white/50">QR Code ngân hàng</p>
+                        <p className="text-xs text-[var(--text-secondary)]">QR Code ngân hàng</p>
                     </div>
                     {method === 'bank' && (
                         <div className="ml-auto text-green-400">
@@ -146,17 +130,17 @@ export function PaymentMethodSelector({
                     onClick={() => setMethod('card')}
                     className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${method === 'card'
                             ? 'border-blue-500 bg-blue-500/10'
-                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                            : 'border-[var(--border-color)] bg-[var(--material-glass)] hover:bg-[var(--material-glass)]'
                         }`}
                 >
-                    <div className={method === 'card' ? 'text-blue-400' : 'text-white/60'}>
+                    <div className={method === 'card' ? 'text-blue-400' : 'text-[var(--text-secondary)]'}>
                         <CardIcon />
                     </div>
                     <div className="text-left">
-                        <p className={`font-medium ${method === 'card' ? 'text-white' : 'text-white/80'}`}>
+                        <p className={`font-medium ${method === 'card' ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                             Thẻ tín dụng
                         </p>
-                        <p className="text-xs text-white/50">Visa, Mastercard</p>
+                        <p className="text-xs text-[var(--text-secondary)]">Visa, Mastercard</p>
                     </div>
                     {method === 'card' && (
                         <div className="ml-auto text-blue-400">
@@ -166,7 +150,6 @@ export function PaymentMethodSelector({
                 </button>
             </div>
 
-            {/* Payment Details */}
             <AnimatePresence mode="wait">
                 {method === 'bank' && (
                     <motion.div
@@ -174,15 +157,14 @@ export function PaymentMethodSelector({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="bg-[#1D1D1F] rounded-xl p-5"
+                        className="bg-[var(--material-panel)] rounded-xl p-5"
                     >
                         {loading ? (
                             <div className="flex items-center justify-center py-8">
-                                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
                             </div>
                         ) : bankInfo ? (
                             <div className="space-y-4">
-                                {/* QR Code */}
                                 <div className="flex justify-center">
                                     <div className="bg-white p-3 rounded-xl">
                                         <img
@@ -193,40 +175,39 @@ export function PaymentMethodSelector({
                                     </div>
                                 </div>
 
-                                {/* Bank Details */}
                                 <div className="space-y-3 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Ngân hàng</span>
-                                        <span className="text-white font-medium">{bankInfo.bankName}</span>
+                                        <span className="text-[var(--text-secondary)]">Ngân hàng</span>
+                                        <span className="text-[var(--text-primary)] font-medium">{bankInfo.bankName}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Số tài khoản</span>
-                                        <span className="text-white font-mono">{bankInfo.accountNumber}</span>
+                                        <span className="text-[var(--text-secondary)]">Số tài khoản</span>
+                                        <span className="text-[var(--text-primary)] font-mono">{bankInfo.accountNumber}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Chủ tài khoản</span>
-                                        <span className="text-white font-medium">{bankInfo.accountName}</span>
+                                        <span className="text-[var(--text-secondary)]">Chủ tài khoản</span>
+                                        <span className="text-[var(--text-primary)] font-medium">{bankInfo.accountName}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Nội dung CK</span>
+                                        <span className="text-[var(--text-secondary)]">Nội dung CK</span>
                                         <span className="text-yellow-400 font-mono font-bold">
                                             {bankInfo.transferContent}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between pt-2 border-t border-white/10">
-                                        <span className="text-white/60">Số tiền</span>
+                                    <div className="flex justify-between pt-2 border-t border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Số tiền</span>
                                         <span className="text-green-400 font-bold text-lg">
                                             {amount.toLocaleString('vi-VN')}đ
                                         </span>
                                     </div>
                                 </div>
 
-                                <p className="text-xs text-white/40 text-center">
+                                <p className="text-xs text-[var(--text-tertiary)] text-center">
                                     Quét mã QR hoặc chuyển khoản thủ công. Đơn hàng sẽ được xác nhận sau khi thanh toán.
                                 </p>
                             </div>
                         ) : (
-                            <p className="text-white/50 text-center py-4">Không thể tải thông tin</p>
+                            <p className="text-[var(--text-secondary)] text-center py-4">Không thể tải thông tin</p>
                         )}
                     </motion.div>
                 )}
@@ -237,10 +218,10 @@ export function PaymentMethodSelector({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="bg-[#1D1D1F] rounded-xl p-5"
+                        className="bg-[var(--material-panel)] rounded-xl p-5"
                     >
                         <div className="space-y-4">
-                            <p className="text-white/60 text-sm text-center">
+                            <p className="text-[var(--text-secondary)] text-sm text-center">
                                 Bạn sẽ được chuyển đến trang thanh toán bảo mật của Stripe
                             </p>
 
@@ -251,7 +232,7 @@ export function PaymentMethodSelector({
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span className="w-4 h-4 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
                                         Đang xử lý...
                                     </span>
                                 ) : (
@@ -259,7 +240,7 @@ export function PaymentMethodSelector({
                                 )}
                             </button>
 
-                            <div className="flex items-center justify-center gap-4 text-white/40">
+                            <div className="flex items-center justify-center gap-4 text-[var(--text-tertiary)]">
                                 <span className="text-xs">Được bảo vệ bởi</span>
                                 <svg className="h-5" viewBox="0 0 60 25" fill="currentColor">
                                     <path d="M59.64 14.28h-8.06c.19 1.93 1.6 2.55 3.2 2.55 1.64 0 2.96-.37 4.05-.95v3.32a8.33 8.33 0 0 1-4.56 1.1c-4.01 0-6.83-2.5-6.83-7.48 0-4.19 2.39-7.52 6.3-7.52 3.92 0 5.96 3.28 5.96 7.5 0 .4-.02 1.04-.06 1.48zm-3.67-3.42c0-1.34-.65-3.08-2.2-3.08-1.6 0-2.35 1.76-2.47 3.08h4.67z" />

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface UserProfile {
     id: string;
@@ -38,7 +40,6 @@ export default function AccountProfilePage() {
             const response = await fetch('/api/profile');
             if (response.ok) {
                 const result = await response.json();
-                // API returns { success: true, data: profile }
                 const data = result.data || result;
                 setProfile(data);
                 setFormData({
@@ -76,7 +77,6 @@ export default function AccountProfilePage() {
 
             if (response.ok) {
                 const result = await response.json();
-                // API returns { success: true, data: profile }
                 const updatedProfile = result.data || result;
                 setProfile(updatedProfile);
                 setFormData({
@@ -101,8 +101,8 @@ export default function AccountProfilePage() {
     if (status === 'loading' || loading) {
         return (
             <div className="p-12 text-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-white/50">Đang tải...</p>
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-[var(--text-secondary)]">Đang tải...</p>
             </div>
         );
     }
@@ -110,7 +110,7 @@ export default function AccountProfilePage() {
     if (!session?.user) {
         return (
             <div className="p-12 text-center">
-                <p className="text-white/50">Vui lòng đăng nhập để xem hồ sơ</p>
+                <p className="text-[var(--text-secondary)]">Vui lòng đăng nhập để xem hồ sơ</p>
             </div>
         );
     }
@@ -119,8 +119,8 @@ export default function AccountProfilePage() {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-white">Hồ sơ cá nhân</h1>
-                <p className="text-white/50 mt-1">Quản lý thông tin tài khoản</p>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Hồ sơ cá nhân</h1>
+                <p className="text-[var(--text-secondary)] mt-1">Quản lý thông tin tài khoản</p>
             </div>
 
             {/* Message */}
@@ -141,22 +141,22 @@ export default function AccountProfilePage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6"
+                className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)] p-6"
             >
-                <h2 className="text-lg font-semibold text-white mb-4">Thông tin tài khoản</h2>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thông tin tài khoản</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Customer code */}
                     {profile?.customer_code && (
                         <div>
-                            <p className="text-white/50 text-sm mb-1">Mã khách hàng</p>
-                            <code className="text-white font-mono text-lg">{profile.customer_code}</code>
+                            <p className="text-[var(--text-secondary)] text-sm mb-1">Mã khách hàng</p>
+                            <code className="text-[var(--text-primary)] font-mono text-lg">{profile.customer_code}</code>
                         </div>
                     )}
                     {/* Email */}
                     <div>
-                        <p className="text-white/50 text-sm mb-1">Email</p>
-                        <p className="text-white">{session.user.email}</p>
-                        <p className="text-white/40 text-xs mt-1">Email không thể thay đổi</p>
+                        <p className="text-[var(--text-secondary)] text-sm mb-1">Email</p>
+                        <p className="text-[var(--text-primary)]">{session.user.email}</p>
+                        <p className="text-[var(--text-tertiary)] text-xs mt-1">Email không thể thay đổi</p>
                     </div>
                 </div>
             </motion.div>
@@ -167,15 +167,15 @@ export default function AccountProfilePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 onSubmit={handleSubmit}
-                className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6"
+                className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)] p-6"
             >
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-white">Thông tin cá nhân</h2>
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thông tin cá nhân</h2>
                     {!isEditing && (
                         <button
                             type="button"
                             onClick={() => setIsEditing(true)}
-                            className="px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 text-sm"
+                            className="px-4 py-2 rounded-xl bg-[var(--material-glass)] text-[var(--text-primary)] hover:bg-[var(--material-glass)] text-sm"
                         >
                             Chỉnh sửa
                         </button>
@@ -185,7 +185,7 @@ export default function AccountProfilePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Name */}
                     <div>
-                        <label className="text-white/50 text-sm mb-2 block">Họ tên</label>
+                        <label className="text-[var(--text-secondary)] text-sm mb-2 block">Họ tên</label>
                         <input
                             type="text"
                             value={formData.name}
@@ -193,15 +193,15 @@ export default function AccountProfilePage() {
                             disabled={!isEditing}
                             placeholder="Nhập họ tên"
                             className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
-                                ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
-                                : 'bg-transparent border-white/10 text-white'
+                                ? 'bg-[var(--bg-void)] border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--border-color)]'
+                                : 'bg-transparent border-[var(--border-color)] text-[var(--text-primary)]'
                                 }`}
                         />
                     </div>
 
                     {/* Phone */}
                     <div>
-                        <label className="text-white/50 text-sm mb-2 block">Số điện thoại</label>
+                        <label className="text-[var(--text-secondary)] text-sm mb-2 block">Số điện thoại</label>
                         <input
                             type="tel"
                             value={formData.phone}
@@ -209,8 +209,8 @@ export default function AccountProfilePage() {
                             disabled={!isEditing}
                             placeholder="Nhập số điện thoại"
                             className={`w-full px-4 py-3 rounded-xl border transition-all ${isEditing
-                                ? 'bg-[#0a0a0a] border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30'
-                                : 'bg-transparent border-white/10 text-white'
+                                ? 'bg-[var(--bg-void)] border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--border-color)]'
+                                : 'bg-transparent border-[var(--border-color)] text-[var(--text-primary)]'
                                 }`}
                         />
                     </div>
@@ -222,7 +222,7 @@ export default function AccountProfilePage() {
                         <button
                             type="submit"
                             disabled={saving}
-                            className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 disabled:opacity-50"
+                            className="px-6 py-3 rounded-xl bg-[var(--text-primary)] text-[var(--bg-void)] font-medium hover:opacity-90 disabled:opacity-50"
                         >
                             {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
                         </button>
@@ -235,7 +235,7 @@ export default function AccountProfilePage() {
                                     phone: profile?.phone || '',
                                 });
                             }}
-                            className="px-6 py-3 rounded-xl border border-white/20 text-white/70 hover:text-white"
+                            className="px-6 py-3 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         >
                             Hủy
                         </button>

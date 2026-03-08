@@ -3,6 +3,9 @@ import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
+import { Toaster } from "sonner";
 
 const beVietnamPro = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
@@ -30,16 +33,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" data-scroll-behavior="smooth">
-      <body className={`${beVietnamPro.variable} antialiased font-sans`} style={{ background: 'var(--bg-void)', color: 'var(--text-primary)' }}>
-        <AuthProvider>
-          <LayoutWrapper>{children}</LayoutWrapper>
-        </AuthProvider>
+    <html lang="vi" suppressHydrationWarning>
+      <body className={`${beVietnamPro.variable} antialiased font-sans bg-[var(--bg-void)] text-[var(--text-primary)]`}>
+        <ThemeProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <LayoutWrapper>{children}</LayoutWrapper>
+              <Toaster richColors position="top-right" />
+            </AuthProvider>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
-
-
-
-

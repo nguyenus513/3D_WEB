@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { clsx } from 'clsx';
+import { cn } from '@/lib/utils';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { Button, buttonVariants, buttonBaseStyles, buttonSizes } from '@/components/ui/Button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { useCart, CartItem, CartItemType } from '@/lib/store/cart';
 import { Box, Boxes, PenLine, Trash2, ShoppingBag } from 'lucide-react';
 
@@ -20,7 +20,6 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'custom', label: 'Custom', icon: <PenLine size={20} strokeWidth={1.5} /> },
 ];
 
-// Cart item component
 function CartItemRow({ item, onUpdate, onRemove, onUpdateItem }: {
     item: CartItem;
     onUpdate: (id: string, qty: number) => void;
@@ -49,89 +48,82 @@ function CartItemRow({ item, onUpdate, onRemove, onUpdateItem }: {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, x: -100 }}
-            className="bg-[#1D1D1F] rounded-2xl p-6"
+            className="bg-[var(--material-panel)] rounded-2xl p-6"
         >
             <div className="flex items-start gap-6">
-                {/* Image/Icon */}
-                <div className="w-24 h-24 rounded-xl bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-24 h-24 rounded-xl bg-[var(--material-glass)] flex items-center justify-center shrink-0 overflow-hidden">
                     {item.image ? (
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                     ) : item.type === 'print' ? (
-                        <Boxes size={24} strokeWidth={1.5} className="text-white/50" />
+                        <Boxes size={24} strokeWidth={1.5} className="text-[var(--text-secondary)]" />
                     ) : item.type === 'custom' ? (
-                        <PenLine size={24} strokeWidth={1.5} className="text-white/50" />
+                        <PenLine size={24} strokeWidth={1.5} className="text-[var(--text-secondary)]" />
                     ) : (
-                        <Box size={24} strokeWidth={1.5} className="text-white/50" />
+                        <Box size={24} strokeWidth={1.5} className="text-[var(--text-secondary)]" />
                     )}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                         <span className={`px-2 py-0.5 rounded text-xs ${getTypeColor()}`}>
                             {getTypeLabel()}
                         </span>
                     </div>
-                    <h3 className="text-white font-semibold text-lg truncate">{item.name}</h3>
+                    <h3 className="text-[var(--text-primary)] font-semibold text-lg truncate">{item.name}</h3>
 
-                    {/* Type-specific details */}
                     {item.type === 'product' && item.size && (
-                        <p className="text-white/50 text-sm mt-1">Size: {item.size}</p>
+                        <p className="text-[var(--text-secondary)] text-sm mt-1">Size: {item.size}</p>
                     )}
                     {item.type === 'print' && item.printOptions && (
-                        <p className="text-white/50 text-sm mt-1">
+                        <p className="text-[var(--text-secondary)] text-sm mt-1">
                             {item.printOptions.type.toUpperCase()} • {item.printOptions.color} • {item.printOptions.infill}
                         </p>
                     )}
                     {item.type === 'custom' && item.description && (
-                        <p className="text-white/50 text-sm mt-1 line-clamp-2">{item.description}</p>
+                        <p className="text-[var(--text-secondary)] text-sm mt-1 line-clamp-2">{item.description}</p>
                     )}
 
-                    <p className="text-white font-medium mt-2">
+                    <p className="text-[var(--text-primary)] font-medium mt-2">
                         {item.price.toLocaleString('vi-VN')}đ
                     </p>
                 </div>
 
-                {/* Quantity */}
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => onUpdate(item.id, Math.max(1, item.quantity - 1))}
-                        className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                        className="w-10 h-10 rounded-xl bg-[var(--material-glass)] text-[var(--text-primary)] flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
                     >
                         -
                     </button>
-                    <span className="text-white w-8 text-center">{item.quantity}</span>
+                    <span className="text-[var(--text-primary)] w-8 text-center">{item.quantity}</span>
                     <button
                         onClick={() => onUpdate(item.id, item.quantity + 1)}
-                        className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                        className="w-10 h-10 rounded-xl bg-[var(--material-glass)] text-[var(--text-primary)] flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
                     >
                         +
                     </button>
                 </div>
 
-                {/* Subtotal */}
                 <div className="text-right min-w-[100px]">
-                    <p className="text-white font-semibold">
+                    <p className="text-[var(--text-primary)] font-semibold">
                         {(item.price * item.quantity).toLocaleString('vi-VN')}đ
                     </p>
                 </div>
 
-                {/* Remove */}
                 <button
                     onClick={() => onRemove(item.id)}
-                    className="p-2 text-white/40 hover:text-red-400 transition-colors cursor-pointer"
+                    className="p-2 text-[var(--text-tertiary)] hover:text-red-400 transition-colors cursor-pointer"
                 >
                     <Trash2 size={20} strokeWidth={1.5} />
                 </button>
             </div>
 
-            {/* Notes textarea */}
-            <div className="mt-4 pt-4 border-t border-white/10">
+            <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                 <textarea
                     value={item.notes || ''}
                     onChange={(e) => onUpdateItem(item.id, { notes: e.target.value })}
                     placeholder="Ghi chú cho sản phẩm này (tùy chọn)..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm resize-none focus:outline-none focus:border-white/30 transition-colors"
+                    className="w-full bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm resize-none focus:outline-none focus:border-[var(--border-color)] transition-colors"
                     rows={2}
                 />
             </div>
@@ -155,11 +147,9 @@ export default function CartPage() {
             return;
         }
 
-        // Go to checkout page which handles address + QR display
         router.push('/checkout?mode=cart');
     };
 
-    // Filter items based on active tab
     const getFilteredItems = () => {
         switch (activeTab) {
             case 'product': return productItems;
@@ -173,18 +163,18 @@ export default function CartPage() {
 
     if (items.length === 0) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-32 pb-20 flex items-center justify-center px-6">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-32 pb-20 flex items-center justify-center px-6">
                 <div className="text-center">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
-                        <ShoppingBag size={40} className="text-white/30" strokeWidth={1.5} />
+                    <div className="w-20 h-20 rounded-full bg-[var(--material-glass)] flex items-center justify-center mx-auto mb-6">
+                        <ShoppingBag size={40} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-4">Giỏ hàng trống</h2>
-                    <p className="text-white/50 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
+                    <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Giỏ hàng trống</h2>
+                    <p className="text-[var(--text-secondary)] mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link href="/products" className={clsx(buttonBaseStyles, buttonVariants.primary, buttonSizes.lg, "w-full sm:w-auto")}>
+                        <Link href="/products" className={cn(buttonVariants({ variant: "default", size: "lg" }), "w-full sm:w-auto")}>
                             Xem sản phẩm
                         </Link>
-                        <Link href="/printing" className={clsx(buttonBaseStyles, buttonVariants.secondary, buttonSizes.lg, "w-full sm:w-auto text-purple-400 border-purple-500/30 hover:bg-purple-500/10")}>
+                        <Link href="/printing" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto text-purple-400 border-purple-500/30 hover:bg-purple-500/10")}>
                             In 3D
                         </Link>
                     </div>
@@ -194,17 +184,15 @@ export default function CartPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[1200px] mx-auto px-6">
-                {/* Header */}
                 <AnimatedSection className="mb-8">
-                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
+                    <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] tracking-tight">
                         Giỏ Hàng
                     </h1>
-                    <p className="text-white/50 mt-2">{items.length} sản phẩm</p>
+                    <p className="text-[var(--text-secondary)] mt-2">{items.length} sản phẩm</p>
                 </AnimatedSection>
 
-                {/* Tabs */}
                 <AnimatedSection delay={0.1} className="mb-6">
                     <div className="flex gap-2 overflow-x-auto pb-2">
                         {tabs.map((tab) => {
@@ -219,13 +207,13 @@ export default function CartPage() {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${activeTab === tab.id
-                                        ? 'bg-white text-black'
-                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        ? 'bg-[var(--text-primary)] text-[var(--bg-void)]'
+                                        : 'bg-[var(--material-glass)] text-[var(--text-secondary)] hover:bg-white/20'
                                         }`}
                                 >
                                     {tab.icon}
                                     {tab.label}
-                                    <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-black/10' : 'bg-white/10'
+                                    <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-black/10' : 'bg-[var(--material-glass)]'
                                         }`}>
                                         {count}
                                     </span>
@@ -236,7 +224,6 @@ export default function CartPage() {
                 </AnimatedSection>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Items List */}
                     <div className="lg:col-span-2 space-y-4">
                         <AnimatePresence mode="popLayout">
                             {filteredItems.map((item) => (
@@ -251,12 +238,11 @@ export default function CartPage() {
                         </AnimatePresence>
 
                         {filteredItems.length === 0 && (
-                            <div className="text-center py-12 text-white/50">
+                            <div className="text-center py-12 text-[var(--text-secondary)]">
                                 Không có sản phẩm nào trong danh mục này
                             </div>
                         )}
 
-                        {/* Clear cart */}
                         <button
                             onClick={clearCart}
                             className="text-red-400 text-sm hover:text-red-300 cursor-pointer"
@@ -265,58 +251,56 @@ export default function CartPage() {
                         </button>
                     </div>
 
-                    {/* Summary */}
                     <div className="lg:col-span-1">
                         <AnimatedSection delay={0.2}>
-                            <div className="bg-[#1D1D1F] rounded-2xl p-6 sticky top-28">
-                                <h2 className="text-xl font-semibold text-white mb-6">Tóm tắt đơn hàng</h2>
+                            <div className="bg-[var(--material-panel)] rounded-2xl p-6 sticky top-28">
+                                <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Tóm tắt đơn hàng</h2>
 
-                                {/* Grouped totals */}
                                 <div className="space-y-3 text-sm">
                                     {groupedTotals.products.count > 0 && (
                                         <div className="flex justify-between">
-                                            <span className="text-white/60 flex items-center gap-2">
+                                            <span className="text-[var(--text-secondary)] flex items-center gap-2">
                                                 <Box size={20} strokeWidth={1.5} /> Sản phẩm ({groupedTotals.products.count})
                                             </span>
-                                            <span className="text-white">{groupedTotals.products.total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-[var(--text-primary)]">{groupedTotals.products.total.toLocaleString('vi-VN')}đ</span>
                                         </div>
                                     )}
                                     {groupedTotals.prints.count > 0 && (
                                         <div className="flex justify-between">
-                                            <span className="text-white/60 flex items-center gap-2">
+                                            <span className="text-[var(--text-secondary)] flex items-center gap-2">
                                                 <Boxes size={20} strokeWidth={1.5} /> In 3D ({groupedTotals.prints.count})
                                             </span>
-                                            <span className="text-white">{groupedTotals.prints.total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-[var(--text-primary)]">{groupedTotals.prints.total.toLocaleString('vi-VN')}đ</span>
                                         </div>
                                     )}
                                     {groupedTotals.customs.count > 0 && (
                                         <div className="flex justify-between">
-                                            <span className="text-white/60 flex items-center gap-2">
+                                            <span className="text-[var(--text-secondary)] flex items-center gap-2">
                                                 <PenLine size={20} strokeWidth={1.5} /> Custom ({groupedTotals.customs.count})
                                             </span>
-                                            <span className="text-white">{groupedTotals.customs.total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-[var(--text-primary)]">{groupedTotals.customs.total.toLocaleString('vi-VN')}đ</span>
                                         </div>
                                     )}
 
-                                    <div className="border-t border-white/10 my-3" />
+                                    <div className="border-t border-[var(--border-color)] my-3" />
 
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Tạm tính</span>
-                                        <span className="text-white">{totalPrice.toLocaleString('vi-VN')}đ</span>
+                                        <span className="text-[var(--text-secondary)]">Tạm tính</span>
+                                        <span className="text-[var(--text-primary)]">{totalPrice.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                 </div>
 
-                                <div className="border-t border-white/10 my-4" />
+                                <div className="border-t border-[var(--border-color)] my-4" />
 
                                 <div className="flex justify-between mb-6">
-                                    <span className="text-white font-medium">Tổng cộng</span>
-                                    <span className="text-white text-xl font-bold">
+                                    <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
+                                    <span className="text-[var(--text-primary)] text-xl font-bold">
                                         {totalPrice.toLocaleString('vi-VN')}đ
                                     </span>
                                 </div>
 
                                 <Button
-                                    variant="primary"
+                                    variant="default"
                                     size="lg"
                                     className="w-full"
                                     onClick={handleCheckout}
@@ -326,7 +310,7 @@ export default function CartPage() {
                                         !session ? 'Đăng nhập để thanh toán' : 'Tiến hành thanh toán'}
                                 </Button>
 
-                                <Link href="/products" className="block text-center mt-4 text-white/50 text-sm hover:text-white">
+                                <Link href="/products" className="block text-center mt-4 text-[var(--text-secondary)] text-sm hover:text-[var(--text-primary)]">
                                     ← Tiếp tục mua sắm
                                 </Link>
                             </div>

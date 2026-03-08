@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { getSupabase } from '@/lib/supabase/client';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
@@ -521,27 +521,27 @@ export default function PrintingPage() {
     // Loading state
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/50">Đang tải...</p>
+                    <div className="w-12 h-12 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-[var(--text-secondary)]">Đang tải...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[1200px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-12">
-                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-[var(--text-secondary)] font-medium tracking-widest uppercase mb-4 block">
                         3D Printing Service
                     </span>
-                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
+                    <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-4">
                         Dịch Vụ In 3D
                     </h1>
-                    <p className="text-white/50 max-w-lg mx-auto">
+                    <p className="text-[var(--text-secondary)] max-w-lg mx-auto">
                         Upload file STL/OBJ của bạn, hệ thống sẽ tự động tính giá
                     </p>
                 </AnimatedSection>
@@ -551,8 +551,8 @@ export default function PrintingPage() {
                     <div className="lg:col-span-2 space-y-6">
                         {/* File Upload */}
                         <AnimatedSection delay={0.1}>
-                            <div className="bg-[#1D1D1F] rounded-3xl p-8">
-                                <h2 className="text-xl font-semibold text-white mb-6">Upload file 3D</h2>
+                            <div className="bg-[var(--material-panel)] rounded-3xl p-8">
+                                <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Upload file 3D</h2>
 
                                 <div
                                     onDragEnter={handleDrag}
@@ -562,8 +562,8 @@ export default function PrintingPage() {
                                     className={`
                     border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer
                     ${dragActive
-                                            ? 'border-white/30 bg-white/10'
-                                            : 'border-white/20 hover:border-white/40'
+                                            ? 'border-white/30 bg-[var(--material-glass)]'
+                                            : 'border-[var(--border-color)] hover:border-white/40'
                                         }
                   `}
                                 >
@@ -575,13 +575,13 @@ export default function PrintingPage() {
                                         id="file-upload"
                                     />
                                     <label htmlFor="file-upload" className="cursor-pointer">
-                                        <div className="mb-4 flex justify-center text-white/70">
+                                        <div className="mb-4 flex justify-center text-[var(--text-secondary)]">
                                             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                             </svg>
                                         </div>
-                                        <p className="text-white font-medium">Kéo thả file 3D vào đây</p>
-                                        <p className="text-white/50 text-sm mt-2">Hỗ trợ: STL, OBJ</p>
+                                        <p className="text-[var(--text-primary)] font-medium">Kéo thả file 3D vào đây</p>
+                                        <p className="text-[var(--text-secondary)] text-sm mt-2">Hỗ trợ: STL, OBJ</p>
                                     </label>
                                 </div>
 
@@ -589,24 +589,24 @@ export default function PrintingPage() {
                                 {order.items.length > 0 && (
                                     <div className="mt-6 space-y-4">
                                         {order.items.map((item) => (
-                                            <div key={item.id} className="bg-gradient-to-br from-[#2D2D2F] to-[#1D1D1F] rounded-xl p-4 border border-white/10">
+                                            <div key={item.id} className="bg-gradient-to-br from-[#2D2D2F] to-[#1D1D1F] rounded-xl p-4 border border-[var(--border-color)]">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                        <div className="text-white/70 flex-shrink-0">
+                                                        <div className="text-[var(--text-secondary)] flex-shrink-0">
                                                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                             </svg>
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="text-white font-medium text-sm truncate">{item.file.name}</p>
-                                                            <p className="text-white/50 text-xs">
+                                                            <p className="text-[var(--text-primary)] font-medium text-sm truncate">{item.file.name}</p>
+                                                            <p className="text-[var(--text-secondary)] text-xs">
                                                                 {(item.file.size / 1024 / 1024).toFixed(2)} MB
                                                             </p>
                                                         </div>
                                                     </div>
                                                     <button
                                                         onClick={() => removeItem(item.id)}
-                                                        className="w-8 h-8 rounded-full bg-white/10 text-white hover:bg-red-500 transition-colors flex items-center justify-center flex-shrink-0"
+                                                        className="w-8 h-8 rounded-full bg-[var(--material-glass)] text-[var(--text-primary)] hover:bg-red-500 transition-colors flex items-center justify-center flex-shrink-0"
                                                     >
                                                         ×
                                                     </button>
@@ -615,8 +615,8 @@ export default function PrintingPage() {
                                                 {/* Analysis Loading */}
                                                 {item.analyzing && (
                                                     <div className="bg-[#2D2D2F] rounded-lg p-3 text-center">
-                                                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-2" />
-                                                        <p className="text-white/50 text-xs">Đang phân tích...</p>
+                                                        <div className="w-5 h-5 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto mb-2" />
+                                                        <p className="text-[var(--text-secondary)] text-xs">Đang phân tích...</p>
                                                     </div>
                                                 )}
 
@@ -625,41 +625,41 @@ export default function PrintingPage() {
                                                     <div className="space-y-3">
                                                         <div className="grid grid-cols-4 gap-2 text-center">
                                                             <div>
-                                                                <span className="text-white/50 text-xs block">Thể tích</span>
-                                                                <span className="text-sm font-bold text-white">{item.analysis.volume}</span>
-                                                                <span className="text-white/40 text-xs">cm³</span>
+                                                                <span className="text-[var(--text-secondary)] text-xs block">Thể tích</span>
+                                                                <span className="text-sm font-bold text-[var(--text-primary)]">{item.analysis.volume}</span>
+                                                                <span className="text-[var(--text-tertiary)] text-xs">cm³</span>
                                                             </div>
                                                             <div>
-                                                                <span className="text-white/50 text-xs block">Khối lượng</span>
-                                                                <span className="text-sm font-bold text-white">{item.analysis.grams}</span>
-                                                                <span className="text-white/40 text-xs">g</span>
+                                                                <span className="text-[var(--text-secondary)] text-xs block">Khối lượng</span>
+                                                                <span className="text-sm font-bold text-[var(--text-primary)]">{item.analysis.grams}</span>
+                                                                <span className="text-[var(--text-tertiary)] text-xs">g</span>
                                                             </div>
                                                             <div>
-                                                                <span className="text-white/50 text-xs block">Thời gian</span>
-                                                                <span className="text-sm font-bold text-white">{item.analysis.hours}</span>
-                                                                <span className="text-white/40 text-xs">h</span>
+                                                                <span className="text-[var(--text-secondary)] text-xs block">Thời gian</span>
+                                                                <span className="text-sm font-bold text-[var(--text-primary)]">{item.analysis.hours}</span>
+                                                                <span className="text-[var(--text-tertiary)] text-xs">h</span>
                                                             </div>
                                                             <div>
-                                                                <span className="text-white/50 text-xs block">Giá/cái</span>
-                                                                <span className="text-sm font-bold text-white">{item.analysis.price.toLocaleString('vi-VN')}</span>
-                                                                <span className="text-white/40 text-xs">đ</span>
+                                                                <span className="text-[var(--text-secondary)] text-xs block">Giá/cái</span>
+                                                                <span className="text-sm font-bold text-[var(--text-primary)]">{item.analysis.price.toLocaleString('vi-VN')}</span>
+                                                                <span className="text-[var(--text-tertiary)] text-xs">đ</span>
                                                             </div>
                                                         </div>
 
                                                         {/* Quantity Controls */}
-                                                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                                                            <span className="text-white/70 text-sm">Số lượng</span>
+                                                        <div className="flex items-center justify-between pt-2 border-t border-[var(--border-color)]">
+                                                            <span className="text-[var(--text-secondary)] text-sm">Số lượng</span>
                                                             <div className="inline-flex items-center bg-[#2D2D2F] rounded-full">
                                                                 <button
                                                                     onClick={() => updateItemQuantity(item.id, -1)}
-                                                                    className="w-8 h-8 flex items-center justify-center text-white hover:text-white/70 transition-colors"
+                                                                    className="w-8 h-8 flex items-center justify-center text-[var(--text-primary)] hover:text-[var(--text-secondary)] transition-colors"
                                                                 >
                                                                     −
                                                                 </button>
-                                                                <span className="w-8 text-center text-white font-medium text-sm">{item.quantity}</span>
+                                                                <span className="w-8 text-center text-[var(--text-primary)] font-medium text-sm">{item.quantity}</span>
                                                                 <button
                                                                     onClick={() => updateItemQuantity(item.id, 1)}
-                                                                    className="w-8 h-8 flex items-center justify-center text-white hover:text-white/70 transition-colors"
+                                                                    className="w-8 h-8 flex items-center justify-center text-[var(--text-primary)] hover:text-[var(--text-secondary)] transition-colors"
                                                                 >
                                                                     +
                                                                 </button>
@@ -675,7 +675,7 @@ export default function PrintingPage() {
                                 {/* Global Analyzing Indicator */}
                                 {isAnalyzing && (
                                     <div className="mt-4 text-center">
-                                        <p className="text-white/40 text-xs">Đang xử lý file...</p>
+                                        <p className="text-[var(--text-tertiary)] text-xs">Đang xử lý file...</p>
                                     </div>
                                 )}
                             </div>
@@ -683,8 +683,8 @@ export default function PrintingPage() {
 
                         {/* Print Type */}
                         <div className="mt-6">
-                            <div className="bg-[#1D1D1F] rounded-3xl p-8">
-                                <h2 className="text-xl font-semibold text-white mb-6">Loại in</h2>
+                            <div className="bg-[var(--material-panel)] rounded-3xl p-8">
+                                <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Loại in</h2>
                                 <div className="grid grid-cols-2 gap-4">
                                     {printTypes.map((type) => (
                                         <button
@@ -693,8 +693,8 @@ export default function PrintingPage() {
                                             className={`
                         p-6 rounded-2xl text-left transition-all
                         ${order.type === type.id
-                                                    ? 'bg-[#0071E3] text-white ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
-                                                    : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                    ? 'bg-[var(--color-accent)] text-[var(--text-primary)] ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
+                                                    : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                                                 }
                       `}
                                             data-cursor
@@ -710,8 +710,8 @@ export default function PrintingPage() {
                         {/* Infill Selection (only for FDM) */}
                         {order.type === 'fdm' && (
                             <div className="mt-6">
-                                <div className="bg-[#1D1D1F] rounded-3xl p-8">
-                                    <h2 className="text-xl font-semibold text-white mb-6">Độ đậm đặc (Infill)</h2>
+                                <div className="bg-[var(--material-panel)] rounded-3xl p-8">
+                                    <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Độ đậm đặc (Infill)</h2>
                                     <div className="flex flex-wrap gap-3">
                                         {['15%', '20%', '30%', '50%'].map((val) => (
                                             <button
@@ -721,7 +721,7 @@ export default function PrintingPage() {
                             px-6 py-3 rounded-full transition-all text-sm font-medium
                             ${order.infill === val
                                                         ? 'bg-white text-black'
-                                                        : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                        : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                                                     }
                           `}
                                             >
@@ -729,7 +729,7 @@ export default function PrintingPage() {
                                             </button>
                                         ))}
                                     </div>
-                                    <p className="text-white/40 text-sm mt-4">
+                                    <p className="text-[var(--text-tertiary)] text-sm mt-4">
                                         *Độ infill càng cao, vật thể càng đặc và cứng hơn
                                     </p>
                                 </div>
@@ -740,8 +740,8 @@ export default function PrintingPage() {
                         {/* Layer Height Selection (only for FDM) */}
                         {order.type === 'fdm' && (
                             <div className="mt-6">
-                                <div className="bg-[#1D1D1F] rounded-3xl p-8">
-                                    <h2 className="text-xl font-semibold text-white mb-6">Độ mịn (Layer Height)</h2>
+                                <div className="bg-[var(--material-panel)] rounded-3xl p-8">
+                                    <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Độ mịn (Layer Height)</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         {[
                                             { val: '0.2', label: '0.2mm - Chuẩn', time: 'x1' },
@@ -755,7 +755,7 @@ export default function PrintingPage() {
                             p-4 rounded-xl text-left transition-all
                             ${order.layerHeight === opt.val
                                                         ? 'bg-white text-black'
-                                                        : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                        : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                                                     }
                           `}
                                             >
@@ -770,8 +770,8 @@ export default function PrintingPage() {
 
                         {/* Color Selection */}
                         <div className="mt-6">
-                            <div className="bg-[#1D1D1F] rounded-3xl p-8">
-                                <h2 className="text-xl font-semibold text-white mb-6">Màu sắc</h2>
+                            <div className="bg-[var(--material-panel)] rounded-3xl p-8">
+                                <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Màu sắc</h2>
                                 <div className="flex flex-wrap gap-3">
                                     {(order.type === 'fdm' ? FDM_COLORS : RESIN_COLORS).map((color) => (
                                         <button
@@ -787,10 +787,10 @@ export default function PrintingPage() {
                                             data-cursor
                                         >
                                             <span
-                                                className="w-5 h-5 rounded-full border border-white/20"
+                                                className="w-5 h-5 rounded-full border border-[var(--border-color)]"
                                                 style={{ backgroundColor: color.hex }}
                                             />
-                                            <span className="text-white text-sm">{color.name}</span>
+                                            <span className="text-[var(--text-primary)] text-sm">{color.name}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -799,13 +799,13 @@ export default function PrintingPage() {
 
                         {/* Notes */}
                         <div className="mt-6">
-                            <div className="bg-[#1D1D1F] rounded-3xl p-8">
-                                <h2 className="text-xl font-semibold text-white mb-6">Ghi chú</h2>
+                            <div className="bg-[var(--material-panel)] rounded-3xl p-8">
+                                <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Ghi chú</h2>
                                 <textarea
                                     value={order.notes}
                                     onChange={(e) => setOrder(prev => ({ ...prev, notes: e.target.value }))}
                                     placeholder="Yêu cầu thêm"
-                                    className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
+                                    className="w-full p-4 bg-[#2D2D2F] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
                                     rows={3}
                                 />
                             </div>
@@ -815,17 +815,17 @@ export default function PrintingPage() {
                     {/* Right - Order Summary */}
                     <div className="lg:col-span-1">
                         <AnimatedSection delay={0.4}>
-                            <div className="bg-[#1D1D1F] rounded-3xl p-8 sticky top-28">
-                                <h2 className="text-xl font-semibold text-white mb-6">Đơn hàng</h2>
+                            <div className="bg-[var(--material-panel)] rounded-3xl p-8 sticky top-28">
+                                <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Đơn hàng</h2>
 
                                 {/* Items List */}
                                 {order.items.length > 0 && (
                                     <div className="mb-6 space-y-2 max-h-60 overflow-y-auto">
                                         {order.items.map((item) => (
-                                            <div key={item.id} className="flex justify-between items-center text-sm py-2 border-b border-white/5">
-                                                <span className="text-white/80 truncate max-w-[150px]">{item.file.name}</span>
-                                                <span className="text-white flex items-center gap-2">
-                                                    <span className="text-white/50">x{item.quantity}</span>
+                                            <div key={item.id} className="flex justify-between items-center text-sm py-2 border-b border-[var(--border-color)]">
+                                                <span className="text-[var(--text-primary)]/80 truncate max-w-[150px]">{item.file.name}</span>
+                                                <span className="text-[var(--text-primary)] flex items-center gap-2">
+                                                    <span className="text-[var(--text-secondary)]">x{item.quantity}</span>
                                                     {item.analysis && (
                                                         <span className="font-medium">{(item.analysis.price * item.quantity).toLocaleString('vi-VN')}đ</span>
                                                     )}
@@ -838,48 +838,48 @@ export default function PrintingPage() {
                                 {/* Summary */}
                                 <div className="space-y-3 mb-6 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Loại in</span>
-                                        <span className="text-white">
+                                        <span className="text-[var(--text-secondary)]">Loại in</span>
+                                        <span className="text-[var(--text-primary)]">
                                             {printTypes.find(t => t.id === order.type)?.name}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Màu sắc</span>
-                                        <span className="text-white">
+                                        <span className="text-[var(--text-secondary)]">Màu sắc</span>
+                                        <span className="text-[var(--text-primary)]">
                                             {(order.type === 'fdm' ? FDM_COLORS : RESIN_COLORS).find(c => c.id === order.color)?.name}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Số sản phẩm</span>
-                                        <span className="text-white">{order.items.length}</span>
+                                        <span className="text-[var(--text-secondary)]">Số sản phẩm</span>
+                                        <span className="text-[var(--text-primary)]">{order.items.length}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-white/60">Tổng số lượng</span>
-                                        <span className="text-white">
+                                        <span className="text-[var(--text-secondary)]">Tổng số lượng</span>
+                                        <span className="text-[var(--text-primary)]">
                                             {order.items.reduce((sum, item) => sum + item.quantity, 0)}
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* Price */}
-                                <div className="border-t border-white/10 pt-4 mb-6">
+                                <div className="border-t border-[var(--border-color)] pt-4 mb-6">
                                     {order.items.some(item => item.analysis) ? (
                                         <div className="space-y-2">
                                             <div className="flex justify-between">
-                                                <span className="text-white/60">Tạm tính</span>
-                                                <span className="text-white">
+                                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
+                                                <span className="text-[var(--text-primary)]">
                                                     {totalPrice.toLocaleString('vi-VN')}đ
                                                     {order.type === 'fdm' && (
-                                                        <div className="text-xs text-right text-white/40 mt-1 space-y-1">
+                                                        <div className="text-xs text-right text-[var(--text-tertiary)] mt-1 space-y-1">
                                                             <span className="block">Infill: {order.infill}</span>
                                                             <span className="block">Layer: {order.layerHeight}mm</span>
                                                         </div>
                                                     )}
                                                 </span>
                                             </div>
-                                            <div className="flex justify-between items-baseline pt-2 border-t border-white/10">
-                                                <span className="text-white font-medium">Tổng cộng</span>
-                                                <span className="text-2xl font-bold text-white">
+                                            <div className="flex justify-between items-baseline pt-2 border-t border-[var(--border-color)]">
+                                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
+                                                <span className="text-2xl font-bold text-[var(--text-primary)]">
                                                     {grandTotal.toLocaleString('vi-VN')}đ
                                                 </span>
                                             </div>
@@ -889,7 +889,7 @@ export default function PrintingPage() {
                                         </div>
                                     ) : (
                                         <div className="text-center py-4">
-                                            <p className="text-white/40 text-sm">
+                                            <p className="text-[var(--text-tertiary)] text-sm">
                                                 Upload file để xem giá ước tính
                                             </p>
                                         </div>
@@ -897,8 +897,8 @@ export default function PrintingPage() {
                                 </div>
 
                                 {/* Shipping Address */}
-                                <div className="border-t border-white/10 pt-4 mb-4">
-                                    <h3 className="text-white font-medium mb-3">📍 Địa chỉ giao hàng</h3>
+                                <div className="border-t border-[var(--border-color)] pt-4 mb-4">
+                                    <h3 className="text-[var(--text-primary)] font-medium mb-3">📍 Địa chỉ giao hàng</h3>
                                     <AddressSelector
                                         userId={user?.id}
                                         value={shippingAddress}

@@ -5,28 +5,26 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Box } from 'lucide-react';
-import { getSupabase } from '@/lib/supabase/client';
+import { Badge } from '@/components/ui/badge';
 
-// Individual order item (full_code format: ORDERCODE_ITEMCODE)
 interface OrderItem {
     id: string;
-    item_code: string; // 8 char HEX
-    full_code: string; // 17 char: ORDER_ITEM (e.g., A4F5A15B_1185AFCE)
+    item_code: string;
+    full_code: string;
     name: string;
     quantity: number;
     unit_price: number;
     total_price: number;
-    production_status: string; // waiting, designing, producing, etc.
-    item_type: string; // print_3d, custom, product
+    production_status: string;
+    item_type: string;
     print_tech?: string;
     color?: string;
     material?: string;
 }
 
-// Master Order (what user sees)
 interface CartOrder {
     id: string;
-    order_code: string; // 8 HEX - primary identifier
+    order_code: string;
     created_at: string;
     total_amount: number;
     status: string;
@@ -93,11 +91,9 @@ export default function AccountOrdersPage() {
         if (!session?.user?.email) return;
 
         try {
-            // Call unified API that fetches from both order_child and orders tables
             const res = await fetch('/api/orders/my-orders');
             if (res.ok) {
                 const response = await res.json();
-                // API returns { success: true, data: [...], meta: {...} }
                 const ordersData = Array.isArray(response.data) ? response.data : [];
                 setOrders(ordersData);
             } else {
@@ -120,8 +116,8 @@ export default function AccountOrdersPage() {
     if (status === 'loading' || loading) {
         return (
             <div className="p-12 text-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-white/50">Đang tải đơn hàng...</p>
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-[var(--text-secondary)]">Đang tải đơn hàng...</p>
             </div>
         );
     }
@@ -131,12 +127,12 @@ export default function AccountOrdersPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Đơn hàng của tôi</h1>
-                    <p className="text-white/50 mt-1">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Đơn hàng của tôi</h1>
+                    <p className="text-[var(--text-secondary)] mt-1">
                         {orders.length} đơn hàng
                     </p>
                 </div>
-                <button onClick={fetchOrders} className="px-4 py-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl text-white/70 hover:text-white">
+                <button onClick={fetchOrders} className="px-4 py-2 bg-[var(--material-glass)] backdrop-blur-xl border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                     Làm mới
                 </button>
             </div>
@@ -148,8 +144,8 @@ export default function AccountOrdersPage() {
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === tab.key
-                            ? 'bg-white text-black'
-                            : 'bg-white/5 backdrop-blur-xl text-white/70 hover:text-white border border-white/10'
+                            ? 'bg-[var(--text-primary)] text-[var(--bg-void)]'
+                            : 'bg-[var(--material-glass)] backdrop-blur-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]'
                             }`}
                     >
                         {tab.label}
@@ -165,15 +161,15 @@ export default function AccountOrdersPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden"
+                        className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)] overflow-hidden"
                     >
                         {/* Order header */}
-                        <div className="p-5 border-b border-white/10 flex items-center justify-between">
+                        <div className="p-5 border-b border-[var(--border-color)] flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <span className="text-white font-semibold font-mono">
+                                <span className="text-[var(--text-primary)] font-semibold font-mono">
                                     {order.order_code}
                                 </span>
-                                <span className="text-white/50 text-sm">
+                                <span className="text-[var(--text-secondary)] text-sm">
                                     {new Date(order.created_at).toLocaleString('vi-VN', {
                                         day: '2-digit',
                                         month: '2-digit',
@@ -193,8 +189,8 @@ export default function AccountOrdersPage() {
                             <div className="space-y-3">
                                 {/* EmptyState when no items */}
                                 {(!order.items || order.items.length === 0) && (
-                                    <div className="text-center py-4 text-white/40">
-                                        <Box size={32} className="mx-auto mb-2 opacity-50 text-white/40" strokeWidth={1.5} />
+                                    <div className="text-center py-4 text-[var(--text-tertiary)]">
+                                        <Box size={32} className="mx-auto mb-2 opacity-50 text-[var(--text-tertiary)]" strokeWidth={1.5} />
                                         <p className="text-sm">Đơn hàng đang xử lý</p>
                                     </div>
                                 )}
@@ -202,33 +198,33 @@ export default function AccountOrdersPage() {
                                 {/* Render ALL items (slice removed for showing at least first 3) */}
                                 {order.items && order.items.slice(0, 3).map((item, i) => (
                                     <div key={item.full_code || i} className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                                            <Box size={24} className="text-white/40" strokeWidth={1.5} />
+                                        <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center">
+                                            <Box size={24} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-white truncate">{item.name}</p>
-                                            <p className="text-white/50 text-sm">x{item.quantity}</p>
+                                            <p className="text-[var(--text-primary)] truncate">{item.name}</p>
+                                            <p className="text-[var(--text-secondary)] text-sm">x{item.quantity}</p>
                                         </div>
-                                        <p className="text-white font-medium">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
+                                        <p className="text-[var(--text-primary)] font-medium">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
                                     </div>
                                 ))}
 
                                 {/* Show +N more if more than 3 items */}
                                 {order.items && order.items.length > 3 && (
-                                    <p className="text-white/50 text-sm">+{order.items.length - 3} sản phẩm khác</p>
+                                    <p className="text-[var(--text-secondary)] text-sm">+{order.items.length - 3} sản phẩm khác</p>
                                 )}
                             </div>
                         </div>
 
                         {/* Order footer */}
-                        <div className="px-5 py-4 bg-white/5 flex items-center justify-between">
+                        <div className="px-5 py-4 bg-[var(--material-glass)] flex items-center justify-between">
                             <div>
-                                <span className="text-white/50 text-sm">Tổng cộng: </span>
-                                <span className="text-white font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)] text-sm">Tổng cộng: </span>
+                                <span className="text-[var(--text-primary)] font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')}đ</span>
                             </div>
                             <Link
                                 href={`/account/orders/${order.id}`}
-                                className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/20"
+                                className="px-4 py-2 rounded-xl bg-[var(--material-glass)] text-[var(--text-primary)] text-sm hover:bg-[var(--material-glass)]"
                             >
                                 Xem chi tiết
                             </Link>
@@ -237,9 +233,9 @@ export default function AccountOrdersPage() {
                 ))}
 
                 {filteredOrders.length === 0 && (
-                    <div className="text-center py-12 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10">
-                        <p className="text-white/50">Không có đơn hàng nào</p>
-                        <Link href="/products" className="inline-block mt-4 px-6 py-2 bg-white text-black rounded-xl font-medium">
+                    <div className="text-center py-12 bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)]">
+                        <p className="text-[var(--text-secondary)]">Không có đơn hàng nào</p>
+                        <Link href="/products" className="inline-block mt-4 px-6 py-2 bg-[var(--text-primary)] text-[var(--bg-void)] rounded-xl font-medium">
                             Mua sắm ngay
                         </Link>
                     </div>

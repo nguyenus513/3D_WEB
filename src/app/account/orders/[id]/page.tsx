@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { getSupabase } from '@/lib/supabase/client';
 import { X, ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import {
     getCartStatusLabel,
     getItemStatusLabel,
@@ -18,8 +18,8 @@ import { buildUserTimeline } from '@/lib/utils/orderFlows';
 
 interface OrderItem {
     id: string;
-    cart_order_code?: string; // 17 char format: CARTCODE_ORDERCODE
-    item_order_code?: string; // 8 char format
+    cart_order_code?: string;
+    item_order_code?: string;
     product_name: string;
     product_sku: string;
     quantity: number;
@@ -32,24 +32,20 @@ interface OrderItem {
     custom_size?: string;
     configuration: {
         size?: string;
-        // Printing fields
         type?: string;
         color?: string;
         fileName?: string;
         file_name?: string;
         grams?: number;
-        infill?: string; // FDM infill percentage
-        layerHeight?: string; // FDM layer height
-        // Custom fields
+        infill?: string;
+        layerHeight?: string;
         custom_type?: string;
     };
 
-    // Custom order fields
     is_custom?: boolean;
-    custom_note?: string; // User's custom request description
-    preview_images?: string[]; // Admin preview images URLs
-    preview_status?: 'pending' | 'approved' | 'revising'; // Review status
-    // Shipping fields (per-item tracking)
+    custom_note?: string;
+    preview_images?: string[];
+    preview_status?: 'pending' | 'approved' | 'revising';
     shipping_provider?: string;
     tracking_code?: string;
     delivered_at?: string;
@@ -58,7 +54,7 @@ interface OrderItem {
 interface Order {
     id: string;
     order_code: string;
-    cart_code?: string; // 8 HEX - primary display identifier
+    cart_code?: string;
     order_type: 'product' | 'custom' | 'print_3d';
     status: string;
     subtotal: number;
@@ -165,8 +161,6 @@ export default function AccountOrderDetailPage() {
         if (!session?.user?.email) return;
 
         try {
-            // Use lookup API that searches across all order tables
-            // Disable cache to ensure fresh status updates
             const res = await fetch(`/api/orders/lookup?id=${params.id}`, { cache: 'no-store' });
             const response = await res.json();
 
@@ -176,17 +170,15 @@ export default function AccountOrderDetailPage() {
                 return;
             }
 
-            // Transform API response to match Order interface
             const data = response.data;
             const orderData: Order = {
                 id: data.id,
                 order_code: data.order_code,
-                cart_code: data.cart_code, // 8 HEX display code
+                cart_code: data.cart_code,
                 order_type: data.order_type || 'custom',
                 status: data.status,
                 subtotal: data.total,
                 total: data.total,
-                // Calculate deposit based on order type: custom = 50%, others = 100%
                 deposit_amount: data.deposit_amount || (
                     (data.order_type === 'custom' || data.order_type === 'mixed')
                         ? Math.round(data.total * 0.5)
@@ -202,7 +194,6 @@ export default function AccountOrderDetailPage() {
                 shipped_at: null,
                 delivered_at: null,
                 order_items: data.items || [],
-                // CRITICAL: Include demo fields for review flow
                 demo_image_url: data.demo_image_url,
                 demo_images: data.demo_images || [],
                 finished_images: data.finished_images || [],
@@ -219,15 +210,11 @@ export default function AccountOrderDetailPage() {
             setLoading(false);
         }
     };
-    // Format date: DD/MM/YYYY HH:MM:SS (no icons)
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '';
         return formatOrderDate(dateStr);
     };
 
-    // ═══════════════════════════════════════════════════════════════
-    // TIMELINE — Synced with admin via centralized orderFlows.ts
-    // ═══════════════════════════════════════════════════════════════
     const getTimeline = () => {
         if (!order) return [];
 
@@ -244,8 +231,8 @@ export default function AccountOrderDetailPage() {
         return (
             <div className="flex items-center justify-center py-20">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/50">Đang tải...</p>
+                    <div className="w-12 h-12 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-[var(--text-secondary)]">Đang tải...</p>
                 </div>
             </div>
         );
@@ -257,9 +244,9 @@ export default function AccountOrderDetailPage() {
                 <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
                     <X size={32} className="text-red-400" strokeWidth={2} />
                 </div>
-                <h2 className="text-xl font-bold text-white mb-2">Không tìm thấy đơn hàng</h2>
-                <p className="text-white/50 mb-6">{error}</p>
-                <Link href="/account/orders" className="px-6 py-3 bg-white text-black rounded-xl font-medium">
+                <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không tìm thấy đơn hàng</h2>
+                <p className="text-[var(--text-secondary)] mb-6">{error}</p>
+                <Link href="/account/orders" className="px-6 py-3 bg-[var(--text-primary)] text-[var(--bg-void)] rounded-xl font-medium">
                     Quay lại đơn hàng
                 </Link>
             </div>
@@ -271,26 +258,24 @@ export default function AccountOrderDetailPage() {
 
     return (
         <div className="space-y-8">
-            {/* ═══════════════════════════════════════════════════════════════
-                HEADER - Mã đơn hàng
-            ═══════════════════════════════════════════════════════════════ */}
-            <div className="bg-[#1D1D1F] rounded-3xl border border-white/10 p-8">
+            {/* HEADER - Mã đơn hàng */}
+            <div className="bg-[var(--material-panel)] rounded-3xl border border-[var(--border-color)] p-8">
                 <div className="flex items-start justify-between">
                     <div className="flex items-start gap-5">
                         <Link
                             href="/account/orders"
-                            className="p-3 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors mt-1"
+                            className="p-3 rounded-xl hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors mt-1"
                         >
                             <ArrowLeft size={20} strokeWidth={2} />
                         </Link>
                         <div>
-                            <p className="text-white/50 text-sm font-medium mb-2">
+                            <p className="text-[var(--text-secondary)] text-sm font-medium mb-2">
                                 Mã đơn hàng
                             </p>
-                            <h1 className="text-4xl md:text-5xl font-bold text-white font-mono tracking-tight select-all cursor-text">
+                            <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] font-mono tracking-tight select-all cursor-text">
                                 {order.cart_code || order.order_code.slice(-8).toUpperCase()}
                             </h1>
-                            <p className="text-white/40 text-sm mt-4">
+                            <p className="text-[var(--text-tertiary)] text-sm mt-4">
                                 Đặt lúc: {formatDate(order.created_at)}
                             </p>
                         </div>
@@ -304,34 +289,32 @@ export default function AccountOrderDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Timeline - Supporting context, reduced visual weight */}
+                    {/* Timeline */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#1a1a1c]/60 rounded-2xl border border-white/5 p-5"
+                        className="bg-[var(--material-panel)]/60 rounded-2xl border border-[var(--border-color)] p-5"
                     >
-                        <h2 className="text-base font-medium text-white/70 mb-5">Tiến trình đơn hàng</h2>
+                        <h2 className="text-base font-medium text-[var(--text-secondary)] mb-5">Tiến trình đơn hàng</h2>
                         <div className="relative">
                             {timeline.map((step, index) => (
                                 <div key={step.status} className="flex gap-3 pb-5 last:pb-0">
                                     <div className="flex flex-col items-center">
-                                        <div className={`w-3 h-3 rounded-full ${step.completed ? 'bg-white/80' : 'bg-white/15'}`} />
+                                        <div className={`w-3 h-3 rounded-full ${step.completed ? 'bg-[var(--text-primary)]/80' : 'bg-[var(--text-primary)]/15'}`} />
                                         {index < timeline.length - 1 && (
-                                            <div className={`w-0.5 flex-1 ${step.completed ? 'bg-white/30' : 'bg-white/8'}`} />
+                                            <div className={`w-0.5 flex-1 ${step.completed ? 'bg-[var(--text-primary)]/30' : 'bg-[var(--text-primary)]/8'}`} />
                                         )}
                                     </div>
                                     <div className="flex-1 pb-1">
-                                        <p className={`text-sm font-medium ${step.completed ? 'text-white/80' : 'text-white/30'}`}>
+                                        <p className={`text-sm font-medium ${step.completed ? 'text-[var(--text-primary)]/80' : 'text-[var(--text-tertiary)]'}`}>
                                             {step.label}
-                                            {/* Pulsing dot for active review step */}
                                             {step.status === 'review' && order.status === 'review' && (
                                                 <span className="inline-block w-1.5 h-1.5 bg-amber-400 rounded-full ml-2 animate-pulse" />
                                             )}
                                         </p>
                                         {step.date && (
-                                            <p className="text-white/40 text-xs mt-0.5">{step.date}</p>
+                                            <p className="text-[var(--text-tertiary)] text-xs mt-0.5">{step.date}</p>
                                         )}
-                                        {/* Inline CTA: Xem Demo — only when this step is active review */}
                                         {step.status === 'review' && order.status === 'review' && (
                                             <Link
                                                 href={`/account/orders/${order.id}/demo`}
@@ -343,7 +326,6 @@ export default function AccountOrderDetailPage() {
                                                 </svg>
                                             </Link>
                                         )}
-                                        {/* Inline info: Revising feedback */}
                                         {step.status === 'review' && order.status === 'revising' && order.revision_feedback && (
                                             <p className="text-pink-400/60 text-xs mt-1 italic">
                                                 &ldquo;{order.revision_feedback}&rdquo;
@@ -355,32 +337,26 @@ export default function AccountOrderDetailPage() {
                         </div>
                     </motion.div>
 
-                    {/* ═══════════════════════════════════════════════════════════════
-                        CHI TIẾT ĐƠN HÀNG - MAIN FOCUS AREA
-                    ═══════════════════════════════════════════════════════════════ */}
+                    {/* CHI TIẾT ĐƠN HÀNG */}
                     {order.order_items.length > 0 && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
                         >
-                            <h2 className="text-lg font-semibold text-white mb-6">Chi tiết đơn hàng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Chi tiết đơn hàng</h2>
 
-                            {/* Order Cards - 24px spacing between cards */}
                             <div className="space-y-6">
                                 {order.order_items.map((item) => {
-                                    // Generate display code: CARTCODE_ITEMCODE
                                     const displayCode = item.cart_order_code ||
                                         (order.cart_code && item.item_order_code
                                             ? `${order.cart_code}_${item.item_order_code}`
                                             : `#${item.id.slice(0, 8).toUpperCase()}`);
 
-                                    // Determine item type
                                     const itemType = item.item_type || order.order_type;
                                     const isCustom = item.is_custom || itemType === 'custom';
                                     const isPrinting = itemType === 'printing' || itemType === 'print' || itemType === 'print_3d';
 
-                                    // Badge = item_status (trạng thái duy nhất của item)
                                     const itemStatus = item.production_status || item.status || 'waiting';
                                     const getStatusBadge = (status: string) => {
                                         const statusLabel = getItemStatusLabel(status);
@@ -405,11 +381,11 @@ export default function AccountOrderDetailPage() {
                                     return (
                                         <div
                                             key={item.id}
-                                            className="bg-[#1C1C1E] rounded-2xl border border-white/[0.06] overflow-hidden"
+                                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] overflow-hidden"
                                         >
-                                            {/* ═══ HEADER: Code + Badge ═══ */}
-                                            <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-                                                <code className="font-mono text-sm text-white/80 tracking-wide select-all">
+                                            {/* HEADER: Code + Badge */}
+                                            <div className="px-6 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
+                                                <code className="font-mono text-sm text-[var(--text-secondary)] tracking-wide select-all">
                                                     {displayCode}
                                                 </code>
                                                 <span className={`px-3 py-1.5 text-xs font-semibold rounded-full ${badge.color}`}>
@@ -417,14 +393,14 @@ export default function AccountOrderDetailPage() {
                                                 </span>
                                             </div>
 
-                                            {/* ═══ BODY ═══ */}
+                                            {/* BODY */}
                                             <div className="px-6 py-5 space-y-4">
                                                 {/* Product Name + Price */}
                                                 <div>
-                                                    <h3 className="text-white font-medium text-base leading-relaxed">
+                                                    <h3 className="text-[var(--text-primary)] font-medium text-base leading-relaxed">
                                                         {item.product_name || (isPrinting ? 'Đơn in 3D' : isCustom ? 'Đơn thiết kế riêng' : 'Sản phẩm')}
                                                     </h3>
-                                                    <p className="text-white font-semibold mt-1">
+                                                    <p className="text-[var(--text-primary)] font-semibold mt-1">
                                                         {(item.total_price || 0).toLocaleString('vi-VN')}đ
                                                     </p>
                                                 </div>
@@ -434,20 +410,20 @@ export default function AccountOrderDetailPage() {
                                                 {/* Details list */}
                                                 <div className="space-y-2 text-sm">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-white/40">•</span>
-                                                        <span className="text-white/60">Số lượng:</span>
-                                                        <span className="text-white">{item.quantity}</span>
+                                                        <span className="text-[var(--text-tertiary)]">•</span>
+                                                        <span className="text-[var(--text-secondary)]">Số lượng:</span>
+                                                        <span className="text-[var(--text-primary)]">{item.quantity}</span>
                                                     </div>
 
                                                     {item.configuration?.size && (
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-white/40">•</span>
-                                                            <span className="text-white/60">Size:</span>
-                                                            <span className="text-white">{item.configuration.size}</span>
+                                                            <span className="text-[var(--text-tertiary)]">•</span>
+                                                            <span className="text-[var(--text-secondary)]">Size:</span>
+                                                            <span className="text-[var(--text-primary)]">{item.configuration.size}</span>
                                                         </div>
                                                     )}
 
-                                                    {/* ═══ IN 3D: Hiển thị settings theo loại ═══ */}
+                                                    {/* IN 3D: Hiển thị settings theo loại */}
                                                     {isPrinting && (() => {
                                                         const printType = item.configuration?.type?.toLowerCase();
                                                         const isFdm = printType === 'fdm';
@@ -456,41 +432,41 @@ export default function AccountOrderDetailPage() {
                                                                 {/* Print Type: FDM or Resin */}
                                                                 {item.configuration?.type && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-white/40">•</span>
-                                                                        <span className="text-white/60">Loại in:</span>
-                                                                        <span className="text-white uppercase font-medium">{item.configuration.type}</span>
+                                                                        <span className="text-[var(--text-tertiary)]">•</span>
+                                                                        <span className="text-[var(--text-secondary)]">Loại in:</span>
+                                                                        <span className="text-[var(--text-primary)] uppercase font-medium">{item.configuration.type}</span>
                                                                     </div>
                                                                 )}
                                                                 {/* Color — all types */}
                                                                 {item.configuration?.color && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-white/40">•</span>
-                                                                        <span className="text-white/60">Màu:</span>
-                                                                        <span className="text-white capitalize">{item.configuration.color}</span>
+                                                                        <span className="text-[var(--text-tertiary)]">•</span>
+                                                                        <span className="text-[var(--text-secondary)]">Màu:</span>
+                                                                        <span className="text-[var(--text-primary)] capitalize">{item.configuration.color}</span>
                                                                     </div>
                                                                 )}
                                                                 {/* FDM-only: Infill */}
                                                                 {isFdm && item.configuration?.infill && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-white/40">•</span>
-                                                                        <span className="text-white/60">Infill:</span>
-                                                                        <span className="text-white">{item.configuration.infill}%</span>
+                                                                        <span className="text-[var(--text-tertiary)]">•</span>
+                                                                        <span className="text-[var(--text-secondary)]">Infill:</span>
+                                                                        <span className="text-[var(--text-primary)]">{item.configuration.infill}%</span>
                                                                     </div>
                                                                 )}
                                                                 {/* FDM-only: Layer Height */}
                                                                 {isFdm && item.configuration?.layerHeight && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-white/40">•</span>
-                                                                        <span className="text-white/60">Layer:</span>
-                                                                        <span className="text-white">{item.configuration.layerHeight}mm</span>
+                                                                        <span className="text-[var(--text-tertiary)]">•</span>
+                                                                        <span className="text-[var(--text-secondary)]">Layer:</span>
+                                                                        <span className="text-[var(--text-primary)]">{item.configuration.layerHeight}mm</span>
                                                                     </div>
                                                                 )}
                                                                 {/* File Name */}
                                                                 {(item.configuration?.fileName || item.configuration?.file_name) && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-white/40">•</span>
-                                                                        <span className="text-white/60">File:</span>
-                                                                        <span className="text-white truncate max-w-[200px]">
+                                                                        <span className="text-[var(--text-tertiary)]">•</span>
+                                                                        <span className="text-[var(--text-secondary)]">File:</span>
+                                                                        <span className="text-[var(--text-primary)] truncate max-w-[200px]">
                                                                             {item.configuration.fileName || item.configuration.file_name}
                                                                         </span>
                                                                     </div>
@@ -498,9 +474,9 @@ export default function AccountOrderDetailPage() {
                                                                 {/* Weight */}
                                                                 {item.configuration?.grams && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-white/40">•</span>
-                                                                        <span className="text-white/60">Khối lượng:</span>
-                                                                        <span className="text-white">{item.configuration.grams}g</span>
+                                                                        <span className="text-[var(--text-tertiary)]">•</span>
+                                                                        <span className="text-[var(--text-secondary)]">Khối lượng:</span>
+                                                                        <span className="text-[var(--text-primary)]">{item.configuration.grams}g</span>
                                                                     </div>
                                                                 )}
                                                             </>
@@ -508,26 +484,26 @@ export default function AccountOrderDetailPage() {
                                                     })()}
 
 
-                                                    {/* ═══ CUSTOM: Hiển thị loại custom ═══ */}
+                                                    {/* CUSTOM: Hiển thị loại custom */}
                                                     {isCustom && item.configuration?.custom_type && (
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-white/40">•</span>
-                                                            <span className="text-white/60">Loại:</span>
-                                                            <span className="text-white capitalize">{item.configuration.custom_type}</span>
+                                                            <span className="text-[var(--text-tertiary)]">•</span>
+                                                            <span className="text-[var(--text-secondary)]">Loại:</span>
+                                                            <span className="text-[var(--text-primary)] capitalize">{item.configuration.custom_type}</span>
                                                         </div>
                                                     )}
                                                 </div>
 
-                                                {/* ═══ CUSTOM ORDER SECTION ═══ */}
+                                                {/* CUSTOM ORDER SECTION */}
                                                 {isCustom && (
                                                     <div className="space-y-4 pt-2">
                                                         {/* Custom Note - User's request */}
                                                         {(item.custom_note || item.configuration?.custom_type) && (
-                                                            <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
-                                                                <p className="text-white/50 text-xs font-medium mb-2 flex items-center gap-1.5">
+                                                            <div className="p-4 bg-[var(--material-glass)] rounded-xl border border-[var(--border-color)]">
+                                                                <p className="text-[var(--text-secondary)] text-xs font-medium mb-2 flex items-center gap-1.5">
                                                                     📝 Yêu cầu của bạn
                                                                 </p>
-                                                                <p className="text-white/80 text-sm leading-relaxed">
+                                                                <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
                                                                     {item.custom_note || `Loại: ${item.configuration?.custom_type || 'Custom'}, Size: ${item.configuration?.size || 'Chưa xác định'}`}
                                                                 </p>
                                                             </div>
@@ -537,7 +513,7 @@ export default function AccountOrderDetailPage() {
                                                         {item.preview_images && item.preview_images.length > 0 && (
                                                             <div className="p-4 bg-gradient-to-br from-cyan-500/[0.03] to-purple-500/[0.03] rounded-xl border border-cyan-500/10">
                                                                 <div className="flex items-center justify-between mb-3">
-                                                                    <p className="text-white/50 text-xs font-medium flex items-center gap-1.5">
+                                                                    <p className="text-[var(--text-secondary)] text-xs font-medium flex items-center gap-1.5">
                                                                         📷 Preview thiết kế (Admin gửi)
                                                                     </p>
                                                                     {/* Preview Status Badge */}
@@ -564,7 +540,7 @@ export default function AccountOrderDetailPage() {
                                                                             href={img}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
-                                                                            className="aspect-square rounded-xl bg-white/5 overflow-hidden hover:ring-2 ring-cyan-400/50 transition-all"
+                                                                            className="aspect-square rounded-xl bg-[var(--material-glass)] overflow-hidden hover:ring-2 ring-cyan-400/50 transition-all"
                                                                         >
                                                                             <img
                                                                                 src={img}
@@ -579,11 +555,11 @@ export default function AccountOrderDetailPage() {
                                                     </div>
                                                 )}
 
-                                                {/* Footer - Only show tracking info, no duplicate status */}
+                                                {/* Footer - Only show tracking info */}
                                                 {(item.shipping_provider || item.tracking_code || item.delivered_at) && (
-                                                    <div className="pt-4 border-t border-white/[0.06] space-y-1">
+                                                    <div className="pt-4 border-t border-[var(--border-color)] space-y-1">
                                                         {(item.shipping_provider || item.tracking_code) && (
-                                                            <p className="text-sm text-white/60">
+                                                            <p className="text-sm text-[var(--text-secondary)]">
                                                                 Mã vận chuyển: {item.shipping_provider && `${item.shipping_provider} - `}{item.tracking_code}
                                                             </p>
                                                         )}
@@ -608,28 +584,28 @@ export default function AccountOrderDetailPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Chi tiết đơn Custom</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiết đơn Custom</h2>
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="p-4 bg-white/5 rounded-xl">
-                                    <p className="text-white/50 text-sm">Loại</p>
-                                    <p className="text-white font-medium capitalize">{order.custom_config.type}</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                    <p className="text-[var(--text-secondary)] text-sm">Loại</p>
+                                    <p className="text-[var(--text-primary)] font-medium capitalize">{order.custom_config.type}</p>
                                 </div>
-                                <div className="p-4 bg-white/5 rounded-xl">
-                                    <p className="text-white/50 text-sm">Kích thước</p>
-                                    <p className="text-white font-medium">{order.custom_config.size}</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                    <p className="text-[var(--text-secondary)] text-sm">Kích thước</p>
+                                    <p className="text-[var(--text-primary)] font-medium">{order.custom_config.size}</p>
                                 </div>
                             </div>
                             {order.custom_config.notes && (
-                                <div className="p-4 bg-white/5 rounded-xl mb-4">
-                                    <p className="text-white/50 text-sm">Ghi chú</p>
-                                    <p className="text-white">{order.custom_config.notes}</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl mb-4">
+                                    <p className="text-[var(--text-secondary)] text-sm">Ghi chú</p>
+                                    <p className="text-[var(--text-primary)]">{order.custom_config.notes}</p>
                                 </div>
                             )}
                             {order.custom_config.images?.length > 0 && (
                                 <div>
-                                    <p className="text-white/50 text-sm mb-2">Ảnh tham khảo</p>
+                                    <p className="text-[var(--text-secondary)] text-sm mb-2">Ảnh tham khảo</p>
                                     <div className="grid grid-cols-3 gap-2">
                                         {order.custom_config.images.map((img, i) => (
                                             <a
@@ -637,7 +613,7 @@ export default function AccountOrderDetailPage() {
                                                 href={img.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="aspect-square rounded-xl bg-white/10 overflow-hidden hover:ring-2 ring-white/50 transition-all"
+                                                className="aspect-square rounded-xl bg-[var(--material-glass)] overflow-hidden hover:ring-2 ring-[var(--text-secondary)] transition-all"
                                             >
                                                 {(!img.thumbnail?.includes('[object Object]') && !img.url?.includes('[object Object]')) && (
                                                     <img
@@ -656,7 +632,7 @@ export default function AccountOrderDetailPage() {
 
 
 
-                    {/* ═══ FINISHED PRODUCT GALLERY ═══ */}
+                    {/* FINISHED PRODUCT GALLERY */}
                     {order.order_type === 'custom' && order.finished_images && order.finished_images.length > 0 && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
@@ -664,7 +640,7 @@ export default function AccountOrderDetailPage() {
                             transition={{ delay: 0.2 }}
                             className="bg-gradient-to-br from-teal-500/10 to-emerald-500/10 rounded-2xl border border-teal-500/30 p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                 ⭐ Sản phẩm hoàn thiện
                             </h2>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -674,12 +650,12 @@ export default function AccountOrderDetailPage() {
                                         href={img.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="group relative aspect-square rounded-xl bg-white/5 overflow-hidden hover:ring-2 ring-teal-400/50 transition-all"
+                                        className="group relative aspect-square rounded-xl bg-[var(--material-glass)] overflow-hidden hover:ring-2 ring-teal-400/50 transition-all"
                                     >
                                         <img src={img.url} alt={img.label || `Finished ${i + 1}`} className="w-full h-full object-cover" />
                                         {img.label && (
                                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
-                                                <p className="text-white/80 text-xs truncate">{img.label}</p>
+                                                <p className="text-[var(--text-secondary)] text-xs truncate">{img.label}</p>
                                             </div>
                                         )}
                                     </a>
@@ -696,30 +672,30 @@ export default function AccountOrderDetailPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Chi tiết đơn In 3D</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiết đơn In 3D</h2>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                <div className="p-4 bg-white/5 rounded-xl">
-                                    <p className="text-white/50 text-sm">Loại in</p>
-                                    <p className="text-white font-medium uppercase">{order.printing_config.type}</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                    <p className="text-[var(--text-secondary)] text-sm">Loại in</p>
+                                    <p className="text-[var(--text-primary)] font-medium uppercase">{order.printing_config.type}</p>
                                 </div>
-                                <div className="p-4 bg-white/5 rounded-xl">
-                                    <p className="text-white/50 text-sm">Màu</p>
-                                    <p className="text-white font-medium capitalize">{order.printing_config.color}</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                    <p className="text-[var(--text-secondary)] text-sm">Màu</p>
+                                    <p className="text-[var(--text-primary)] font-medium capitalize">{order.printing_config.color}</p>
                                 </div>
-                                <div className="p-4 bg-white/5 rounded-xl">
-                                    <p className="text-white/50 text-sm">Số lượng</p>
-                                    <p className="text-white font-medium">×{order.printing_config.quantity}</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                    <p className="text-[var(--text-secondary)] text-sm">Số lượng</p>
+                                    <p className="text-[var(--text-primary)] font-medium">×{order.printing_config.quantity}</p>
                                 </div>
-                                <div className="p-4 bg-white/5 rounded-xl">
-                                    <p className="text-white/50 text-sm">Khối lượng</p>
-                                    <p className="text-white font-medium">{order.printing_config.analysis?.grams || 0}g</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                    <p className="text-[var(--text-secondary)] text-sm">Khối lượng</p>
+                                    <p className="text-[var(--text-primary)] font-medium">{order.printing_config.analysis?.grams || 0}g</p>
                                 </div>
                             </div>
                             {order.printing_config.files?.length > 0 && (
-                                <div className="p-4 bg-white/5 rounded-xl">
-                                    <p className="text-white/50 text-sm mb-2">File 3D</p>
+                                <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                    <p className="text-[var(--text-secondary)] text-sm mb-2">File 3D</p>
                                     {order.printing_config.files.map((file, i) => (
                                         <a
                                             key={i}
@@ -748,15 +724,15 @@ export default function AccountOrderDetailPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Địa chỉ giao hàng</h2>
                             <div className="space-y-1">
-                                <p className="text-white font-medium">
+                                <p className="text-[var(--text-primary)] font-medium">
                                     {(order.shipping_address as any).full_name || order.shipping_address.name}
                                 </p>
-                                <p className="text-white/70">{order.shipping_address.phone}</p>
-                                <p className="text-white/50 leading-relaxed">
+                                <p className="text-[var(--text-secondary)]">{order.shipping_address.phone}</p>
+                                <p className="text-[var(--text-secondary)] leading-relaxed">
                                     {[
                                         (order.shipping_address as any).address_line || order.shipping_address.address,
                                         (order.shipping_address as any).ward || order.shipping_address.ward,
@@ -773,17 +749,17 @@ export default function AccountOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">Thanh toán</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toán</h2>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-white/70">Tạm tính</span>
-                                <span className="text-white">{(order.subtotal || order.total || 0).toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
+                                <span className="text-[var(--text-primary)]">{(order.subtotal || order.total || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="border-t border-white/10 pt-3 flex justify-between">
-                                <span className="text-white font-medium">Tổng cộng</span>
-                                <span className="text-white font-bold">{(order.total || 0).toLocaleString('vi-VN')}đ</span>
+                            <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
+                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
+                                <span className="text-[var(--text-primary)] font-bold">{(order.total || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
                             {order.deposit_amount !== undefined && order.deposit_amount > 0 && (
                                 <div className="flex justify-between text-green-400">
@@ -806,10 +782,10 @@ export default function AccountOrderDetailPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.45 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Ghi chú</h2>
-                            <p className="text-white/70">{order.customer_note}</p>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú</h2>
+                            <p className="text-[var(--text-secondary)]">{order.customer_note}</p>
                         </motion.div>
                     )}
 
@@ -818,13 +794,13 @@ export default function AccountOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.5 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-3"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-3"
                     >
                         <a
                             href="https://zalo.me/0901234567"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block w-full py-3 rounded-xl bg-white text-black font-medium text-center hover:bg-white/90 transition-colors"
+                            className="block w-full py-3 rounded-xl bg-[var(--text-primary)] text-[var(--bg-void)] font-medium text-center hover:opacity-90 transition-colors"
                         >
                             Liên hệ hỗ trợ
                         </a>

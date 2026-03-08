@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { getBankConfig, BANK_INFO, type BankCode } from '@/lib/vietqr';
 import { CheckCircle, Box, Boxes, PenLine, Info } from 'lucide-react';
 
@@ -21,8 +21,8 @@ interface SubOrder {
 
 interface MasterOrder {
     id: string;
-    order_number: string; // Primary identifier for master_orders
-    order_code: string;   // Fallback for compatibility
+    order_number: string;
+    order_code: string;
     subtotal: number;
     shipping: number;
     total: number;
@@ -42,7 +42,6 @@ interface MasterOrder {
     custom_orders?: { order_number: string; status: string; estimated_price: number }[];
 }
 
-// Icons
 const CheckIcon = () => (
     <CheckCircle size={64} className="text-green-400" strokeWidth={2} />
 );
@@ -72,7 +71,7 @@ const getTypeColor = (type: string) => {
         case 'product': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
         case 'print': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
         case 'custom': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-        default: return 'bg-white/10 text-white/70';
+        default: return 'bg-[var(--material-glass)] text-[var(--text-secondary)]';
     }
 };
 
@@ -87,7 +86,6 @@ export default function CheckoutSuccessPage() {
     useEffect(() => {
         const fetchOrder = async () => {
             try {
-                // Use new unified lookup API that searches all order tables
                 const res = await fetch(`/api/orders/lookup?id=${orderId}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -104,16 +102,13 @@ export default function CheckoutSuccessPage() {
                             payment_status: orderData.payment_status,
                             created_at: orderData.created_at,
                             address: orderData.shipping_address || {},
-                            // Store payment info for QR
                             payment: orderData.payment,
                         } as any);
 
-                        // If already paid, skip payment view
                         if (orderData.payment_status === 'paid' || orderData.deposit_paid) {
                             setHasConfirmedPayment(true);
                         }
 
-                        // Set sub-orders based on order type with custom config
                         setSubOrders([{
                             type: orderData.order_type === 'custom' ? 'custom' : orderData.order_type === 'printing' ? 'print' : 'product',
                             orderNumber: orderData.order_code,
@@ -140,10 +135,10 @@ export default function CheckoutSuccessPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-32 pb-20 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-32 pb-20 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/50">Đang tải...</p>
+                    <div className="w-12 h-12 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-[var(--text-secondary)]">Đang tải...</p>
                 </div>
             </div>
         );
@@ -151,7 +146,7 @@ export default function CheckoutSuccessPage() {
 
     if (!order) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-32 pb-20 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-32 pb-20 flex items-center justify-center">
                 <div className="text-center">
                     <p className="text-red-400 mb-4">Không tìm thấy đơn hàng</p>
                     <Link href="/">
@@ -162,13 +157,11 @@ export default function CheckoutSuccessPage() {
         );
     }
 
-    // 1. PAYMENT VIEW (Shown first if not paid/confirmed)
     if (!hasConfirmedPayment) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orderAny = order as any;
         const payment = orderAny?.payment;
 
-        // Calculate deposit based on order type: custom = 50%, others = 100%
         const orderType = subOrders[0]?.type || 'product';
         const isCustomOrder = orderType === 'custom';
         const depositPercentage = isCustomOrder ? 0.5 : 1.0;
@@ -182,16 +175,15 @@ export default function CheckoutSuccessPage() {
         const accountName = payment?.account_name || 'MINWSUN';
 
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
                 <div className="max-w-[600px] mx-auto px-6">
                     <AnimatedSection className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-white mb-2">Vui Lòng Thanh Toán</h1>
-                        <p className="text-white/60">Quét mã QR để hoàn tất đơn hàng</p>
+                        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Vui Lòng Thanh Toán</h1>
+                        <p className="text-[var(--text-secondary)]">Quét mã QR để hoàn tất đơn hàng</p>
                     </AnimatedSection>
 
                     <AnimatedSection delay={0.1}>
-                        <div className="bg-[#1D1D1F] rounded-3xl p-8 mb-6 border border-white/5">
-                            {/* QR Code */}
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-8 mb-6 border border-[var(--border-color)]">
                             <div className="bg-white rounded-2xl p-4 max-w-[280px] mx-auto mb-8 shadow-2xl">
                                 <img
                                     src={qrUrl}
@@ -201,30 +193,29 @@ export default function CheckoutSuccessPage() {
                                 <p className="text-center text-xs text-gray-500 mt-2 font-medium">Quét mã để chuyển khoản tự động</p>
                             </div>
 
-                            {/* Bank Info */}
                             <div className="space-y-4 mb-8">
-                                <div className="bg-white/5 rounded-xl p-4 space-y-3">
+                                <div className="bg-[var(--material-glass)] rounded-xl p-4 space-y-3">
                                     <div className="flex justify-between items-center text-sm">
-                                        <span className="text-white/50">Ngân hàng</span>
-                                        <span className="text-white font-medium">{bankName}</span>
+                                        <span className="text-[var(--text-secondary)]">Ngân hàng</span>
+                                        <span className="text-[var(--text-primary)] font-medium">{bankName}</span>
                                     </div>
                                     <div className="flex justify-between items-center text-sm">
-                                        <span className="text-white/50">Số tài khoản</span>
+                                        <span className="text-[var(--text-secondary)]">Số tài khoản</span>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-white font-mono text-lg">{accountNo}</span>
+                                            <span className="text-[var(--text-primary)] font-mono text-lg">{accountNo}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center text-sm">
-                                        <span className="text-white/50">Chủ tài khoản</span>
-                                        <span className="text-white font-medium uppercase">{accountName}</span>
+                                        <span className="text-[var(--text-secondary)]">Chủ tài khoản</span>
+                                        <span className="text-[var(--text-primary)] font-medium uppercase">{accountName}</span>
                                     </div>
-                                    <div className="h-px bg-white/10 my-2" />
+                                    <div className="h-px bg-[var(--border-color)] my-2" />
                                     <div className="flex justify-between items-center">
-                                        <span className="text-white/50">{depositLabel}</span>
+                                        <span className="text-[var(--text-secondary)]">{depositLabel}</span>
                                         <span className="text-green-400 font-bold text-xl">{depositAmount.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex justify-between items-center pt-2">
-                                        <span className="text-white/50">Nội dung CK</span>
+                                        <span className="text-[var(--text-secondary)]">Nội dung CK</span>
                                         <span className="text-yellow-400 font-mono font-bold bg-yellow-400/10 px-3 py-1 rounded-lg select-all cursor-text">{transferContent}</span>
                                     </div>
                                 </div>
@@ -238,7 +229,7 @@ export default function CheckoutSuccessPage() {
                             </div>
 
                             <Button
-                                variant="primary"
+                                variant="default"
                                 size="lg"
                                 className="w-full h-14 text-lg font-medium shadow-lg shadow-primary/20"
                                 onClick={handleConfirmPayment}
@@ -250,7 +241,7 @@ export default function CheckoutSuccessPage() {
                         <div className="text-center">
                             <button
                                 onClick={() => setHasConfirmedPayment(true)}
-                                className="text-white/40 text-sm hover:text-white transition-colors"
+                                className="text-[var(--text-tertiary)] text-sm hover:text-[var(--text-primary)] transition-colors"
                             >
                                 Bỏ qua bước này (Thanh toán sau)
                             </button>
@@ -261,11 +252,9 @@ export default function CheckoutSuccessPage() {
         );
     }
 
-    // 2. SUCCESS VIEW (Shown after confirmation)
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[800px] mx-auto px-6">
-                {/* Success Header */}
                 <AnimatedSection className="text-center mb-12">
                     <motion.div
                         initial={{ scale: 0 }}
@@ -275,31 +264,29 @@ export default function CheckoutSuccessPage() {
                     >
                         <CheckIcon />
                     </motion.div>
-                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                    <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-4">
                         Đặt Hàng Thành Công!
                     </h1>
-                    <p className="text-white/60">
+                    <p className="text-[var(--text-secondary)]">
                         Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang chờ xác nhận thanh toán.
                     </p>
                 </AnimatedSection>
 
-                {/* Master Order Info */}
                 <AnimatedSection delay={0.1}>
-                    <div className="bg-[#1D1D1F] rounded-3xl p-8 mb-6">
+                    <div className="bg-[var(--material-panel)] rounded-3xl p-8 mb-6">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <p className="text-white/50 text-sm">Mã đơn hàng</p>
-                                <p className="text-2xl font-bold text-white font-mono">{orderId}</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Mã đơn hàng</p>
+                                <p className="text-2xl font-bold text-[var(--text-primary)] font-mono">{orderId}</p>
                             </div>
                             <div className="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-xl text-sm font-medium">
                                 Chờ xác nhận
                             </div>
                         </div>
 
-                        {/* Sub-orders */}
                         {subOrders.length > 0 && (
                             <div className="mb-6">
-                                <p className="text-white/50 text-sm mb-3">Chi tiết đơn hàng</p>
+                                <p className="text-[var(--text-secondary)] text-sm mb-3">Chi tiết đơn hàng</p>
                                 <div className="space-y-2">
                                     {subOrders.map((sub, index) => (
                                         <div
@@ -314,8 +301,8 @@ export default function CheckoutSuccessPage() {
                                             {sub.type === 'custom' && sub.customConfig && (
                                                 <div className="ml-8 space-y-1 text-sm">
                                                     <div className="flex gap-2">
-                                                        <span className="text-white/50">Loại:</span>
-                                                        <span className="text-white capitalize">
+                                                        <span className="text-[var(--text-secondary)]">Loại:</span>
+                                                        <span className="text-[var(--text-primary)] capitalize">
                                                             {sub.customConfig.type === 'single' ? 'Cá nhân (1 người)' :
                                                                 sub.customConfig.type === 'couple' ? 'Cặp đôi (2 người)' :
                                                                     sub.customConfig.type === 'group' ? 'Nhóm (3+ người)' :
@@ -323,8 +310,8 @@ export default function CheckoutSuccessPage() {
                                                         </span>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <span className="text-white/50">Kích thước:</span>
-                                                        <span className="text-white">
+                                                        <span className="text-[var(--text-secondary)]">Kích thước:</span>
+                                                        <span className="text-[var(--text-primary)]">
                                                             {sub.customConfig.size === 'S' ? 'S - 10cm' :
                                                                 sub.customConfig.size === 'M' ? 'M - 15cm' :
                                                                     sub.customConfig.size === 'L' ? 'L - 20cm' :
@@ -340,37 +327,35 @@ export default function CheckoutSuccessPage() {
                             </div>
                         )}
 
-                        {/* Order summary */}
                         {order && (
-                            <div className="border-t border-white/10 pt-6 space-y-3">
+                            <div className="border-t border-[var(--border-color)] pt-6 space-y-3">
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-white/60">Tạm tính</span>
-                                    <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                    <span className="text-[var(--text-secondary)]">Tạm tính</span>
+                                    <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-white/60">Phí vận chuyển</span>
-                                    <span className="text-white">{order.shipping.toLocaleString('vi-VN')}đ</span>
+                                    <span className="text-[var(--text-secondary)]">Phí vận chuyển</span>
+                                    <span className="text-[var(--text-primary)]">{order.shipping.toLocaleString('vi-VN')}đ</span>
                                 </div>
                                 <div className="flex justify-between font-medium">
-                                    <span className="text-white">Tổng cộng</span>
-                                    <span className="text-white text-lg">{order.total.toLocaleString('vi-VN')}đ</span>
+                                    <span className="text-[var(--text-primary)]">Tổng cộng</span>
+                                    <span className="text-[var(--text-primary)] text-lg">{order.total.toLocaleString('vi-VN')}đ</span>
                                 </div>
                             </div>
                         )}
                     </div>
                 </AnimatedSection>
 
-                {/* Delivery Address */}
                 {order?.address && (
                     <AnimatedSection delay={0.2}>
-                        <div className="bg-[#1D1D1F] rounded-3xl p-8 mb-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h3>
-                            <div className="text-white/70 space-y-2">
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-8 mb-6">
+                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Địa chỉ giao hàng</h3>
+                            <div className="text-[var(--text-secondary)] space-y-2">
                                 {order.address.full_name && (
-                                    <p className="font-medium text-white text-base">{order.address.full_name}</p>
+                                    <p className="font-medium text-[var(--text-primary)] text-base">{order.address.full_name}</p>
                                 )}
                                 {order.address.phone && (
-                                    <p className="text-sm text-white/60">{order.address.phone}</p>
+                                    <p className="text-sm text-[var(--text-secondary)]">{order.address.phone}</p>
                                 )}
                                 <p className="text-sm">
                                     {[
@@ -385,11 +370,10 @@ export default function CheckoutSuccessPage() {
                     </AnimatedSection>
                 )}
 
-                {/* Actions */}
                 <AnimatedSection delay={0.3}>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link href="/account/orders">
-                            <Button variant="primary" size="lg">
+                            <Button variant="default" size="lg">
                                 Xem đơn hàng của tôi
                             </Button>
                         </Link>

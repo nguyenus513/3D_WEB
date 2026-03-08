@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
 
 interface FormData {
@@ -222,14 +222,14 @@ export default function CompleteProfilePage() {
 
     if (status === 'loading') {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-20">
+        <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -243,33 +243,33 @@ export default function CompleteProfilePage() {
                             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                         </svg>
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Hoàn Tất Hồ Sơ</h1>
-                    <p className="text-white/60">Vui lòng điền thông tin để tiếp tục</p>
+                    <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Hoàn Tất Hồ Sơ</h1>
+                    <p className="text-[var(--text-secondary)]">Vui lòng điền thông tin để tiếp tục</p>
                 </div>
 
                 {/* Form */}
-                <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-6">
+                <div className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-6">
                     {/* Personal Info */}
                     <div className="space-y-4">
-                        <h3 className="text-white font-medium">Thông tin cá nhân</h3>
+                        <h3 className="text-[var(--text-primary)] font-medium">Thông tin cá nhân</h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-white/60 text-sm mb-2">Họ và tên *</label>
+                                <label className="block text-[var(--text-secondary)] text-sm mb-2">Họ và tên *</label>
                                 <input
                                     type="text"
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                    className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                     placeholder="Nguyễn Văn A"
                                 />
                             </div>
                             <div>
-                                <label className="block text-white/60 text-sm mb-2">Số điện thoại *</label>
+                                <label className="block text-[var(--text-secondary)] text-sm mb-2">Số điện thoại *</label>
                                 <input
                                     type="tel"
                                     value={formData.phone}
                                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                    className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                     placeholder="0901234567"
                                 />
                             </div>
@@ -277,14 +277,14 @@ export default function CompleteProfilePage() {
                     </div>
 
                     {/* Divider */}
-                    <div className="border-t border-white/10" />
+                    <div className="border-t border-[var(--border-color)]" />
 
                     {/* Address */}
                     <div className="space-y-4">
-                        <h3 className="text-white font-medium">Địa chỉ giao hàng <span className="text-white/40 text-sm font-normal">(không bắt buộc)</span></h3>
+                        <h3 className="text-[var(--text-primary)] font-medium">Địa chỉ giao hàng <span className="text-[var(--text-tertiary)] text-sm font-normal">(không bắt buộc)</span></h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2">
-                                <label className="block text-white/60 text-sm mb-2">Tỉnh/Thành phố *</label>
+                                <label className="block text-[var(--text-secondary)] text-sm mb-2">Tỉnh/Thành phố *</label>
                                 <select
                                     value={formData.provinceCode || ''}
                                     onChange={e => {
@@ -296,16 +296,16 @@ export default function CompleteProfilePage() {
                                             provinceName: province?.name || '',
                                         });
                                     }}
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer"
+                                    className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer"
                                 >
-                                    <option value="" className="bg-[#1D1D1F]">Chọn Tỉnh/Thành phố</option>
+                                    <option value="" className="bg-[var(--material-panel)]">Chọn Tỉnh/Thành phố</option>
                                     {provinces.map(p => (
-                                        <option key={p.code} value={p.code} className="bg-[#1D1D1F]">{p.name}</option>
+                                        <option key={p.code} value={p.code} className="bg-[var(--material-panel)]">{p.name}</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-white/60 text-sm mb-2">Quận/Huyện *</label>
+                                <label className="block text-[var(--text-secondary)] text-sm mb-2">Quận/Huyện *</label>
                                 <select
                                     value={formData.districtCode || ''}
                                     onChange={e => {
@@ -318,18 +318,18 @@ export default function CompleteProfilePage() {
                                         });
                                     }}
                                     disabled={!formData.provinceCode || loadingAddress}
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                    className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
                                 >
-                                    <option value="" className="bg-[#1D1D1F]">
+                                    <option value="" className="bg-[var(--material-panel)]">
                                         {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
                                     </option>
                                     {districts.map(d => (
-                                        <option key={d.code} value={d.code} className="bg-[#1D1D1F]">{d.name}</option>
+                                        <option key={d.code} value={d.code} className="bg-[var(--material-panel)]">{d.name}</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-white/60 text-sm mb-2">Phường/Xã *</label>
+                                <label className="block text-[var(--text-secondary)] text-sm mb-2">Phường/Xã *</label>
                                 <select
                                     value={formData.wardCode || ''}
                                     onChange={e => {
@@ -342,23 +342,23 @@ export default function CompleteProfilePage() {
                                         });
                                     }}
                                     disabled={!formData.districtCode || loadingAddress}
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                    className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
                                 >
-                                    <option value="" className="bg-[#1D1D1F]">
+                                    <option value="" className="bg-[var(--material-panel)]">
                                         {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
                                     </option>
                                     {wards.map(w => (
-                                        <option key={w.code} value={w.code} className="bg-[#1D1D1F]">{w.name}</option>
+                                        <option key={w.code} value={w.code} className="bg-[var(--material-panel)]">{w.name}</option>
                                     ))}
                                 </select>
                             </div>
                             <div className="col-span-2">
-                                <label className="block text-white/60 text-sm mb-2">Địa chỉ chi tiết *</label>
+                                <label className="block text-[var(--text-secondary)] text-sm mb-2">Địa chỉ chi tiết *</label>
                                 <input
                                     type="text"
                                     value={formData.addressLine}
                                     onChange={e => setFormData({ ...formData, addressLine: e.target.value })}
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                    className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                     placeholder="Số nhà, đường, ngõ..."
                                 />
                             </div>
@@ -377,7 +377,7 @@ export default function CompleteProfilePage() {
                     )}
 
                     {/* Submit Button */}
-                    <Button onClick={handleSubmit} disabled={loading} className="w-full">
+                    <Button variant="default" onClick={handleSubmit} disabled={loading} className="w-full">
                         {loading ? 'Đang lưu...' : 'Hoàn tất'}
                     </Button>
                 </div>

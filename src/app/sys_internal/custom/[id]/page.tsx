@@ -207,14 +207,14 @@ export default function AdminCustomDetailPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href={`${adminRoot}/orders/custom`} className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+                    <Link href={`${adminRoot}/orders/custom`} className="p-2 rounded-xl hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Đơn Custom</h1>
-                        <p className="text-white/50 mt-1">{order.order_code}</p>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Đơn Custom</h1>
+                        <p className="text-[var(--text-secondary)] mt-1">{order.order_code}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -231,25 +231,25 @@ export default function AdminCustomDetailPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">Thông tin khách hàng</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thông tin khách hàng</h2>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-white/50 text-sm">Tên</p>
-                                <p className="text-white font-medium">{order.profiles?.full_name || 'N/A'}</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Tên</p>
+                                <p className="text-[var(--text-primary)] font-medium">{order.profiles?.full_name || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-white/50 text-sm">Mã KH</p>
-                                <p className="text-white font-mono">{order.profiles?.customer_code || 'N/A'}</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Mã KH</p>
+                                <p className="text-[var(--text-primary)] font-mono">{order.profiles?.customer_code || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-white/50 text-sm">Email</p>
-                                <p className="text-white">{order.profiles?.email || 'N/A'}</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Email</p>
+                                <p className="text-[var(--text-primary)]">{order.profiles?.email || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-white/50 text-sm">SĐT</p>
-                                <p className="text-white">{order.profiles?.phone || 'N/A'}</p>
+                                <p className="text-[var(--text-secondary)] text-sm">SĐT</p>
+                                <p className="text-[var(--text-primary)]">{order.profiles?.phone || 'N/A'}</p>
                             </div>
                         </div>
                     </motion.div>
@@ -259,31 +259,31 @@ export default function AdminCustomDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">Chi tiết đơn Custom</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiết đơn Custom</h2>
                         <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div className="p-4 bg-white/5 rounded-xl">
-                                <p className="text-white/50 text-sm">Loại</p>
-                                <p className="text-white font-medium capitalize">{order.custom_config?.type || 'N/A'}</p>
+                            <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                <p className="text-[var(--text-secondary)] text-sm">Loại</p>
+                                <p className="text-[var(--text-primary)] font-medium capitalize">{order.custom_config?.type || 'N/A'}</p>
                             </div>
-                            <div className="p-4 bg-white/5 rounded-xl">
-                                <p className="text-white/50 text-sm">Kích thước</p>
-                                <p className="text-white font-medium">{order.custom_config?.size || 'N/A'}</p>
+                            <div className="p-4 bg-[var(--material-glass)] rounded-xl">
+                                <p className="text-[var(--text-secondary)] text-sm">Kích thước</p>
+                                <p className="text-[var(--text-primary)] font-medium">{order.custom_config?.size || 'N/A'}</p>
                             </div>
                         </div>
 
                         {order.custom_config?.notes && (
-                            <div className="p-4 bg-white/5 rounded-xl mb-4">
-                                <p className="text-white/50 text-sm mb-1">Ghi chú từ khách</p>
-                                <p className="text-white">{order.custom_config.notes}</p>
+                            <div className="p-4 bg-[var(--material-glass)] rounded-xl mb-4">
+                                <p className="text-[var(--text-secondary)] text-sm mb-1">Ghi chú từ khách</p>
+                                <p className="text-[var(--text-primary)]">{order.custom_config.notes}</p>
                             </div>
                         )}
 
                         {/* Customer Images */}
                         {order.custom_config?.images?.length > 0 && (
                             <div>
-                                <p className="text-white/50 text-sm mb-2">Ảnh tham khảo từ khách ({order.custom_config.images.length} ảnh)</p>
+                                <p className="text-[var(--text-secondary)] text-sm mb-2">Ảnh tham khảo từ khách ({order.custom_config.images.length} ảnh)</p>
                                 <div className="grid grid-cols-3 gap-3">
                                     {order.custom_config.images.map((img, i) => (
                                         <a
@@ -291,7 +291,7 @@ export default function AdminCustomDetailPage() {
                                             href={img.url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="aspect-square rounded-xl bg-white/10 overflow-hidden hover:ring-2 ring-white/50 transition-all"
+                                            className="aspect-square rounded-xl bg-[var(--material-glass)] overflow-hidden hover:ring-2 ring-white/50 transition-all"
                                         >
                                             <img
                                                 src={img.thumbnail || img.url}
@@ -311,13 +311,13 @@ export default function AdminCustomDetailPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Địa chỉ giao hàng</h2>
                             <div className="space-y-1">
-                                <p className="text-white font-medium">{order.shipping_address.name}</p>
-                                <p className="text-white/70">{order.shipping_address.phone}</p>
-                                <p className="text-white/50">
+                                <p className="text-[var(--text-primary)] font-medium">{order.shipping_address.name}</p>
+                                <p className="text-[var(--text-secondary)]">{order.shipping_address.phone}</p>
+                                <p className="text-[var(--text-secondary)]">
                                     {order.shipping_address.address}, {order.shipping_address.ward}, {order.shipping_address.district}, {order.shipping_address.province}
                                 </p>
                             </div>
@@ -329,20 +329,20 @@ export default function AdminCustomDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">Ghi chú Admin</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú Admin</h2>
                         <textarea
                             value={adminNote}
                             onChange={(e) => setAdminNote(e.target.value)}
                             placeholder="Ghi chú nội bộ..."
-                            className="w-full p-4 bg-white/5 rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/20"
+                            className="w-full p-4 bg-[var(--material-glass)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/20"
                             rows={3}
                         />
                         <button
                             onClick={handleSaveNote}
                             disabled={saving}
-                            className="mt-3 px-4 py-2 bg-white/10 rounded-xl text-white text-sm hover:bg-white/20 disabled:opacity-50"
+                            className="mt-3 px-4 py-2 bg-[var(--material-glass)] rounded-xl text-[var(--text-primary)] text-sm hover:bg-[var(--material-glass)] disabled:opacity-50"
                         >
                             {saving ? 'Đang lưu...' : 'Lưu ghi chú'}
                         </button>
@@ -356,24 +356,24 @@ export default function AdminCustomDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h3 className="text-lg font-semibold text-white mb-4">Thanh toán</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toán</h3>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-white/50">Tạm tính</span>
-                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-white/50">Tạm tính</span>
-                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="border-t border-white/10 pt-3 flex justify-between">
-                                <span className="text-white font-medium">Tổng cộng</span>
-                                <span className="text-white font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                            <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
+                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
+                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-white/50">Đã cọc (50%)</span>
+                                <span className="text-[var(--text-secondary)]">Đã cọc (50%)</span>
                                 <span className={order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}>
                                     {order.deposit_amount.toLocaleString('vi-VN')}đ
                                     {!order.deposit_paid && ' (chưa TT)'}
@@ -381,8 +381,8 @@ export default function AdminCustomDetailPage() {
                             </div>
                             {remaining > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-white/50">Còn lại</span>
-                                    <span className="text-white">{remaining.toLocaleString('vi-VN')}đ</span>
+                                    <span className="text-[var(--text-secondary)]">Còn lại</span>
+                                    <span className="text-[var(--text-primary)]">{remaining.toLocaleString('vi-VN')}đ</span>
                                 </div>
                             )}
                         </div>
@@ -392,7 +392,7 @@ export default function AdminCustomDetailPage() {
                             <button
                                 onClick={handleConfirmPayment}
                                 disabled={saving}
-                                className="w-full mt-4 py-3 bg-green-500 text-white font-medium rounded-xl hover:bg-green-600 disabled:opacity-50"
+                                className="w-full mt-4 py-3 bg-green-500 text-[var(--text-primary)] font-medium rounded-xl hover:bg-green-600 disabled:opacity-50"
                             >
                                 {saving ? 'Đang xử lý...' : '✓ Xác nhận đã nhận cọc'}
                             </button>
@@ -404,24 +404,24 @@ export default function AdminCustomDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h3 className="text-lg font-semibold text-white mb-4">Timeline</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Timeline</h3>
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                                <span className="text-white/50">Tạo đơn</span>
-                                <span className="text-white">{formatDate(order.created_at)}</span>
+                                <span className="text-[var(--text-secondary)]">Tạo đơn</span>
+                                <span className="text-[var(--text-primary)]">{formatDate(order.created_at)}</span>
                             </div>
                             {order.paid_at && (
                                 <div className="flex justify-between">
-                                    <span className="text-white/50">Thanh toán</span>
-                                    <span className="text-white">{formatDate(order.paid_at)}</span>
+                                    <span className="text-[var(--text-secondary)]">Thanh toán</span>
+                                    <span className="text-[var(--text-primary)]">{formatDate(order.paid_at)}</span>
                                 </div>
                             )}
                             {order.shipping_code && (
                                 <div className="flex justify-between">
-                                    <span className="text-white/50">Mã vận đơn</span>
-                                    <span className="text-white font-mono">{order.shipping_code}</span>
+                                    <span className="text-[var(--text-secondary)]">Mã vận đơn</span>
+                                    <span className="text-[var(--text-primary)] font-mono">{order.shipping_code}</span>
                                 </div>
                             )}
                         </div>
@@ -432,15 +432,15 @@ export default function AdminCustomDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-3"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-3"
                     >
-                        <h3 className="text-lg font-semibold text-white mb-4">Thao tác</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thao tác</h3>
 
                         {nextStatus && (
                             <button
                                 onClick={() => handleUpdateStatus(nextStatus)}
                                 disabled={saving}
-                                className="w-full py-3 bg-white text-black font-medium rounded-xl hover:bg-white/90 disabled:opacity-50"
+                                className="w-full py-3 bg-white text-black font-medium rounded-xl hover:bg-[var(--material-glass)] disabled:opacity-50"
                             >
                                 {saving ? 'Đang xử lý...' : `→ ${statusLabels[nextStatus]}`}
                             </button>

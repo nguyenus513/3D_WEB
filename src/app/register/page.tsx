@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signIn } from 'next-auth/react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
 
 type StepType = 1 | 2 | 3 | 4 | 'otp' | 'success';
@@ -401,7 +401,7 @@ export default function RegisterPage() {
     // Success screen
     if (currentStep === 'success') {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-20">
+            <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -412,8 +412,8 @@ export default function RegisterPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-4">Đăng Ký Thành Công!</h1>
-                    <p className="text-white/60 mb-8">Tài khoản đã được kích hoạt. Bây giờ bạn có thể đăng nhập.</p>
+                    <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-4">Đăng Ký Thành Công!</h1>
+                    <p className="text-[var(--text-secondary)] mb-8">Tài khoản đã được kích hoạt. Bây giờ bạn có thể đăng nhập.</p>
                     <Button onClick={() => router.push('/login')} className="w-full">
                         Đăng nhập ngay
                     </Button>
@@ -425,7 +425,7 @@ export default function RegisterPage() {
     // OTP screen
     if (currentStep === 'otp') {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-20">
+            <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -437,8 +437,8 @@ export default function RegisterPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <h1 className="text-2xl font-bold text-white mb-2">Xác Thực Email</h1>
-                        <p className="text-white/60">Nhập mã 6 số đã gửi đến <span className="text-white">{formData.email}</span></p>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Xác Thực Email</h1>
+                        <p className="text-[var(--text-secondary)]">Nhập mã 6 số đã gửi đến <span className="text-[var(--text-primary)]">{formData.email}</span></p>
                     </div>
 
                     <div className="flex justify-center gap-3 mb-6">
@@ -452,7 +452,7 @@ export default function RegisterPage() {
                                 value={digit}
                                 onChange={e => handleOtpChange(idx, e.target.value)}
                                 onKeyDown={e => handleOtpKeyDown(idx, e)}
-                                className="w-12 h-14 text-center text-2xl font-bold bg-white/5 border border-white/20 rounded-xl text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+                                className="w-12 h-14 text-center text-2xl font-bold bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
                             />
                         ))}
                     </div>
@@ -470,7 +470,7 @@ export default function RegisterPage() {
                     <button
                         onClick={handleResendOtp}
                         disabled={resending}
-                        className="w-full text-white/60 hover:text-white text-sm"
+                        className="w-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm"
                     >
                         {resending ? 'Đang gửi...' : 'Gửi lại mã'}
                     </button>
@@ -481,7 +481,7 @@ export default function RegisterPage() {
 
     // Main form
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-20">
+        <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -489,14 +489,14 @@ export default function RegisterPage() {
             >
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-2">Đăng Ký</h1>
-                    <p className="text-white/60">Tạo tài khoản để đặt hàng</p>
+                    <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Đăng Ký</h1>
+                    <p className="text-[var(--text-secondary)]">Tạo tài khoản để đặt hàng</p>
                 </div>
 
                 {/* Google Sign Up */}
                 <button
                     onClick={() => signIn('google', { callbackUrl: '/api/auth/google-callback' })}
-                    className="w-full flex items-center justify-center gap-3 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-medium transition-all"
+                    className="w-full flex items-center justify-center gap-3 py-4 bg-[var(--material-glass)] hover:opacity-80 border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] font-medium transition-all"
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -509,9 +509,9 @@ export default function RegisterPage() {
 
                 {/* Divider */}
                 <div className="flex items-center gap-4 my-6">
-                    <div className="flex-1 h-px bg-white/10" />
-                    <span className="text-white/40 text-sm">hoặc đăng ký bằng email</span>
-                    <div className="flex-1 h-px bg-white/10" />
+                    <div className="flex-1 h-px bg-[var(--material-glass)]" />
+                    <span className="text-[var(--text-tertiary)] text-sm">hoặc đăng ký bằng email</span>
+                    <div className="flex-1 h-px bg-[var(--material-glass)]" />
                 </div>
 
                 {/* Progress */}
@@ -520,19 +520,19 @@ export default function RegisterPage() {
                         <div key={step.id} className="flex-1 relative">
                             <div className="flex flex-col items-center">
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${typeof currentStep === 'number' && currentStep > step.id
-                                    ? 'bg-emerald-500 text-white'
+                                    ? 'bg-emerald-500 text-[var(--text-primary)]'
                                     : currentStep === step.id
-                                        ? 'bg-cyan-500 text-white'
-                                        : 'bg-white/10 text-white/40'
+                                        ? 'bg-cyan-500 text-[var(--text-primary)]'
+                                        : 'bg-[var(--material-glass)] text-[var(--text-tertiary)]'
                                     }`}>
                                     {typeof currentStep === 'number' && currentStep > step.id ? '✓' : step.id}
                                 </div>
-                                <span className={`mt-2 text-xs ${currentStep === step.id ? 'text-white' : 'text-white/40'}`}>
+                                <span className={`mt-2 text-xs ${currentStep === step.id ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
                                     {step.title}
                                 </span>
                             </div>
                             {idx < steps.length - 1 && (
-                                <div className={`absolute top-5 left-1/2 w-full h-0.5 -z-10 ${typeof currentStep === 'number' && currentStep > step.id ? 'bg-emerald-500' : 'bg-white/10'
+                                <div className={`absolute top-5 left-1/2 w-full h-0.5 -z-10 ${typeof currentStep === 'number' && currentStep > step.id ? 'bg-emerald-500' : 'bg-[var(--material-glass)]'
                                     }`} />
                             )}
                         </div>
@@ -540,7 +540,7 @@ export default function RegisterPage() {
                 </div>
 
                 {/* Form */}
-                <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6">
+                <div className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6">
                     <AnimatePresence mode="wait">
                         {/* Step 1: Account */}
                         {currentStep === 1 && (
@@ -552,41 +552,41 @@ export default function RegisterPage() {
                                 className="space-y-4"
                             >
                                 <div>
-                                    <label className="block text-white/60 text-sm mb-2">Email</label>
+                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Email</label>
                                     <input
                                         type="email"
                                         value={formData.email}
                                         onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                         placeholder="your@email.com"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-white/60 text-sm mb-2">Mật khẩu</label>
+                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Mật khẩu</label>
                                     <div className="relative">
                                         <input
                                             type={showPassword ? 'text' : 'password'}
                                             value={formData.password}
                                             onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none pr-12"
+                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none pr-12"
                                             placeholder="Tối thiểu 6 ký tự"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                                         >
                                             {showPassword ? '🙈' : '👁️'}
                                         </button>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-white/60 text-sm mb-2">Xác nhận mật khẩu</label>
+                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Xác nhận mật khẩu</label>
                                     <input
                                         type="password"
                                         value={formData.confirmPassword}
                                         onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                         placeholder="Nhập lại mật khẩu"
                                     />
                                 </div>
@@ -603,32 +603,32 @@ export default function RegisterPage() {
                                 className="space-y-4"
                             >
                                 <div>
-                                    <label className="block text-white/60 text-sm mb-2">Họ và tên</label>
+                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Họ và tên</label>
                                     <input
                                         type="text"
                                         value={formData.name}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                         placeholder="Nguyễn Văn A"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-white/60 text-sm mb-2">Số điện thoại</label>
+                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Số điện thoại</label>
                                     <input
                                         type="tel"
                                         value={formData.phone}
                                         onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                         placeholder="0901234567"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-white/60 text-sm mb-2">Instagram (tuỳ chọn)</label>
+                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Instagram (tuỳ chọn)</label>
                                     <input
                                         type="text"
                                         value={formData.instagram}
                                         onChange={e => setFormData({ ...formData, instagram: e.target.value })}
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                         placeholder="@username"
                                     />
                                 </div>
@@ -646,7 +646,7 @@ export default function RegisterPage() {
                             >
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="col-span-2">
-                                        <label className="block text-white/60 text-sm mb-2">Tỉnh/Thành phố</label>
+                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Tỉnh/Thành phố</label>
                                         <select
                                             value={formData.provinceCode || ''}
                                             onChange={e => {
@@ -658,16 +658,16 @@ export default function RegisterPage() {
                                                     provinceName: province?.name || '',
                                                 });
                                             }}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer"
+                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer"
                                         >
-                                            <option value="" className="bg-[#1D1D1F]">Chọn Tỉnh/Thành phố</option>
+                                            <option value="" className="bg-[var(--material-panel)]">Chọn Tỉnh/Thành phố</option>
                                             {provinces.map(p => (
-                                                <option key={p.code} value={p.code} className="bg-[#1D1D1F]">{p.name}</option>
+                                                <option key={p.code} value={p.code} className="bg-[var(--material-panel)]">{p.name}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-white/60 text-sm mb-2">Quận/Huyện</label>
+                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Quận/Huyện</label>
                                         <select
                                             value={formData.districtCode || ''}
                                             onChange={e => {
@@ -680,18 +680,18 @@ export default function RegisterPage() {
                                                 });
                                             }}
                                             disabled={!formData.provinceCode || loadingAddress}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
                                         >
-                                            <option value="" className="bg-[#1D1D1F]">
+                                            <option value="" className="bg-[var(--material-panel)]">
                                                 {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
                                             </option>
                                             {districts.map(d => (
-                                                <option key={d.code} value={d.code} className="bg-[#1D1D1F]">{d.name}</option>
+                                                <option key={d.code} value={d.code} className="bg-[var(--material-panel)]">{d.name}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-white/60 text-sm mb-2">Phường/Xã</label>
+                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Phường/Xã</label>
                                         <select
                                             value={formData.wardCode || ''}
                                             onChange={e => {
@@ -704,47 +704,47 @@ export default function RegisterPage() {
                                                 });
                                             }}
                                             disabled={!formData.districtCode || loadingAddress}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
                                         >
-                                            <option value="" className="bg-[#1D1D1F]">
+                                            <option value="" className="bg-[var(--material-panel)]">
                                                 {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
                                             </option>
                                             {wards.map(w => (
-                                                <option key={w.code} value={w.code} className="bg-[#1D1D1F]">{w.name}</option>
+                                                <option key={w.code} value={w.code} className="bg-[var(--material-panel)]">{w.name}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div className="col-span-2">
-                                        <label className="block text-white/60 text-sm mb-2">Địa chỉ chi tiết</label>
+                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Địa chỉ chi tiết</label>
                                         <input
                                             type="text"
                                             value={formData.addressLine}
                                             onChange={e => setFormData({ ...formData, addressLine: e.target.value })}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                             placeholder="Số nhà, đường, ngõ..."
                                         />
                                     </div>
                                 </div>
 
-                                <div className="border-t border-white/10 pt-4 mt-4">
-                                    <p className="text-white/40 text-xs mb-3">Thông tin người nhận</p>
+                                <div className="border-t border-[var(--border-color)] pt-4 mt-4">
+                                    <p className="text-[var(--text-tertiary)] text-xs mb-3">Thông tin người nhận</p>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-white/60 text-sm mb-2">Tên người nhận</label>
+                                            <label className="block text-[var(--text-secondary)] text-sm mb-2">Tên người nhận</label>
                                             <input
                                                 type="text"
                                                 value={formData.recipientName}
                                                 onChange={e => setFormData({ ...formData, recipientName: e.target.value })}
-                                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                                className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-white/60 text-sm mb-2">SĐT người nhận</label>
+                                            <label className="block text-[var(--text-secondary)] text-sm mb-2">SĐT người nhận</label>
                                             <input
                                                 type="tel"
                                                 value={formData.recipientPhone}
                                                 onChange={e => setFormData({ ...formData, recipientPhone: e.target.value })}
-                                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-cyan-500 outline-none"
+                                                className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
                                             />
                                         </div>
                                     </div>
@@ -762,25 +762,25 @@ export default function RegisterPage() {
                                 className="space-y-4"
                             >
                                 <div className="space-y-3">
-                                    <div className="flex justify-between py-2 border-b border-white/10">
-                                        <span className="text-white/60">Email</span>
-                                        <span className="text-white">{formData.email}</span>
+                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Email</span>
+                                        <span className="text-[var(--text-primary)]">{formData.email}</span>
                                     </div>
-                                    <div className="flex justify-between py-2 border-b border-white/10">
-                                        <span className="text-white/60">Họ tên</span>
-                                        <span className="text-white">{formData.name}</span>
+                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Họ tên</span>
+                                        <span className="text-[var(--text-primary)]">{formData.name}</span>
                                     </div>
-                                    <div className="flex justify-between py-2 border-b border-white/10">
-                                        <span className="text-white/60">SĐT</span>
-                                        <span className="text-white">{formData.phone}</span>
+                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">SĐT</span>
+                                        <span className="text-[var(--text-primary)]">{formData.phone}</span>
                                     </div>
-                                    <div className="flex justify-between py-2 border-b border-white/10">
-                                        <span className="text-white/60">Người nhận</span>
-                                        <span className="text-white">{formData.recipientName} - {formData.recipientPhone}</span>
+                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Người nhận</span>
+                                        <span className="text-[var(--text-primary)]">{formData.recipientName} - {formData.recipientPhone}</span>
                                     </div>
                                     <div className="py-2">
-                                        <span className="text-white/60 block mb-1">Địa chỉ giao hàng</span>
-                                        <span className="text-white text-sm">
+                                        <span className="text-[var(--text-secondary)] block mb-1">Địa chỉ giao hàng</span>
+                                        <span className="text-[var(--text-primary)] text-sm">
                                             {formData.addressLine}, {formData.wardName}, {formData.districtName}, {formData.provinceName}
                                         </span>
                                     </div>
@@ -791,9 +791,9 @@ export default function RegisterPage() {
                                         type="checkbox"
                                         checked={formData.agreeTerms}
                                         onChange={e => setFormData({ ...formData, agreeTerms: e.target.checked })}
-                                        className="w-5 h-5 rounded bg-white/5 border border-white/20 checked:bg-cyan-500 checked:border-cyan-500 mt-0.5"
+                                        className="w-5 h-5 rounded bg-[var(--material-glass)] border border-[var(--border-color)] checked:bg-cyan-500 checked:border-cyan-500 mt-0.5"
                                     />
-                                    <span className="text-white/60 text-sm">
+                                    <span className="text-[var(--text-secondary)] text-sm">
                                         Tôi đồng ý với <Link href="/terms" className="text-cyan-400 hover:underline">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-cyan-400 hover:underline">Chính sách bảo mật</Link>
                                     </span>
                                 </label>
@@ -833,7 +833,7 @@ export default function RegisterPage() {
                 </div>
 
                 {/* Login link */}
-                <p className="text-center text-white/60 mt-6">
+                <p className="text-center text-[var(--text-secondary)] mt-6">
                     Đã có tài khoản?{' '}
                     <Link href="/login" className="text-cyan-400 hover:underline">Đăng nhập</Link>
                 </p>

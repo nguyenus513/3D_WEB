@@ -48,7 +48,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: string; color: stri
 };
 
 const getCategoryStyle = (cat: string) =>
-    CATEGORY_CONFIG[cat] || { label: cat, icon: '📎', color: 'text-white/60', bg: 'bg-white/10' };
+    CATEGORY_CONFIG[cat] || { label: cat, icon: '📎', color: 'text-[var(--text-secondary)]', bg: 'bg-[var(--material-glass)]' };
 
 // =============================================================================
 // ImageStack — Compact preview for table view
@@ -60,7 +60,7 @@ export function ImageStack({ images, onOpen, maxPreview = 3 }: ImageStackProps) 
 
     if (images.length === 0) {
         return (
-            <span className="text-white/30 text-sm italic">Chưa có ảnh</span>
+            <span className="text-[var(--text-tertiary)] text-sm italic">Chưa có ảnh</span>
         );
     }
 
@@ -89,7 +89,7 @@ export function ImageStack({ images, onOpen, maxPreview = 3 }: ImageStackProps) 
             ))}
             {remaining > 0 && (
                 <div
-                    className="w-10 h-10 bg-white/10 text-white/70 text-xs font-medium flex items-center justify-center rounded-lg border-2 border-[#111] shadow-lg"
+                    className="w-10 h-10 bg-[var(--material-glass)] text-[var(--text-secondary)] text-xs font-medium flex items-center justify-center rounded-lg border-2 border-[#111] shadow-lg"
                     style={{ zIndex: 0 }}
                 >
                     +{remaining}
@@ -173,10 +173,10 @@ function Lightbox({
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${catStyle.bg} ${catStyle.color}`}>
                         {catStyle.icon} {catStyle.label}
                     </span>
-                    <span className="text-white/40 text-xs">
+                    <span className="text-[var(--text-tertiary)] text-xs">
                         👤 Nhân vật #{image.characterIndex}
                     </span>
-                    <span className="text-white/30 text-xs truncate max-w-xs">
+                    <span className="text-[var(--text-tertiary)] text-xs truncate max-w-xs">
                         {image.name}
                     </span>
                 </div>
@@ -184,7 +184,7 @@ function Lightbox({
                     <a
                         href={image.url}
                         download={image.name}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-white/60 hover:text-white text-xs transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--material-glass)] hover:bg-[var(--material-glass)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs transition-colors"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <Download className="w-3.5 h-3.5" />
@@ -192,10 +192,10 @@ function Lightbox({
                     </a>
                     <button
                         onClick={onClose}
-                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors group"
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-[var(--material-glass)] transition-colors group"
                     >
-                        <kbd className="text-[10px] text-white/20 group-hover:text-white/40 font-mono">ESC</kbd>
-                        <X className="w-4 h-4 text-white/40 group-hover:text-white/60" />
+                        <kbd className="text-[10px] text-white/20 group-hover:text-[var(--text-tertiary)] font-mono">ESC</kbd>
+                        <X className="w-4 h-4 text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]" />
                     </button>
                 </div>
             </div>
@@ -222,7 +222,7 @@ function Lightbox({
                 </div>
                 {/* Zoom hint */}
                 <div className="absolute top-3 right-3 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                    {isZoomed ? <ZoomOut className="w-5 h-5 text-white/50" /> : <ZoomIn className="w-5 h-5 text-white/50" />}
+                    {isZoomed ? <ZoomOut className="w-5 h-5 text-[var(--text-secondary)]" /> : <ZoomIn className="w-5 h-5 text-[var(--text-secondary)]" />}
                 </div>
             </div>
 
@@ -230,7 +230,7 @@ function Lightbox({
             {hasPrev && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onPrev(); setIsZoomed(false); }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/50 hover:text-white transition-all"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-[var(--material-glass)] hover:bg-[var(--material-glass)] rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
                 >
                     <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -238,7 +238,7 @@ function Lightbox({
             {hasNext && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onNext(); setIsZoomed(false); }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/50 hover:text-white transition-all"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-[var(--material-glass)] hover:bg-[var(--material-glass)] rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
                 >
                     <ChevronRight className="w-5 h-5" />
                 </button>
@@ -262,23 +262,23 @@ function TextCard({ character }: { character: CharacterInfo }) {
 
     if (descriptions.length === 0) {
         return (
-            <div className="bg-white/5 rounded-2xl p-6 text-center">
-                <p className="text-white/30 text-sm">Không có ảnh hoặc mô tả</p>
+            <div className="bg-[var(--material-glass)] rounded-2xl p-6 text-center">
+                <p className="text-[var(--text-tertiary)] text-sm">Không có ảnh hoặc mô tả</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-[#1a1a1c] rounded-2xl p-5 border border-white/5">
+        <div className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]">
             <div className="flex items-center gap-2 mb-3">
                 <span className="text-base">📝</span>
-                <p className="text-white/50 text-xs font-medium uppercase tracking-wider">
+                <p className="text-[var(--text-secondary)] text-xs font-medium uppercase tracking-wider">
                     Mô tả khách hàng
                 </p>
             </div>
             <div className="space-y-2.5">
                 {descriptions.map((desc, i) => (
-                    <p key={i} className="text-white text-sm leading-relaxed">
+                    <p key={i} className="text-[var(--text-primary)] text-sm leading-relaxed">
                         {desc}
                     </p>
                 ))}
@@ -386,12 +386,12 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                     {/* ============================================== */}
                     {/* LEFT PANEL: Character Selector */}
                     {/* ============================================== */}
-                    <div className="w-52 bg-[#0a0a0a] border-r border-white/5 flex flex-col">
-                        <div className="p-4 border-b border-white/5">
-                            <h3 className="text-white/80 text-sm font-semibold tracking-wide uppercase">
+                    <div className="w-52 bg-[var(--bg-void)] border-r border-[var(--border-color)] flex flex-col">
+                        <div className="p-4 border-b border-[var(--border-color)]">
+                            <h3 className="text-[var(--text-secondary)] text-sm font-semibold tracking-wide uppercase">
                                 Nhân vật
                             </h3>
-                            <p className="text-white/30 text-xs mt-1">
+                            <p className="text-[var(--text-tertiary)] text-xs mt-1">
                                 {images.length} ảnh tổng cộng
                             </p>
                         </div>
@@ -410,12 +410,12 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                         key={charIdx}
                                         onClick={() => setActiveCharIndex(charIdx)}
                                         className={`w-full text-left p-3 rounded-xl transition-all duration-200 group ${isActive
-                                            ? 'bg-white/10 ring-1 ring-white/20'
-                                            : 'hover:bg-white/5'
+                                            ? 'bg-[var(--material-glass)] ring-1 ring-white/20'
+                                            : 'hover:bg-[var(--material-glass)]'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-lg overflow-hidden bg-white/5 shrink-0 flex items-center justify-center">
+                                            <div className="w-9 h-9 rounded-lg overflow-hidden bg-[var(--material-glass)] shrink-0 flex items-center justify-center">
                                                 {hasImages && charImages[0] ? (
                                                     <img
                                                         src={charImages[0].thumbnail || charImages[0].url}
@@ -428,10 +428,10 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className={`text-sm font-medium truncate ${isActive ? 'text-white' : 'text-white/60'}`}>
+                                                <p className={`text-sm font-medium truncate ${isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                                                     👤 Nhân vật {charIdx}
                                                 </p>
-                                                <p className="text-white/30 text-xs">
+                                                <p className="text-[var(--text-tertiary)] text-xs">
                                                     {hasImages ? `📸 ${charImages.length} ảnh` : '📝 Mô tả'}
                                                 </p>
                                             </div>
@@ -442,14 +442,14 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                         </div>
 
                         {/* Keyboard hints */}
-                        <div className="p-3 border-t border-white/5">
+                        <div className="p-3 border-t border-[var(--border-color)]">
                             <div className="space-y-1.5">
-                                <div className="flex items-center gap-2 text-white/20 text-[10px]">
-                                    <kbd className="px-1.5 py-0.5 bg-white/5 rounded text-white/40 font-mono">1-9</kbd>
+                                <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-[10px]">
+                                    <kbd className="px-1.5 py-0.5 bg-[var(--material-glass)] rounded text-[var(--text-tertiary)] font-mono">1-9</kbd>
                                     <span>Đổi nhân vật</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-white/20 text-[10px]">
-                                    <kbd className="px-1.5 py-0.5 bg-white/5 rounded text-white/40 font-mono">ESC</kbd>
+                                <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-[10px]">
+                                    <kbd className="px-1.5 py-0.5 bg-[var(--material-glass)] rounded text-[var(--text-tertiary)] font-mono">ESC</kbd>
                                     <span>Đóng</span>
                                 </div>
                             </div>
@@ -461,18 +461,18 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                     {/* ============================================== */}
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                         {/* Title + Filters */}
-                        <div className="px-6 pt-5 pb-4 border-b border-white/5">
+                        <div className="px-6 pt-5 pb-4 border-b border-[var(--border-color)]">
                             <div className="flex items-center justify-between mb-3">
-                                <h2 className="text-white text-base font-semibold">
+                                <h2 className="text-[var(--text-primary)] text-base font-semibold">
                                     Ảnh tham khảo — 👤 Nhân vật {activeCharIndex}
                                 </h2>
                                 <button
                                     onClick={onClose}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors group"
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[var(--material-glass)] transition-colors group"
                                     title="Đóng (ESC)"
                                 >
-                                    <kbd className="text-[10px] text-white/20 group-hover:text-white/40 font-mono">ESC</kbd>
-                                    <X className="w-4 h-4 text-white/40 group-hover:text-white/60" />
+                                    <kbd className="text-[10px] text-white/20 group-hover:text-[var(--text-tertiary)] font-mono">ESC</kbd>
+                                    <X className="w-4 h-4 text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]" />
                                 </button>
                             </div>
 
@@ -489,7 +489,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                                 onClick={() => setFilter(f)}
                                                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isActive
                                                     ? 'bg-white text-black shadow-lg'
-                                                    : 'bg-white/5 text-white/50 hover:bg-white/15 hover:text-white/70'
+                                                    : 'bg-[var(--material-glass)] text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-secondary)]'
                                                     }`}
                                             >
                                                 {label} ({count})
@@ -511,7 +511,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                             return (
                                                 <div
                                                     key={img.id}
-                                                    className="group relative rounded-2xl overflow-hidden bg-white/5 aspect-square cursor-pointer border border-white/5 hover:border-white/20 transition-all duration-200"
+                                                    className="group relative rounded-2xl overflow-hidden bg-[var(--material-glass)] aspect-square cursor-pointer border border-[var(--border-color)] hover:border-[var(--border-color)] transition-all duration-200"
                                                     onClick={() => setLightboxIdx(i)}
                                                 >
                                                     {/* Image */}
@@ -524,14 +524,14 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
 
                                                     {/* Hover overlay */}
                                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-3">
-                                                        <button className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-xl text-xs font-semibold hover:bg-white/90 transition-colors">
+                                                        <button className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-xl text-xs font-semibold hover:bg-[var(--material-glass)] transition-colors">
                                                             <ZoomIn className="w-3.5 h-3.5" />
                                                             Xem ảnh
                                                         </button>
                                                         <a
                                                             href={img.url}
                                                             download={img.name}
-                                                            className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white/80 rounded-xl text-xs hover:bg-white/20 transition-colors"
+                                                            className="flex items-center gap-2 px-4 py-2 bg-[var(--material-glass)] text-[var(--text-secondary)] rounded-xl text-xs hover:bg-[var(--material-glass)] transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <Download className="w-3.5 h-3.5" />
@@ -551,8 +551,8 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-center">
-                                        <p className="text-white/30 text-sm mb-1">Không có ảnh phù hợp</p>
-                                        <p className="text-white/20 text-xs">Thử đổi bộ lọc</p>
+                                        <p className="text-[var(--text-tertiary)] text-sm mb-1">Không có ảnh phù hợp</p>
+                                        <p className="text-[var(--text-tertiary)] text-xs">Thử đổi bộ lọc</p>
                                     </div>
                                 )
                             ) : (
@@ -560,13 +560,13 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                 <div className="max-w-md mx-auto mt-8">
                                     <div className="flex items-center gap-2 mb-4">
                                         <span className="text-lg">⚠️</span>
-                                        <p className="text-white/50 text-sm">Không có ảnh — hiển thị mô tả</p>
+                                        <p className="text-[var(--text-secondary)] text-sm">Không có ảnh — hiển thị mô tả</p>
                                     </div>
                                     {activeCharacter ? (
                                         <TextCard character={activeCharacter} />
                                     ) : (
-                                        <div className="bg-white/5 rounded-2xl p-6 text-center">
-                                            <p className="text-white/30 text-sm">Không có thông tin</p>
+                                        <div className="bg-[var(--material-glass)] rounded-2xl p-6 text-center">
+                                            <p className="text-[var(--text-tertiary)] text-sm">Không có thông tin</p>
                                         </div>
                                     )}
                                 </div>
@@ -577,9 +577,9 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                     {/* ============================================== */}
                     {/* RIGHT PANEL: Tree View + Info */}
                     {/* ============================================== */}
-                    <div className="w-56 bg-[#0a0a0a] border-l border-white/5 flex flex-col">
-                        <div className="p-4 border-b border-white/5">
-                            <h3 className="text-white/80 text-sm font-semibold tracking-wide uppercase">
+                    <div className="w-56 bg-[var(--bg-void)] border-l border-[var(--border-color)] flex flex-col">
+                        <div className="p-4 border-b border-[var(--border-color)]">
+                            <h3 className="text-[var(--text-secondary)] text-sm font-semibold tracking-wide uppercase">
                                 Cấu trúc ảnh
                             </h3>
                         </div>
@@ -596,14 +596,14 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                     <div key={charIdx} className={`${isActiveChar ? 'opacity-100' : 'opacity-50'}`}>
                                         <button
                                             onClick={() => setActiveCharIndex(charIdx)}
-                                            className="text-white/70 text-xs font-medium mb-1.5 hover:text-white transition-colors flex items-center gap-1"
+                                            className="text-[var(--text-secondary)] text-xs font-medium mb-1.5 hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
                                         >
                                             👤 Nhân vật {charIdx}
                                             {charImages.length > 0 && (
-                                                <span className="text-white/30">({charImages.length})</span>
+                                                <span className="text-[var(--text-tertiary)]">({charImages.length})</span>
                                             )}
                                         </button>
-                                        <div className="pl-3 border-l border-white/10 space-y-0.5">
+                                        <div className="pl-3 border-l border-[var(--border-color)] space-y-0.5">
                                             {charImages.length > 0 ? (
                                                 charImages.map((img) => {
                                                     const catStyle = getCategoryStyle(img.category);
@@ -617,7 +617,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                                     );
                                                 })
                                             ) : (
-                                                <p className="text-[10px] text-white/30">└ 📝 Mô tả</p>
+                                                <p className="text-[10px] text-[var(--text-tertiary)]">└ 📝 Mô tả</p>
                                             )}
                                             {charInfo?.glassesDescription && (
                                                 <p className="text-[10px] text-amber-400/50 truncate" title={charInfo.glassesDescription}>

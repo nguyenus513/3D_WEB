@@ -12,17 +12,46 @@ A Next.js 16 e-commerce/3D printing service application migrated from Vercel to 
 - **Cache**: Upstash Redis (optional)
 - **Monitoring**: Sentry (client + server + edge)
 - **3D Rendering**: Three.js via @react-three/fiber
-- **Styling**: Tailwind CSS v3 + Framer Motion + GSAP
+- **Styling**: Tailwind CSS v3 + shadcn/ui + Framer Motion + GSAP
+- **State Management**: TanStack Query (React Query) for server state
+- **Theme**: next-themes with data-theme attribute (dark/light)
+- **UI Components**: shadcn/ui (lowercase in src/components/ui/)
+
+## Design System
+- **Theme Provider**: next-themes with `attribute="data-theme"`
+- **Dark Mode**: `tailwind.config.ts` uses `darkMode: ['selector', '[data-theme="dark"]']`
+- **CSS Variables**: Defined in `src/app/globals.css` with `[data-theme="light"]` / `[data-theme="dark"]` selectors
+  - `--bg-void`: Page backgrounds
+  - `--material-panel`: Card/panel backgrounds
+  - `--material-glass`: Glass/transparent overlays
+  - `--text-primary`, `--text-secondary`, `--text-tertiary`: Text hierarchy
+  - `--border-color`: Border colors
+  - `--color-accent`: Accent/action color (#0071E3)
+- **Components**: 23 shadcn/ui components (button, card, input, label, dialog, dropdown-menu, select, tabs, badge, avatar, separator, skeleton, table, textarea, tooltip, switch, checkbox, scroll-area, sheet, progress, accordion, popover, theme-toggle)
 
 ## Project Structure
 ```
 src/
   app/           # Next.js App Router pages and API routes
-  components/    # React components
+    api/health/  # Health check endpoint
+    status/      # System status page
+    error.tsx    # Global error boundary
+    not-found.tsx # 404 page
+    loading.tsx  # Root loading state
+  components/
+    ui/          # shadcn/ui components (lowercase)
+    providers/   # ThemeProvider, QueryProvider
+    layout/      # NavLusion, Footer, Navbar
+    admin/       # Admin components (sidebar, header, etc.)
+    account/     # Account sidebar
+    checkout/    # Checkout components
+    user/        # Landing page components (HeroJelly, BentoGrid, etc.)
   controllers/   # Business logic controllers
   hooks/         # Custom React hooks
-  lib/           # Shared utilities and configs
-  repositories/  # Data access layer
+  lib/
+    api/         # API error handler utility
+    utils.ts     # cn() utility for class merging
+  repositories/  # Data access layer (Supabase client)
   services/      # Service layer
   styles/        # Global styles
   types/         # TypeScript type definitions
@@ -52,7 +81,14 @@ All secrets are configured in Replit's environment. Key groups:
 - **Cache**: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN (not yet provided)
 - **Security**: TOKEN_ENCRYPTION_KEY, ADMIN_SECRET_KEY
 
+## Modernization Status
+- **Completed**: Core dependencies, shadcn/ui components, TanStack Query, next-themes, theme-aware styling across all pages, global error handling, API status page, loading states
+- **Blocked**: Prisma schema (needs direct Supabase connection URL, not pooler), repository migration (depends on Prisma)
+- **Not yet configured**: Stripe secrets, Upstash Redis secrets
+
 ## Notes
 - GOOGLE_PRIVATE_KEY was truncated during migration — needs to be re-added with the full key
 - Stripe and Upstash Redis secrets are not yet configured
 - WebGL/Three.js content won't render in headless environments but works in real browsers
+- Admin route (`/admin/`) re-exports from `/sys_internal/` — actual admin code lives in `src/app/sys_internal/`
+- Old PascalCase UI components coexist with new lowercase shadcn/ui components — pages have been migrated to use lowercase imports

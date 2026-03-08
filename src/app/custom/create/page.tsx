@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { useCart } from '@/lib/store/cart';
 
 type OrderType = 'single' | 'couple' | 'group';
@@ -238,27 +238,27 @@ export default function CustomPage() {
     // Loading state
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/50"> ang t?i...</p>
+                    <div className="w-12 h-12 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-[var(--text-secondary)]"> ang t?i...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[900px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-12">
-                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-[var(--text-secondary)] font-medium tracking-widest uppercase mb-4 block">
                         Custom Order
                     </span>
-                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
+                    <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-4">
                         T?o M  H nh C?a B?n
                     </h1>
-                    <p className="text-white/50">
+                    <p className="text-[var(--text-secondary)]">
                         Ch? c?n upload ?nh, ch ng t i s? bi?n n  th nh m  h nh 3D
                     </p>
                 </AnimatedSection>
@@ -274,14 +274,14 @@ export default function CustomPage() {
                     w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
                     ${currentStep >= step.id
                                             ? 'bg-white text-black'
-                                            : 'bg-[#1D1D1F] text-white/50'
+                                            : 'bg-[var(--material-panel)] text-[var(--text-secondary)]'
                                         }
                   `}
                                 >
                                     {step.id}
                                 </button>
                                 {index < steps.length - 1 && (
-                                    <div className={`w-12 h-0.5 mx-1 ${currentStep > step.id ? 'bg-white' : 'bg-[#1D1D1F]'}`} />
+                                    <div className={`w-12 h-0.5 mx-1 ${currentStep > step.id ? 'bg-white' : 'bg-[var(--material-panel)]'}`} />
                                 )}
                             </div>
                         ))}
@@ -289,7 +289,7 @@ export default function CustomPage() {
                 </div>
 
                 {/* Step Content */}
-                <div className="bg-[#1D1D1F] rounded-3xl p-8 md:p-12">
+                <div className="bg-[var(--material-panel)] rounded-3xl p-8 md:p-12">
                     <AnimatePresence mode="wait">
                         {/* Step 1: Order Type */}
                         {currentStep === 1 && (
@@ -299,7 +299,7 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-white mb-6">Ch?n lo?i don h ng</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Ch?n lo?i don h ng</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {orderTypes.map((type) => (
                                         <button
@@ -309,12 +309,12 @@ export default function CustomPage() {
                         p-6 rounded-2xl text-left transition-all
                         ${orderData.type === type.id
                                                     ? 'bg-white text-black ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
-                                                    : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                    : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                                                 }
                       `}
                                             data-cursor
                                         >
-                                            <div className="mb-4 flex justify-center text-white/80">{type.icon}</div>
+                                            <div className="mb-4 flex justify-center text-[var(--text-primary)]/80">{type.icon}</div>
                                             <h3 className="text-lg font-semibold">{type.name}</h3>
                                             <p className="text-sm opacity-70">{type.desc}</p>
                                             <p className="text-lg font-semibold mt-2">
@@ -334,7 +334,7 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-white mb-6">Upload ?nh c?a b?n</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Upload ?nh c?a b?n</h2>
 
                                 {/* Drop Zone */}
                                 <div
@@ -345,8 +345,8 @@ export default function CustomPage() {
                                     className={`
                     border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer
                     ${dragActive
-                                            ? 'border-white/30 bg-white/10'
-                                            : 'border-white/20 hover:border-white/40'
+                                            ? 'border-white/30 bg-[var(--material-glass)]'
+                                            : 'border-[var(--border-color)] hover:border-white/40'
                                         }
                   `}
                                 >
@@ -359,13 +359,13 @@ export default function CustomPage() {
                                         id="file-upload"
                                     />
                                     <label htmlFor="file-upload" className="cursor-pointer">
-                                        <div className="mb-4 flex justify-center text-white/70">
+                                        <div className="mb-4 flex justify-center text-[var(--text-secondary)]">
                                             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                             </svg>
                                         </div>
-                                        <p className="text-white font-medium">K o th? ?nh v o d y</p>
-                                        <p className="text-white/50 text-sm mt-2">ho?c click d? ch?n file</p>
+                                        <p className="text-[var(--text-primary)] font-medium">K o th? ?nh v o d y</p>
+                                        <p className="text-[var(--text-secondary)] text-sm mt-2">ho?c click d? ch?n file</p>
                                     </label>
                                 </div>
 
@@ -381,7 +381,7 @@ export default function CustomPage() {
                                                 />
                                                 <button
                                                     onClick={() => removeImage(index)}
-                                                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-red-500 transition-colors"
+                                                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 text-[var(--text-primary)] flex items-center justify-center hover:bg-red-500 transition-colors"
                                                 >
 
                                                 </button>
@@ -400,7 +400,7 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-white mb-6">Ch?n k ch thu?c</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Ch?n k ch thu?c</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                                     {sizes.map((size) => (
                                         <button
@@ -410,7 +410,7 @@ export default function CustomPage() {
                         p-6 rounded-2xl text-center transition-all
                         ${orderData.size === size.id
                                                     ? 'bg-white text-black'
-                                                    : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                                    : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                                                 }
                       `}
                                             data-cursor
@@ -422,12 +422,12 @@ export default function CustomPage() {
                                 </div>
 
                                 <div className="mb-6">
-                                    <label className="text-white/70 text-sm mb-2 block">Ghi ch  th m (t y ch?n)</label>
+                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Ghi ch  th m (t y ch?n)</label>
                                     <textarea
                                         value={orderData.notes}
                                         onChange={(e) => setOrderData(prev => ({ ...prev, notes: e.target.value }))}
                                         placeholder="M  t? chi ti?t y u c?u c?a b?n..."
-                                        className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
+                                        className="w-full p-4 bg-[#2D2D2F] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
                                         rows={4}
                                     />
                                 </div>
@@ -442,38 +442,38 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-white mb-6">X c nh?n don h ng</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">X c nh?n don h ng</h2>
 
                                 <div className="space-y-6">
                                     {/* Order Summary */}
                                     <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                                        <h3 className="text-white font-medium mb-4">T m t?t don h ng</h3>
+                                        <h3 className="text-[var(--text-primary)] font-medium mb-4">T m t?t don h ng</h3>
                                         <div className="space-y-3 text-sm">
                                             <div className="flex justify-between">
-                                                <span className="text-white/60">Lo?i don</span>
-                                                <span className="text-white">{orderTypes.find(t => t.id === orderData.type)?.name}</span>
+                                                <span className="text-[var(--text-secondary)]">Lo?i don</span>
+                                                <span className="text-[var(--text-primary)]">{orderTypes.find(t => t.id === orderData.type)?.name}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-white/60">K ch thu?c</span>
-                                                <span className="text-white">{sizes.find(s => s.id === orderData.size)?.name}</span>
+                                                <span className="text-[var(--text-secondary)]">K ch thu?c</span>
+                                                <span className="text-[var(--text-primary)]">{sizes.find(s => s.id === orderData.size)?.name}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-white/60">S? ?nh</span>
-                                                <span className="text-white">{orderData.images.length} ?nh</span>
+                                                <span className="text-[var(--text-secondary)]">S? ?nh</span>
+                                                <span className="text-[var(--text-primary)]">{orderData.images.length} ?nh</span>
                                             </div>
                                             {orderData.notes && (
-                                                <div className="pt-3 border-t border-white/10">
-                                                    <p className="text-white/60">Ghi ch </p>
-                                                    <p className="text-white mt-1">{orderData.notes}</p>
+                                                <div className="pt-3 border-t border-[var(--border-color)]">
+                                                    <p className="text-[var(--text-secondary)]">Ghi ch </p>
+                                                    <p className="text-[var(--text-primary)] mt-1">{orderData.notes}</p>
                                                 </div>
                                             )}
-                                            <div className="border-t border-white/10 pt-3 flex justify-between">
-                                                <span className="text-white font-medium">T?ng c?ng</span>
-                                                <span className="text-white font-bold text-lg">
+                                            <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
+                                                <span className="text-[var(--text-primary)] font-medium">T?ng c?ng</span>
+                                                <span className="text-[var(--text-primary)] font-bold text-lg">
                                                     {totalPrice.toLocaleString('vi-VN')}d
                                                 </span>
                                             </div>
-                                            <p className="text-white/40 text-xs mt-2">
+                                            <p className="text-[var(--text-tertiary)] text-xs mt-2">
                                                 Thanh to n t?i bu?c Checkout sau khi th m v o gi? h ng.
                                             </p>
                                         </div>
@@ -491,7 +491,7 @@ export default function CustomPage() {
                     </AnimatePresence>
 
                     {/* Navigation Buttons */}
-                    <div className="flex justify-between mt-8 pt-8 border-t border-white/10">
+                    <div className="flex justify-between mt-8 pt-8 border-t border-[var(--border-color)]">
                         <Button
                             variant="outline"
                             onClick={prevStep}

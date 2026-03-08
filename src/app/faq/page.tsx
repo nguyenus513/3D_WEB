@@ -42,17 +42,17 @@ export default function FAQPage() {
     const displayFaqs = faqs.length > 0 ? faqs : defaultFaqs;
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[800px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-12">
-                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-[var(--text-secondary)] font-medium tracking-widest uppercase mb-4 block">
                         Hỗ Trợ
                     </span>
-                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
+                    <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-4">
                         Câu Hỏi Thường Gặp
                     </h1>
-                    <p className="text-white/50">
+                    <p className="text-[var(--text-secondary)]">
                         Giải đáp các thắc mắc phổ biến về dịch vụ của chúng tôi
                     </p>
                 </AnimatedSection>
@@ -60,7 +60,7 @@ export default function FAQPage() {
                 {/* Loading */}
                 {loading && (
                     <div className="text-center py-12">
-                        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                        <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto" />
                     </div>
                 )}
 
@@ -69,15 +69,15 @@ export default function FAQPage() {
                     <div className="space-y-4">
                         {displayFaqs.map((faq, index) => (
                             <AnimatedSection key={faq.id} delay={index * 0.05}>
-                                <div className="bg-white/5 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/10">
+                                <div className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl overflow-hidden border border-[var(--border-color)]">
                                     <button
                                         onClick={() => setOpenIndex(openIndex === index ? null : index)}
                                         className="w-full flex items-center justify-between p-6 text-left"
                                     >
-                                        <span className="text-white font-medium pr-4">{faq.question}</span>
+                                        <span className="text-[var(--text-primary)] font-medium pr-4">{faq.question}</span>
                                         <motion.span
                                             animate={{ rotate: openIndex === index ? 45 : 0 }}
-                                            className="text-white/70 text-2xl flex-shrink-0"
+                                            className="text-[var(--text-secondary)] text-2xl flex-shrink-0"
                                         >
                                             +
                                         </motion.span>
@@ -91,7 +91,7 @@ export default function FAQPage() {
                                                 exit={{ height: 0, opacity: 0 }}
                                                 transition={{ duration: 0.3 }}
                                             >
-                                                <p className="px-6 pb-6 text-white/60 leading-relaxed">
+                                                <p className="px-6 pb-6 text-[var(--text-secondary)] leading-relaxed">
                                                     {faq.answer}
                                                 </p>
                                             </motion.div>
@@ -105,11 +105,11 @@ export default function FAQPage() {
 
                 {/* Contact CTA */}
                 <AnimatedSection delay={0.4} className="mt-16 text-center">
-                    <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-white/10">
-                        <h2 className="text-2xl font-semibold text-white mb-4">
+                    <div className="bg-[var(--material-glass)] backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-[var(--border-color)]">
+                        <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-4">
                             Không tìm thấy câu trả lời?
                         </h2>
-                        <p className="text-white/50 mb-6">
+                        <p className="text-[var(--text-secondary)] mb-6">
                             Liên hệ trực tiếp với chúng tôi để được hỗ trợ nhanh nhất
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

@@ -92,17 +92,17 @@ export default function AdminLayout({
     // Show loading while checking 2FA status
     if (loading || !passed) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    <p className="text-white/40 text-sm">Đang xác thực...</p>
+                    <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin" />
+                    <p className="text-[var(--text-tertiary)] text-sm">Đang xác thực...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="h-screen bg-[#0a0a0a] overflow-hidden">
+        <div className="h-screen bg-[var(--bg-void)] overflow-hidden">
             {/* Mobile overlay */}
             {sidebarOpen && (
                 <div

@@ -187,14 +187,14 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">{title}</h1>
-                    <p className="text-white/50 mt-1">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
+                    <p className="text-[var(--text-secondary)] mt-1">
                         {loading ? 'Đang tải...' : subtitle || `${filteredOrders.length} đơn hàng`}
                     </p>
                 </div>
                 <button
                     onClick={fetchOrders}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                 >
                     {/* SVG Icon */}
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,12 +214,12 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                             flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all
                             ${activeStatus === tab.key
                                 ? 'bg-white text-black'
-                                : 'bg-[#1D1D1F] text-white/70 hover:text-white border border-white/10'
+                                : 'bg-[var(--material-panel)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]'
                             }
                         `}
                     >
                         {tab.label}
-                        <span className={`px-1.5 py-0.5 rounded text-xs ${activeStatus === tab.key ? 'bg-black/10' : 'bg-white/10'}`}>
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${activeStatus === tab.key ? 'bg-black/10' : 'bg-[var(--material-glass)]'}`}>
                             {getStatusCount(tab.key)}
                         </span>
                     </button>
@@ -231,7 +231,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px] max-w-md">
                     {/* Search Input */}
-                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input
@@ -239,13 +239,13 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                         placeholder="Tìm theo mã đơn hoặc khách hàng..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white placeholder:text-white/40 text-sm"
+                        className="w-full pl-12 pr-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] text-sm"
                     />
                 </div>
 
                 {/* Date Filter */}
                 <div className="flex gap-2 items-center flex-wrap">
-                    <span className="text-white/50 text-sm">Lọc:</span>
+                    <span className="text-[var(--text-secondary)] text-sm">Lọc:</span>
                     <input
                         type="number"
                         placeholder="Ngày"
@@ -253,12 +253,12 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                         max="31"
                         value={dateFilter.day}
                         onChange={(e) => setDateFilter({ ...dateFilter, day: e.target.value })}
-                        className="w-16 px-2 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white placeholder:text-white/40 text-sm"
+                        className="w-16 px-2 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] text-sm"
                     />
                     <select
                         value={dateFilter.month}
                         onChange={(e) => setDateFilter({ ...dateFilter, month: e.target.value })}
-                        className="w-24 px-2 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white text-sm"
+                        className="w-24 px-2 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] text-sm"
                     >
                         <option value="">Tháng</option>
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
@@ -272,12 +272,12 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                         max="2030"
                         value={dateFilter.year}
                         onChange={(e) => setDateFilter({ ...dateFilter, year: e.target.value })}
-                        className="w-20 px-2 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white placeholder:text-white/40 text-sm"
+                        className="w-20 px-2 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] text-sm"
                     />
                     {(dateFilter.day || dateFilter.month || dateFilter.year) && (
                         <button
                             onClick={() => setDateFilter({ day: '', month: '', year: '' })}
-                            className="px-2 py-2 text-white/50 hover:text-white text-sm"
+                            className="px-2 py-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm"
                         >
                             ✕
                         </button>
@@ -289,30 +289,30 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] overflow-hidden"
             >
                 {loading ? (
                     <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
                     </div>
                 ) : filteredOrders.length === 0 ? (
                     <div className="text-center py-20">
-                        <p className="text-white/50">Không có đơn hàng nào</p>
+                        <p className="text-[var(--text-secondary)]">Không có đơn hàng nào</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-white/5">
+                            <thead className="bg-[var(--material-glass)]">
                                 <tr>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Mã đơn</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Khách hàng</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">IG</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Mã đơn</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Khách hàng</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">IG</th>
                                     {/* Order Type Removed */}
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Tổng tiền</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Trạng thái</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Ngày tạo</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Note KH</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Ghi chú nội bộ</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tổng tiền</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Trạng thái</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Ngày tạo</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Note KH</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Ghi chú nội bộ</th>
                                     <th className="px-5 py-4"></th>
                                 </tr>
                             </thead>
@@ -322,48 +322,48 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                     return (
                                         <tr
                                             key={order.id}
-                                            className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                                            className="border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors cursor-pointer"
                                             onClick={() => window.location.href = `${adminRoot}/orders/${order.id}`}
                                         >
                                             <td className="px-5 py-4">
-                                                <Link href={`${adminRoot}/orders/${order.id}`} className="text-white font-medium hover:underline">
+                                                <Link href={`${adminRoot}/orders/${order.id}`} className="text-[var(--text-primary)] font-medium hover:underline">
                                                     {/* Display cart_code if available, fallback to order_code */}
                                                     {(order as any).cart_code || order.order_code}
                                                 </Link>
                                                 {/* Show legacy order_code if cart_code exists (for reference) */}
                                                 {(order as any).cart_code && (
-                                                    <span className="block text-white/30 text-xs mt-0.5">
+                                                    <span className="block text-[var(--text-tertiary)] text-xs mt-0.5">
                                                         Code: {order.order_code}
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div>
-                                                    <span className="text-white block">
+                                                    <span className="text-[var(--text-primary)] block">
                                                         {order.profiles?.full_name || shippingInfo?.full_name || 'Khách vãng lai'}
                                                     </span>
-                                                    <span className="text-white/50 text-sm">
+                                                    <span className="text-[var(--text-secondary)] text-sm">
                                                         {order.profiles?.phone || shippingInfo?.phone || '-'}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4">
                                                 {/* Instagram handling needs profile enrichment or removal if not collected */}
-                                                <span className="text-white/20 text-sm">-</span>
+                                                <span className="text-[var(--text-tertiary)] text-sm">-</span>
                                             </td>
 
                                             <td className="px-5 py-4">
-                                                <span className="text-white font-medium">
+                                                <span className="text-[var(--text-primary)] font-medium">
                                                     {Number(order.total_amount).toLocaleString('vi-VN')}đ
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-white/10 text-white/50'}`}>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-[var(--material-glass)] text-[var(--text-secondary)]'}`}>
                                                     {statusLabels[order.status] || order.status}
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <span className="text-white/70 text-sm">
+                                                <span className="text-[var(--text-secondary)] text-sm">
                                                     {new Date(order.created_at).toLocaleString('vi-VN', {
                                                         day: '2-digit',
                                                         month: '2-digit',
@@ -379,7 +379,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                         {order.notes.length > 25 ? order.notes.substring(0, 25) + '...' : order.notes}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-white/20 text-sm">-</span>
+                                                    <span className="text-[var(--text-tertiary)] text-sm">-</span>
                                                 )}
                                             </td>
                                             <td className="px-5 py-4">
@@ -388,7 +388,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                         {order.admin_notes.length > 25 ? order.admin_notes.substring(0, 25) + '...' : order.admin_notes}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-white/20 text-sm">-</span>
+                                                    <span className="text-[var(--text-tertiary)] text-sm">-</span>
                                                 )}
                                             </td>
                                             <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>

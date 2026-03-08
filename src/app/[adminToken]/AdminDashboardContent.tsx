@@ -143,18 +143,17 @@ export default function AdminDashboardContent() {
 
     return (
         <div className="space-y-6">
-            {/* Page header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h1>
-                    <p className="text-white/50 text-sm mt-1">
+                    <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Dashboard</h1>
+                    <p className="text-[var(--text-secondary)] text-sm mt-1">
                         {loading ? 'Đang tải...' : 'Tổng quan hoạt động kinh doanh'}
                     </p>
                 </div>
                 <div className="flex gap-2 sm:gap-3">
                     <button
                         onClick={fetchDashboardData}
-                        className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white text-sm sm:text-base"
+                        className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm sm:text-base"
                     >
                         Làm mới
                     </button>
@@ -167,7 +166,6 @@ export default function AdminDashboardContent() {
                 </div>
             </div>
 
-            {/* Stats grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statCards.map((stat, index) => (
                     <motion.div
@@ -178,10 +176,10 @@ export default function AdminDashboardContent() {
                     >
                         <Link
                             href={stat.href}
-                            className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10 block hover:bg-white/5 transition-colors"
+                            className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)] block hover:bg-[var(--material-glass)] transition-colors"
                         >
                             <div className="flex items-center justify-between mb-4">
-                                <div className={`w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center ${stat.color}`}>
+                                <div className={`w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center ${stat.color}`}>
                                     {stat.icon}
                                 </div>
                                 {stat.pending !== undefined && stat.pending > 0 && (
@@ -190,7 +188,7 @@ export default function AdminDashboardContent() {
                                     </span>
                                 )}
                             </div>
-                            <p className="text-white/50 text-sm">{stat.name}</p>
+                            <p className="text-[var(--text-secondary)] text-sm">{stat.name}</p>
                             <p className={`text-2xl font-bold mt-1 ${stat.color}`}>
                                 {loading ? '...' : stat.value}{stat.suffix || ''}
                             </p>
@@ -199,55 +197,54 @@ export default function AdminDashboardContent() {
                 ))}
             </div>
 
-            {/* Recent orders */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] overflow-hidden"
             >
-                <div className="p-5 border-b border-white/10 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-white">Đơn hàng gần đây</h2>
-                    <Link href={`${adminRoot}/orders`} className="text-sm text-white/50 hover:text-white">
+                <div className="p-5 border-b border-[var(--border-color)] flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Đơn hàng gần đây</h2>
+                    <Link href={`${adminRoot}/orders`} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                         Xem tất cả →
                     </Link>
                 </div>
 
                 {loading ? (
                     <div className="p-12 text-center">
-                        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                        <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto" />
                     </div>
                 ) : recentOrders.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-white/50">Chưa có đơn hàng nào</p>
+                        <p className="text-[var(--text-secondary)]">Chưa có đơn hàng nào</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[600px]">
                             <thead>
-                                <tr className="border-b border-white/10">
-                                    <th className="text-left text-white/50 text-sm font-medium px-4 lg:px-5 py-3">Mã đơn</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-4 lg:px-5 py-3">Khách</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-4 lg:px-5 py-3">Loại</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-4 lg:px-5 py-3">Tổng</th>
-                                    <th className="text-left text-white/50 text-sm font-medium px-4 lg:px-5 py-3">Trạng thái</th>
+                                <tr className="border-b border-[var(--border-color)]">
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Mã đơn</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Khách</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Loại</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Tổng</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Trạng thái</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {recentOrders.map((order) => (
                                     <tr
                                         key={order.id}
-                                        className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors"
+                                        className="border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] cursor-pointer transition-colors"
                                         onClick={() => window.location.href = `${adminRoot}/orders/${order.id}`}
                                     >
                                         <td className="px-4 lg:px-5 py-4">
-                                            <span className="text-white font-mono text-sm hover:text-blue-400 transition-colors">
+                                            <span className="text-[var(--text-primary)] font-mono text-sm hover:text-blue-400 transition-colors">
                                                 {order.order_code}
                                             </span>
                                         </td>
-                                        <td className="px-4 lg:px-5 py-4 text-white/70 text-sm">{order.customer_name || 'Khách'}</td>
-                                        <td className="px-4 lg:px-5 py-4 text-white/50 text-sm">{typeLabels[order.order_type] || order.order_type}</td>
-                                        <td className="px-4 lg:px-5 py-4 text-white text-sm whitespace-nowrap">{order.total.toLocaleString('vi-VN')}đ</td>
+                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{order.customer_name || 'Khách'}</td>
+                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{typeLabels[order.order_type] || order.order_type}</td>
+                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-primary)] text-sm whitespace-nowrap">{order.total.toLocaleString('vi-VN')}đ</td>
                                         <td className="px-4 lg:px-5 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[order.status]}`}>
                                                 {statusLabels[order.status] || order.status}

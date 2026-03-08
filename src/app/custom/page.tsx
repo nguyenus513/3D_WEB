@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { User, Users, UsersRound, Upload, Gift, UtensilsCrossed, Package, Camera, Palette, Glasses, ImagePlus, PenLine, X, Layers, Columns2, Ruler } from 'lucide-react';
@@ -472,10 +472,10 @@ export default function CustomPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/50">Đang tải...</p>
+                    <div className="w-12 h-12 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-[var(--text-secondary)]">Đang tải...</p>
                 </div>
             </div>
         );
@@ -486,17 +486,17 @@ export default function CustomPage() {
     // ============================================================
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[900px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-10">
-                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-[var(--text-secondary)] font-medium tracking-widest uppercase mb-4 block">
                         Custom Order
                     </span>
-                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
+                    <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-4">
                         Tạo Mô Hình Của Bạn
                     </h1>
-                    <p className="text-white/50">
+                    <p className="text-[var(--text-secondary)]">
                         Upload ảnh → Custom phụ kiện → Chọn đế & đóng gói → Xác nhận
                     </p>
                 </AnimatedSection>
@@ -513,7 +513,7 @@ export default function CustomPage() {
                 />
 
                 {/* ============ STEP CONTENT ============ */}
-                <div className="bg-[#1D1D1F] rounded-3xl p-8 md:p-12 mt-8">
+                <div className="bg-[var(--material-panel)] rounded-3xl p-8 md:p-12 mt-8">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentStepIndex}
@@ -590,7 +590,7 @@ export default function CustomPage() {
                     )}
 
                     {/* Navigation */}
-                    <div className="flex justify-between mt-8 pt-8 border-t border-white/10">
+                    <div className="flex justify-between mt-8 pt-8 border-t border-[var(--border-color)]">
                         <Button
                             variant="outline"
                             onClick={prevStep}
@@ -672,21 +672,21 @@ function ProgressBar({
                                     ${isActive
                                         ? 'bg-white text-black'
                                         : isCompleted
-                                            ? 'bg-white/20 text-white cursor-pointer hover:bg-white/30'
-                                            : 'bg-[#1D1D1F] text-white/40'
+                                            ? 'bg-white/20 text-[var(--text-primary)] cursor-pointer hover:bg-[var(--material-glass)]'
+                                            : 'bg-[var(--material-panel)] text-[var(--text-tertiary)]'
                                     }
                                 `}
                             >
                                 <span className={`
                                     w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold
-                                    ${isActive ? 'bg-black text-white' : isCompleted ? 'bg-white/30 text-white' : 'bg-white/10 text-white/40'}
+                                    ${isActive ? 'bg-black text-[var(--text-primary)]' : isCompleted ? 'bg-white/30 text-[var(--text-primary)]' : 'bg-[var(--material-glass)] text-[var(--text-tertiary)]'}
                                 `}>
                                     {isCompleted ? '✓' : i + 1}
                                 </span>
                                 <span className="hidden sm:inline">{label}</span>
                             </button>
                             {i < steps.length - 1 && (
-                                <div className={`w-4 h-px mx-0.5 ${isCompleted ? 'bg-white/40' : 'bg-white/10'}`} />
+                                <div className={`w-4 h-px mx-0.5 ${isCompleted ? 'bg-white/40' : 'bg-[var(--material-glass)]'}`} />
                             )}
                         </div>
                     );
@@ -715,8 +715,8 @@ function StepOrderType({
 }) {
     return (
         <div>
-            <h2 className="text-2xl font-semibold text-white mb-2">Chọn loại đơn hàng</h2>
-            <p className="text-white/50 mb-8">Bạn muốn tạo mô hình cho bao nhiêu người?</p>
+            <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">Chọn loại đơn hàng</h2>
+            <p className="text-[var(--text-secondary)] mb-8">Bạn muốn tạo mô hình cho bao nhiêu người?</p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {ORDER_TYPE_CONFIG.map((type) => (
@@ -727,12 +727,12 @@ function StepOrderType({
                             p-6 rounded-2xl text-left transition-all
                             ${orderType === type.id
                                 ? 'bg-white text-black ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
-                                : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                             }
                         `}
                         data-cursor
                     >
-                        <div className={`mb-4 flex justify-center ${orderType === type.id ? 'text-black/70' : 'text-white/80'}`}>
+                        <div className={`mb-4 flex justify-center ${orderType === type.id ? 'text-black/70' : 'text-[var(--text-primary)]/80'}`}>
                             {type.icon}
                         </div>
                         <h3 className="text-lg font-semibold text-center">{type.name}</h3>
@@ -746,7 +746,7 @@ function StepOrderType({
 
             {/* Size Selection */}
             <div className="mt-8">
-                <h3 className="text-white/70 text-sm mb-3">Chọn kích thước</h3>
+                <h3 className="text-[var(--text-secondary)] text-sm mb-3">Chọn kích thước</h3>
                 <div className="grid grid-cols-3 gap-4">
                     {SIZE_OPTIONS.map((opt) => (
                         <button
@@ -756,12 +756,12 @@ function StepOrderType({
                                 p-4 rounded-xl text-center transition-all border
                                 ${size === opt.id
                                     ? 'bg-white text-black border-white ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
-                                    : 'bg-[#2D2D2F] text-white border-transparent hover:bg-[#3D3D3F]'
+                                    : 'bg-[#2D2D2F] text-[var(--text-primary)] border-transparent hover:bg-[#3D3D3F]'
                                 }
                             `}
                         >
                             <div className="flex justify-center mb-2">
-                                <Ruler size={24} strokeWidth={1.5} className={size === opt.id ? 'text-black' : 'text-white/50'} />
+                                <Ruler size={24} strokeWidth={1.5} className={size === opt.id ? 'text-black' : 'text-[var(--text-secondary)]'} />
                             </div>
                             <div className="font-bold text-lg">{opt.id}</div>
                             <div className="text-xs font-mono opacity-60 mt-0.5">{opt.height}</div>
@@ -778,7 +778,7 @@ function StepOrderType({
                     className="mt-8"
                 >
                     <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                        <label className="text-white/70 text-sm mb-3 block">Số lượng mô hình</label>
+                        <label className="text-[var(--text-secondary)] text-sm mb-3 block">Số lượng mô hình</label>
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={() => {
@@ -788,21 +788,21 @@ function StepOrderType({
                                         onTypeChange('couple');
                                     }
                                 }}
-                                className="w-12 h-12 rounded-xl bg-[#3D3D3F] text-white flex items-center justify-center text-xl hover:bg-[#4D4D4F] transition-colors"
+                                className="w-12 h-12 rounded-xl bg-[#3D3D3F] text-[var(--text-primary)] flex items-center justify-center text-xl hover:bg-[#4D4D4F] transition-colors"
                             >
                                 −
                             </button>
-                            <span className="text-3xl font-bold text-white w-16 text-center">{groupCount}</span>
+                            <span className="text-3xl font-bold text-[var(--text-primary)] w-16 text-center">{groupCount}</span>
                             <button
                                 onClick={() => onGroupCountChange(Math.min(10, groupCount + 1))}
-                                className="w-12 h-12 rounded-xl bg-[#3D3D3F] text-white flex items-center justify-center text-xl hover:bg-[#4D4D4F] transition-colors"
+                                className="w-12 h-12 rounded-xl bg-[#3D3D3F] text-[var(--text-primary)] flex items-center justify-center text-xl hover:bg-[#4D4D4F] transition-colors"
                             >
                                 +
                             </button>
                         </div>
-                        <p className="text-white/40 text-sm mt-3">
+                        <p className="text-[var(--text-tertiary)] text-sm mt-3">
                             Giá: {(750000 + (groupCount - 3) * 200000).toLocaleString('vi-VN')}đ
-                            {groupCount > 3 && <span className="text-white/30"> (+{((groupCount - 3) * 200000).toLocaleString('vi-VN')}đ)</span>}
+                            {groupCount > 3 && <span className="text-[var(--text-tertiary)]"> (+{((groupCount - 3) * 200000).toLocaleString('vi-VN')}đ)</span>}
                         </p>
                     </div>
                 </motion.div>
@@ -859,11 +859,11 @@ function StepCharacter({
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h2 className="text-2xl font-semibold text-white">
+                    <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
                         Mô hình {index + 1}
                     </h2>
                     {total > 1 && (
-                        <p className="text-white/50 mt-1">
+                        <p className="text-[var(--text-secondary)] mt-1">
                             {index + 1} / {total} mô hình
                         </p>
                     )}
@@ -874,7 +874,7 @@ function StepCharacter({
                         {Array.from({ length: total }, (_, i) => (
                             <div
                                 key={i}
-                                className={`w-2.5 h-2.5 rounded-full transition-all ${i === index ? 'bg-white scale-125' : i < index ? 'bg-white/40' : 'bg-white/15'
+                                className={`w-2.5 h-2.5 rounded-full transition-all ${i === index ? 'bg-white scale-125' : i < index ? 'bg-white/40' : 'bg-[var(--material-glass)]'
                                     }`}
                             />
                         ))}
@@ -884,8 +884,8 @@ function StepCharacter({
 
             {/* Upload Zone */}
             <div className="mb-8">
-                <h3 className="text-white/70 text-sm font-medium mb-3 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center"><Camera size={14} strokeWidth={1.5} /></span>
+                <h3 className="text-[var(--text-secondary)] text-sm font-medium mb-3 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[var(--material-glass)] flex items-center justify-center"><Camera size={14} strokeWidth={1.5} /></span>
                     Upload ảnh mô hình
                 </h3>
 
@@ -897,7 +897,7 @@ function StepCharacter({
                         onDrop={handleDrop}
                         className={`
                             border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer
-                            ${dragActive ? 'border-white/40 bg-white/10' : 'border-white/15 hover:border-white/30'}
+                            ${dragActive ? 'border-white/40 bg-[var(--material-glass)]' : 'border-white/15 hover:border-white/30'}
                         `}
                     >
                         <input
@@ -908,11 +908,11 @@ function StepCharacter({
                             id={inputId}
                         />
                         <label htmlFor={inputId} className="cursor-pointer">
-                            <div className="mb-4 flex justify-center text-white/50">
+                            <div className="mb-4 flex justify-center text-[var(--text-secondary)]">
                                 <Upload size={56} strokeWidth={1.5} />
                             </div>
-                            <p className="text-white font-medium">Kéo thả ảnh vào đây</p>
-                            <p className="text-white/40 text-sm mt-2">hoặc click để chọn file • JPG, PNG</p>
+                            <p className="text-[var(--text-primary)] font-medium">Kéo thả ảnh vào đây</p>
+                            <p className="text-[var(--text-tertiary)] text-sm mt-2">hoặc click để chọn file • JPG, PNG</p>
                         </label>
                     </div>
                 ) : (
@@ -925,8 +925,8 @@ function StepCharacter({
                             />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium truncate">{character.image.name}</p>
-                            <p className="text-white/40 text-sm mt-1">
+                            <p className="text-[var(--text-primary)] font-medium truncate">{character.image.name}</p>
+                            <p className="text-[var(--text-tertiary)] text-sm mt-1">
                                 {(character.image.size / 1024 / 1024).toFixed(1)} MB
                             </p>
                         </div>
@@ -947,8 +947,8 @@ function StepCharacter({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                 >
-                    <h3 className="text-white/70 text-sm font-medium mb-4 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center"><Palette size={14} strokeWidth={1.5} /></span>
+                    <h3 className="text-[var(--text-secondary)] text-sm font-medium mb-4 flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-[var(--material-glass)] flex items-center justify-center"><Palette size={14} strokeWidth={1.5} /></span>
                         Tùy chọn phụ kiện
                     </h3>
 
@@ -1017,7 +1017,7 @@ function AccessoryOption({
     uploadId: string;
 }) {
     return (
-        <div className={`rounded-2xl border transition-all ${enabled ? 'bg-[#2D2D2F] border-white/20' : 'bg-[#2D2D2F]/50 border-white/5'
+        <div className={`rounded-2xl border transition-all ${enabled ? 'bg-[#2D2D2F] border-[var(--border-color)]' : 'bg-[#2D2D2F]/50 border-[var(--border-color)]'
             }`}>
             {/* Toggle header */}
             <button
@@ -1028,8 +1028,8 @@ function AccessoryOption({
                     }`}>
                     {enabled && <span className="text-black text-xs font-bold">✓</span>}
                 </div>
-                <span className="text-white/70">{icon}</span>
-                <span className="text-white font-medium">{label}</span>
+                <span className="text-[var(--text-secondary)]">{icon}</span>
+                <span className="text-[var(--text-primary)] font-medium">{label}</span>
             </button>
 
             {/* Expanded content */}
@@ -1044,8 +1044,8 @@ function AccessoryOption({
                         <button
                             onClick={() => onModeChange('upload')}
                             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${mode === 'upload'
-                                ? 'bg-white/15 text-white'
-                                : 'bg-transparent text-white/50 hover:text-white/70'
+                                ? 'bg-[var(--material-glass)] text-[var(--text-primary)]'
+                                : 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-secondary)]'
                                 }`}
                         >
                             <ImagePlus size={14} strokeWidth={1.5} className="inline mr-1" /> Upload ảnh
@@ -1053,8 +1053,8 @@ function AccessoryOption({
                         <button
                             onClick={() => onModeChange('text')}
                             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${mode === 'text'
-                                ? 'bg-white/15 text-white'
-                                : 'bg-transparent text-white/50 hover:text-white/70'
+                                ? 'bg-[var(--material-glass)] text-[var(--text-primary)]'
+                                : 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-secondary)]'
                                 }`}
                         >
                             <PenLine size={14} strokeWidth={1.5} className="inline mr-1" /> Mô tả text
@@ -1072,7 +1072,7 @@ function AccessoryOption({
                             />
                             {image ? (
                                 <div className="flex items-center gap-3 bg-[#3D3D3F] rounded-xl p-3">
-                                    <span className="text-white/70 text-sm truncate flex-1">{image.name}</span>
+                                    <span className="text-[var(--text-secondary)] text-sm truncate flex-1">{image.name}</span>
                                     <button
                                         onClick={() => onImageChange(null)}
                                         className="text-red-400 text-sm hover:text-red-300"
@@ -1083,7 +1083,7 @@ function AccessoryOption({
                             ) : (
                                 <label
                                     htmlFor={uploadId}
-                                    className="block text-center py-4 border border-dashed border-white/15 rounded-xl text-white/40 text-sm cursor-pointer hover:border-white/30 transition-colors"
+                                    className="block text-center py-4 border border-dashed border-white/15 rounded-xl text-[var(--text-tertiary)] text-sm cursor-pointer hover:border-white/30 transition-colors"
                                 >
                                     Click để chọn ảnh {label.toLowerCase()}
                                 </label>
@@ -1094,7 +1094,7 @@ function AccessoryOption({
                             value={description}
                             onChange={(e) => onDescriptionChange(e.target.value)}
                             placeholder={`Mô tả ${label.toLowerCase()} bạn muốn...`}
-                            className="w-full p-3 bg-[#3D3D3F] rounded-xl text-white text-sm placeholder:text-white/30 resize-none focus:outline-none focus:ring-1 focus:ring-white/20"
+                            className="w-full p-3 bg-[#3D3D3F] rounded-xl text-[var(--text-primary)] text-sm placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-1 focus:ring-white/20"
                             rows={2}
                         />
                     )}
@@ -1115,8 +1115,8 @@ function StepBase({
 }) {
     return (
         <div>
-            <h2 className="text-2xl font-semibold text-white mb-2">Chọn loại đế</h2>
-            <p className="text-white/50 mb-8">Đế đôi hoặc 2 đế riêng cho mỗi mô hình</p>
+            <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">Chọn loại đế</h2>
+            <p className="text-[var(--text-secondary)] mb-8">Đế đôi hoặc 2 đế riêng cho mỗi mô hình</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {BASE_OPTIONS.map((opt) => (
@@ -1127,7 +1127,7 @@ function StepBase({
                             p-8 rounded-2xl text-center transition-all
                             ${baseType === opt.id
                                 ? 'bg-white text-black ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
-                                : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                             }
                         `}
                         data-cursor
@@ -1153,8 +1153,8 @@ function StepPackaging({
 }) {
     return (
         <div>
-            <h2 className="text-2xl font-semibold text-white mb-2">Chọn đóng gói</h2>
-            <p className="text-white/50 mb-8">Lựa chọn cách đóng gói phù hợp</p>
+            <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">Chọn đóng gói</h2>
+            <p className="text-[var(--text-secondary)] mb-8">Lựa chọn cách đóng gói phù hợp</p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {PACKAGING_OPTIONS.map((opt) => (
@@ -1165,7 +1165,7 @@ function StepPackaging({
                             p-6 rounded-2xl text-center transition-all
                             ${packaging === opt.id
                                 ? 'bg-white text-black ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
-                                : 'bg-[#2D2D2F] text-white hover:bg-[#3D3D3F]'
+                                : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                             }
                         `}
                         data-cursor
@@ -1218,42 +1218,42 @@ function StepConfirm({
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-semibold text-white mb-2">Xác nhận đơn hàng</h2>
+            <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">Xác nhận đơn hàng</h2>
 
             {/* Combined Summary */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                     <div>
-                        <h3 className="text-xl font-bold text-white">
+                        <h3 className="text-xl font-bold text-[var(--text-primary)]">
                             {orderConfig?.name}
-                            <span className="text-white/50 font-normal ml-2">x{characters.length}</span>
+                            <span className="text-[var(--text-secondary)] font-normal ml-2">x{characters.length}</span>
                         </h3>
-                        <p className="text-white/50 text-sm mt-1">
+                        <p className="text-[var(--text-secondary)] text-sm mt-1">
                             {orderConfig?.desc} • {sizeConfig?.name} ({sizeConfig?.height})
                         </p>
                     </div>
                     <div className="text-right">
-                        <p className="text-xl font-bold text-white">
+                        <p className="text-xl font-bold text-[var(--text-primary)]">
                             {totalPrice.toLocaleString('vi-VN')}đ
                         </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 text-sm border-t border-white/10 pt-4">
+                <div className="grid grid-cols-2 gap-4 text-sm border-t border-[var(--border-color)] pt-4">
                     <div>
-                        <span className="block text-white/40 mb-1">Loại đế</span>
-                        <span className="text-white font-medium">{baseLabel}</span>
+                        <span className="block text-[var(--text-tertiary)] mb-1">Loại đế</span>
+                        <span className="text-[var(--text-primary)] font-medium">{baseLabel}</span>
                     </div>
                     <div>
-                        <span className="block text-white/40 mb-1">Đóng gói</span>
-                        <span className="text-white font-medium">{packagingLabel}</span>
+                        <span className="block text-[var(--text-tertiary)] mb-1">Đóng gói</span>
+                        <span className="text-[var(--text-primary)] font-medium">{packagingLabel}</span>
                     </div>
                 </div>
             </div>
 
             {/* Characters review */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                <h3 className="text-white font-medium mb-4">Mô hình ({characters.length})</h3>
+                <h3 className="text-[var(--text-primary)] font-medium mb-4">Mô hình ({characters.length})</h3>
                 <div className="space-y-3">
                     {characters.map((char, i) => (
                         <div key={i} className="flex items-center gap-4">
@@ -1261,19 +1261,19 @@ function StepConfirm({
                                 {char.imagePreview ? (
                                     <img src={char.imagePreview} alt={`NV ${i + 1}`} className="w-full h-full object-cover" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-white/20">?</div>
+                                    <div className="w-full h-full flex items-center justify-center text-[var(--text-primary)]/20">?</div>
                                 )}
                             </div>
                             <div className="flex-1">
-                                <p className="text-white font-medium">Mô hình {i + 1}</p>
+                                <p className="text-[var(--text-primary)] font-medium">Mô hình {i + 1}</p>
                                 <div className="flex gap-3 mt-1">
                                     <span className={`text-xs ${char.image ? 'text-green-400' : 'text-red-400'}`}>
                                         {char.image ? '✓ Ảnh' : '✗ Ảnh'}
                                     </span>
-                                    <span className={`text-xs ${char.hasGlasses ? 'text-green-400' : 'text-white/30'}`}>
+                                    <span className={`text-xs ${char.hasGlasses ? 'text-green-400' : 'text-[var(--text-tertiary)]'}`}>
                                         {char.hasGlasses ? '+ Kính' : '- Kính'}
                                     </span>
-                                    <span className={`text-xs ${char.hasHat ? 'text-green-400' : 'text-white/30'}`}>
+                                    <span className={`text-xs ${char.hasHat ? 'text-green-400' : 'text-[var(--text-tertiary)]'}`}>
                                         {char.hasHat ? '+ Mũ' : '- Mũ'}
                                     </span>
                                 </div>
@@ -1285,22 +1285,22 @@ function StepConfirm({
 
             {/* Price Breakdown */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                <h3 className="text-white font-medium mb-4">Chi phí</h3>
+                <h3 className="text-[var(--text-primary)] font-medium mb-4">Chi phí</h3>
                 <div className="space-y-3">
-                    <div className="flex justify-between text-white/70">
+                    <div className="flex justify-between text-[var(--text-secondary)]">
                         <span>Giá cơ bản ({orderConfig?.name})</span>
                         <span>{orderConfig?.price.toLocaleString('vi-VN')}đ</span>
                     </div>
                     {/* Add-on costs logic here if needed */}
-                    <div className="flex justify-between items-center text-white pt-3 border-t border-white/10">
-                        <span className="text-white font-medium">Tổng cộng</span>
-                        <span className="text-white font-bold text-lg">{totalPrice.toLocaleString('vi-VN')}đ</span>
+                    <div className="flex justify-between items-center text-[var(--text-primary)] pt-3 border-t border-[var(--border-color)]">
+                        <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
+                        <span className="text-[var(--text-primary)] font-bold text-lg">{totalPrice.toLocaleString('vi-VN')}đ</span>
                     </div>
                     <div className="flex justify-between text-green-400">
                         <span>Cọc 50%</span>
                         <span className="font-bold">{depositAmount.toLocaleString('vi-VN')}đ</span>
                     </div>
-                    <p className="text-white/40 text-xs mt-1">
+                    <p className="text-[var(--text-tertiary)] text-xs mt-1">
                         Còn lại {(totalPrice - depositAmount).toLocaleString('vi-VN')}đ khi nhận hàng
                     </p>
                 </div>
@@ -1308,12 +1308,12 @@ function StepConfirm({
 
             {/* Notes */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                <h3 className="text-white font-medium mb-3">📝 Ghi chú (tùy chọn)</h3>
+                <h3 className="text-[var(--text-primary)] font-medium mb-3">📝 Ghi chú (tùy chọn)</h3>
                 <textarea
                     value={notes}
                     onChange={(e) => onNotesChange(e.target.value)}
                     placeholder="Mô tả chi tiết yêu cầu thêm..."
-                    className="w-full p-3 bg-[#3D3D3F] rounded-xl text-white text-sm placeholder:text-white/30 resize-none focus:outline-none focus:ring-1 focus:ring-white/20"
+                    className="w-full p-3 bg-[#3D3D3F] rounded-xl text-[var(--text-primary)] text-sm placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-1 focus:ring-white/20"
                     rows={3}
                     disabled={submitting}
                 />
@@ -1321,7 +1321,7 @@ function StepConfirm({
 
             {/* Address */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                <h3 className="text-white font-medium mb-4">📍 Địa chỉ giao hàng</h3>
+                <h3 className="text-[var(--text-primary)] font-medium mb-4">📍 Địa chỉ giao hàng</h3>
                 <AddressSelector
                     userId={userId}
                     value={shippingAddress}

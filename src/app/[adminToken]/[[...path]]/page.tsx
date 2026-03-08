@@ -37,7 +37,7 @@ const EXCLUDED_PATHS = [
 function LoadingSpinner() {
     return (
         <div className="flex items-center justify-center h-64">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin" />
         </div>
     );
 }
@@ -192,8 +192,8 @@ export default function AdminCatchAllPage() {
     // Not found
     return (
         <div className="flex flex-col items-center justify-center h-64 text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">404</h2>
-            <p className="text-white/50">Trang không tồn tại: /{path}</p>
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">404</h2>
+            <p className="text-[var(--text-secondary)]">Trang không tồn tại: /{path}</p>
         </div>
     );
 }

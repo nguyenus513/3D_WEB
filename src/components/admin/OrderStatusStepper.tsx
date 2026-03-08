@@ -31,7 +31,7 @@ export function OrderStatusStepper({
         <div className={cn("w-full py-4", className)}>
             <div className="relative flex items-center justify-between w-full">
                 {/* Line background */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-white/10 -z-10 rounded-full" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[var(--material-glass)] -z-10 rounded-full" />
 
                 {/* Line active */}
                 <div
@@ -65,8 +65,8 @@ export function OrderStatusStepper({
                                     "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300",
                                     isCompleted ? "bg-white text-black border-white" : "",
                                     isCurrent ? "bg-white text-black border-white scale-110" : "",
-                                    isNext ? "bg-transparent text-white border-white/50 hover:border-white hover:bg-white/10 cursor-pointer" : "",
-                                    !isCompleted && !isCurrent && !isNext ? "bg-transparent text-white/30 border-white/20" : "",
+                                    isNext ? "bg-transparent text-[var(--text-primary)] border-[var(--border-color)] hover:border-[var(--text-primary)] hover:bg-[var(--material-glass)] cursor-pointer" : "",
+                                    !isCompleted && !isCurrent && !isNext ? "bg-transparent text-[var(--text-tertiary)] border-[var(--border-color)]" : "",
                                     updating && isNext ? "opacity-50" : ""
                                 )}
                             >
@@ -75,13 +75,13 @@ export function OrderStatusStepper({
 
                             <span className={cn(
                                 "mt-2 text-[10px] font-medium text-center whitespace-nowrap",
-                                isCompleted || isCurrent ? "text-white" : "text-white/40"
+                                isCompleted || isCurrent ? "text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"
                             )}>
                                 {step.adminLabel}
                             </span>
 
                             {isNext && onStatusChange && (
-                                <span className="text-[8px] text-white/50 mt-0.5">click</span>
+                                <span className="text-[8px] text-[var(--text-secondary)] mt-0.5">click</span>
                             )}
                         </div>
                     );
@@ -90,8 +90,8 @@ export function OrderStatusStepper({
 
             {/* Status text */}
             <div className="flex items-center justify-between text-xs mt-6">
-                <span className="text-white/50">{Math.max(0, currentStepIndex + 1)} / {flowSteps.length}</span>
-                <span className="text-white font-medium">
+                <span className="text-[var(--text-secondary)]">{Math.max(0, currentStepIndex + 1)} / {flowSteps.length}</span>
+                <span className="text-[var(--text-primary)] font-medium">
                     {flowSteps[currentStepIndex]?.adminLabel || currentStatus}
                 </span>
             </div>

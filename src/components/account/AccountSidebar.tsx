@@ -35,7 +35,6 @@ export function AccountSidebar() {
                 setUserName(data.full_name || '');
             }
         } catch (err) {
-            // Ignore errors - username is optional
             console.log('Failed to fetch userName:', err);
         }
     };
@@ -50,15 +49,15 @@ export function AccountSidebar() {
     return (
         <aside className="w-full lg:w-64 flex-shrink-0">
             {/* User info */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 mb-4">
+            <div className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl p-5 border border-[var(--border-color)] mb-4">
                 <div>
-                    <h3 className="text-white font-semibold truncate">{displayName}</h3>
-                    <p className="text-white/50 text-sm truncate">{displayEmail}</p>
+                    <h3 className="text-[var(--text-primary)] font-semibold truncate">{displayName}</h3>
+                    <p className="text-[var(--text-secondary)] text-sm truncate">{displayEmail}</p>
                 </div>
             </div>
 
             {/* Navigation */}
-            <nav className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+            <nav className="bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)] overflow-hidden">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     const Icon = item.icon;
@@ -68,16 +67,16 @@ export function AccountSidebar() {
                             key={item.href}
                             href={item.href}
                             className={`
-                                flex items-center gap-3 px-5 py-4 transition-colors border-b border-white/5 last:border-b-0
+                                flex items-center gap-3 px-5 py-4 transition-colors border-b border-[var(--border-color)] last:border-b-0
                                 ${isActive
-                                    ? 'bg-white/5 text-white'
-                                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                                    ? 'bg-[var(--material-glass)] text-[var(--text-primary)]'
+                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--material-glass)]'
                                 }
                             `}
                         >
                             <Icon size={20} strokeWidth={1.5} />
                             <span className="font-medium">{item.name}</span>
-                            {isActive && <ChevronRight size={16} className="ml-auto text-white/50" />}
+                            {isActive && <ChevronRight size={16} className="ml-auto text-[var(--text-secondary)]" />}
                         </Link>
                     );
                 })}
@@ -86,7 +85,7 @@ export function AccountSidebar() {
             {/* Logout */}
             <button
                 onClick={handleLogout}
-                className="w-full mt-4 flex items-center justify-center gap-2 px-5 py-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                className="w-full mt-4 flex items-center justify-center gap-2 px-5 py-3 bg-[var(--material-glass)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--material-glass)] transition-colors"
             >
                 <LogOut size={20} strokeWidth={1.5} />
                 Đăng xuất

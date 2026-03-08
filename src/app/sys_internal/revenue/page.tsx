@@ -81,15 +81,15 @@ export default function RevenuePage() {
                 <div className="flex items-center gap-4">
                     <Link
                         href={adminRoot}
-                        className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                        className="p-2 rounded-xl hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Phân tích Thu nhập</h1>
-                        <p className="text-white/50 mt-1">Tháng {selectedMonth}/{selectedYear}</p>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Phân tích Thu nhập</h1>
+                        <p className="text-[var(--text-secondary)] mt-1">Tháng {selectedMonth}/{selectedYear}</p>
                     </div>
                 </div>
 
@@ -98,7 +98,7 @@ export default function RevenuePage() {
                     <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                        className="px-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white"
+                        className="px-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)]"
                     >
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
                             <option key={m} value={m}>Tháng {m}</option>
@@ -107,7 +107,7 @@ export default function RevenuePage() {
                     <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        className="px-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white"
+                        className="px-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)]"
                     >
                         {[2024, 2025, 2026, 2027].map(y => (
                             <option key={y} value={y}>{y}</option>
@@ -128,7 +128,7 @@ export default function RevenuePage() {
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10"
+                            className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]"
                         >
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
@@ -136,7 +136,7 @@ export default function RevenuePage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 </div>
-                                <span className="text-white/50 text-sm">Tổng thu T{selectedMonth}</span>
+                                <span className="text-[var(--text-secondary)] text-sm">Tổng thu T{selectedMonth}</span>
                             </div>
                             <p className="text-2xl font-bold text-green-400">{formatCurrency(data.currentMonth.totalRevenue)}</p>
                         </motion.div>
@@ -146,7 +146,7 @@ export default function RevenuePage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10"
+                            className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]"
                         >
                             <div className="flex items-center gap-3 mb-3">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${data.percentChange >= 0 ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
@@ -154,7 +154,7 @@ export default function RevenuePage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={data.percentChange >= 0 ? "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" : "M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"} />
                                     </svg>
                                 </div>
-                                <span className="text-white/50 text-sm">So với T{data.previousMonth.month}</span>
+                                <span className="text-[var(--text-secondary)] text-sm">So với T{data.previousMonth.month}</span>
                             </div>
                             <p className={`text-2xl font-bold ${data.percentChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {data.percentChange >= 0 ? '+' : ''}{data.percentChange}%
@@ -166,7 +166,7 @@ export default function RevenuePage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
-                            className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10"
+                            className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]"
                         >
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
@@ -174,7 +174,7 @@ export default function RevenuePage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                     </svg>
                                 </div>
-                                <span className="text-white/50 text-sm">Tổng đơn</span>
+                                <span className="text-[var(--text-secondary)] text-sm">Tổng đơn</span>
                             </div>
                             <p className="text-2xl font-bold text-blue-400">{data.currentMonth.orderCount}</p>
                         </motion.div>
@@ -184,7 +184,7 @@ export default function RevenuePage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className="bg-[#1D1D1F] rounded-2xl p-5 border border-white/10"
+                            className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]"
                         >
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
@@ -192,7 +192,7 @@ export default function RevenuePage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
                                     </svg>
                                 </div>
-                                <span className="text-white/50 text-sm">Đã giao</span>
+                                <span className="text-[var(--text-secondary)] text-sm">Đã giao</span>
                             </div>
                             <p className="text-2xl font-bold text-cyan-400">{data.currentMonth.deliveredCount}</p>
                         </motion.div>
@@ -203,9 +203,9 @@ export default function RevenuePage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="bg-[#1D1D1F] rounded-2xl p-6 border border-white/10"
+                        className="bg-[var(--material-panel)] rounded-2xl p-6 border border-[var(--border-color)]"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-6">Thu nhập theo tháng ({selectedYear})</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Thu nhập theo tháng ({selectedYear})</h2>
 
                         <div className="flex items-end justify-between gap-2 h-48">
                             {data.yearlyData.map((d, idx) => {
@@ -221,11 +221,11 @@ export default function RevenuePage() {
                                         <div
                                             className={`w-full rounded-t-lg transition-all duration-300 ${isSelected
                                                     ? 'bg-gradient-to-t from-cyan-600 to-cyan-400'
-                                                    : 'bg-white/10 group-hover:bg-white/20'
+                                                    : 'bg-[var(--material-glass)] group-hover:bg-[var(--material-glass)]'
                                                 }`}
                                             style={{ height: `${Math.max(height, 4)}%` }}
                                         />
-                                        <span className={`text-xs ${isSelected ? 'text-cyan-400 font-medium' : 'text-white/40'}`}>
+                                        <span className={`text-xs ${isSelected ? 'text-cyan-400 font-medium' : 'text-[var(--text-tertiary)]'}`}>
                                             {monthNames[idx]}
                                         </span>
                                     </div>
@@ -241,25 +241,25 @@ export default function RevenuePage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="bg-[#1D1D1F] rounded-2xl p-6 border border-white/10"
+                            className="bg-[var(--material-panel)] rounded-2xl p-6 border border-[var(--border-color)]"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Chi tiết thu nhập</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiết thu nhập</h2>
 
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
+                                <div className="flex items-center justify-between p-4 bg-[var(--material-glass)] rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                                        <span className="text-white/70">Tiền đơn đã giao</span>
+                                        <span className="text-[var(--text-secondary)]">Tiền đơn đã giao</span>
                                     </div>
-                                    <span className="text-white font-medium">{formatCurrency(data.currentMonth.deliveredRevenue)}</span>
+                                    <span className="text-[var(--text-primary)] font-medium">{formatCurrency(data.currentMonth.deliveredRevenue)}</span>
                                 </div>
 
-                                <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
+                                <div className="flex items-center justify-between p-4 bg-[var(--material-glass)] rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                                        <span className="text-white/70">Tiền cọc đã thu</span>
+                                        <span className="text-[var(--text-secondary)]">Tiền cọc đã thu</span>
                                     </div>
-                                    <span className="text-white font-medium">{formatCurrency(data.currentMonth.depositRevenue)}</span>
+                                    <span className="text-[var(--text-primary)] font-medium">{formatCurrency(data.currentMonth.depositRevenue)}</span>
                                 </div>
 
                                 <div className="flex items-center justify-between p-4 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
@@ -277,26 +277,26 @@ export default function RevenuePage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.6 }}
-                            className="bg-[#1D1D1F] rounded-2xl p-6 border border-white/10"
+                            className="bg-[var(--material-panel)] rounded-2xl p-6 border border-[var(--border-color)]"
                         >
-                            <h2 className="text-lg font-semibold text-white mb-4">Đơn hàng trong tháng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Đơn hàng trong tháng</h2>
 
                             {data.orders.length === 0 ? (
-                                <p className="text-white/50 text-center py-8">Chưa có đơn hàng</p>
+                                <p className="text-[var(--text-secondary)] text-center py-8">Chưa có đơn hàng</p>
                             ) : (
                                 <div className="space-y-3 max-h-64 overflow-y-auto">
                                     {data.orders.map((order) => (
                                         <Link
                                             key={order.id}
                                             href={`${adminRoot}/orders/${order.id}`}
-                                            className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                                            className="flex items-center justify-between p-3 bg-[var(--material-glass)] rounded-xl hover:bg-[var(--material-glass)] transition-colors"
                                         >
                                             <div>
-                                                <p className="text-white font-mono text-sm">{order.order_code}</p>
-                                                <p className="text-white/50 text-xs">{order.customer_name}</p>
+                                                <p className="text-[var(--text-primary)] font-mono text-sm">{order.order_code}</p>
+                                                <p className="text-[var(--text-secondary)] text-xs">{order.customer_name}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-white font-medium">{formatCurrency(order.status === 'delivered' ? order.total : order.deposit_amount)}</p>
+                                                <p className="text-[var(--text-primary)] font-medium">{formatCurrency(order.status === 'delivered' ? order.total : order.deposit_amount)}</p>
                                                 <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                                                     {order.status === 'delivered' ? 'Đã giao' : 'Đặt cọc'}
                                                 </span>

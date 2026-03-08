@@ -33,13 +33,11 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
     const [showNewForm, setShowNewForm] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(value?.id || null);
 
-    // Vietnam address data for new form
     const [provinces, setProvinces] = useState<Province[]>([]);
     const [districts, setDistricts] = useState<District[]>([]);
     const [wards, setWards] = useState<Ward[]>([]);
     const [loadingAddress, setLoadingAddress] = useState(false);
 
-    // New address form data
     const [newAddress, setNewAddress] = useState<{
         full_name: string;
         phone: string;
@@ -62,7 +60,6 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
         wardName: '',
     });
 
-    // Fetch saved addresses
     useEffect(() => {
         if (userId) {
             setLoading(true);
@@ -71,7 +68,6 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                 .then(data => {
                     if (data.addresses) {
                         setSavedAddresses(data.addresses);
-                        // Auto-select default address if no value
                         if (!value) {
                             const defaultAddr = data.addresses.find((a: SavedAddress) => a.is_default);
                             if (defaultAddr) {
@@ -89,17 +85,14 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                 .catch(console.error)
                 .finally(() => setLoading(false));
         } else {
-            // Guest - always show new form
             setShowNewForm(true);
         }
     }, [userId]);
 
-    // Load provinces
     useEffect(() => {
         getProvinces().then(setProvinces);
     }, []);
 
-    // Load districts when province changes
     useEffect(() => {
         if (newAddress.provinceCode) {
             setLoadingAddress(true);
@@ -118,7 +111,6 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
         }
     }, [newAddress.provinceCode]);
 
-    // Load wards when district changes
     useEffect(() => {
         if (newAddress.districtCode) {
             setLoadingAddress(true);
@@ -141,7 +133,6 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
     };
 
     const handleNewAddressChange = () => {
-        // Validate
         if (!newAddress.full_name || !newAddress.phone || !newAddress.provinceName || !newAddress.address_line) {
             return;
         }
@@ -164,19 +155,18 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
 
     if (loading) {
         return (
-            <div className="p-4 bg-white/5 rounded-xl animate-pulse">
-                <div className="h-4 bg-white/10 rounded w-1/2 mb-2" />
-                <div className="h-4 bg-white/10 rounded w-3/4" />
+            <div className="p-4 bg-[var(--material-glass)] rounded-xl animate-pulse">
+                <div className="h-4 bg-[var(--material-glass)] rounded w-1/2 mb-2" />
+                <div className="h-4 bg-[var(--material-glass)] rounded w-3/4" />
             </div>
         );
     }
 
     return (
         <div className="space-y-4">
-            {/* Saved Addresses */}
             {savedAddresses.length > 0 && !showNewForm && (
                 <div className="space-y-3">
-                    <p className="text-white/60 text-sm">Chọn địa chỉ đã lưu:</p>
+                    <p className="text-[var(--text-secondary)] text-sm">Chọn địa chỉ đã lưu:</p>
                     {savedAddresses.map(addr => (
                         <button
                             key={addr.id}
@@ -184,14 +174,14 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                             disabled={disabled}
                             className={`w-full p-4 rounded-xl border text-left transition-all ${selectedId === addr.id
                                     ? 'border-cyan-500 bg-cyan-500/10'
-                                    : 'border-white/10 bg-white/5 hover:border-white/20'
+                                    : 'border-[var(--border-color)] bg-[var(--material-glass)] hover:border-[var(--border-color)]'
                                 } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-white font-medium">{addr.full_name}</p>
-                                    <p className="text-white/60 text-sm">{addr.phone}</p>
-                                    <p className="text-white/50 text-sm truncate">
+                                    <p className="text-[var(--text-primary)] font-medium">{addr.full_name}</p>
+                                    <p className="text-[var(--text-secondary)] text-sm">{addr.phone}</p>
+                                    <p className="text-[var(--text-secondary)] text-sm truncate">
                                         {addr.address_line}, {addr.ward}, {addr.district}, {addr.province}
                                     </p>
                                 </div>
@@ -216,7 +206,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                             setSelectedId(null);
                         }}
                         disabled={disabled}
-                        className="w-full p-4 rounded-xl border border-dashed border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-all flex items-center justify-center gap-2"
+                        className="w-full p-4 rounded-xl border border-dashed border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-color)] transition-all flex items-center justify-center gap-2"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -226,7 +216,6 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                 </div>
             )}
 
-            {/* New Address Form */}
             <AnimatePresence>
                 {showNewForm && (
                     <motion.div
@@ -237,7 +226,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                     >
                         {savedAddresses.length > 0 && (
                             <div className="flex items-center justify-between">
-                                <p className="text-white/60 text-sm">Nhập địa chỉ mới:</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Nhập địa chỉ mới:</p>
                                 <button
                                     onClick={() => setShowNewForm(false)}
                                     className="text-cyan-400 text-sm hover:text-cyan-300"
@@ -254,7 +243,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                 value={newAddress.full_name}
                                 onChange={e => setNewAddress(prev => ({ ...prev, full_name: e.target.value }))}
                                 disabled={disabled}
-                                className="col-span-1 p-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:border-cyan-500 focus:outline-none"
+                                className="col-span-1 p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-cyan-500 focus:outline-none"
                             />
                             <input
                                 type="tel"
@@ -262,11 +251,10 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                 value={newAddress.phone}
                                 onChange={e => setNewAddress(prev => ({ ...prev, phone: e.target.value }))}
                                 disabled={disabled}
-                                className="col-span-1 p-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:border-cyan-500 focus:outline-none"
+                                className="col-span-1 p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-cyan-500 focus:outline-none"
                             />
                         </div>
 
-                        {/* Province/District/Ward selectors */}
                         <div className="grid grid-cols-3 gap-3">
                             <select
                                 value={newAddress.provinceCode || ''}
@@ -279,11 +267,11 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                     }));
                                 }}
                                 disabled={disabled || loadingAddress}
-                                className="p-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none"
+                                className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none"
                             >
                                 <option value="">Tỉnh/Thành *</option>
                                 {provinces.map(p => (
-                                    <option key={p.code} value={p.code} className="bg-[#1d1d1f] text-white">
+                                    <option key={p.code} value={p.code} className="bg-[var(--material-panel)] text-[var(--text-primary)]">
                                         {p.name}
                                     </option>
                                 ))}
@@ -300,11 +288,11 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                     }));
                                 }}
                                 disabled={disabled || !newAddress.provinceCode || loadingAddress}
-                                className="p-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none disabled:opacity-50"
+                                className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none disabled:opacity-50"
                             >
                                 <option value="">Quận/Huyện</option>
                                 {districts.map(d => (
-                                    <option key={d.code} value={d.code} className="bg-[#1d1d1f] text-white">
+                                    <option key={d.code} value={d.code} className="bg-[var(--material-panel)] text-[var(--text-primary)]">
                                         {d.name}
                                     </option>
                                 ))}
@@ -321,11 +309,11 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                     }));
                                 }}
                                 disabled={disabled || !newAddress.districtCode || loadingAddress}
-                                className="p-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none disabled:opacity-50"
+                                className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none disabled:opacity-50"
                             >
                                 <option value="">Phường/Xã</option>
                                 {wards.map(w => (
-                                    <option key={w.code} value={w.code} className="bg-[#1d1d1f] text-white">
+                                    <option key={w.code} value={w.code} className="bg-[var(--material-panel)] text-[var(--text-primary)]">
                                         {w.name}
                                     </option>
                                 ))}
@@ -338,7 +326,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                             value={newAddress.address_line}
                             onChange={e => setNewAddress(prev => ({ ...prev, address_line: e.target.value }))}
                             disabled={disabled}
-                            className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:border-cyan-500 focus:outline-none"
+                            className="w-full p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-cyan-500 focus:outline-none"
                         />
                     </motion.div>
                 )}

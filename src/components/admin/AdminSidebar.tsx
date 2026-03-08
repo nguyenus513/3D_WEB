@@ -87,13 +87,13 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
         <aside className={clsx(`
             fixed left-0 top-0 h-screen w-64 z-50 flex flex-col
             transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)
-            border-r border-white/5 bg-[#1D1D1F]
+            border-r border-[var(--border-color)] bg-[var(--material-panel)]
             lg:translate-x-0
         `,
             isOpen ? 'translate-x-0' : '-translate-x-full'
         )}>
             {/* Logo */}
-            <div className="p-6 border-b border-white/5">
+            <div className="p-6 border-b border-[var(--border-color)]">
                 <Link href={effectiveRoot} className="flex items-center gap-3 group">
                     <div className="w-10 h-10 rounded-2xl bg-white shadow-lg flex items-center justify-center transition-transform group-hover:scale-105 group-hover:rotate-3">
                         <Layers size={24} className="text-black" strokeWidth={2} />
@@ -115,8 +115,8 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                     const hasChildren = item.children && item.children.length > 0;
 
                     const activeClass = isActive
-                        ? 'bg-[var(--color-accent)] text-white shadow-md'
-                        : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]';
+                        ? 'bg-[var(--color-accent)] text-[var(--text-primary)] shadow-md'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]';
 
                     return (
                         <div key={fullHref}>
@@ -127,7 +127,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                         className={clsx(`
                                             w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
                                             border border-transparent
-                                        `, isActive ? 'bg-white/10 text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]')}
+                                        `, isActive ? 'bg-[var(--material-glass)] text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]')}
                                     >
                                         <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
                                         <span className="font-semibold flex-1 text-left text-sm">{item.name}</span>
@@ -180,8 +180,8 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                         flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
                                         border border-transparent
                                     `, isActive
-                                        ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-2)]'
-                                        : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]'
+                                        ? 'bg-[var(--color-accent)] text-[var(--text-primary)] shadow-[var(--shadow-2)]'
+                                        : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]'
                                     )}
                                 >
                                     <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
@@ -194,16 +194,16 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
             </nav>
 
             {/* User section */}
-            <div className="p-4 border-t border-white/5">
+            <div className="p-4 border-t border-[var(--border-color)]">
                 <button
                     onClick={() => {
                         // Clear 2FA cookie before signing out
                         document.cookie = '2fa-verified=; path=/; max-age=0';
                         signOut({ callbackUrl: '/login' });
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 transition-all cursor-pointer text-left border border-transparent hover:border-[var(--edge-light)] group"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-[var(--material-glass)] transition-all cursor-pointer text-left border border-transparent hover:border-[var(--edge-light)] group"
                 >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-accent)] to-[#4F46E5] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-accent)] to-[#4F46E5] flex items-center justify-center text-[var(--text-primary)] shadow-md group-hover:scale-105 transition-transform">
                         <span className="font-bold text-sm">{session?.user?.name?.[0]?.toUpperCase() || 'A'}</span>
                     </div>
                     <div className="flex-1 min-w-0">

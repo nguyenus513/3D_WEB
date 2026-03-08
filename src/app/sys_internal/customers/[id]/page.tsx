@@ -94,7 +94,7 @@ export default function AdminCustomerDetailPage() {
         return (
             <div className="text-center py-20">
                 <p className="text-red-400">{error || 'Không tìm thấy khách hàng'}</p>
-                <Link href={`${adminRoot}/customers`} className="text-white/50 hover:text-white mt-4 inline-block">
+                <Link href={`${adminRoot}/customers`} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] mt-4 inline-block">
                     ← Quay lại
                 </Link>
             </div>
@@ -108,15 +108,15 @@ export default function AdminCustomerDetailPage() {
                 <div className="flex items-center gap-4">
                     <Link
                         href={`${adminRoot}/customers`}
-                        className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                        className="p-2 rounded-xl hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">{customer.full_name || 'Chưa có tên'}</h1>
-                        <p className="text-white/50 mt-1">Mã KH: {customer.customer_code}</p>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">{customer.full_name || 'Chưa có tên'}</h1>
+                        <p className="text-[var(--text-secondary)] mt-1">Mã KH: {customer.customer_code}</p>
                     </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${customer.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-green-500/20 text-green-400'
@@ -130,44 +130,44 @@ export default function AdminCustomerDetailPage() {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="lg:col-span-2 bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-6"
+                    className="lg:col-span-2 bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-6"
                 >
-                    <h2 className="text-lg font-semibold text-white">Thông tin liên hệ</h2>
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thông tin liên hệ</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-white/50 text-sm block mb-1">Họ tên</label>
-                            <p className="text-white">{customer.full_name || '-'}</p>
+                            <label className="text-[var(--text-secondary)] text-sm block mb-1">Họ tên</label>
+                            <p className="text-[var(--text-primary)]">{customer.full_name || '-'}</p>
                         </div>
                         <div>
-                            <label className="text-white/50 text-sm block mb-1">Email</label>
-                            <p className="text-white">{customer.email || '-'}</p>
+                            <label className="text-[var(--text-secondary)] text-sm block mb-1">Email</label>
+                            <p className="text-[var(--text-primary)]">{customer.email || '-'}</p>
                         </div>
                         <div>
-                            <label className="text-white/50 text-sm block mb-1">Số điện thoại</label>
-                            <p className="text-white">{customer.phone || '-'}</p>
+                            <label className="text-[var(--text-secondary)] text-sm block mb-1">Số điện thoại</label>
+                            <p className="text-[var(--text-primary)]">{customer.phone || '-'}</p>
                         </div>
                         {/* <div>
-                            <label className="text-white/50 text-sm block mb-1">Instagram</label>
-                            <p className="text-white">{customer.instagram || '-'}</p>
+                            <label className="text-[var(--text-secondary)] text-sm block mb-1">Instagram</label>
+                            <p className="text-[var(--text-primary)]">{customer.instagram || '-'}</p>
                         </div> */}
                     </div>
 
-                    <div className="pt-4 border-t border-white/10">
+                    <div className="pt-4 border-t border-[var(--border-color)]">
                         <div className="grid grid-cols-3 gap-4">
-                            <div className="text-center p-4 rounded-xl bg-white/5">
-                                <p className="text-2xl font-bold text-white">{orders.length}</p>
-                                <p className="text-white/50 text-sm">Đơn hàng</p>
+                            <div className="text-center p-4 rounded-xl bg-[var(--material-glass)]">
+                                <p className="text-2xl font-bold text-[var(--text-primary)]">{orders.length}</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Đơn hàng</p>
                             </div>
-                            <div className="text-center p-4 rounded-xl bg-white/5">
+                            <div className="text-center p-4 rounded-xl bg-[var(--material-glass)]">
                                 <p className="text-2xl font-bold text-green-400">{totalSpent.toLocaleString('vi-VN')}đ</p>
-                                <p className="text-white/50 text-sm">Tổng chi tiêu</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Tổng chi tiêu</p>
                             </div>
-                            <div className="text-center p-4 rounded-xl bg-white/5">
-                                <p className="text-2xl font-bold text-white">
+                            <div className="text-center p-4 rounded-xl bg-[var(--material-glass)]">
+                                <p className="text-2xl font-bold text-[var(--text-primary)]">
                                     {new Date(customer.created_at).toLocaleDateString('vi-VN')}
                                 </p>
-                                <p className="text-white/50 text-sm">Ngày tham gia</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Ngày tham gia</p>
                             </div>
                         </div>
                     </div>
@@ -180,22 +180,22 @@ export default function AdminCustomerDetailPage() {
                     transition={{ delay: 0.1 }}
                     className="space-y-6"
                 >
-                    <div className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6">
-                        <h3 className="text-lg font-semibold text-white mb-4">Địa chỉ giao hàng</h3>
+                    <div className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6">
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Địa chỉ giao hàng</h3>
                         {addresses.length > 0 ? (
                             <div className="space-y-4 max-h-[180px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                 {addresses.map((addr) => (
-                                    <div key={addr.id} className="space-y-2 text-sm p-3 bg-white/5 rounded-xl">
+                                    <div key={addr.id} className="space-y-2 text-sm p-3 bg-[var(--material-glass)] rounded-xl">
                                         <div className="flex items-center gap-2">
-                                            <p className="text-white font-medium">{addr.full_name}</p>
+                                            <p className="text-[var(--text-primary)] font-medium">{addr.full_name}</p>
                                             {addr.is_default && (
                                                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs">
                                                     Mặc định
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-white/70">{addr.phone}</p>
-                                        <p className="text-white/50">
+                                        <p className="text-[var(--text-secondary)]">{addr.phone}</p>
+                                        <p className="text-[var(--text-secondary)]">
                                             {addr.address_line}
                                             {addr.ward && `, ${addr.ward}`}
                                             {addr.district && `, ${addr.district}`}
@@ -205,7 +205,7 @@ export default function AdminCustomerDetailPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-white/50 text-sm">Chưa có địa chỉ</p>
+                            <p className="text-[var(--text-secondary)] text-sm">Chưa có địa chỉ</p>
                         )}
                     </div>
                 </motion.div>
@@ -216,44 +216,44 @@ export default function AdminCustomerDetailPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
             >
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-white">Lịch sử đơn hàng</h2>
-                    <span className="text-white/50 text-sm">{orders.length} đơn</span>
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Lịch sử đơn hàng</h2>
+                    <span className="text-[var(--text-secondary)] text-sm">{orders.length} đơn</span>
                 </div>
 
                 {orders.length === 0 ? (
-                    <p className="text-center text-white/50 py-8">Chưa có đơn hàng nào</p>
+                    <p className="text-center text-[var(--text-secondary)] py-8">Chưa có đơn hàng nào</p>
                 ) : (
                     <div className="space-y-3">
                         {orders.map((order) => (
                             <Link
                                 key={order.id}
                                 href={`${adminRoot}/orders/${order.id}`}
-                                className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                                className="flex items-center justify-between p-4 rounded-xl bg-[var(--material-glass)] hover:bg-[var(--material-glass)] transition-colors"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="w-10 h-10 rounded-xl bg-[var(--material-glass)] flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                         </svg>
                                     </div>
                                     <div>
-                                        <span className="text-white font-medium block">{order.order_code}</span>
-                                        <span className="text-white/50 text-sm">
+                                        <span className="text-[var(--text-primary)] font-medium block">{order.order_code}</span>
+                                        <span className="text-[var(--text-secondary)] text-sm">
                                             {new Date(order.created_at).toLocaleDateString('vi-VN')}
                                         </span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <span className="text-white font-medium">
+                                    <span className="text-[var(--text-primary)] font-medium">
                                         {order.total_amount.toLocaleString('vi-VN')}đ
                                     </span>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-white/10 text-white/50'}`}>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-[var(--material-glass)] text-[var(--text-secondary)]'}`}>
                                         {statusLabels[order.status] || order.status}
                                     </span>
-                                    <svg className="w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
                                     </svg>
                                 </div>

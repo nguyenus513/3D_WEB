@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signIn, getCsrfToken } from 'next-auth/react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Layers, Mail, Lock, EyeOff, Eye } from 'lucide-react';
 
 function LoginForm() {
@@ -112,7 +113,7 @@ function LoginForm() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-20">
+        <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -124,8 +125,8 @@ function LoginForm() {
                     <Link href="/" className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white mb-6">
                         <Layers size={32} className="text-black" strokeWidth={2} />
                     </Link>
-                    <h1 className="text-3xl font-bold text-white mb-2">Đăng Nhập</h1>
-                    <p className="text-white/50">Chào mừng bạn quay trở lại</p>
+                    <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Đăng Nhập</h1>
+                    <p className="text-[var(--text-secondary)]">Chào mừng bạn quay trở lại</p>
                 </div>
 
                 {/* Error Message */}
@@ -146,17 +147,17 @@ function LoginForm() {
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Email */}
                     <div>
-                        <label className="text-white/70 text-sm mb-2 block">Email</label>
+                        <label className="text-[var(--text-secondary)] text-sm mb-2 block">Email</label>
                         <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
                                 <Mail size={20} strokeWidth={1.5} />
                             </span>
-                            <input
+                            <Input
                                 type="email"
                                 placeholder="you@example.com"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full pl-12 pr-4 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
+                                className="w-full pl-12 pr-4 py-4 h-auto bg-[var(--material-panel)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-ring border border-[var(--border-color)] transition-all"
                                 required
                                 disabled={loading}
                             />
@@ -165,24 +166,24 @@ function LoginForm() {
 
                     {/* Password */}
                     <div>
-                        <label className="text-white/70 text-sm mb-2 block">Mật khẩu</label>
+                        <label className="text-[var(--text-secondary)] text-sm mb-2 block">Mật khẩu</label>
                         <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
                                 <Lock size={20} strokeWidth={1.5} />
                             </span>
-                            <input
+                            <Input
                                 type={showPassword ? 'text' : 'password'}
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full pl-12 pr-12 py-4 bg-[#1D1D1F] rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 transition-all"
+                                className="w-full pl-12 pr-12 py-4 h-auto bg-[var(--material-panel)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-ring border border-[var(--border-color)] transition-all"
                                 required
                                 disabled={loading}
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                             >
                                 {showPassword ? (
                                     <EyeOff size={20} strokeWidth={1.5} />
@@ -200,11 +201,11 @@ function LoginForm() {
                                 type="checkbox"
                                 checked={formData.remember}
                                 onChange={(e) => setFormData({ ...formData, remember: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/20 bg-[#1D1D1F] text-white focus:ring-white/30"
+                                className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--material-panel)] text-[var(--text-primary)] focus:ring-ring"
                             />
-                            <span className="text-white/60 text-sm">Ghi nhớ đăng nhập</span>
+                            <span className="text-[var(--text-secondary)] text-sm">Ghi nhớ đăng nhập</span>
                         </label>
-                        <Link href="/forgot-password" className="text-white/70 text-sm hover:underline">
+                        <Link href="/forgot-password" className="text-[var(--text-secondary)] text-sm hover:underline">
                             Quên mật khẩu?
                         </Link>
                     </div>
@@ -212,7 +213,7 @@ function LoginForm() {
                     {/* Submit */}
                     <Button
                         type="submit"
-                        variant="primary"
+                        variant="default"
                         size="lg"
                         className="w-full"
                         disabled={loading}
@@ -223,16 +224,16 @@ function LoginForm() {
 
                 {/* Divider */}
                 <div className="flex items-center gap-4 my-8">
-                    <div className="flex-1 h-px bg-white/10" />
-                    <span className="text-white/40 text-sm">hoặc</span>
-                    <div className="flex-1 h-px bg-white/10" />
+                    <div className="flex-1 h-px bg-[var(--material-glass)]" />
+                    <span className="text-[var(--text-tertiary)] text-sm">hoặc</span>
+                    <div className="flex-1 h-px bg-[var(--material-glass)]" />
                 </div>
 
                 {/* Google Login */}
                 <button
                     onClick={() => signIn('google', { callbackUrl: '/api/auth/google-callback' })}
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-3 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-medium transition-all disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-3 py-4 bg-[var(--material-glass)] hover:opacity-80 border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] font-medium transition-all disabled:opacity-50"
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -244,9 +245,9 @@ function LoginForm() {
                 </button>
 
                 {/* Register Link */}
-                <p className="text-center text-white/60 mt-8">
+                <p className="text-center text-[var(--text-secondary)] mt-8">
                     Chưa có tài khoản?{' '}
-                    <Link href="/register" className="text-white font-medium hover:underline">
+                    <Link href="/register" className="text-[var(--text-primary)] font-medium hover:underline">
                         Đăng ký ngay
                     </Link>
                 </p>

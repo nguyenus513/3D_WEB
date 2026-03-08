@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/Input';
 import Link from 'next/link';
 
@@ -22,17 +22,17 @@ const socialLinks = [
 
 export default function AboutPage() {
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-28 pb-20">
+        <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
             <div className="max-w-[1200px] mx-auto px-6">
                 {/* Header */}
                 <AnimatedSection className="text-center mb-16">
-                    <span className="text-sm text-white/70 font-medium tracking-widest uppercase mb-4 block">
+                    <span className="text-sm text-[var(--text-secondary)] font-medium tracking-widest uppercase mb-4 block">
                         Về Chúng Tôi
                     </span>
-                    <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight mb-6">
+                    <h1 className="text-4xl md:text-6xl font-bold text-[var(--text-primary)] tracking-tight mb-6">
                         Miniver 3D Lab
                     </h1>
-                    <p className="text-xl text-white/50 max-w-2xl mx-auto">
+                    <p className="text-xl text-[var(--text-secondary)] max-w-2xl mx-auto">
                         Chuyên tạo mô hình 3D độc đáo, cá nhân hóa hoàn toàn theo yêu cầu của bạn
                     </p>
                 </AnimatedSection>
@@ -41,10 +41,10 @@ export default function AboutPage() {
                 <AnimatedSection delay={0.1} className="mb-20">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                         <div>
-                            <h2 className="text-3xl font-bold text-white mb-6">
+                            <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-6">
                                 Câu Chuyện Của Chúng Tôi
                             </h2>
-                            <div className="space-y-4 text-white/60 leading-relaxed">
+                            <div className="space-y-4 text-[var(--text-secondary)] leading-relaxed">
                                 <p>
                                     Miniver 3D Lab được thành lập với niềm đam mê công nghệ in 3D và mong muốn
                                     mang đến những sản phẩm độc đáo, cá nhân hóa cho mọi người.
@@ -59,7 +59,7 @@ export default function AboutPage() {
                                 </p>
                             </div>
                         </div>
-                        <div className="aspect-video bg-[#1D1D1F] rounded-3xl flex items-center justify-center">
+                        <div className="aspect-video bg-[var(--material-panel)] rounded-3xl flex items-center justify-center">
                             <span className="text-8xl">🖨️</span>
                         </div>
                     </div>
@@ -79,10 +79,10 @@ export default function AboutPage() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.3 + index * 0.1 }}
-                                className="bg-[#1D1D1F] rounded-2xl p-6 text-center"
+                                className="bg-[var(--material-panel)] rounded-2xl p-6 text-center"
                             >
-                                <p className="text-3xl md:text-4xl font-bold text-white/70">{stat.value}</p>
-                                <p className="text-white/60 mt-2">{stat.label}</p>
+                                <p className="text-3xl md:text-4xl font-bold text-[var(--text-secondary)]">{stat.value}</p>
+                                <p className="text-[var(--text-secondary)] mt-2">{stat.label}</p>
                             </motion.div>
                         ))}
                     </div>
@@ -92,8 +92,8 @@ export default function AboutPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* Contact Info */}
                     <AnimatedSection delay={0.3}>
-                        <div className="bg-[#1D1D1F] rounded-3xl p-8 md:p-10 h-full">
-                            <h2 className="text-2xl font-bold text-white mb-8">
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-8 md:p-10 h-full">
+                            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-8">
                                 Thông Tin Liên Hệ
                             </h2>
 
@@ -102,15 +102,15 @@ export default function AboutPage() {
                                     <div key={info.label} className="flex items-start gap-4">
                                         <span className="text-2xl">{info.icon}</span>
                                         <div>
-                                            <p className="text-white/50 text-sm">{info.label}</p>
-                                            <p className="text-white font-medium">{info.value}</p>
+                                            <p className="text-[var(--text-secondary)] text-sm">{info.label}</p>
+                                            <p className="text-[var(--text-primary)] font-medium">{info.value}</p>
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
                             {/* Social Links */}
-                            <h3 className="text-white font-medium mb-4">Theo dõi chúng tôi</h3>
+                            <h3 className="text-[var(--text-primary)] font-medium mb-4">Theo dõi chúng tôi</h3>
                             <div className="flex gap-3">
                                 {socialLinks.map((social) => (
                                     <a
@@ -130,8 +130,8 @@ export default function AboutPage() {
 
                     {/* Contact Form */}
                     <AnimatedSection delay={0.4}>
-                        <div className="bg-[#1D1D1F] rounded-3xl p-8 md:p-10">
-                            <h2 className="text-2xl font-bold text-white mb-8">
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-8 md:p-10">
+                            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-8">
                                 Gửi Tin Nhắn
                             </h2>
 
@@ -143,7 +143,7 @@ export default function AboutPage() {
                                 <Input placeholder="Email" type="email" />
                                 <textarea
                                     placeholder="Nội dung tin nhắn..."
-                                    className="w-full p-4 bg-[#2D2D2F] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/5"
+                                    className="w-full p-4 bg-[#2D2D2F] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/30 border border-[var(--border-color)]"
                                     rows={5}
                                 />
                                 <Button variant="primary" size="lg" className="w-full">
@@ -156,10 +156,10 @@ export default function AboutPage() {
 
                 {/* Map Placeholder */}
                 <AnimatedSection delay={0.5} className="mt-12">
-                    <div className="bg-[#1D1D1F] rounded-3xl h-[300px] flex items-center justify-center">
+                    <div className="bg-[var(--material-panel)] rounded-3xl h-[300px] flex items-center justify-center">
                         <div className="text-center">
                             <span className="text-5xl mb-4 block">🗺️</span>
-                            <p className="text-white/50">Google Maps sẽ được tích hợp tại đây</p>
+                            <p className="text-[var(--text-secondary)]">Google Maps sẽ được tích hợp tại đây</p>
                         </div>
                     </div>
                 </AnimatedSection>

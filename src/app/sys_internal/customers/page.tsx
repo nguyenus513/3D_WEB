@@ -59,14 +59,14 @@ export default function AdminCustomersPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Khách hàng</h1>
-                    <p className="text-white/50 mt-1">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Khách hàng</h1>
+                    <p className="text-[var(--text-secondary)] mt-1">
                         {loading ? 'Đang tải...' : `${customers.length} khách hàng`}
                     </p>
                 </div>
                 <button
                     onClick={fetchCustomers}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#1D1D1F] border border-white/10 rounded-xl text-white/70 hover:text-white"
+                    className="flex items-center gap-2 px-4 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -77,7 +77,7 @@ export default function AdminCustomersPage() {
 
             {/* Search */}
             <div className="relative max-w-md">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -85,7 +85,7 @@ export default function AdminCustomersPage() {
                     placeholder="Tìm theo tên, email, SĐT..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-[#1D1D1F] border border-white/10 rounded-xl text-white placeholder:text-white/40"
+                    className="w-full pl-10 pr-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                 />
             </div>
 
@@ -93,42 +93,42 @@ export default function AdminCustomersPage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 overflow-hidden"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] overflow-hidden"
             >
                 {loading ? (
                     <div className="p-12 text-center">
                         <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                        <p className="text-white/50">Đang tải khách hàng...</p>
+                        <p className="text-[var(--text-secondary)]">Đang tải khách hàng...</p>
                     </div>
                 ) : filteredCustomers.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-white/50">Chưa có khách hàng nào</p>
+                        <p className="text-[var(--text-secondary)]">Chưa có khách hàng nào</p>
                     </div>
                 ) : (
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-white/10">
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Khách hàng</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Instagram</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Liên hệ</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Mã KH</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Đơn hàng</th>
-                                <th className="text-left text-white/50 text-sm font-medium px-5 py-4">Tổng chi tiêu</th>
+                            <tr className="border-b border-[var(--border-color)]">
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Khách hàng</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Instagram</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Liên hệ</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Mã KH</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Đơn hàng</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tổng chi tiêu</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredCustomers.map((customer) => (
                                 <tr
                                     key={customer.id}
-                                    className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                                    className="border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors cursor-pointer"
                                     onClick={() => window.location.href = `${adminRoot}/customers/${customer.id}`}
                                 >
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white font-medium">
+                                            <div className="w-10 h-10 rounded-full bg-[var(--material-glass)] flex items-center justify-center text-[var(--text-primary)] font-medium">
                                                 {customer.name?.charAt(0) || '?'}
                                             </div>
-                                            <span className="text-white font-medium">{customer.name || customer.email?.split('@')[0] || 'Chưa đặt tên'}</span>
+                                            <span className="text-[var(--text-primary)] font-medium">{customer.name || customer.email?.split('@')[0] || 'Chưa đặt tên'}</span>
                                         </div>
                                     </td>
                                     <td className="px-5 py-4">
@@ -145,26 +145,26 @@ export default function AdminCustomersPage() {
                                                 @{customer.instagram_username}
                                             </a>
                                         ) : (
-                                            <span className="text-white/30">-</span>
+                                            <span className="text-[var(--text-tertiary)]">-</span>
                                         )}
                                     </td>
                                     <td className="px-5 py-4">
                                         <div>
-                                            <p className="text-white/70">{customer.email || '-'}</p>
-                                            <p className="text-white/50 text-sm">{customer.phone || '-'}</p>
+                                            <p className="text-[var(--text-secondary)]">{customer.email || '-'}</p>
+                                            <p className="text-[var(--text-secondary)] text-sm">{customer.phone || '-'}</p>
                                         </div>
                                     </td>
                                     <td className="px-5 py-4">
-                                        <code className="text-white/60 text-sm bg-white/5 px-2 py-1 rounded">
+                                        <code className="text-[var(--text-secondary)] text-sm bg-[var(--material-glass)] px-2 py-1 rounded">
                                             {customer.customer_code || '-'}
                                         </code>
                                     </td>
                                     <td className="px-5 py-4">
-                                        <span className="px-3 py-1 rounded-full bg-white/10 text-white text-sm">
+                                        <span className="px-3 py-1 rounded-full bg-[var(--material-glass)] text-[var(--text-primary)] text-sm">
                                             {customer.order_count || 0} đơn
                                         </span>
                                     </td>
-                                    <td className="px-5 py-4 text-white font-medium">
+                                    <td className="px-5 py-4 text-[var(--text-primary)] font-medium">
                                         {(customer.total_spent || 0).toLocaleString('vi-VN')}đ
                                     </td>
                                 </tr>

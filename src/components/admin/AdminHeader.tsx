@@ -87,24 +87,24 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
     return (
         // Matching Miniver theme #1D1D1F
-        <header className="sticky top-0 z-40 bg-[#1D1D1F] border-b border-white/5">
+        <header className="sticky top-0 z-40 bg-[var(--material-panel)] border-b border-[var(--border-color)]">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
                 {/* Mobile menu button */}
                 <button
                     onClick={onMenuClick}
-                    className="lg:hidden p-2 rounded-xl hover:bg-white/5 transition-colors mr-2"
+                    className="lg:hidden p-2 rounded-xl hover:bg-[var(--material-glass)] transition-colors mr-2"
                 >
-                    <Menu size={24} className="text-white" strokeWidth={1.5} />
+                    <Menu size={24} className="text-[var(--text-primary)]" strokeWidth={1.5} />
                 </button>
 
                 {/* Search */}
                 <div className="flex-1 max-w-md">
                     <div className="relative">
-                        <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" strokeWidth={1.5} />
+                        <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" strokeWidth={1.5} />
                         <input
                             type="text"
                             placeholder="Tìm kiếm..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
                         />
                     </div>
                 </div>
@@ -115,12 +115,12 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                     <div className="relative">
                         <button
                             onClick={() => setShowNotifications(!showNotifications)}
-                            className="relative p-2.5 rounded-xl hover:bg-white/5 transition-colors"
+                            className="relative p-2.5 rounded-xl hover:bg-[var(--material-glass)] transition-colors"
                         >
-                            <Bell size={20} className="text-white/70" strokeWidth={1.5} />
+                            <Bell size={20} className="text-[var(--text-secondary)]" strokeWidth={1.5} />
                             {/* Badge */}
                             {unreadCount > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-medium rounded-full flex items-center justify-center px-1">
+                                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-[var(--text-primary)] text-xs font-medium rounded-full flex items-center justify-center px-1">
                                     {unreadCount > 9 ? '9+' : unreadCount}
                                 </span>
                             )}
@@ -128,9 +128,9 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
                         {/* Dropdown */}
                         {showNotifications && (
-                            <div className="absolute right-0 mt-2 w-96 bg-[#1D1D1F] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]">
-                                <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                                    <h3 className="text-white font-semibold">Thông báo</h3>
+                            <div className="absolute right-0 mt-2 w-96 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-2xl shadow-2xl overflow-hidden z-[100]">
+                                <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+                                    <h3 className="text-[var(--text-primary)] font-semibold">Thông báo</h3>
                                     <div className="flex items-center gap-2">
                                         {unreadCount > 0 && (
                                             <>
@@ -139,7 +139,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                 </span>
                                                 <button
                                                     onClick={markAllAsRead}
-                                                    className="text-xs text-white/40 hover:text-white/70 transition-colors flex items-center gap-1"
+                                                    className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors flex items-center gap-1"
                                                 >
                                                     <Check size={12} /> Đọc hết
                                                 </button>
@@ -150,10 +150,10 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                 <div className="max-h-80 overflow-y-auto">
                                     {loading ? (
                                         <div className="p-8 text-center">
-                                            <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                                            <div className="w-6 h-6 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto" />
                                         </div>
                                     ) : notifications.length === 0 ? (
-                                        <div className="p-8 text-center text-white/50">
+                                        <div className="p-8 text-center text-[var(--text-secondary)]">
                                             Không có thông báo mới
                                         </div>
                                     ) : (
@@ -164,7 +164,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                     key={n.id}
                                                     href={getNotificationLink(n)}
                                                     onClick={() => handleNotificationClick(n)}
-                                                    className={`block p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${!n.is_read ? 'bg-white/[0.02]' : ''
+                                                    className={`block p-4 border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors ${!n.is_read ? 'bg-[var(--material-glass)]' : ''
                                                         }`}
                                                 >
                                                     <div className="flex items-start gap-3">
@@ -178,15 +178,15 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                             </div>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className={`text-sm ${!n.is_read ? 'text-white font-medium' : 'text-white/60'}`}>
+                                                            <p className={`text-sm ${!n.is_read ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}>
                                                                 {n.title}
                                                             </p>
                                                             {n.message && (
-                                                                <p className="text-white/40 text-xs mt-0.5 truncate">
+                                                                <p className="text-[var(--text-tertiary)] text-xs mt-0.5 truncate">
                                                                     {n.message}
                                                                 </p>
                                                             )}
-                                                            <p className="text-white/30 text-xs mt-1">
+                                                            <p className="text-[var(--text-tertiary)] text-xs mt-1">
                                                                 {formatTime(n.created_at)}
                                                             </p>
                                                         </div>
@@ -196,11 +196,11 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         })
                                     )}
                                 </div>
-                                <div className="p-3 border-t border-white/10">
+                                <div className="p-3 border-t border-[var(--border-color)]">
                                     <Link
                                         href={`${adminRoot}/orders`}
                                         onClick={() => setShowNotifications(false)}
-                                        className="block text-center text-sm text-white/70 hover:text-white transition-colors"
+                                        className="block text-center text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                     >
                                         Xem tất cả đơn hàng
                                     </Link>
@@ -214,19 +214,19 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
             {/* Realtime Toast */}
             {latestNotification && (
                 <div className="fixed top-20 right-6 z-[200] animate-in slide-in-from-right duration-300">
-                    <div className="bg-[#2a2a2c] border border-white/10 rounded-xl shadow-2xl p-4 max-w-sm flex items-start gap-3">
+                    <div className="bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl shadow-2xl p-4 max-w-sm flex items-start gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getNotificationStyle(latestNotification).bg}`}>
                             {getNotificationStyle(latestNotification).icon}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium">{latestNotification.title}</p>
+                            <p className="text-[var(--text-primary)] text-sm font-medium">{latestNotification.title}</p>
                             {latestNotification.message && (
-                                <p className="text-white/40 text-xs mt-0.5 truncate">{latestNotification.message}</p>
+                                <p className="text-[var(--text-tertiary)] text-xs mt-0.5 truncate">{latestNotification.message}</p>
                             )}
                         </div>
                         <button
                             onClick={clearLatest}
-                            className="text-white/30 hover:text-white/60 flex-shrink-0"
+                            className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] flex-shrink-0"
                         >
                             ✕
                         </button>

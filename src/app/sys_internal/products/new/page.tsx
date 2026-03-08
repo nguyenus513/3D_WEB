@@ -259,14 +259,14 @@ export default function AdminProductNewPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href={`${adminRoot}/products`} className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white">
+                    <Link href={`${adminRoot}/products`} className="p-2 rounded-xl hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Thêm sản phẩm</h1>
-                        <p className="text-white/50 mt-1">Tạo sản phẩm mới</p>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Thêm sản phẩm</h1>
+                        <p className="text-[var(--text-secondary)] mt-1">Tạo sản phẩm mới</p>
                     </div>
                 </div>
             </div>
@@ -284,46 +284,46 @@ export default function AdminProductNewPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-5"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-5"
                     >
-                        <h2 className="text-lg font-semibold text-white">Thông tin cơ bản</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thông tin cơ bản</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
-                                <label className="text-white/70 text-sm mb-2 block">Tên sản phẩm *</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Tên sản phẩm *</label>
                                 <input
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     placeholder="VD: Dragon Figure"
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-white/30"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">SKU</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">SKU</label>
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
                                         value={formData.sku}
                                         onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                        className="flex-1 px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                                        className="flex-1 px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-white/30"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, sku: generateId.sku() })}
-                                        className="px-4 py-3 bg-white/10 rounded-xl text-white/70 hover:text-white text-sm"
+                                        className="px-4 py-3 bg-[var(--material-glass)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm"
                                     >
                                         Tạo mã
                                     </button>
                                 </div>
                             </div>
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Danh mục</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Danh mục</label>
                                 <select
                                     value={selectedCategoryId}
                                     onChange={(e) => setSelectedCategoryId(e.target.value)}
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-white/30"
                                 >
                                     <option value="">-- Chọn danh mục --</option>
                                     {categories.map((cat) => (
@@ -339,17 +339,17 @@ export default function AdminProductNewPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.05 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-5"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-5"
                     >
-                        <h2 className="text-lg font-semibold text-white">Cách tính giá</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Cách tính giá</h2>
 
                         <div className="grid grid-cols-2 gap-4">
                             <button
                                 type="button"
                                 onClick={() => handlePricingModeChange('original')}
                                 className={`p-4 rounded-xl border-2 text-left transition-all ${pricingMode === 'original'
-                                    ? 'border-white bg-white/10'
-                                    : 'border-white/10 hover:border-white/30'
+                                    ? 'border-white bg-[var(--material-glass)]'
+                                    : 'border-[var(--border-color)] hover:border-white/30'
                                     }`}
                             >
                                 <div className="flex items-center gap-3 mb-2">
@@ -359,17 +359,17 @@ export default function AdminProductNewPage() {
                                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                                         )}
                                     </div>
-                                    <span className="text-white font-medium">Giá gốc</span>
+                                    <span className="text-[var(--text-primary)] font-medium">Giá gốc</span>
                                 </div>
-                                <p className="text-white/50 text-sm pl-8">Một giá duy nhất cho sản phẩm</p>
+                                <p className="text-[var(--text-secondary)] text-sm pl-8">Một giá duy nhất cho sản phẩm</p>
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => handlePricingModeChange('multi_size')}
                                 className={`p-4 rounded-xl border-2 text-left transition-all ${pricingMode === 'multi_size'
-                                    ? 'border-white bg-white/10'
-                                    : 'border-white/10 hover:border-white/30'
+                                    ? 'border-white bg-[var(--material-glass)]'
+                                    : 'border-[var(--border-color)] hover:border-white/30'
                                     }`}
                             >
                                 <div className="flex items-center gap-3 mb-2">
@@ -379,34 +379,34 @@ export default function AdminProductNewPage() {
                                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                                         )}
                                     </div>
-                                    <span className="text-white font-medium">Nhiều size</span>
+                                    <span className="text-[var(--text-primary)] font-medium">Nhiều size</span>
                                 </div>
-                                <p className="text-white/50 text-sm pl-8">Giá theo từng size</p>
+                                <p className="text-[var(--text-secondary)] text-sm pl-8">Giá theo từng size</p>
                             </button>
                         </div>
 
                         {/* Original pricing */}
                         {pricingMode === 'original' && (
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[var(--border-color)]">
                                 <div>
-                                    <label className="text-white/70 text-sm mb-2 block">Giá *</label>
+                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Giá *</label>
                                     <input
                                         type="number"
                                         value={formData.basePrice}
                                         onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
                                         placeholder="350000"
-                                        className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
+                                        className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                                         required={pricingMode === 'original'}
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-white/70 text-sm mb-2 block">Số lượng tồn kho *</label>
+                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Số lượng tồn kho *</label>
                                     <input
                                         type="number"
                                         value={formData.stock}
                                         onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                                         placeholder="10"
-                                        className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
+                                        className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                                         required={pricingMode === 'original'}
                                     />
                                 </div>
@@ -415,13 +415,13 @@ export default function AdminProductNewPage() {
 
                         {/* Multi-size pricing */}
                         {pricingMode === 'multi_size' && (
-                            <div className="space-y-4 pt-4 border-t border-white/10">
+                            <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-white/70 text-sm">Danh sách size</span>
+                                    <span className="text-[var(--text-secondary)] text-sm">Danh sách size</span>
                                     <button
                                         type="button"
                                         onClick={addSize}
-                                        className="px-3 py-1.5 bg-white/10 rounded-lg text-white/70 hover:text-white text-sm transition-colors"
+                                        className="px-3 py-1.5 bg-[var(--material-glass)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm transition-colors"
                                     >
                                         + Thêm size
                                     </button>
@@ -429,7 +429,7 @@ export default function AdminProductNewPage() {
 
                                 <div className="space-y-4">
                                     {formData.sizes.map((size, index) => (
-                                        <div key={index} className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                                        <div key={index} className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-[var(--material-glass)] border border-[var(--border-color)] hover:border-[var(--border-color)] transition-colors">
                                             {/* Left: Image Upload - Enhanced UI */}
                                             <div className="w-full md:w-32 flex-shrink-0">
                                                 <div className="relative aspect-square">
@@ -444,7 +444,7 @@ export default function AdminProductNewPage() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => updateSize(index, 'image_url', undefined)}
-                                                                    className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full text-white transition-colors"
+                                                                    className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full text-[var(--text-primary)] transition-colors"
                                                                     title="Xóa ảnh"
                                                                 >
                                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -454,15 +454,15 @@ export default function AdminProductNewPage() {
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <label className="w-full h-full rounded-lg border-2 border-dashed border-white/20 hover:border-[var(--color-accent)] hover:bg-white/5 flex flex-col items-center justify-center cursor-pointer transition-all group">
+                                                        <label className="w-full h-full rounded-lg border-2 border-dashed border-[var(--border-color)] hover:border-[var(--color-accent)] hover:bg-[var(--material-glass)] flex flex-col items-center justify-center cursor-pointer transition-all group">
                                                             {size.uploading ? (
                                                                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                                             ) : (
                                                                 <>
-                                                                    <svg className="w-6 h-6 text-white/30 group-hover:text-[var(--color-accent)] transition-colors mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <svg className="w-6 h-6 text-[var(--text-tertiary)] group-hover:text-[var(--color-accent)] transition-colors mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                     </svg>
-                                                                    <span className="text-[10px] text-white/30 group-hover:text-white/60 text-center px-1">Upload ảnh</span>
+                                                                    <span className="text-[10px] text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)] text-center px-1">Upload ảnh</span>
                                                                 </>
                                                             )}
                                                             <input
@@ -483,35 +483,35 @@ export default function AdminProductNewPage() {
                                             <div className="flex-1 space-y-3">
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
-                                                        <label className="text-xs text-white/50 mb-1 block">Tên size</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tên size</label>
                                                         <input
                                                             type="text"
                                                             value={size.name}
                                                             onChange={(e) => updateSize(index, 'name', e.target.value)}
                                                             placeholder="S, M, L..."
-                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white text-sm focus:border-white/40 focus:outline-none"
+                                                            className="w-full px-3 py-2 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm focus:border-white/40 focus:outline-none"
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs text-white/50 mb-1 block">Giá (VNĐ)</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Giá (VNĐ)</label>
                                                         <input
                                                             type="number"
                                                             value={size.price}
                                                             onChange={(e) => updateSize(index, 'price', e.target.value)}
                                                             placeholder="0"
-                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white text-sm focus:border-white/40 focus:outline-none text-right"
+                                                            className="w-full px-3 py-2 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm focus:border-white/40 focus:outline-none text-right"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div className="flex items-end gap-3">
                                                     <div className="flex-1">
-                                                        <label className="text-xs text-white/50 mb-1 block">Tồn kho</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tồn kho</label>
                                                         <input
                                                             type="number"
                                                             value={size.stock}
                                                             onChange={(e) => updateSize(index, 'stock', e.target.value)}
                                                             placeholder="0"
-                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white text-sm focus:border-white/40 focus:outline-none"
+                                                            className="w-full px-3 py-2 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm focus:border-white/40 focus:outline-none"
                                                         />
                                                     </div>
                                                     <button
@@ -526,13 +526,13 @@ export default function AdminProductNewPage() {
                                                     </button>
                                                 </div>
                                                 <div>
-                                                    <label className="text-xs text-white/50 mb-1 block">SKU Size</label>
+                                                    <label className="text-xs text-[var(--text-secondary)] mb-1 block">SKU Size</label>
                                                     <div className="flex gap-2">
                                                         <input
                                                             type="text"
                                                             value={size.sku || ''}
                                                             readOnly
-                                                            className="w-full px-3 py-2 bg-[#0a0a0a] border border-white/20 rounded-lg text-white/70 text-sm focus:outline-none cursor-default"
+                                                            className="w-full px-3 py-2 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm focus:outline-none cursor-default"
                                                         />
                                                         <button
                                                             type="button"
@@ -547,7 +547,7 @@ export default function AdminProductNewPage() {
                                                                     updateSize(index, 'sku', generateId.skuVariant(formData.sku));
                                                                 }
                                                             }}
-                                                            className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
+                                                            className="p-2 bg-[var(--material-glass)] hover:bg-[var(--material-glass)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                                             title="Tạo lại SKU"
                                                         >
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -561,12 +561,12 @@ export default function AdminProductNewPage() {
                                     ))}
 
                                     {formData.sizes.length === 0 && (
-                                        <div className="text-center py-8 bg-white/5 rounded-xl border border-dashed border-white/10">
-                                            <p className="text-white/40 mb-3 block">Chưa có size nào</p>
+                                        <div className="text-center py-8 bg-[var(--material-glass)] rounded-xl border border-dashed border-[var(--border-color)]">
+                                            <p className="text-[var(--text-tertiary)] mb-3 block">Chưa có size nào</p>
                                             <button
                                                 type="button"
                                                 onClick={addSize}
-                                                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-medium transition-colors"
+                                                className="px-4 py-2 bg-[var(--material-glass)] hover:bg-[var(--material-glass)] rounded-lg text-[var(--text-primary)] text-sm font-medium transition-colors"
                                             >
                                                 + Thêm size đầu tiên
                                             </button>
@@ -582,13 +582,13 @@ export default function AdminProductNewPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-5"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-5"
                     >
-                        <h2 className="text-lg font-semibold text-white">Hình ảnh chung</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Hình ảnh chung</h2>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {formData.images.map((img, index) => (
-                                <div key={index} className="aspect-square rounded-xl relative group overflow-hidden bg-white/5">
+                                <div key={index} className="aspect-square rounded-xl relative group overflow-hidden bg-[var(--material-glass)]">
                                     <img
                                         src={img.url}
                                         alt=""
@@ -609,7 +609,7 @@ export default function AdminProductNewPage() {
                                                 className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center"
                                                 title="Đặt làm ảnh chính"
                                             >
-                                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                                                 </svg>
                                             </button>
@@ -619,7 +619,7 @@ export default function AdminProductNewPage() {
                                             onClick={() => removeImage(index)}
                                             className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center"
                                         >
-                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                             </svg>
                                         </button>
@@ -627,7 +627,7 @@ export default function AdminProductNewPage() {
                                 </div>
                             ))}
 
-                            <label className="aspect-square rounded-xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-colors bg-white/5 hover:bg-white/10">
+                            <label className="aspect-square rounded-xl border-2 border-dashed border-[var(--border-color)] flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-colors bg-[var(--material-glass)] hover:bg-[var(--material-glass)]">
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -637,13 +637,13 @@ export default function AdminProductNewPage() {
                                     className="hidden"
                                 />
                                 {uploadingImage ? (
-                                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
                                 ) : (
                                     <>
-                                        <svg className="w-8 h-8 text-white/30 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-8 h-8 text-[var(--text-tertiary)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                                         </svg>
-                                        <span className="text-white/50 text-sm">Thêm ảnh</span>
+                                        <span className="text-[var(--text-secondary)] text-sm">Thêm ảnh</span>
                                     </>
                                 )}
                             </label>
@@ -658,19 +658,19 @@ export default function AdminProductNewPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.15 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 space-y-3"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-3"
                     >
                         <button
                             type="submit"
                             disabled={isSaving}
-                            className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 disabled:opacity-50 shadow-lg shadow-white/10"
+                            className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-[var(--material-glass)] disabled:opacity-50 shadow-lg shadow-white/10"
                         >
                             {isSaving ? 'Đang lưu...' : 'Lưu sản phẩm'}
                         </button>
                         <button
                             type="button"
                             onClick={() => router.push(`${adminRoot}/products`)}
-                            className="w-full py-3 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                            className="w-full py-3 rounded-xl border border-[var(--border-color)] bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--material-glass)] transition-colors"
                         >
                             Hủy
                         </button>
@@ -681,14 +681,14 @@ export default function AdminProductNewPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-white mb-4">Tóm tắt</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Tóm tắt</h2>
 
                         {/* Status Toggle */}
-                        <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/5">
+                        <div className="mb-6 p-4 rounded-xl bg-[var(--material-glass)] border border-[var(--border-color)]">
                             <div className="flex items-center justify-between">
-                                <span className={formData.status === 'active' ? "text-green-400 font-medium" : "text-white/50"}>
+                                <span className={formData.status === 'active' ? "text-green-400 font-medium" : "text-[var(--text-secondary)]"}>
                                     {formData.status === 'active' ? 'Đang bán' : 'Bản nháp'}
                                 </span>
                                 <Switch
@@ -699,42 +699,42 @@ export default function AdminProductNewPage() {
                         </div>
 
                         <div className="space-y-3 text-sm">
-                            <div className="flex justify-between py-2 border-b border-white/5">
-                                <span className="text-white/50">Ảnh:</span>
-                                <span className="text-white font-medium">{formData.images.length}</span>
+                            <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                <span className="text-[var(--text-secondary)]">Ảnh:</span>
+                                <span className="text-[var(--text-primary)] font-medium">{formData.images.length}</span>
                             </div>
-                            <div className="flex justify-between py-2 border-b border-white/5">
-                                <span className="text-white/50">Loại giá:</span>
-                                <span className="text-white font-medium">{pricingMode === 'original' ? 'Giá đơn' : 'Đa dạng size'}</span>
+                            <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                <span className="text-[var(--text-secondary)]">Loại giá:</span>
+                                <span className="text-[var(--text-primary)] font-medium">{pricingMode === 'original' ? 'Giá đơn' : 'Đa dạng size'}</span>
                             </div>
                             {pricingMode === 'original' ? (
                                 <>
-                                    <div className="flex justify-between py-2 border-b border-white/5">
-                                        <span className="text-white/50">Giá bán:</span>
-                                        <span className="text-white font-medium">
+                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Giá bán:</span>
+                                        <span className="text-[var(--text-primary)] font-medium">
                                             {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + 'đ' : '-'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-2">
-                                        <span className="text-white/50">Tồn kho:</span>
-                                        <span className="text-white font-medium">{formData.stock || 0}</span>
+                                        <span className="text-[var(--text-secondary)]">Tồn kho:</span>
+                                        <span className="text-[var(--text-primary)] font-medium">{formData.stock || 0}</span>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <div className="flex justify-between py-2 border-b border-white/5">
-                                        <span className="text-white/50">Số lượng size:</span>
-                                        <span className="text-white font-medium">{formData.sizes.length}</span>
+                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Số lượng size:</span>
+                                        <span className="text-[var(--text-primary)] font-medium">{formData.sizes.length}</span>
                                     </div>
-                                    <div className="flex justify-between py-2 border-b border-white/5">
-                                        <span className="text-white/50">Tổng tồn kho:</span>
-                                        <span className="text-white font-medium">
+                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                        <span className="text-[var(--text-secondary)]">Tổng tồn kho:</span>
+                                        <span className="text-[var(--text-primary)] font-medium">
                                             {formData.sizes.reduce((acc, curr) => acc + (parseInt(curr.stock) || 0), 0)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-2">
-                                        <span className="text-white/50">Khoảng giá:</span>
-                                        <span className="text-white font-medium">
+                                        <span className="text-[var(--text-secondary)]">Khoảng giá:</span>
+                                        <span className="text-[var(--text-primary)] font-medium">
                                             {formData.sizes.length > 0
                                                 ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ`
                                                 : '-'

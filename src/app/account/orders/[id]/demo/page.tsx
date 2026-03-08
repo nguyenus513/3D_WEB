@@ -54,7 +54,6 @@ export default function DemoReviewPage() {
     const [submitting, setSubmitting] = useState(false);
     const [showRevisionModal, setShowRevisionModal] = useState(false);
     const [revisionFeedback, setRevisionFeedback] = useState('');
-    // Design versioning
     const [designVersions, setDesignVersions] = useState<DesignVersion[]>([]);
     const [showHistory, setShowHistory] = useState(false);
 
@@ -104,7 +103,6 @@ export default function DemoReviewPage() {
                 setDesignVersions(data.versions);
             }
         } catch {
-            // Silent fail — versions are supplementary
         }
     };
 
@@ -151,7 +149,6 @@ export default function DemoReviewPage() {
         }
     };
 
-    // Get latest version's images, fallback to legacy
     const latestVersion = designVersions.length > 0
         ? designVersions[designVersions.length - 1]
         : null;
@@ -166,22 +163,20 @@ export default function DemoReviewPage() {
 
     const versionNumber = latestVersion?.version_number || (order?.revision_count ? order.revision_count + 1 : 1);
 
-    // ─── LOADING ───
     if (loading) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin" />
             </div>
         );
     }
 
-    // ─── ERROR ───
     if (error || !order) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
                 <div className="text-center space-y-4">
-                    <p className="text-white/60">{error || 'Không tìm thấy đơn hàng'}</p>
-                    <Link href="/account/orders" className="text-white/40 hover:text-white underline text-sm">
+                    <p className="text-[var(--text-secondary)]">{error || 'Không tìm thấy đơn hàng'}</p>
+                    <Link href="/account/orders" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] underline text-sm">
                         ← Về danh sách đơn
                     </Link>
                 </div>
@@ -189,7 +184,6 @@ export default function DemoReviewPage() {
         );
     }
 
-    // ─── NOT IN REVIEW STATUS ───
     if (order.status !== 'review') {
         const statusMessages: Record<string, { icon: string; title: string; desc: string }> = {
             revising: {
@@ -223,11 +217,11 @@ export default function DemoReviewPage() {
                     className="text-center space-y-6 max-w-md"
                 >
                     <span className="text-5xl">{msg.icon}</span>
-                    <h1 className="text-2xl font-semibold text-white">{msg.title}</h1>
-                    <p className="text-white/50">{msg.desc}</p>
+                    <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{msg.title}</h1>
+                    <p className="text-[var(--text-secondary)]">{msg.desc}</p>
                     <Link
                         href={`/account/orders/${order.id}`}
-                        className="inline-block px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:border-white/40 rounded-full text-sm transition-all"
+                        className="inline-block px-6 py-3 border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-color)] rounded-full text-sm transition-all"
                     >
                         ← Xem chi tiết đơn hàng
                     </Link>
@@ -236,15 +230,13 @@ export default function DemoReviewPage() {
         );
     }
 
-    // ─── MAIN REVIEW UI ───
     return (
         <div className="min-h-screen bg-black">
-            {/* Header */}
             <header className="border-b border-white/[0.06] bg-black/80 backdrop-blur-xl sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                     <Link
                         href={`/account/orders/${order.id}`}
-                        className="text-white/40 hover:text-white transition-colors text-sm flex items-center gap-2"
+                        className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors text-sm flex items-center gap-2"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
@@ -252,35 +244,31 @@ export default function DemoReviewPage() {
                         Quay lại
                     </Link>
                     <div className="text-center">
-                        <p className="text-white/40 text-xs tracking-wider uppercase">Đơn hàng</p>
-                        <p className="text-white font-mono text-sm">#{order.order_code}</p>
+                        <p className="text-[var(--text-tertiary)] text-xs tracking-wider uppercase">Đơn hàng</p>
+                        <p className="text-[var(--text-primary)] font-mono text-sm">#{order.order_code}</p>
                     </div>
                     <div className="text-right">
-                        <span className="text-xs text-white/30 tracking-wider uppercase">Design Preview</span>
+                        <span className="text-xs text-[var(--text-tertiary)] tracking-wider uppercase">Design Preview</span>
                         <p className="text-cyan-400/80 text-xs font-medium">Version {versionNumber}</p>
                     </div>
                 </div>
             </header>
 
-            {/* Two-column layout */}
             <div className="max-w-7xl mx-auto px-6 py-8 lg:py-12">
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr,380px] gap-8 lg:gap-12">
 
-                    {/* ─── LEFT: Image Gallery ─── */}
                     <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         className="space-y-4"
                     >
-                        {/* Main image */}
                         {images.length > 0 && (
-                            <div className="relative aspect-square lg:aspect-[4/3] rounded-2xl overflow-hidden bg-[#111] border border-white/[0.06] group">
+                            <div className="relative aspect-square lg:aspect-[4/3] rounded-2xl overflow-hidden bg-[var(--material-panel)] border border-white/[0.06] group">
                                 <img
                                     src={images[selectedImage]?.url}
                                     alt={images[selectedImage]?.label || 'Demo Preview'}
                                     className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                                 />
-                                {/* Image counter */}
                                 {images.length > 1 && (
                                     <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full">
                                         <span className="text-white/80 text-xs font-mono">
@@ -291,7 +279,6 @@ export default function DemoReviewPage() {
                             </div>
                         )}
 
-                        {/* Thumbnails */}
                         {images.length > 1 && (
                             <div className="flex gap-3 overflow-x-auto pb-2">
                                 {images.map((img, i) => (
@@ -299,7 +286,7 @@ export default function DemoReviewPage() {
                                         key={i}
                                         onClick={() => setSelectedImage(i)}
                                         className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${i === selectedImage
-                                            ? 'border-white ring-1 ring-white/20'
+                                            ? 'border-[var(--text-primary)] ring-1 ring-[var(--border-color)]'
                                             : 'border-white/[0.06] opacity-50 hover:opacity-80'
                                             }`}
                                     >
@@ -309,32 +296,28 @@ export default function DemoReviewPage() {
                             </div>
                         )}
 
-                        {/* No images fallback */}
                         {images.length === 0 && (
-                            <div className="aspect-square rounded-2xl bg-[#111] border border-white/[0.06] flex items-center justify-center">
-                                <p className="text-white/20 text-lg">Chưa có ảnh demo</p>
+                            <div className="aspect-square rounded-2xl bg-[var(--material-panel)] border border-white/[0.06] flex items-center justify-center">
+                                <p className="text-[var(--text-tertiary)] text-lg">Chưa có ảnh demo</p>
                             </div>
                         )}
                     </motion.div>
 
-                    {/* ─── RIGHT: Review Panel ─── */}
                     <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.1 }}
                         className="space-y-8 lg:sticky lg:top-24 lg:self-start"
                     >
-                        {/* Review message */}
                         <div className="space-y-3">
-                            <h1 className="text-2xl font-semibold text-white leading-tight">
+                            <h1 className="text-2xl font-semibold text-[var(--text-primary)] leading-tight">
                                 Xác nhận thiết kế
                             </h1>
-                            <p className="text-white/50 text-sm leading-relaxed">
+                            <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
                                 Vui lòng xem kỹ thiết kế 3D của bạn. Sau khi duyệt, sản phẩm sẽ được đưa vào sản xuất và không thể thay đổi.
                             </p>
                         </div>
 
-                        {/* Version & Feedback Card */}
                         {latestVersion && (
                             <VersionFeedbackCard
                                 versionNumber={latestVersion.version_number}
@@ -346,19 +329,17 @@ export default function DemoReviewPage() {
                             />
                         )}
 
-                        {/* Revision info (if applicable) */}
                         {versionNumber > 1 && (
                             <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl">
                                 <p className="text-amber-400/80 text-xs font-medium mb-1">
                                     Lần chỉnh sửa thứ {versionNumber - 1}
                                 </p>
                                 {order.revision_feedback && (
-                                    <p className="text-white/40 text-xs">{order.revision_feedback}</p>
+                                    <p className="text-[var(--text-tertiary)] text-xs">{order.revision_feedback}</p>
                                 )}
                             </div>
                         )}
 
-                        {/* Action buttons */}
                         <div className="space-y-3">
                             <button
                                 onClick={handleApprove}
@@ -371,31 +352,28 @@ export default function DemoReviewPage() {
                             <button
                                 onClick={() => setShowRevisionModal(true)}
                                 disabled={submitting || images.length === 0}
-                                className="w-full py-4 border border-white/20 text-white/70 font-medium rounded-xl hover:border-white/40 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed text-sm"
+                                className="w-full py-4 border border-[var(--border-color)] text-[var(--text-secondary)] font-medium rounded-xl hover:border-[var(--border-color)] hover:text-[var(--text-primary)] transition-all disabled:opacity-30 disabled:cursor-not-allowed text-sm"
                             >
                                 Yêu cầu chỉnh sửa
                             </button>
                         </div>
 
-                        {/* Version history link */}
                         {designVersions.length > 1 && (
                             <button
                                 onClick={() => setShowHistory(true)}
-                                className="w-full text-center text-white/30 hover:text-white/60 text-xs transition-colors"
+                                className="w-full text-center text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] text-xs transition-colors"
                             >
                                 📋 Xem lịch sử thiết kế ({designVersions.length} versions)
                             </button>
                         )}
 
-                        {/* Fine print */}
-                        <p className="text-white/20 text-xs leading-relaxed text-center">
+                        <p className="text-[var(--text-tertiary)] text-xs leading-relaxed text-center">
                             Sau khi duyệt, đơn hàng sẽ chuyển sang giai đoạn sản xuất. Mọi thay đổi sau thời điểm này sẽ không được chấp nhận.
                         </p>
                     </motion.div>
                 </div>
             </div>
 
-            {/* ─── Revision Modal ─── */}
             <AnimatePresence>
                 {showRevisionModal && (
                     <motion.div
@@ -410,11 +388,11 @@ export default function DemoReviewPage() {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 20, scale: 0.98 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-8 w-full max-w-lg space-y-6"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-8 w-full max-w-lg space-y-6"
                         >
                             <div>
-                                <h2 className="text-xl font-semibold text-white">Yêu cầu chỉnh sửa</h2>
-                                <p className="text-white/40 text-sm mt-1">Mô tả những thay đổi bạn muốn</p>
+                                <h2 className="text-xl font-semibold text-[var(--text-primary)]">Yêu cầu chỉnh sửa</h2>
+                                <p className="text-[var(--text-tertiary)] text-sm mt-1">Mô tả những thay đổi bạn muốn</p>
                             </div>
 
                             <textarea
@@ -422,7 +400,7 @@ export default function DemoReviewPage() {
                                 onChange={(e) => setRevisionFeedback(e.target.value)}
                                 placeholder="Ví dụ: Muốn thay đổi góc đặt tay, chỉnh kích thước nhỏ hơn..."
                                 rows={5}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 resize-none text-sm"
+                                className="w-full bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--border-color)] resize-none text-sm"
                                 autoFocus
                             />
 
@@ -430,7 +408,7 @@ export default function DemoReviewPage() {
                                 <button
                                     onClick={() => setShowRevisionModal(false)}
                                     disabled={submitting}
-                                    className="flex-1 py-3 border border-white/10 text-white/50 rounded-xl hover:border-white/20 hover:text-white/70 transition-all text-sm"
+                                    className="flex-1 py-3 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl hover:border-[var(--border-color)] hover:text-[var(--text-secondary)] transition-all text-sm"
                                 >
                                     Hủy
                                 </button>
@@ -447,7 +425,6 @@ export default function DemoReviewPage() {
                 )}
             </AnimatePresence>
 
-            {/* ─── Version History Modal ─── */}
             <AnimatePresence>
                 {showHistory && (
                     <motion.div
@@ -462,13 +439,13 @@ export default function DemoReviewPage() {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 20, scale: 0.98 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto space-y-4"
+                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto space-y-4"
                         >
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-white">Lịch sử thiết kế</h2>
+                                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Lịch sử thiết kế</h2>
                                 <button
                                     onClick={() => setShowHistory(false)}
-                                    className="text-white/30 hover:text-white/60 transition-colors"
+                                    className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
                                 >
                                     ✕
                                 </button>

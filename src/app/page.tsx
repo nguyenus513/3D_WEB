@@ -11,10 +11,10 @@ const HeroJelly = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-2 border-[#0071E3] border-t-transparent rounded-full animate-spin" />
-          <span className="text-white/30 text-sm">Loading 3D Experience...</span>
+          <span className="text-[var(--text-secondary)] text-sm">Loading 3D Experience...</span>
         </div>
       </div>
     ),
@@ -23,7 +23,7 @@ const HeroJelly = dynamic(
 
 export default function HomePage() {
   return (
-    <div className="bg-[#0a0a0a]">
+    <div className="bg-[var(--bg-void)]">
       {/* Hero with Jelly Distortion */}
       <HeroJelly />
 

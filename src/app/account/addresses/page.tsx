@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface Address {
     id: string;
@@ -54,21 +55,17 @@ export default function AccountAddressesPage() {
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState<FormData>(initialFormData);
 
-    // Vietnam address data
     const [provinces, setProvinces] = useState<Province[]>([]);
     const [districts, setDistricts] = useState<District[]>([]);
     const [wards, setWards] = useState<Ward[]>([]);
     const [loadingAddress, setLoadingAddress] = useState(false);
 
-    // Flag to prevent useEffects from resetting values during edit
     const [isEditMode, setIsEditMode] = useState(false);
 
-    // Load provinces on mount
     useEffect(() => {
         getProvinces().then(setProvinces);
     }, []);
 
-    // Load districts when province changes (only reset when creating new, not editing)
     useEffect(() => {
         if (formData.provinceCode) {
             setLoadingAddress(true);
@@ -76,7 +73,6 @@ export default function AccountAddressesPage() {
                 setDistricts(data);
                 setLoadingAddress(false);
             });
-            // Only reset if NOT editing an existing address
             if (!editingId) {
                 setFormData(prev => ({
                     ...prev,
@@ -90,7 +86,6 @@ export default function AccountAddressesPage() {
         }
     }, [formData.provinceCode, editingId]);
 
-    // Load wards when district changes (only reset when creating new, not editing)
     useEffect(() => {
         if (formData.districtCode) {
             setLoadingAddress(true);
@@ -98,7 +93,6 @@ export default function AccountAddressesPage() {
                 setWards(data);
                 setLoadingAddress(false);
             });
-            // Only reset if NOT editing an existing address
             if (!editingId) {
                 setFormData(prev => ({
                     ...prev,
@@ -147,7 +141,6 @@ export default function AccountAddressesPage() {
         setSaving(true);
 
         try {
-            // Robust name resolution
             let finalProvinceName = formData.provinceName;
             let finalDistrictName = formData.districtName;
             let finalWardName = formData.wardName;
@@ -193,7 +186,6 @@ export default function AccountAddressesPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...payload,
-                        // First address is always default, otherwise use checkbox value
                         is_default: addresses.length === 0 ? true : formData.is_default,
                     }),
                 });
@@ -211,10 +203,8 @@ export default function AccountAddressesPage() {
     };
 
     const openEditForm = async (address: Address) => {
-        // Set edit mode to prevent useEffects from resetting values
         setIsEditMode(true);
 
-        // Find province by name
         const province = provinces.find(p => p.name === address.province);
 
         let districtsList: District[] = [];
@@ -222,21 +212,17 @@ export default function AccountAddressesPage() {
         let districtCode: number | null = null;
         let wardCode: number | null = null;
 
-        // Load districts if province found
         if (province?.code) {
             districtsList = await getDistricts(province.code);
             setDistricts(districtsList);
 
-            // Find district by name
             const district = districtsList.find(d => d.name === address.district);
             districtCode = district?.code || null;
 
-            // Load wards if district found
             if (district?.code) {
                 wardsList = await getWards(district.code);
                 setWards(wardsList);
 
-                // Find ward by name
                 const ward = wardsList.find(w => w.name === address.ward);
                 wardCode = ward?.code || null;
             }
@@ -270,7 +256,7 @@ export default function AccountAddressesPage() {
     if (status === 'loading' || loading) {
         return (
             <div className="p-12 text-center">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto" />
             </div>
         );
     }
@@ -280,14 +266,14 @@ export default function AccountAddressesPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Địa chỉ giao hàng</h1>
-                    <p className="text-white/50 mt-1">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Địa chỉ giao hàng</h1>
+                    <p className="text-[var(--text-secondary)] mt-1">
                         {addresses.length} địa chỉ
                     </p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-white/90"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--text-primary)] text-[var(--bg-void)] font-medium hover:opacity-90"
                 >
                     <Plus size={20} strokeWidth={2} />
                     Thêm địa chỉ
@@ -302,7 +288,7 @@ export default function AccountAddressesPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className={`bg-white/5 backdrop-blur-xl rounded-2xl border p-5 ${address.is_default ? 'border-white/30' : 'border-white/10'
+                        className={`bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border p-5 ${address.is_default ? 'border-[var(--border-color)]' : 'border-[var(--border-color)]'
                             }`}
                     >
                         <div className="flex items-start justify-between">
@@ -318,14 +304,14 @@ export default function AccountAddressesPage() {
 
                                 {/* Contact Info */}
                                 <div className="space-y-1.5">
-                                    <p className="text-white font-medium">{address.full_name}</p>
-                                    <p className="text-white/60">{address.phone}</p>
+                                    <p className="text-[var(--text-primary)] font-medium">{address.full_name}</p>
+                                    <p className="text-[var(--text-secondary)]">{address.phone}</p>
                                 </div>
 
                                 {/* Full Address */}
-                                <div className="mt-3 pt-3 border-t border-white/10">
-                                    <p className="text-white/70">{address.address_line}</p>
-                                    <p className="text-white/50 text-sm mt-1">
+                                <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
+                                    <p className="text-[var(--text-secondary)]">{address.address_line}</p>
+                                    <p className="text-[var(--text-secondary)] text-sm mt-1">
                                         {[address.ward, address.district, address.province].filter(Boolean).join(', ')}
                                     </p>
                                 </div>
@@ -333,7 +319,7 @@ export default function AccountAddressesPage() {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => openEditForm(address)}
-                                    className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white"
+                                    className="p-2 rounded-lg hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                                     title="Sửa địa chỉ"
                                 >
                                     <Pencil size={20} strokeWidth={1.5} />
@@ -341,7 +327,7 @@ export default function AccountAddressesPage() {
                                 {!address.is_default && (
                                     <button
                                         onClick={() => deleteAddress(address.id)}
-                                        className="p-2 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400"
+                                        className="p-2 rounded-lg hover:bg-red-500/20 text-[var(--text-secondary)] hover:text-red-400"
                                         title="Xóa địa chỉ"
                                     >
                                         <Trash2 size={20} strokeWidth={1.5} />
@@ -353,11 +339,11 @@ export default function AccountAddressesPage() {
                 ))}
 
                 {addresses.length === 0 && (
-                    <div className="text-center py-12 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10">
-                        <p className="text-white/50 mb-4">Chưa có địa chỉ nào</p>
+                    <div className="text-center py-12 bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)]">
+                        <p className="text-[var(--text-secondary)] mb-4">Chưa có địa chỉ nào</p>
                         <button
                             onClick={() => setShowForm(true)}
-                            className="px-6 py-2 bg-white text-black rounded-xl font-medium"
+                            className="px-6 py-2 bg-[var(--text-primary)] text-[var(--bg-void)] rounded-xl font-medium"
                         >
                             Thêm địa chỉ đầu tiên
                         </button>
@@ -371,41 +357,41 @@ export default function AccountAddressesPage() {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="w-full max-w-md bg-[#1a1a1b] backdrop-blur-xl rounded-2xl border border-white/10 p-6 max-h-[90vh] overflow-y-auto"
+                        className="w-full max-w-md bg-[var(--material-panel)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)] p-6 max-h-[90vh] overflow-y-auto"
                     >
-                        <h2 className="text-xl font-bold text-white mb-6">
+                        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-6">
                             {editingId ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới'}
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {/* Người nhận */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Người nhận *</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Người nhận *</label>
                                 <input
                                     type="text"
                                     value={formData.full_name}
                                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                                     placeholder="Họ tên người nhận"
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                                     required
                                 />
                             </div>
 
                             {/* Số điện thoại */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Số điện thoại *</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Số điện thoại *</label>
                                 <input
                                     type="tel"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                     placeholder="0901234567"
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                                     required
                                 />
                             </div>
 
                             {/* Tỉnh/Thành phố */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Tỉnh/Thành phố *</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Tỉnh/Thành phố *</label>
                                 <select
                                     value={formData.provinceCode || ''}
                                     onChange={e => {
@@ -417,19 +403,19 @@ export default function AccountAddressesPage() {
                                             provinceName: province?.name || '',
                                         });
                                     }}
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white appearance-none cursor-pointer"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] appearance-none cursor-pointer"
                                     required
                                 >
-                                    <option value="" className="bg-[#1D1D1F]">Chọn Tỉnh/Thành phố</option>
+                                    <option value="" className="bg-[var(--material-panel)]">Chọn Tỉnh/Thành phố</option>
                                     {provinces.map(p => (
-                                        <option key={p.code} value={p.code} className="bg-[#1D1D1F]">{p.name}</option>
+                                        <option key={p.code} value={p.code} className="bg-[var(--material-panel)]">{p.name}</option>
                                     ))}
                                 </select>
                             </div>
 
                             {/* Quận/Huyện */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Quận/Huyện *</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Quận/Huyện *</label>
                                 <select
                                     value={formData.districtCode || ''}
                                     onChange={e => {
@@ -442,21 +428,21 @@ export default function AccountAddressesPage() {
                                         });
                                     }}
                                     disabled={!formData.provinceCode || loadingAddress}
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white appearance-none cursor-pointer disabled:opacity-50"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] appearance-none cursor-pointer disabled:opacity-50"
                                     required
                                 >
-                                    <option value="" className="bg-[#1D1D1F]">
+                                    <option value="" className="bg-[var(--material-panel)]">
                                         {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
                                     </option>
                                     {districts.map(d => (
-                                        <option key={d.code} value={d.code} className="bg-[#1D1D1F]">{d.name}</option>
+                                        <option key={d.code} value={d.code} className="bg-[var(--material-panel)]">{d.name}</option>
                                     ))}
                                 </select>
                             </div>
 
                             {/* Phường/Xã */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Phường/Xã *</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Phường/Xã *</label>
                                 <select
                                     value={formData.wardCode || ''}
                                     onChange={e => {
@@ -469,27 +455,27 @@ export default function AccountAddressesPage() {
                                         });
                                     }}
                                     disabled={!formData.districtCode || loadingAddress}
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white appearance-none cursor-pointer disabled:opacity-50"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] appearance-none cursor-pointer disabled:opacity-50"
                                     required
                                 >
-                                    <option value="" className="bg-[#1D1D1F]">
+                                    <option value="" className="bg-[var(--material-panel)]">
                                         {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
                                     </option>
                                     {wards.map(w => (
-                                        <option key={w.code} value={w.code} className="bg-[#1D1D1F]">{w.name}</option>
+                                        <option key={w.code} value={w.code} className="bg-[var(--material-panel)]">{w.name}</option>
                                     ))}
                                 </select>
                             </div>
 
                             {/* Địa chỉ chi tiết */}
                             <div>
-                                <label className="text-white/70 text-sm mb-2 block">Địa chỉ chi tiết *</label>
+                                <label className="text-[var(--text-secondary)] text-sm mb-2 block">Địa chỉ chi tiết *</label>
                                 <input
                                     type="text"
                                     value={formData.address_line}
                                     onChange={(e) => setFormData({ ...formData, address_line: e.target.value })}
                                     placeholder="Số nhà, đường, ngõ..."
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40"
+                                    className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                                     required
                                 />
                             </div>
@@ -501,9 +487,9 @@ export default function AccountAddressesPage() {
                                     id="is_default"
                                     checked={formData.is_default}
                                     onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-                                    className="w-5 h-5 rounded border-white/20 bg-[#0a0a0a] text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                                    className="w-5 h-5 rounded border-[var(--border-color)] bg-[var(--bg-void)] text-emerald-500 focus:ring-emerald-500 cursor-pointer"
                                 />
-                                <label htmlFor="is_default" className="text-white/70 text-sm cursor-pointer">
+                                <label htmlFor="is_default" className="text-[var(--text-secondary)] text-sm cursor-pointer">
                                     Đặt làm địa chỉ mặc định
                                 </label>
                             </div>
@@ -513,14 +499,14 @@ export default function AccountAddressesPage() {
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="flex-1 py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 disabled:opacity-50"
+                                    className="flex-1 py-3 rounded-xl bg-[var(--text-primary)] text-[var(--bg-void)] font-medium hover:opacity-90 disabled:opacity-50"
                                 >
                                     {saving ? 'Đang lưu...' : 'Lưu địa chỉ'}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={closeForm}
-                                    className="px-6 py-3 rounded-xl border border-white/20 text-white/70 hover:text-white"
+                                    className="px-6 py-3 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                                 >
                                     Hủy
                                 </button>

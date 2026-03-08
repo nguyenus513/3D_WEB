@@ -125,10 +125,10 @@ export function HeroSection() {
                     transition={{ duration: 1, delay: 0.5 }}
                     className="text-center max-w-4xl"
                 >
-                    <h1 className="text-[clamp(40px,10vw,120px)] font-bold leading-[0.9] tracking-[-0.03em] text-white mb-8">
+                    <h1 className="text-[clamp(40px,10vw,120px)] font-bold leading-[0.9] tracking-[-0.03em] text-[var(--text-primary)] mb-8">
                         <TextReveal text="Sản Phẩm 3D" delay={0.2} />
                         <br />
-                        <span className="text-[#0071E3]">
+                        <span className="text-[var(--color-accent)]">
                             <TextReveal text="Độc Đáo" delay={0.5} />
                         </span>
                     </h1>
@@ -137,7 +137,7 @@ export function HeroSection() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 1 }}
-                        className="text-xl md:text-2xl text-white/60 mb-12 max-w-xl mx-auto"
+                        className="text-xl md:text-2xl text-[var(--text-secondary)] mb-12 max-w-xl mx-auto"
                     >
                         Chế tác thủ công • Cá nhân hóa hoàn toàn
                     </motion.p>
@@ -152,7 +152,7 @@ export function HeroSection() {
                         <Magnetic>
                             <Link
                                 href="/products"
-                                className="px-8 py-4 rounded-full bg-[#0071E3] text-white font-medium text-lg hover:scale-105 transition-transform"
+                                className="px-8 py-4 rounded-full bg-[var(--color-accent)] text-[var(--text-primary)] font-medium text-lg hover:scale-105 transition-transform"
                                 data-cursor
                                 data-cursor-text="View"
                             >
@@ -162,7 +162,7 @@ export function HeroSection() {
                         <Magnetic>
                             <Link
                                 href="/custom"
-                                className="px-8 py-4 rounded-full border border-white/30 text-white font-medium text-lg hover:bg-white/10 transition-colors"
+                                className="px-8 py-4 rounded-full border border-[var(--border-color)] text-[var(--text-primary)] font-medium text-lg hover:bg-[var(--material-glass)] transition-colors"
                                 data-cursor
                                 data-cursor-text="Custom"
                             >
@@ -182,7 +182,7 @@ export function HeroSection() {
                     <motion.div
                         animate={{ y: [0, 10, 0] }}
                         transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                        className="flex flex-col items-center gap-2 text-white/40"
+                        className="flex flex-col items-center gap-2 text-[var(--text-tertiary)]"
                     >
                         <span className="text-xs uppercase tracking-widest">Scroll</span>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

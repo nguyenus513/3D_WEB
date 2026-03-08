@@ -84,20 +84,20 @@ function SettingsContent() {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-white">Cài đặt</h1>
-                <p className="text-white/50 mt-1">Quản lý kết nối và lưu trữ file</p>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Cài đặt</h1>
+                <p className="text-[var(--text-secondary)] mt-1">Quản lý kết nối và lưu trữ file</p>
             </div>
 
             {/* Storage Section */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
             >
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Lưu trữ file</h2>
-                        <p className="text-white/50 text-sm mt-1">
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Lưu trữ file</h2>
+                        <p className="text-[var(--text-secondary)] text-sm mt-1">
                             Kết nối tài khoản Google để lưu ảnh và file 3D
                         </p>
                     </div>
@@ -124,7 +124,7 @@ function SettingsContent() {
                     </div>
                 )}
 
-                <div className="mt-6 pt-4 border-t border-white/10">
+                <div className="mt-6 pt-4 border-t border-[var(--border-color)]">
                     {isServiceAccount && (
                         <div className="mb-4 p-3 bg-yellow-500/10 text-yellow-400 text-sm rounded-xl">
                             ⚠️ <strong>Lưu ý:</strong> Service Account không có dung lượng lưu trữ (0 GB).
@@ -135,14 +135,14 @@ function SettingsContent() {
                     {driveConnected && !isServiceAccount ? (
                         <button
                             onClick={disconnectDrive}
-                            className="px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white hover:border-white/40 text-sm transition-colors"
+                            className="px-4 py-2 rounded-xl border border-white/20 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/40 text-sm transition-colors"
                         >
                             Ngắt kết nối
                         </button>
                     ) : (
                         <button
                             onClick={connectDrive}
-                            className="px-6 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-white/90 text-sm transition-colors"
+                            className="px-6 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-[var(--material-glass)] text-sm transition-colors"
                         >
                             {isServiceAccount ? 'Chuyển sang kết nối tài khoản Google (OAuth)' : 'Kết nối tài khoản Google'}
                         </button>
@@ -155,7 +155,7 @@ function SettingsContent() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
+                className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
             >
                 {twoFALoading ? (
                     <div className="flex items-center justify-center py-8">
