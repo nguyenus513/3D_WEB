@@ -1,14 +1,3 @@
-/**
- * UI Components Barrel Export
- * 
- * Central export for all UI components.
- * Import components from '@/components/ui' for convenience.
- */
-
-// =============================================================================
-// shadcn/ui Components (lowercase)
-// =============================================================================
-
 export { Button, buttonVariants } from './button';
 export { Input } from './input';
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './card';
@@ -32,17 +21,15 @@ export { ScrollArea, ScrollBar } from './scroll-area';
 export { Sheet, SheetPortal, SheetOverlay, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription } from './sheet';
 export { Popover, PopoverTrigger, PopoverContent } from './popover';
 
-// =============================================================================
-// Custom Components (PascalCase - unique to this project)
-// =============================================================================
+export { Alert, AlertTitle, AlertDescription } from './alert';
+export { AlertDialog, AlertDialogPortal, AlertDialogOverlay, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from './alert-dialog';
+export { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator, BreadcrumbEllipsis } from './breadcrumb';
+export { Toaster } from './sonner';
+export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from './input-otp';
+export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './collapsible';
+export { NavigationMenu, NavigationMenuList, NavigationMenuItem, NavigationMenuContent, NavigationMenuTrigger, NavigationMenuLink, NavigationMenuIndicator, NavigationMenuViewport, navigationMenuTriggerStyle } from './navigation-menu';
+export { Form, FormItem, FormLabel, FormControl, FormDescription, FormMessage, FormField, useFormField } from './form';
 
-export { Alert } from './Alert';
-export {
-    Breadcrumb,
-    BreadcrumbList,
-    BreadcrumbItem,
-    BreadcrumbSeparator
-} from './Breadcrumb';
 export {
     Dropdown,
     DropdownTrigger,
@@ -53,7 +40,6 @@ export {
     DropdownLabel
 } from './Dropdown';
 export { Slider, RangeSlider } from './Slider';
-export { Toast, ToastProvider, useToast } from './Toast';
 export {
     GlassCard,
     GlassCardHeader,

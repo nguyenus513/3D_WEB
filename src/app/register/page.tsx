@@ -1,37 +1,108 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signIn } from 'next-auth/react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import {
+    Form,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormControl,
+    FormMessage,
+} from '@/components/ui/form';
+import {
+    InputOTP,
+    InputOTPGroup,
+    InputOTPSlot,
+} from '@/components/ui/input-otp';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
 
 type StepType = 1 | 2 | 3 | 4 | 'otp' | 'success';
 
-interface FormData {
-    // Step 1: Account
-    email: string;
-    password: string;
-    confirmPassword: string;
-    // Step 2: Personal
-    name: string;
-    phone: string;
-    instagram: string;
-    // Step 3: Address
-    provinceCode: number | null;
-    provinceName: string;
-    districtCode: number | null;
-    districtName: string;
-    wardCode: number | null;
-    wardName: string;
-    addressLine: string;
-    recipientName: string;
-    recipientPhone: string;
-    // Step 4: Confirm
-    agreeTerms: boolean;
-}
+const step1Schema = z.object({
+    email: z.string().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
+    password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+    confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
+}).refine(data => data.password === data.confirmPassword, {
+    message: 'Mật khẩu xác nhận không khớp',
+    path: ['confirmPassword'],
+});
+
+const step2Schema = z.object({
+    name: z.string().min(1, 'Vui lòng nhập họ và tên'),
+    phone: z.string().min(1, 'Vui lòng nhập số điện thoại').regex(/^(0|\+84)[0-9]{9,10}$/, 'Số điện thoại không hợp lệ'),
+    instagram: z.string().optional(),
+});
+
+const step3Schema = z.object({
+    provinceCode: z.number().nullable(),
+    provinceName: z.string(),
+    districtCode: z.number().nullable(),
+    districtName: z.string(),
+    wardCode: z.number().nullable(),
+    wardName: z.string(),
+    addressLine: z.string(),
+    recipientName: z.string(),
+    recipientPhone: z.string(),
+}).superRefine((data, ctx) => {
+    const hasAnyAddress = !!(data.provinceCode || data.districtCode || data.wardCode || data.addressLine);
+
+    if (hasAnyAddress) {
+        if (!data.provinceCode) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng chọn Tỉnh/Thành phố', path: ['provinceCode'] });
+        }
+        if (!data.districtCode) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng chọn Quận/Huyện', path: ['districtCode'] });
+        }
+        if (!data.wardCode) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng chọn Phường/Xã', path: ['wardCode'] });
+        }
+        if (!data.addressLine) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập địa chỉ chi tiết', path: ['addressLine'] });
+        }
+
+        const hasAnyRecipientInfo = !!(data.recipientName || data.recipientPhone);
+        if (!hasAnyRecipientInfo) {
+            if (!data.recipientName) {
+                ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập tên người nhận', path: ['recipientName'] });
+            }
+            if (!data.recipientPhone) {
+                ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập SĐT người nhận', path: ['recipientPhone'] });
+            }
+        }
+    }
+});
+
+const step4Schema = z.object({
+    agreeTerms: z.boolean().refine(v => v === true, { message: 'Vui lòng đồng ý với điều khoản dịch vụ' }),
+});
+
+const fullSchema = z.object({
+    email: z.string().min(1).email(),
+    password: z.string().min(6),
+    confirmPassword: z.string(),
+    name: z.string().min(1),
+    phone: z.string().min(1),
+    instagram: z.string().optional(),
+    provinceCode: z.number().nullable(),
+    provinceName: z.string(),
+    districtCode: z.number().nullable(),
+    districtName: z.string(),
+    wardCode: z.number().nullable(),
+    wardName: z.string(),
+    addressLine: z.string(),
+    recipientName: z.string(),
+    recipientPhone: z.string(),
+    agreeTerms: z.boolean(),
+});
+
+type FormValues = z.infer<typeof fullSchema>;
 
 const steps = [
     { id: 1, title: 'Tài khoản', desc: 'Email & mật khẩu' },
@@ -40,217 +111,162 @@ const steps = [
     { id: 4, title: 'Xác nhận', desc: 'Hoàn tất đăng ký' },
 ];
 
+const inputClassName = "w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none";
+
 export default function RegisterPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<StepType>(1);
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [isMounted, setIsMounted] = useState(false);
 
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    const [formData, setFormData] = useState<FormData>({
-        email: '',
-        password: '',
-        confirmPassword: '',
-        name: '',
-        phone: '',
-        instagram: '',
-        provinceCode: null,
-        provinceName: '',
-        districtCode: null,
-        districtName: '',
-        wardCode: null,
-        wardName: '',
-        addressLine: '',
-        recipientName: '',
-        recipientPhone: '',
-        agreeTerms: false,
+    const form = useForm<FormValues>({
+        defaultValues: {
+            email: '',
+            password: '',
+            confirmPassword: '',
+            name: '',
+            phone: '',
+            instagram: '',
+            provinceCode: null,
+            provinceName: '',
+            districtCode: null,
+            districtName: '',
+            wardCode: null,
+            wardName: '',
+            addressLine: '',
+            recipientName: '',
+            recipientPhone: '',
+            agreeTerms: false,
+        },
     });
 
-    // Vietnam address data
+    const formValues = form.watch();
+
     const [provinces, setProvinces] = useState<Province[]>([]);
     const [districts, setDistricts] = useState<District[]>([]);
     const [wards, setWards] = useState<Ward[]>([]);
     const [loadingAddress, setLoadingAddress] = useState(false);
 
-    // OTP state
-    const [otp, setOtp] = useState(['', '', '', '', '', '']);
+    const [otpValue, setOtpValue] = useState('');
     const [otpError, setOtpError] = useState('');
     const [verifying, setVerifying] = useState(false);
     const [resending, setResending] = useState(false);
-    const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-    // Load provinces on mount
     useEffect(() => {
         getProvinces().then(setProvinces);
     }, []);
 
-    // Load districts when province changes
     useEffect(() => {
-        if (formData.provinceCode) {
+        if (formValues.provinceCode) {
             setLoadingAddress(true);
-            getDistricts(formData.provinceCode).then(data => {
+            getDistricts(formValues.provinceCode).then(data => {
                 setDistricts(data);
                 setLoadingAddress(false);
             });
-            // Reset district and ward
-            setFormData(prev => ({
-                ...prev,
-                districtCode: null,
-                districtName: '',
-                wardCode: null,
-                wardName: '',
-            }));
+            form.setValue('districtCode', null);
+            form.setValue('districtName', '');
+            form.setValue('wardCode', null);
+            form.setValue('wardName', '');
             setWards([]);
         }
-    }, [formData.provinceCode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formValues.provinceCode]);
 
-    // Load wards when district changes
     useEffect(() => {
-        if (formData.districtCode) {
+        if (formValues.districtCode) {
             setLoadingAddress(true);
-            getWards(formData.districtCode).then(data => {
+            getWards(formValues.districtCode).then(data => {
                 setWards(data);
                 setLoadingAddress(false);
             });
-            setFormData(prev => ({
-                ...prev,
-                wardCode: null,
-                wardName: '',
-            }));
+            form.setValue('wardCode', null);
+            form.setValue('wardName', '');
         }
-    }, [formData.districtCode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formValues.districtCode]);
 
-    // Auto-fill recipient info from personal info
     useEffect(() => {
-        if (currentStep === 3 && !formData.recipientName && !formData.recipientPhone) {
-            setFormData(prev => ({
-                ...prev,
-                recipientName: prev.name,
-                recipientPhone: prev.phone,
-            }));
+        if (currentStep === 3 && !formValues.recipientName && !formValues.recipientPhone) {
+            form.setValue('recipientName', formValues.name);
+            form.setValue('recipientPhone', formValues.phone);
         }
-    }, [currentStep, formData.name, formData.phone, formData.recipientName, formData.recipientPhone]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentStep, formValues.name, formValues.phone, formValues.recipientName, formValues.recipientPhone]);
 
-    const validateStep = (step: number): boolean => {
+    const validateStep = async (step: number): Promise<boolean> => {
         setError('');
+        const values = form.getValues();
 
-        switch (step) {
-            case 1:
-                if (!formData.email) {
-                    setError('Vui lòng nhập email');
-                    return false;
-                }
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-                    setError('Email không hợp lệ');
-                    return false;
-                }
-                if (!formData.password || formData.password.length < 6) {
-                    setError('Mật khẩu phải có ít nhất 6 ký tự');
-                    return false;
-                }
-                if (formData.password !== formData.confirmPassword) {
-                    setError('Mật khẩu xác nhận không khớp');
-                    return false;
-                }
-                return true;
+        try {
+            switch (step) {
+                case 1:
+                    step1Schema.parse({
+                        email: values.email,
+                        password: values.password,
+                        confirmPassword: values.confirmPassword,
+                    });
+                    return true;
 
-            case 2:
-                if (!formData.name) {
-                    setError('Vui lòng nhập họ và tên');
-                    return false;
-                }
-                if (!formData.phone) {
-                    setError('Vui lòng nhập số điện thoại');
-                    return false;
-                }
-                if (!/^(0|\+84)[0-9]{9,10}$/.test(formData.phone.replace(/\s/g, ''))) {
-                    setError('Số điện thoại không hợp lệ');
-                    return false;
-                }
-                return true;
-
-            case 3:
-                const hasAnyAddress = !!(formData.provinceCode || formData.districtCode || formData.wardCode || formData.addressLine);
-
-                // Only validate address fields if user started filling them
-                if (hasAnyAddress) {
-                    if (!formData.provinceCode) {
-                        setError('Vui lòng chọn Tỉnh/Thành phố');
-                        return false;
-                    }
-                    if (!formData.districtCode) {
-                        setError('Vui lòng chọn Quận/Huyện');
-                        return false;
-                    }
-                    if (!formData.wardCode) {
-                        setError('Vui lòng chọn Phường/Xã');
-                        return false;
-                    }
-                    if (!formData.addressLine) {
-                        setError('Vui lòng nhập địa chỉ chi tiết');
-                        return false;
-                    }
+                case 2: {
+                    const phoneClean = values.phone.replace(/\s/g, '');
+                    step2Schema.parse({
+                        name: values.name,
+                        phone: phoneClean,
+                        instagram: values.instagram,
+                    });
+                    return true;
                 }
 
-                // If user doesn't provide recipient info but has address, require it
-                const hasAnyRecipientInfo = !!(formData.recipientName || formData.recipientPhone);
-                if (hasAnyAddress && !hasAnyRecipientInfo) {
-                    if (!formData.recipientName) {
-                        setError('Vui lòng nhập tên người nhận');
-                        return false;
-                    }
-                    if (!formData.recipientPhone) {
-                        setError('Vui lòng nhập SĐT người nhận');
-                        return false;
-                    }
-                }
+                case 3:
+                    step3Schema.parse({
+                        provinceCode: values.provinceCode,
+                        provinceName: values.provinceName,
+                        districtCode: values.districtCode,
+                        districtName: values.districtName,
+                        wardCode: values.wardCode,
+                        wardName: values.wardName,
+                        addressLine: values.addressLine,
+                        recipientName: values.recipientName,
+                        recipientPhone: values.recipientPhone,
+                    });
+                    return true;
 
-                return true;
+                case 4:
+                    step4Schema.parse({ agreeTerms: values.agreeTerms });
+                    return true;
 
-            case 4:
-                if (!formData.agreeTerms) {
-                    setError('Vui lòng đồng ý với điều khoản dịch vụ');
-                    return false;
-                }
-                return true;
-
-            default:
-                return true;
+                default:
+                    return true;
+            }
+        } catch (err) {
+            if (err instanceof z.ZodError) {
+                setError(err.issues[0].message);
+            }
+            return false;
         }
     };
 
-    const nextStep = () => {
-        if (typeof currentStep === 'number' && validateStep(currentStep)) {
+    const nextStep = async () => {
+        if (typeof currentStep === 'number' && await validateStep(currentStep)) {
             if (currentStep < 4) {
-                // Auto-fill name from email when moving to step 2
-                if (currentStep === 1 && !formData.name && formData.email) {
-                    const extractedName = formData.email.split('@')[0]
-                        .replace(/[._]/g, ' ')  // Replace dots/underscores with spaces
-                        .replace(/\d+/g, '')    // Remove numbers
+                const values = form.getValues();
+                if (currentStep === 1 && !values.name && values.email) {
+                    const extractedName = values.email.split('@')[0]
+                        .replace(/[._]/g, ' ')
+                        .replace(/\d+/g, '')
                         .trim()
                         .split(' ')
                         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                         .join(' ');
 
-                    setFormData(prev => ({
-                        ...prev,
-                        name: extractedName || 'Khách hàng',
-                        recipientName: prev.recipientName || extractedName || 'Khách hàng',
-                        recipientPhone: prev.recipientPhone || prev.phone,
-                    }));
+                    form.setValue('name', extractedName || 'Khách hàng');
+                    form.setValue('recipientName', values.recipientName || extractedName || 'Khách hàng');
+                    form.setValue('recipientPhone', values.recipientPhone || values.phone);
                 }
-                // Auto-fill recipient info from profile when moving to step 3
-                if (currentStep === 2 && !formData.recipientName) {
-                    setFormData(prev => ({
-                        ...prev,
-                        recipientName: prev.name,
-                        recipientPhone: prev.phone,
-                    }));
+                if (currentStep === 2 && !values.recipientName) {
+                    form.setValue('recipientName', values.name);
+                    form.setValue('recipientPhone', values.phone);
                 }
                 setCurrentStep((currentStep + 1) as StepType);
             }
@@ -264,30 +280,30 @@ export default function RegisterPage() {
         }
     };
 
-    // Submit registration
     const handleSubmit = async () => {
-        if (!validateStep(4)) return;
+        if (!await validateStep(4)) return;
 
         setLoading(true);
         setError('');
+        const values = form.getValues();
 
         try {
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    instagram: formData.instagram,
-                    password: formData.password,
-                    shipping_address: formData.provinceCode ? {
-                        full_name: formData.recipientName,
-                        phone: formData.recipientPhone,
-                        address_line: formData.addressLine,
-                        ward: formData.wardName,
-                        district: formData.districtName,
-                        province: formData.provinceName,
+                    name: values.name,
+                    email: values.email,
+                    phone: values.phone,
+                    instagram: values.instagram,
+                    password: values.password,
+                    shipping_address: values.provinceCode ? {
+                        full_name: values.recipientName,
+                        phone: values.recipientPhone,
+                        address_line: values.addressLine,
+                        ward: values.wardName,
+                        district: values.districtName,
+                        province: values.provinceName,
                     } : undefined,
                 }),
             });
@@ -295,7 +311,6 @@ export default function RegisterPage() {
             const result = await res.json();
 
             if (!res.ok) {
-                // BaseController error format: { success: false, error: { code, message } }
                 const errorObj = result.error;
                 const errorMessage = typeof errorObj === 'object' && errorObj !== null
                     ? (errorObj.message || JSON.stringify(errorObj))
@@ -304,7 +319,6 @@ export default function RegisterPage() {
                 return;
             }
 
-            // BaseController success format: { success: true, data: { requiresVerification, ... } }
             const responseData = result.data || result;
             if (responseData.requiresVerification) {
                 setCurrentStep('otp');
@@ -316,26 +330,8 @@ export default function RegisterPage() {
         }
     };
 
-    // OTP handlers
-    const handleOtpChange = (index: number, value: string) => {
-        if (!/^\d*$/.test(value)) return;
-        const newOtp = [...otp];
-        newOtp[index] = value.slice(-1);
-        setOtp(newOtp);
-        setOtpError('');
-        if (value && index < 5) {
-            otpRefs.current[index + 1]?.focus();
-        }
-    };
-
-    const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-        if (e.key === 'Backspace' && !otp[index] && index > 0) {
-            otpRefs.current[index - 1]?.focus();
-        }
-    };
-
-    const handleVerifyOtp = async () => {
-        const otpCode = otp.join('');
+    const handleVerifyOtp = useCallback(async (code?: string) => {
+        const otpCode = code ?? otpValue;
         if (otpCode.length !== 6) {
             setOtpError('Vui lòng nhập đủ 6 số');
             return;
@@ -348,7 +344,7 @@ export default function RegisterPage() {
             const res = await fetch('/api/auth/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: formData.email, otp: otpCode }),
+                body: JSON.stringify({ email: form.getValues().email, otp: otpCode }),
             });
 
             const result = await res.json();
@@ -368,22 +364,23 @@ export default function RegisterPage() {
         } finally {
             setVerifying(false);
         }
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [otpValue]);
 
     const handleResendOtp = async () => {
         setResending(true);
+        const values = form.getValues();
         try {
             await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    password: formData.password,
+                    name: values.name,
+                    email: values.email,
+                    password: values.password,
                 }),
             });
-            setOtp(['', '', '', '', '', '']);
-            otpRefs.current[0]?.focus();
+            setOtpValue('');
         } catch {
             setOtpError('Không thể gửi lại mã');
         } finally {
@@ -391,14 +388,14 @@ export default function RegisterPage() {
         }
     };
 
-    useEffect(() => {
-        if (otp.every(d => d) && otp.join('').length === 6) {
-            handleVerifyOtp();
+    const handleOtpChange = (value: string) => {
+        setOtpValue(value);
+        setOtpError('');
+        if (value.length === 6) {
+            handleVerifyOtp(value);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [otp]);
+    };
 
-    // Success screen
     if (currentStep === 'success') {
         return (
             <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
@@ -422,7 +419,6 @@ export default function RegisterPage() {
         );
     }
 
-    // OTP screen
     if (currentStep === 'otp') {
         return (
             <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
@@ -438,30 +434,27 @@ export default function RegisterPage() {
                             </svg>
                         </div>
                         <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Xác Thực Email</h1>
-                        <p className="text-[var(--text-secondary)]">Nhập mã 6 số đã gửi đến <span className="text-[var(--text-primary)]">{formData.email}</span></p>
+                        <p className="text-[var(--text-secondary)]">Nhập mã 6 số đã gửi đến <span className="text-[var(--text-primary)]">{formValues.email}</span></p>
                     </div>
 
-                    <div className="flex justify-center gap-3 mb-6">
-                        {otp.map((digit, idx) => (
-                            <input
-                                key={idx}
-                                ref={el => { otpRefs.current[idx] = el; }}
-                                type="text"
-                                inputMode="numeric"
-                                maxLength={1}
-                                value={digit}
-                                onChange={e => handleOtpChange(idx, e.target.value)}
-                                onKeyDown={e => handleOtpKeyDown(idx, e)}
-                                className="w-12 h-14 text-center text-2xl font-bold bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
-                            />
-                        ))}
+                    <div className="flex justify-center mb-6">
+                        <InputOTP maxLength={6} value={otpValue} onChange={handleOtpChange}>
+                            <InputOTPGroup>
+                                <InputOTPSlot index={0} className="bg-[var(--material-glass)] border-[var(--border-color)] text-[var(--text-primary)]" />
+                                <InputOTPSlot index={1} className="bg-[var(--material-glass)] border-[var(--border-color)] text-[var(--text-primary)]" />
+                                <InputOTPSlot index={2} className="bg-[var(--material-glass)] border-[var(--border-color)] text-[var(--text-primary)]" />
+                                <InputOTPSlot index={3} className="bg-[var(--material-glass)] border-[var(--border-color)] text-[var(--text-primary)]" />
+                                <InputOTPSlot index={4} className="bg-[var(--material-glass)] border-[var(--border-color)] text-[var(--text-primary)]" />
+                                <InputOTPSlot index={5} className="bg-[var(--material-glass)] border-[var(--border-color)] text-[var(--text-primary)]" />
+                            </InputOTPGroup>
+                        </InputOTP>
                     </div>
 
                     {otpError && <p className="text-red-400 text-center text-sm mb-4">{otpError}</p>}
 
                     <Button
-                        onClick={handleVerifyOtp}
-                        disabled={verifying || otp.join('').length !== 6}
+                        onClick={() => handleVerifyOtp()}
+                        disabled={verifying || otpValue.length !== 6}
                         className="w-full mb-4"
                     >
                         {verifying ? 'Đang xác thực...' : 'Xác thực'}
@@ -479,7 +472,6 @@ export default function RegisterPage() {
         );
     }
 
-    // Main form
     return (
         <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
             <motion.div
@@ -487,13 +479,11 @@ export default function RegisterPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-lg"
             >
-                {/* Header */}
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Đăng Ký</h1>
                     <p className="text-[var(--text-secondary)]">Tạo tài khoản để đặt hàng</p>
                 </div>
 
-                {/* Google Sign Up */}
                 <button
                     onClick={() => signIn('google', { callbackUrl: '/api/auth/google-callback' })}
                     className="w-full flex items-center justify-center gap-3 py-4 bg-[var(--material-glass)] hover:opacity-80 border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] font-medium transition-all"
@@ -507,14 +497,12 @@ export default function RegisterPage() {
                     Đăng ký bằng Google
                 </button>
 
-                {/* Divider */}
                 <div className="flex items-center gap-4 my-6">
                     <div className="flex-1 h-px bg-[var(--material-glass)]" />
                     <span className="text-[var(--text-tertiary)] text-sm">hoặc đăng ký bằng email</span>
                     <div className="flex-1 h-px bg-[var(--material-glass)]" />
                 </div>
 
-                {/* Progress */}
                 <div className="flex justify-between mb-8">
                     {steps.map((step, idx) => (
                         <div key={step.id} className="flex-1 relative">
@@ -539,300 +527,359 @@ export default function RegisterPage() {
                     ))}
                 </div>
 
-                {/* Form */}
                 <div className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6">
-                    <AnimatePresence mode="wait">
-                        {/* Step 1: Account */}
-                        {currentStep === 1 && (
-                            <motion.div
-                                key="step1"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="space-y-4"
-                            >
-                                <div>
-                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Email</label>
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
-                                        placeholder="your@email.com"
+                    <Form {...form}>
+                        <AnimatePresence mode="wait">
+                            {currentStep === 1 && (
+                                <motion.div
+                                    key="step1"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    className="space-y-4"
+                                >
+                                    <FormField
+                                        control={form.control}
+                                        name="email"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Email</FormLabel>
+                                                <FormControl>
+                                                    <input
+                                                        type="email"
+                                                        {...field}
+                                                        className={inputClassName}
+                                                        placeholder="your@email.com"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Mật khẩu</label>
-                                    <div className="relative">
-                                        <input
-                                            type={showPassword ? 'text' : 'password'}
-                                            value={formData.password}
-                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none pr-12"
-                                            placeholder="Tối thiểu 6 ký tự"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                                        >
-                                            {showPassword ? '🙈' : '👁️'}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Xác nhận mật khẩu</label>
-                                    <input
-                                        type="password"
-                                        value={formData.confirmPassword}
-                                        onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
-                                        placeholder="Nhập lại mật khẩu"
+                                    <FormField
+                                        control={form.control}
+                                        name="password"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Mật khẩu</FormLabel>
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <input
+                                                            type={showPassword ? 'text' : 'password'}
+                                                            {...field}
+                                                            className={`${inputClassName} pr-12`}
+                                                            placeholder="Tối thiểu 6 ký tự"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowPassword(!showPassword)}
+                                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                                                        >
+                                                            {showPassword ? '🙈' : '👁️'}
+                                                        </button>
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-                                </div>
-                            </motion.div>
-                        )}
+                                    <FormField
+                                        control={form.control}
+                                        name="confirmPassword"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Xác nhận mật khẩu</FormLabel>
+                                                <FormControl>
+                                                    <input
+                                                        type="password"
+                                                        {...field}
+                                                        className={inputClassName}
+                                                        placeholder="Nhập lại mật khẩu"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </motion.div>
+                            )}
 
-                        {/* Step 2: Personal */}
-                        {currentStep === 2 && (
-                            <motion.div
-                                key="step2"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="space-y-4"
-                            >
-                                <div>
-                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Họ và tên</label>
-                                    <input
-                                        type="text"
-                                        value={formData.name}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
-                                        placeholder="Nguyễn Văn A"
+                            {currentStep === 2 && (
+                                <motion.div
+                                    key="step2"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    className="space-y-4"
+                                >
+                                    <FormField
+                                        control={form.control}
+                                        name="name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Họ và tên</FormLabel>
+                                                <FormControl>
+                                                    <input
+                                                        type="text"
+                                                        {...field}
+                                                        className={inputClassName}
+                                                        placeholder="Nguyễn Văn A"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Số điện thoại</label>
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
-                                        placeholder="0901234567"
+                                    <FormField
+                                        control={form.control}
+                                        name="phone"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Số điện thoại</FormLabel>
+                                                <FormControl>
+                                                    <input
+                                                        type="tel"
+                                                        {...field}
+                                                        className={inputClassName}
+                                                        placeholder="0901234567"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-[var(--text-secondary)] text-sm mb-2">Instagram (tuỳ chọn)</label>
-                                    <input
-                                        type="text"
-                                        value={formData.instagram}
-                                        onChange={e => setFormData({ ...formData, instagram: e.target.value })}
-                                        className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
-                                        placeholder="@username"
+                                    <FormField
+                                        control={form.control}
+                                        name="instagram"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Instagram (tuỳ chọn)</FormLabel>
+                                                <FormControl>
+                                                    <input
+                                                        type="text"
+                                                        {...field}
+                                                        className={inputClassName}
+                                                        placeholder="@username"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-                                </div>
-                            </motion.div>
-                        )}
+                                </motion.div>
+                            )}
 
-                        {/* Step 3: Address */}
-                        {currentStep === 3 && (
-                            <motion.div
-                                key="step3"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="space-y-4"
-                            >
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="col-span-2">
-                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Tỉnh/Thành phố</label>
-                                        <select
-                                            value={formData.provinceCode || ''}
-                                            onChange={e => {
-                                                const code = Number(e.target.value);
-                                                const province = provinces.find(p => p.code === code);
-                                                setFormData({
-                                                    ...formData,
-                                                    provinceCode: code,
-                                                    provinceName: province?.name || '',
-                                                });
-                                            }}
-                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer"
-                                        >
-                                            <option value="" className="bg-[var(--material-panel)]">Chọn Tỉnh/Thành phố</option>
-                                            {provinces.map(p => (
-                                                <option key={p.code} value={p.code} className="bg-[var(--material-panel)]">{p.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Quận/Huyện</label>
-                                        <select
-                                            value={formData.districtCode || ''}
-                                            onChange={e => {
-                                                const code = Number(e.target.value);
-                                                const district = districts.find(d => d.code === code);
-                                                setFormData({
-                                                    ...formData,
-                                                    districtCode: code,
-                                                    districtName: district?.name || '',
-                                                });
-                                            }}
-                                            disabled={!formData.provinceCode || loadingAddress}
-                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
-                                        >
-                                            <option value="" className="bg-[var(--material-panel)]">
-                                                {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
-                                            </option>
-                                            {districts.map(d => (
-                                                <option key={d.code} value={d.code} className="bg-[var(--material-panel)]">{d.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Phường/Xã</label>
-                                        <select
-                                            value={formData.wardCode || ''}
-                                            onChange={e => {
-                                                const code = Number(e.target.value);
-                                                const ward = wards.find(w => w.code === code);
-                                                setFormData({
-                                                    ...formData,
-                                                    wardCode: code,
-                                                    wardName: ward?.name || '',
-                                                });
-                                            }}
-                                            disabled={!formData.districtCode || loadingAddress}
-                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
-                                        >
-                                            <option value="" className="bg-[var(--material-panel)]">
-                                                {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
-                                            </option>
-                                            {wards.map(w => (
-                                                <option key={w.code} value={w.code} className="bg-[var(--material-panel)]">{w.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-[var(--text-secondary)] text-sm mb-2">Địa chỉ chi tiết</label>
-                                        <input
-                                            type="text"
-                                            value={formData.addressLine}
-                                            onChange={e => setFormData({ ...formData, addressLine: e.target.value })}
-                                            className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
-                                            placeholder="Số nhà, đường, ngõ..."
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="border-t border-[var(--border-color)] pt-4 mt-4">
-                                    <p className="text-[var(--text-tertiary)] text-xs mb-3">Thông tin người nhận</p>
+                            {currentStep === 3 && (
+                                <motion.div
+                                    key="step3"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    className="space-y-4"
+                                >
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-[var(--text-secondary)] text-sm mb-2">Tên người nhận</label>
-                                            <input
-                                                type="text"
-                                                value={formData.recipientName}
-                                                onChange={e => setFormData({ ...formData, recipientName: e.target.value })}
-                                                className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
-                                            />
+                                        <div className="col-span-2">
+                                            <label className="block text-[var(--text-secondary)] text-sm mb-2">Tỉnh/Thành phố</label>
+                                            <select
+                                                value={formValues.provinceCode || ''}
+                                                onChange={e => {
+                                                    const code = Number(e.target.value);
+                                                    const province = provinces.find(p => p.code === code);
+                                                    form.setValue('provinceCode', code || null);
+                                                    form.setValue('provinceName', province?.name || '');
+                                                }}
+                                                className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer"
+                                            >
+                                                <option value="" className="bg-[var(--material-panel)]">Chọn Tỉnh/Thành phố</option>
+                                                {provinces.map(p => (
+                                                    <option key={p.code} value={p.code} className="bg-[var(--material-panel)]">{p.name}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                         <div>
-                                            <label className="block text-[var(--text-secondary)] text-sm mb-2">SĐT người nhận</label>
-                                            <input
-                                                type="tel"
-                                                value={formData.recipientPhone}
-                                                onChange={e => setFormData({ ...formData, recipientPhone: e.target.value })}
-                                                className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-cyan-500 outline-none"
+                                            <label className="block text-[var(--text-secondary)] text-sm mb-2">Quận/Huyện</label>
+                                            <select
+                                                value={formValues.districtCode || ''}
+                                                onChange={e => {
+                                                    const code = Number(e.target.value);
+                                                    const district = districts.find(d => d.code === code);
+                                                    form.setValue('districtCode', code || null);
+                                                    form.setValue('districtName', district?.name || '');
+                                                }}
+                                                disabled={!formValues.provinceCode || loadingAddress}
+                                                className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                            >
+                                                <option value="" className="bg-[var(--material-panel)]">
+                                                    {loadingAddress ? 'Đang tải...' : 'Chọn Quận/Huyện'}
+                                                </option>
+                                                {districts.map(d => (
+                                                    <option key={d.code} value={d.code} className="bg-[var(--material-panel)]">{d.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[var(--text-secondary)] text-sm mb-2">Phường/Xã</label>
+                                            <select
+                                                value={formValues.wardCode || ''}
+                                                onChange={e => {
+                                                    const code = Number(e.target.value);
+                                                    const ward = wards.find(w => w.code === code);
+                                                    form.setValue('wardCode', code || null);
+                                                    form.setValue('wardName', ward?.name || '');
+                                                }}
+                                                disabled={!formValues.districtCode || loadingAddress}
+                                                className="w-full px-4 py-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 outline-none appearance-none cursor-pointer disabled:opacity-50"
+                                            >
+                                                <option value="" className="bg-[var(--material-panel)]">
+                                                    {loadingAddress ? 'Đang tải...' : 'Chọn Phường/Xã'}
+                                                </option>
+                                                {wards.map(w => (
+                                                    <option key={w.code} value={w.code} className="bg-[var(--material-panel)]">{w.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <FormField
+                                                control={form.control}
+                                                name="addressLine"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Địa chỉ chi tiết</FormLabel>
+                                                        <FormControl>
+                                                            <input
+                                                                type="text"
+                                                                {...field}
+                                                                className={inputClassName}
+                                                                placeholder="Số nhà, đường, ngõ..."
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
                                             />
                                         </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        )}
 
-                        {/* Step 4: Confirm */}
-                        {currentStep === 4 && (
-                            <motion.div
-                                key="step4"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="space-y-4"
-                            >
-                                <div className="space-y-3">
-                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">Email</span>
-                                        <span className="text-[var(--text-primary)]">{formData.email}</span>
+                                    <div className="border-t border-[var(--border-color)] pt-4 mt-4">
+                                        <p className="text-[var(--text-tertiary)] text-xs mb-3">Thông tin người nhận</p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="recipientName"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Tên người nhận</FormLabel>
+                                                        <FormControl>
+                                                            <input
+                                                                type="text"
+                                                                {...field}
+                                                                className={inputClassName}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="recipientPhone"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>SĐT người nhận</FormLabel>
+                                                        <FormControl>
+                                                            <input
+                                                                type="tel"
+                                                                {...field}
+                                                                className={inputClassName}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">Họ tên</span>
-                                        <span className="text-[var(--text-primary)]">{formData.name}</span>
+                                </motion.div>
+                            )}
+
+                            {currentStep === 4 && (
+                                <motion.div
+                                    key="step4"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    className="space-y-4"
+                                >
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                            <span className="text-[var(--text-secondary)]">Email</span>
+                                            <span className="text-[var(--text-primary)]">{formValues.email}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                            <span className="text-[var(--text-secondary)]">Họ tên</span>
+                                            <span className="text-[var(--text-primary)]">{formValues.name}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                            <span className="text-[var(--text-secondary)]">SĐT</span>
+                                            <span className="text-[var(--text-primary)]">{formValues.phone}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                                            <span className="text-[var(--text-secondary)]">Người nhận</span>
+                                            <span className="text-[var(--text-primary)]">{formValues.recipientName} - {formValues.recipientPhone}</span>
+                                        </div>
+                                        <div className="py-2">
+                                            <span className="text-[var(--text-secondary)] block mb-1">Địa chỉ giao hàng</span>
+                                            <span className="text-[var(--text-primary)] text-sm">
+                                                {formValues.addressLine}, {formValues.wardName}, {formValues.districtName}, {formValues.provinceName}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">SĐT</span>
-                                        <span className="text-[var(--text-primary)]">{formData.phone}</span>
-                                    </div>
-                                    <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">Người nhận</span>
-                                        <span className="text-[var(--text-primary)]">{formData.recipientName} - {formData.recipientPhone}</span>
-                                    </div>
-                                    <div className="py-2">
-                                        <span className="text-[var(--text-secondary)] block mb-1">Địa chỉ giao hàng</span>
-                                        <span className="text-[var(--text-primary)] text-sm">
-                                            {formData.addressLine}, {formData.wardName}, {formData.districtName}, {formData.provinceName}
+
+                                    <label className="flex items-start gap-3 cursor-pointer mt-6">
+                                        <input
+                                            type="checkbox"
+                                            checked={formValues.agreeTerms}
+                                            onChange={e => form.setValue('agreeTerms', e.target.checked)}
+                                            className="w-5 h-5 rounded bg-[var(--material-glass)] border border-[var(--border-color)] checked:bg-cyan-500 checked:border-cyan-500 mt-0.5"
+                                        />
+                                        <span className="text-[var(--text-secondary)] text-sm">
+                                            Tôi đồng ý với <Link href="/terms" className="text-cyan-400 hover:underline">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-cyan-400 hover:underline">Chính sách bảo mật</Link>
                                         </span>
-                                    </div>
-                                </div>
+                                    </label>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                                <label className="flex items-start gap-3 cursor-pointer mt-6">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.agreeTerms}
-                                        onChange={e => setFormData({ ...formData, agreeTerms: e.target.checked })}
-                                        className="w-5 h-5 rounded bg-[var(--material-glass)] border border-[var(--border-color)] checked:bg-cyan-500 checked:border-cyan-500 mt-0.5"
-                                    />
-                                    <span className="text-[var(--text-secondary)] text-sm">
-                                        Tôi đồng ý với <Link href="/terms" className="text-cyan-400 hover:underline">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-cyan-400 hover:underline">Chính sách bảo mật</Link>
-                                    </span>
-                                </label>
-                            </motion.div>
+                        {error && (
+                            <motion.p
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="text-red-400 text-sm mt-4"
+                            >
+                                {error}
+                            </motion.p>
                         )}
-                    </AnimatePresence>
 
-                    {/* Error */}
-                    {error && (
-                        <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="text-red-400 text-sm mt-4"
-                        >
-                            {error}
-                        </motion.p>
-                    )}
-
-                    {/* Buttons */}
-                    <div className="flex gap-3 mt-6">
-                        {typeof currentStep === 'number' && currentStep > 1 && (
-                            <Button variant="secondary" onClick={prevStep} className="flex-1">
-                                Quay lại
-                            </Button>
-                        )}
-                        {typeof currentStep === 'number' && currentStep < 4 && (
-                            <Button onClick={nextStep} className="flex-1">
-                                Tiếp tục
-                            </Button>
-                        )}
-                        {currentStep === 4 && (
-                            <Button onClick={handleSubmit} disabled={loading} className="flex-1">
-                                {loading ? 'Đang xử lý...' : 'Đăng ký'}
-                            </Button>
-                        )}
-                    </div>
+                        <div className="flex gap-3 mt-6">
+                            {typeof currentStep === 'number' && currentStep > 1 && (
+                                <Button variant="secondary" onClick={prevStep} className="flex-1">
+                                    Quay lại
+                                </Button>
+                            )}
+                            {typeof currentStep === 'number' && currentStep < 4 && (
+                                <Button onClick={nextStep} className="flex-1">
+                                    Tiếp tục
+                                </Button>
+                            )}
+                            {currentStep === 4 && (
+                                <Button onClick={handleSubmit} disabled={loading} className="flex-1">
+                                    {loading ? 'Đang xử lý...' : 'Đăng ký'}
+                                </Button>
+                            )}
+                        </div>
+                    </Form>
                 </div>
 
-                {/* Login link */}
                 <p className="text-center text-[var(--text-secondary)] mt-6">
                     Đã có tài khoản?{' '}
                     <Link href="/login" className="text-cyan-400 hover:underline">Đăng nhập</Link>

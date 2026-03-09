@@ -12,8 +12,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signOut } from 'next-auth/react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { clsx } from 'clsx';
 import { LayoutGrid, Box, Tag, Star, ClipboardList, Users, Settings, ChevronDown, Layers, LogOut } from 'lucide-react';
 
@@ -121,58 +121,49 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                     return (
                         <div key={fullHref}>
                             {hasChildren ? (
-                                <>
-                                    <button
-                                        onClick={() => toggleExpand(item.name)}
-                                        className={clsx(`
-                                            w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
-                                            border border-transparent
-                                        `, isActive ? 'bg-[var(--material-glass)] text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]')}
-                                    >
-                                        <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
-                                        <span className="font-semibold flex-1 text-left text-sm">{item.name}</span>
-                                        <ChevronDown
-                                            size={16}
-                                            className={clsx("transition-transform duration-300", isExpanded ? 'rotate-180' : '')}
-                                        />
-                                    </button>
-                                    <AnimatePresence>
-                                        {isExpanded && (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                className="overflow-hidden"
-                                            >
-                                                <div className="pl-4 py-2 space-y-1 relative">
-                                                    {/* Guide line */}
-                                                    <div className="absolute left-6 top-2 bottom-2 w-px bg-[var(--edge-shade)]" />
+                                <Collapsible open={isExpanded} onOpenChange={() => toggleExpand(item.name)}>
+                                    <CollapsibleTrigger asChild>
+                                        <button
+                                            className={clsx(`
+                                                w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
+                                                border border-transparent
+                                            `, isActive ? 'bg-[var(--material-glass)] text-[var(--text-primary)] border-[var(--edge-light)]' : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]')}
+                                        >
+                                            <span className={clsx("transition-transform duration-300", isActive && "scale-110")}>{item.icon}</span>
+                                            <span className="font-semibold flex-1 text-left text-sm">{item.name}</span>
+                                            <ChevronDown
+                                                size={16}
+                                                className={clsx("transition-transform duration-300", isExpanded ? 'rotate-180' : '')}
+                                            />
+                                        </button>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                                        <div className="pl-4 py-2 space-y-1 relative">
+                                            {/* Guide line */}
+                                            <div className="absolute left-6 top-2 bottom-2 w-px bg-[var(--edge-shade)]" />
 
-                                                    {item.children?.map((child) => {
-                                                        const childHref = `${effectiveRoot}${child.path}`;
-                                                        const isChildActive = pathname === childHref.split('?')[0];
-                                                        return (
-                                                            <Link
-                                                                key={childHref}
-                                                                href={childHref}
-                                                                className={clsx(`
-                                                                    block pl-8 pr-4 py-2.5 rounded-xl text-sm transition-all relative
-                                                                    font-medium
-                                                                `, isChildActive
-                                                                    ? 'text-[var(--color-accent)] bg-[var(--color-accent-glow)]'
-                                                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                                                                )}
-                                                            >
-                                                                {child.name}
-                                                            </Link>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </>
+                                            {item.children?.map((child) => {
+                                                const childHref = `${effectiveRoot}${child.path}`;
+                                                const isChildActive = pathname === childHref.split('?')[0];
+                                                return (
+                                                    <Link
+                                                        key={childHref}
+                                                        href={childHref}
+                                                        className={clsx(`
+                                                            block pl-8 pr-4 py-2.5 rounded-xl text-sm transition-all relative
+                                                            font-medium
+                                                        `, isChildActive
+                                                            ? 'text-[var(--color-accent)] bg-[var(--color-accent-glow)]'
+                                                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                                        )}
+                                                    >
+                                                        {child.name}
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
                             ) : (
                                 <Link
                                     href={fullHref}

@@ -5,9 +5,29 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signIn, getCsrfToken } from 'next-auth/react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Form,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormControl,
+    FormMessage,
+} from '@/components/ui/form';
 import { Layers, Mail, Lock, EyeOff, Eye } from 'lucide-react';
+
+const loginSchema = z.object({
+    email: z.string().min(1, 'Email là bắt buộc').email('Email không hợp lệ'),
+    password: z.string().min(1, 'Mật khẩu là bắt buộc'),
+    remember: z.boolean(),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 function LoginForm() {
     const router = useRouter();
@@ -18,17 +38,19 @@ function LoginForm() {
     const [error, setError] = useState('');
     const [isMounted, setIsMounted] = useState(false);
 
-    const [formData, setFormData] = useState({
-        email: '',
-        password: '',
-        remember: false,
+    const form = useForm<LoginFormValues>({
+        resolver: zodResolver(loginSchema),
+        defaultValues: {
+            email: '',
+            password: '',
+            remember: false,
+        },
     });
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
-    // Initialize CSRF token on mount to prevent MissingCSRF error
     useEffect(() => {
         const initCsrf = async () => {
             await getCsrfToken();
@@ -38,34 +60,25 @@ function LoginForm() {
 
     if (!isMounted) return null;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const onSubmit = async (data: LoginFormValues) => {
         setLoading(true);
         setError('');
 
-
-
         try {
-            // Ensure CSRF token is fresh before signIn
             const csrfToken = await getCsrfToken();
-
 
             if (!csrfToken) {
                 setError('Lỗi bảo mật (CSRF). Vui lòng tải lại trang.');
                 return;
             }
 
-
             const result = await signIn('credentials', {
-                email: formData.email,
-                password: formData.password,
+                email: data.email,
+                password: data.password,
                 redirect: false,
             });
 
-
-
             if (result?.error) {
-                // Map NextAuth errors to Vietnamese messages
                 const errorMessages: Record<string, string> = {
                     'Email và mật khẩu là bắt buộc': 'Email và mật khẩu là bắt buộc',
                     'Email không tồn tại': 'Email không tồn tại',
@@ -79,9 +92,6 @@ function LoginForm() {
             }
 
             if (result?.ok) {
-                console.log('[LOGIN DEBUG] SignIn successful, checking session...');
-
-                // Fetch user session to check role - FORCE NO CACHE
                 const sessionRes = await fetch('/api/auth/session', {
                     cache: 'no-store',
                     headers: {
@@ -91,18 +101,12 @@ function LoginForm() {
                 });
 
                 const session = await sessionRes.json();
-                console.log('[LOGIN DEBUG] Session role:', session?.user?.role);
 
-                // If user is admin, redirect to admin panel
                 if (session?.user?.role === 'admin') {
-                    console.log('[LOGIN DEBUG] Admin detected, redirecting to /sys_internal');
                     window.location.href = '/sys_internal';
                     return;
                 }
 
-                // Regular users go to callback URL or account page
-                // Use window.location for hard redirect to ensure session is synced
-                console.log('[LOGIN DEBUG] User detected, redirecting to:', callbackUrl);
                 window.location.href = callbackUrl;
             }
         } catch {
@@ -111,6 +115,8 @@ function LoginForm() {
             setLoading(false);
         }
     };
+
+    const inputClassName = "w-full pl-12 pr-4 py-4 h-auto bg-[var(--material-panel)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-ring border border-[var(--border-color)] transition-all";
 
     return (
         <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center px-6 py-20">
@@ -144,83 +150,107 @@ function LoginForm() {
                 </AnimatePresence>
 
                 {/* Login Form */}
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    {/* Email */}
-                    <div>
-                        <label className="text-[var(--text-secondary)] text-sm mb-2 block">Email</label>
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
-                                <Mail size={20} strokeWidth={1.5} />
-                            </span>
-                            <Input
-                                type="email"
-                                placeholder="you@example.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full pl-12 pr-4 py-4 h-auto bg-[var(--material-panel)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-ring border border-[var(--border-color)] transition-all"
-                                required
-                                disabled={loading}
-                            />
-                        </div>
-                    </div>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                        {/* Email */}
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
+                                                <Mail size={20} strokeWidth={1.5} />
+                                            </span>
+                                            <Input
+                                                type="email"
+                                                placeholder="you@example.com"
+                                                className={inputClassName}
+                                                disabled={loading}
+                                                {...field}
+                                            />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                    {/* Password */}
-                    <div>
-                        <label className="text-[var(--text-secondary)] text-sm mb-2 block">Mật khẩu</label>
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
-                                <Lock size={20} strokeWidth={1.5} />
-                            </span>
-                            <Input
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="••••••••"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full pl-12 pr-12 py-4 h-auto bg-[var(--material-panel)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-ring border border-[var(--border-color)] transition-all"
-                                required
-                                disabled={loading}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                            >
-                                {showPassword ? (
-                                    <EyeOff size={20} strokeWidth={1.5} />
-                                ) : (
-                                    <Eye size={20} strokeWidth={1.5} />
+                        {/* Password */}
+                        <FormField
+                            control={form.control}
+                            name="password"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Mật khẩu</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
+                                                <Lock size={20} strokeWidth={1.5} />
+                                            </span>
+                                            <Input
+                                                type={showPassword ? 'text' : 'password'}
+                                                placeholder="••••••••"
+                                                className="w-full pl-12 pr-12 py-4 h-auto bg-[var(--material-panel)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-ring border border-[var(--border-color)] transition-all"
+                                                disabled={loading}
+                                                {...field}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff size={20} strokeWidth={1.5} />
+                                                ) : (
+                                                    <Eye size={20} strokeWidth={1.5} />
+                                                )}
+                                            </button>
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Remember & Forgot */}
+                        <div className="flex items-center justify-between">
+                            <FormField
+                                control={form.control}
+                                name="remember"
+                                render={({ field }) => (
+                                    <FormItem className="flex items-center gap-2 space-y-0">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="text-[var(--text-secondary)] text-sm cursor-pointer font-normal">
+                                            Ghi nhớ đăng nhập
+                                        </FormLabel>
+                                    </FormItem>
                                 )}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Remember & Forgot */}
-                    <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={formData.remember}
-                                onChange={(e) => setFormData({ ...formData, remember: e.target.checked })}
-                                className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--material-panel)] text-[var(--text-primary)] focus:ring-ring"
                             />
-                            <span className="text-[var(--text-secondary)] text-sm">Ghi nhớ đăng nhập</span>
-                        </label>
-                        <Link href="/forgot-password" className="text-[var(--text-secondary)] text-sm hover:underline">
-                            Quên mật khẩu?
-                        </Link>
-                    </div>
+                            <Link href="/forgot-password" className="text-[var(--text-secondary)] text-sm hover:underline">
+                                Quên mật khẩu?
+                            </Link>
+                        </div>
 
-                    {/* Submit */}
-                    <Button
-                        type="submit"
-                        variant="default"
-                        size="lg"
-                        className="w-full"
-                        disabled={loading}
-                    >
-                        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                    </Button>
-                </form>
+                        {/* Submit */}
+                        <Button
+                            type="submit"
+                            variant="default"
+                            size="lg"
+                            className="w-full"
+                            disabled={loading}
+                        >
+                            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                        </Button>
+                    </form>
+                </Form>
 
                 {/* Divider */}
                 <div className="flex items-center gap-4 my-8">
@@ -256,7 +286,6 @@ function LoginForm() {
     );
 }
 
-// Wrap in Suspense for useSearchParams
 export default function LoginPage() {
     return (
         <Suspense fallback={

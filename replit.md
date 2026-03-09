@@ -27,7 +27,9 @@ A Next.js 16 e-commerce/3D printing service application migrated from Vercel to 
   - `--text-primary`, `--text-secondary`, `--text-tertiary`: Text hierarchy
   - `--border-color`: Border colors
   - `--color-accent`: Accent/action color (#0071E3)
-- **Components**: 23 shadcn/ui components (button, card, input, label, dialog, dropdown-menu, select, tabs, badge, avatar, separator, skeleton, table, textarea, tooltip, switch, checkbox, scroll-area, sheet, progress, accordion, popover, theme-toggle)
+- **Components**: 31 shadcn/ui components (button, card, input, label, dialog, dropdown-menu, select, tabs, badge, avatar, separator, skeleton, table, textarea, tooltip, switch, checkbox, scroll-area, sheet, progress, accordion, popover, alert, alert-dialog, breadcrumb, sonner, input-otp, collapsible, navigation-menu, form)
+- **Form Handling**: react-hook-form + @hookform/resolvers + zod for form validation (login, register pages)
+- **Toast System**: Sonner (replaced custom Toast context)
 
 ## Project Structure
 ```
@@ -129,6 +131,7 @@ All secrets are configured in Replit's environment. Key groups:
 - **shadcn/ui** (lowercase): `button.tsx`, `card.tsx`, `input.tsx`, etc. — standard shadcn components
 - **Custom** (renamed): `custom-input.tsx`, `custom-skeleton.tsx`, `custom-switch.tsx` — project-specific components with extra features (e.g. ProductGridSkeleton, label/error support)
 - **Custom** (PascalCase, unique): `Animations.tsx`, `GlassCard.tsx`, `VersionFeedbackCard.tsx`, `FloatingDock.tsx`, etc.
+- **Removed**: Old custom `Toast.tsx`, `Alert.tsx`, `Breadcrumb.tsx` (replaced by standard shadcn versions)
 - **Barrel export**: `src/components/ui/index.ts` re-exports all components correctly
 
 ## Notes

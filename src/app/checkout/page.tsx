@@ -8,6 +8,10 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { useCart, CartItem } from '@/lib/store/cart';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { Box, Boxes, PenLine, ShoppingBag } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 function OrderItem({ item, onUpdateNotes }: { item: CartItem | any; onUpdateNotes?: (id: string, notes: string) => void }) {
     const getTypeIcon = () => {
@@ -186,93 +190,110 @@ export function CheckoutContent() {
                 <AnimatedSection>
                     <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Thanh Toán</h1>
 
-                    <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)]">
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                            <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs">1</span>
-                            Địa chỉ nhận hàng
-                        </h2>
-                        <AddressSelector
-                            userId={session?.user?.id}
-                            value={shippingAddress}
-                            onChange={handleAddressChange}
-                        />
-                    </div>
+                    <Card className="rounded-3xl bg-[var(--material-panel)] border-[var(--border-color)]">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                                <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs">1</span>
+                                Địa chỉ nhận hàng
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <AddressSelector
+                                userId={session?.user?.id}
+                                value={shippingAddress}
+                                onChange={handleAddressChange}
+                            />
+                        </CardContent>
+                    </Card>
 
-                    <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)] mt-6">
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                            <span className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs">2</span>
-                            Đơn hàng ({items.length} sản phẩm)
-                        </h2>
-                        <div className="space-y-1">
-                            {items.map((item, i) => (
-                                <OrderItem
-                                    key={i}
-                                    item={item}
-                                    onUpdateNotes={(id, notes) => updateItem(id, { notes })}
-                                />
-                            ))}
-                        </div>
-                    </div>
+                    <Separator className="my-6" />
 
-                    <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)] mt-6">
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                            <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs">3</span>
-                            Tổng cộng
-                        </h2>
-                        <div className="space-y-3 text-sm">
-                            <div className="flex justify-between text-[var(--text-secondary)]">
-                                <span>Tạm tính</span>
-                                <span>{subtotal.toLocaleString('vi-VN')}đ</span>
+                    <Card className="rounded-3xl bg-[var(--material-panel)] border-[var(--border-color)]">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                                <span className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs">2</span>
+                                Đơn hàng ({items.length} sản phẩm)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-1">
+                                {items.map((item, i) => (
+                                    <OrderItem
+                                        key={i}
+                                        item={item}
+                                        onUpdateNotes={(id, notes) => updateItem(id, { notes })}
+                                    />
+                                ))}
                             </div>
-                            {hasCustom && (
+                        </CardContent>
+                    </Card>
+
+                    <Separator className="my-6" />
+
+                    <Card className="rounded-3xl bg-[var(--material-panel)] border-[var(--border-color)]">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                                <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs">3</span>
+                                Tổng cộng
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3 text-sm">
                                 <div className="flex justify-between text-[var(--text-secondary)]">
-                                    <span>Đặt cọc (50%)</span>
-                                    <span>{depositAmount.toLocaleString('vi-VN')}đ</span>
+                                    <span>Tạm tính</span>
+                                    <span>{subtotal.toLocaleString('vi-VN')}đ</span>
                                 </div>
-                            )}
-                            <div className="pt-3 border-t border-[var(--border-color)] flex justify-between items-end">
-                                <span className="text-[var(--text-primary)] font-medium">
-                                    {hasCustom ? 'Cần thanh toán' : 'Thành tiền'}
-                                </span>
-                                <span className="text-2xl font-bold text-green-400">
-                                    {(hasCustom ? depositAmount : subtotal).toLocaleString('vi-VN')}đ
-                                </span>
+                                {hasCustom && (
+                                    <div className="flex justify-between text-[var(--text-secondary)]">
+                                        <span>Đặt cọc (50%)</span>
+                                        <span>{depositAmount.toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                )}
+                                <div className="pt-3 border-t border-[var(--border-color)] flex justify-between items-end">
+                                    <span className="text-[var(--text-primary)] font-medium">
+                                        {hasCustom ? 'Cần thanh toán' : 'Thành tiền'}
+                                    </span>
+                                    <span className="text-2xl font-bold text-green-400">
+                                        {(hasCustom ? depositAmount : subtotal).toLocaleString('vi-VN')}đ
+                                    </span>
+                                </div>
                             </div>
-                        </div>
 
-                        {error && (
-                            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                                <p className="text-red-400 text-sm">{error}</p>
-                            </div>
-                        )}
-
-                        <button
-                            onClick={handlePlaceOrder}
-                            disabled={!isAddressValid || isSubmitting}
-                            className="w-full mt-6 py-4 px-6 bg-white text-black font-semibold rounded-2xl hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Đang tạo đơn hàng...
-                                </>
-                            ) : (
-                                <>
-                                    <ShoppingBag size={20} />
-                                    Đặt hàng
-                                </>
+                            {error && (
+                                <Alert variant="destructive" className="mt-4">
+                                    <AlertDescription>{error}</AlertDescription>
+                                </Alert>
                             )}
-                        </button>
 
-                        {!isAddressValid && (
-                            <p className="text-center text-[var(--text-tertiary)] text-sm mt-3">
-                                Vui lòng nhập địa chỉ giao hàng để tiếp tục
-                            </p>
-                        )}
-                    </div>
+                            <Button
+                                onClick={handlePlaceOrder}
+                                disabled={!isAddressValid || isSubmitting}
+                                size="lg"
+                                className="w-full mt-6 bg-white text-black hover:bg-white/90 rounded-2xl"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Đang tạo đơn hàng...
+                                    </>
+                                ) : (
+                                    <>
+                                        <ShoppingBag size={20} />
+                                        Đặt hàng
+                                    </>
+                                )}
+                            </Button>
+
+                            {!isAddressValid && (
+                                <p className="text-center text-[var(--text-tertiary)] text-sm mt-3">
+                                    Vui lòng nhập địa chỉ giao hàng để tiếp tục
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
                 </AnimatedSection>
             </div>
         </div>
