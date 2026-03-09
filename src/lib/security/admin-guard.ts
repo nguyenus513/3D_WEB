@@ -90,8 +90,16 @@ export async function requireAdmin(request?: Request, skip2FA = false): Promise<
                         };
                     }
                 }
-            } catch {
-                // If 2FA check fails, allow access (fail open for DB errors)
+            } catch (twoFAError) {
+                const { createLogger } = await import('@/lib/logger');
+                createLogger('admin-guard').error('2FA check failed, denying access', twoFAError);
+                return {
+                    authorized: false,
+                    response: NextResponse.json(
+                        { error: '2FA verification error' },
+                        { status: 500 }
+                    ),
+                };
             }
         }
 

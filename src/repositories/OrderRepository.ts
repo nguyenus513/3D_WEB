@@ -230,7 +230,7 @@ export class OrderRepository {
                 deposit_amount: orderData.depositAmount || 0,
                 status: 'pending' as OrderStatus,
                 payment_status: 'pending' as PaymentStatus,
-                shipping_address_snapshot: orderData.shippingAddressSnapshot || null,
+                shipping_address_snapshot: orderData.shippingAddressSnapshot || orderData.shippingAddress || null,
             })
             .select()
             .single();
