@@ -140,8 +140,6 @@ export class AdminOrderController extends BaseController {
             const { authorized, response: authResponse } = await requireAdmin(request);
             if (!authorized) return authResponse as any;
 
-            console.log('[AdminOrder] getOrder - Looking for orderId:', orderId);
-
             const { data: order, error } = await this.supabase
                 .from('orders')
                 .select(`*, user:users(*, profile:user_profiles(full_name, phone)), items:order_items(*, print_job:print_jobs(*))`)
@@ -278,7 +276,6 @@ export class AdminOrderController extends BaseController {
             if (!authorized) return authResponse as any;
 
             const body = await request.json();
-            console.log('[AdminOrder] Update request:', { orderId, body });
 
             // Build update object from whitelist only
             const update: Record<string, unknown> = {};
@@ -325,7 +322,7 @@ export class AdminOrderController extends BaseController {
             if (body.status === 'delivered' || body.status === 'completed') {
                 update.payment_status = 'paid';
                 if (!update.paid_at) update.paid_at = new Date().toISOString();
-                console.log('[AdminOrder] Auto-completing payment for delivery');
+                
             }
 
             // Determine if we need stock adjustment BEFORE the update
@@ -368,7 +365,7 @@ export class AdminOrderController extends BaseController {
                 return this.handleSuccess({ success: true, message: 'No fields to update', updatedFields: [] as string[] });
             }
 
-            console.log('[AdminOrder] Updating orders table for ID:', orderId, 'Fields:', update);
+            
 
             // Retry loop: handle missing columns (PGRST204) by removing them and retrying
             let attemptUpdate = { ...update };
@@ -412,7 +409,7 @@ export class AdminOrderController extends BaseController {
                     throw new NotFoundError(`Order ${orderId} not found in orders table`);
                 }
 
-                console.log('[AdminOrder] ✓ Updated order:', data.id, 'Status:', data.status);
+                
                 if (removedFields.length > 0) {
                     console.warn('[AdminOrder] Skipped missing columns:', removedFields.join(', '));
                 }
@@ -438,7 +435,7 @@ export class AdminOrderController extends BaseController {
 
             // If we exhausted retries, try status-only update as last resort
             if (update.status) {
-                console.log('[AdminOrder] Fallback: updating status only');
+                
                 const { data, error } = await (this.supabase
                     .from('orders') as any)
                     .update({ status: update.status })
@@ -465,7 +462,7 @@ export class AdminOrderController extends BaseController {
      * @param action - 'deduct' (confirm_variant_stock) or 'restore' (release_variant_stock)
      */
     private async adjustStockForOrder(orderId: string, action: 'deduct' | 'restore') {
-        console.log(`[StockAdjust] ${action.toUpperCase()} stock for order ${orderId}`);
+        
 
         // Fetch order items with product_id and configuration
         const { data: items, error: itemsError } = await (this.supabase
@@ -480,7 +477,7 @@ export class AdminOrderController extends BaseController {
 
         for (const item of items as any[]) {
             if (!item.product_id) {
-                console.log(`[StockAdjust] Skipping item without product_id: ${item.name}`);
+                
                 continue;
             }
 
@@ -510,8 +507,6 @@ export class AdminOrderController extends BaseController {
 
                         if (rpcError) {
                             console.error(`[StockAdjust] RPC ${rpcName} failed for variant ${variant.id}:`, rpcError.message);
-                        } else {
-                            console.log(`[StockAdjust] ${action} variant "${variant.name}" (${variant.id}) qty: ${qty} via ${rpcName}`);
                         }
                         continue;
                     }
@@ -532,14 +527,14 @@ export class AdminOrderController extends BaseController {
                         .update({ stock: newStock, updated_at: new Date().toISOString() })
                         .eq('id', product.id);
 
-                    console.log(`[StockAdjust] ${action} product "${product.name}" stock: ${product.stock} → ${newStock} (qty: ${qty})`);
+                    
                 }
             } catch (err) {
                 console.error(`[StockAdjust] Error adjusting stock for product ${item.product_id}:`, err);
             }
         }
 
-        console.log(`[StockAdjust] ✓ ${action.toUpperCase()} completed for order ${orderId}`);
+        
     }
 
 

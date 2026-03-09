@@ -88,23 +88,15 @@ export class OrderService {
         email: string,
         input: CreateOrderInput
     ): Promise<OrderWithItems> {
-        console.log('[OrderService.createOrder] START | email:', email);
-        console.log('[OrderService.createOrder] Input items count:', input.items.length);
-
-        // Find user profile
-        console.log('[OrderService.createOrder] Step 1: Finding profile...');
         const profile = await this.profileRepo.findByEmail(email);
         if (!profile) {
             throw new NotFoundError('User profile not found');
         }
-        console.log('[OrderService.createOrder] Step 1 OK: profile.id =', profile.id);
 
-        // Calculate total amount
         const totalAmount = input.items.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
         );
-        console.log('[OrderService.createOrder] Step 2: totalAmount =', totalAmount);
 
         // Prepare shipping address
         const shippingAddress = input.shipping_address || {};
@@ -121,8 +113,6 @@ export class OrderService {
         } else {
             orderType = 'product';
         }
-        console.log('[OrderService.createOrder] Step 3: orderType =', orderType, '| itemTypes =', [...itemTypes]);
-
         // Calculate deposit amount
         // Policy: 
         // - Ready-made / Printing: 100% upfront (Deposit = Total)
@@ -131,8 +121,6 @@ export class OrderService {
         if (orderType === 'custom' || orderType === 'mixed') {
             depositAmount = Math.round(totalAmount * 0.5);
         }
-        console.log('[OrderService.createOrder] Step 4: depositAmount =', depositAmount);
-
         // Prepare order items
         const orderItems = input.items.map((item) => {
             const printOpts = (item.customization as any)?.printOptions;
@@ -152,10 +140,6 @@ export class OrderService {
                 notes: (item.customization as any)?.notes || null,
             };
         });
-        console.log('[OrderService.createOrder] Step 5: orderItems prepared:', JSON.stringify(orderItems, null, 2));
-
-        // Create order
-        console.log('[OrderService.createOrder] Step 6: Calling orderRepo.create...');
         try {
             const order = await this.orderRepo.create(
                 {
@@ -172,16 +156,12 @@ export class OrderService {
                 },
                 orderItems
             );
-            console.log('[OrderService.createOrder] Step 6 OK: order.id =', order.id);
-
-            // Step 7: Reserve stock + increment sold_count (fire-and-forget, non-blocking)
-            console.log('[OrderService.createOrder] Step 7: Reserving stock...');
+            
             await this.reserveStockForOrder(input.items);
 
             return order;
         } catch (error) {
-            console.error('[OrderService.createOrder] Step 6 FAILED:', JSON.stringify(error, null, 2));
-            console.error('[OrderService.createOrder] Error type:', typeof error, '| instanceof Error:', error instanceof Error);
+            console.error('[OrderService] Order creation failed:', error);
             throw error;
         }
     }
@@ -216,7 +196,7 @@ export class OrderService {
 
         // If cancelled by admin, restore stock
         if (input.status === 'cancelled' && order.status !== 'cancelled') {
-            console.log(`[OrderService] Admin cancelled order ${orderId}, restoring stock`);
+            
             await this.restoreStockForOrder(order);
         }
 
@@ -258,7 +238,7 @@ export class OrderService {
         await this.orderRepo.cancel(orderId, reason);
 
         // Restore stock for cancelled order
-        console.log(`[OrderService] Restoring stock for cancelled order ${orderId}`);
+        
         await this.restoreStockForOrder(order);
 
         const cancelledOrder = await this.orderRepo.findById(orderId);
@@ -353,14 +333,11 @@ export class OrderService {
 
                 // Deduct stock immediately
                 await this.productRepo.deductStock(matchedVariant.id, qty);
-                console.log(`[OrderService] Deducted ${qty} from variant "${matchedVariant.name || matchedVariant.sku}" (${matchedVariant.id})`);
 
-                // Increment sold_count
                 await (supabase.rpc as any)('increment_sold_count', {
                     p_product_id: productId,
                     p_qty: qty,
                 });
-                console.log(`[OrderService] Incremented sold_count for product ${productId} by ${qty}`);
             } catch (err) {
                 console.error(`[OrderService] Stock deduct/sold_count error for product ${productId}:`, err);
             }
@@ -398,15 +375,12 @@ export class OrderService {
                     ) || allVariants[0];
 
                     await this.productRepo.restoreStock(matchedVariant.id, qty);
-                    console.log(`[OrderService] Restored ${qty} to variant "${matchedVariant.name || matchedVariant.sku}" (${matchedVariant.id})`);
                 }
 
-                // Decrement sold_count
                 await (supabase.rpc as any)('increment_sold_count', {
                     p_product_id: productId,
                     p_qty: -qty,
                 });
-                console.log(`[OrderService] Decremented sold_count for product ${productId} by ${qty}`);
             } catch (err) {
                 console.error(`[OrderService] Stock restore error for product ${productId}:`, err);
             }

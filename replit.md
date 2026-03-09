@@ -57,7 +57,6 @@ src/
   types/         # TypeScript type definitions
   validators/    # Input validation (Zod)
   auth.ts        # NextAuth configuration
-  proxy.ts       # Proxy/middleware utilities
   config/        # App configuration
 middleware.ts    # Next.js middleware (root)
 next.config.ts   # Next.js configuration
@@ -85,6 +84,20 @@ All secrets are configured in Replit's environment. Key groups:
 - **Completed**: Core dependencies, shadcn/ui components, TanStack Query, next-themes, theme-aware styling across all pages, global error handling, API status page, loading states, TypeScript clean (0 errors), security audit fixes applied
 - **Blocked**: Prisma schema (needs direct Supabase connection URL, not pooler), repository migration (depends on Prisma)
 - **Not yet configured**: Stripe secrets, Upstash Redis secrets
+
+## Security Hardening (Production-Ready)
+- **Brute Force Protection**: Re-enabled in auth.ts — blocks after 5 failed attempts for 30 min (by email+IP)
+- **Rate Limiting**: Production limits restored — register 5/hr, login 10/min, upload 30/hr, orders 10/min
+- **CSRF**: Double-submit cookie pattern with `__Host-` prefix in production
+- **CSP**: Removed `unsafe-eval`, kept `unsafe-inline` (required for styled-jsx/Three.js)
+- **CORS**: Dynamic origin from `NEXT_PUBLIC_APP_URL` or `REPLIT_DEV_DOMAIN`
+- **2FA**: Fail-closed admin guard (denies on DB errors)
+- **File Validation**: Magic bytes + extension + size limits (100MB max, 500K triangles for STL)
+- **Middleware**: Unified single middleware (was split between `middleware.ts` + `src/proxy.ts`). Now includes rate limiting, Phoenix Protocol, admin separation, correlation IDs. Fail-closed on missing auth secret (returns 500).
+- **Brute Force Fallback**: In-memory rate limiter as fallback when DB brute-force check fails (10 attempts → 15min block)
+- **Debug Logs**: All `[AUTH DEBUG]` and step-by-step console.logs removed from auth, controllers, services
+- **Config Validation**: `unifiedConfig.ts` throws in production if env vars missing (fail-fast)
+- **Dead Code Removed**: `src/proxy.ts` deleted (was shadow middleware, never active)
 
 ## Testing & Validation
 - **TypeScript**: 0 errors (all variant="primary" fixed to "default", case-sensitivity conflicts resolved)

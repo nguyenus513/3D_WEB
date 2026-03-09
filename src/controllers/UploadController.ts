@@ -70,9 +70,6 @@ export class UploadController extends BaseController {
                 isReview: formData.get('isReview'),
             };
 
-            // Debug log to see what's being sent
-            console.log('[Upload] Raw params received:', JSON.stringify(rawParams, null, 2));
-
             // Parse and validate upload params with safeParse for better error handling
             const parseResult = UploadRequestSchema.safeParse(rawParams);
 
@@ -88,32 +85,14 @@ export class UploadController extends BaseController {
             const arrayBuffer = await file.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
 
-            // Upload file
-            console.log('[Upload] Calling uploadService.uploadFile with:', {
-                filename: file.name,
-                size: file.size,
-                type: params.type,
-                sku: params.sku,
-                index: params.index,
+            const result = await this.uploadService.uploadFile(
+                file,
+                buffer,
+                params,
                 userId,
                 isAdmin
-            });
-
-            try {
-                const result = await this.uploadService.uploadFile(
-                    file,
-                    buffer,
-                    params,
-                    userId,
-                    isAdmin
-                );
-                console.log('[Upload] Upload success:', result.storage);
-                return this.handleSuccess(result);
-            } catch (uploadError) {
-                console.error('[Upload] Upload FAILED:', uploadError);
-                console.error('[Upload] Stack:', (uploadError as Error).stack);
-                throw uploadError;
-            }
+            );
+            return this.handleSuccess(result);
         }, 'UploadController.upload');
     }
 }

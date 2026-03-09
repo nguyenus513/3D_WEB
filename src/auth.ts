@@ -18,6 +18,33 @@ import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { isLoginBlocked, recordFailedAttempt, clearFailedAttempts } from '@/lib/security/brute-force';
 
+const inMemoryLoginAttempts = new Map<string, { count: number; blockedUntil: number }>();
+const MAX_FALLBACK_ATTEMPTS = 10;
+const FALLBACK_BLOCK_DURATION = 15 * 60 * 1000;
+
+function checkFallbackRateLimit(key: string): boolean {
+    const now = Date.now();
+    const record = inMemoryLoginAttempts.get(key);
+    if (record && now < record.blockedUntil) return false;
+    if (record && now >= record.blockedUntil) {
+        inMemoryLoginAttempts.delete(key);
+    }
+    return true;
+}
+
+function recordFallbackAttempt(key: string): void {
+    const record = inMemoryLoginAttempts.get(key) || { count: 0, blockedUntil: 0 };
+    record.count++;
+    if (record.count >= MAX_FALLBACK_ATTEMPTS) {
+        record.blockedUntil = Date.now() + FALLBACK_BLOCK_DURATION;
+    }
+    inMemoryLoginAttempts.set(key, record);
+}
+
+function clearFallbackAttempts(key: string): void {
+    inMemoryLoginAttempts.delete(key);
+}
+
 // Supabase client with service role for auth operations
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,11 +110,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 const email = (credentials.email as string).toLowerCase().trim();
 
-                // DEBUG: Simplified - temporarily skip brute force protection
-                console.log('[AUTH DEBUG] Login attempt for:', email);
-
-                /* TEMPORARILY DISABLED - Brute force protection
                 const ipAddress = await getClientIp();
+
+                const fallbackKey = `${email}:${ipAddress}`;
+                if (!checkFallbackRateLimit(fallbackKey)) {
+                    throw new Error('Tài khoản tạm khóa. Thử lại sau 15 phút.');
+                }
 
                 try {
                     const blockStatus = await isLoginBlocked(email, ipAddress);
@@ -101,9 +129,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     if (blockError instanceof Error && blockError.message.includes('Tài khoản tạm khóa')) {
                         throw blockError;
                     }
-                    console.warn('Brute force check failed:', blockError);
+                    console.error('[Auth] Brute force DB check failed, using in-memory fallback');
                 }
-                */
 
                 const { data: user, error } = await supabaseAdmin
                     .from('users')
@@ -111,17 +138,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     .eq('email', email)
                     .single();
 
-                // DEBUG: Log query result (temporary - remove in production)
-                console.log('[AUTH DEBUG] Email lookup:', { email, found: !!user, error: error?.message });
 
                 if (error || !user) {
-                    // Brute force recording disabled for debugging
-                    console.log('[AUTH DEBUG] User not found or error:', error?.message);
+                    recordFallbackAttempt(fallbackKey);
+                    await recordFailedAttempt(email, ipAddress).catch(() => {});
                     throw new Error('Thông tin đăng nhập không chính xác');
                 }
 
                 if (!user.password) {
-                    console.log('[AUTH DEBUG] User has no password field');
                     throw new Error('Tài khoản này không dùng mật khẩu');
                 }
 
@@ -131,16 +155,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 );
 
                 if (!isValid) {
-                    // Brute force recording disabled for debugging
-                    console.log('[AUTH DEBUG] Password mismatch');
+                    recordFallbackAttempt(fallbackKey);
+                    await recordFailedAttempt(email, ipAddress).catch(() => {});
                     throw new Error('Thông tin đăng nhập không chính xác');
                 }
 
-                // Skip email verification check (column does not exist)
-                // Original check: if (user.role !== 'admin' && !user.email_verified) {...}
-
-                // DEBUG: Skip clearing failed attempts
-                console.log('[AUTH DEBUG] Login successful for:', email);
+                clearFallbackAttempts(fallbackKey);
+                await clearFailedAttempts(email, ipAddress).catch(() => {});
 
                 return {
                     id: user.id,
@@ -164,26 +185,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     ],
     callbacks: {
         async signIn({ user, account }) {
-            console.log('[AUTH DEBUG] signIn callback called');
-            console.log('[AUTH DEBUG] Provider:', account?.provider);
-            console.log('[AUTH DEBUG] User email:', user?.email);
-
-            // Handle Google OAuth sign in
             if (account?.provider === 'google' && user.email) {
-                console.log('[AUTH DEBUG] Processing Google OAuth for:', user.email);
                 try {
-                    // Check if user exists in profiles
                     const { data: existingProfile, error: queryError } = await supabaseAdmin
                         .from('users')
                         .select('id, phone, role')
                         .eq('email', user.email.toLowerCase())
                         .maybeSingle();
 
-                    console.log('[AUTH DEBUG] Query result:', { existingProfile, queryError });
-
                     if (!existingProfile) {
-                        // No profile found - create new one
-                        console.log('[AUTH DEBUG] Creating new profile for Google user');
 
                         // Generate UUID BEFORE insert - we control the ID
                         const profileId = crypto.randomUUID();
@@ -208,10 +218,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             });
 
                         if (insertError) {
-                            console.error('[AUTH DEBUG] Insert error:', insertError);
-                            // Profile creation failed - will be handled in complete-profile
-                        } else {
-                            console.log('[AUTH DEBUG] Profile created with ID:', profileId);
+                            console.error('[Auth] Failed to create profile for Google user:', insertError.message);
                         }
 
                         // ALWAYS set user.id to our controlled UUID
@@ -219,35 +226,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         // Mark as new user - needs to complete profile
                         (user as { isNewUser?: boolean }).isNewUser = true;
                     } else {
-                        // Profile exists - use database ID
                         user.id = existingProfile.id;
-                        console.log('[AUTH DEBUG] Using existing profile ID:', existingProfile.id);
-
-                        // Admin users skip profile completion requirement
                         const isProfileIncomplete = existingProfile.role !== 'admin' && !existingProfile.phone;
                         (user as { isNewUser?: boolean }).isNewUser = isProfileIncomplete;
-                        console.log('[AUTH DEBUG] Existing user, role:', existingProfile.role, ', isNewUser:', isProfileIncomplete);
                     }
-
-                    // NOTE: Drive tokens are NOT saved during login.
-                    // Admin must use dedicated Drive OAuth flow (/api/drive/callback) to authorize Drive access.
                 } catch (error) {
-                    console.error('[AUTH DEBUG] Google signIn error:', error);
-                    // Allow login to proceed even if profile check fails
+                    console.error('[Auth] Google signIn error:', error);
                     (user as { isNewUser?: boolean }).isNewUser = true;
                 }
             }
 
-            console.log('[AUTH DEBUG] signIn returning true');
             return true;
         },
         async jwt({ token, user, account, trigger, session }) {
             const email = token.email || user?.email;
-            console.log(`[AUTH DEBUG] JWT Callback | Trigger: ${trigger} | User: ${!!user} | Email: ${email}`);
 
-            // First login - set initial values
             if (user) {
-                console.log('[AUTH DEBUG] JWT - Initial Login Processing');
                 token.id = user.id;
                 token.email = user.email;
                 token.role = (user as { role?: string }).role;
@@ -269,17 +263,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         .single();
 
                     if (profile) {
-                        console.log(`[AUTH DEBUG] DB Query Success | Role: ${profile.role} | Phone: ${!!profile.phone} | Token Before: ${token.role}`);
                         token.id = profile.id;
                         token.role = profile.role;
                         token.customerCode = profile.customer_code;
                         // Refresh isNewUser: admin never needs profile completion
                         token.isNewUser = profile.role !== 'admin' && !profile.phone;
-                    } else {
-                        console.warn('[AUTH DEBUG] Profile not found in DB for:', email);
                     }
                 } catch (error) {
-                    console.error('[AUTH] Error fetching profile in JWT callback:', error);
+                    console.error('[Auth] JWT profile refresh error:', error);
                 }
             }
 
