@@ -80,30 +80,24 @@ export function PaymentQR({
         setConfirmError(null);
 
         try {
-            if (orderId === 'cart-placeholder' && !onPaymentConfirmed) {
-                console.error('Critical: Cart placeholder ID but no handler provided!');
-                throw new Error('Lỗi hệ thống: Không tìm thấy trình xử lý thanh toán giỏ hàng');
+            if (orderId.includes('placeholder')) {
+                throw new Error('Lỗi hệ thống: Mã đơn hàng không hợp lệ');
             }
+
+            const res = await fetch(`/api/orders/${orderId}/payment-confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Không thể xác nhận thanh toán');
+            }
+
+            setIsConfirmed(true);
 
             if (onPaymentConfirmed) {
                 await onPaymentConfirmed();
-                setIsConfirmed(true);
-            } else {
-                if (orderId.includes('placeholder')) {
-                    throw new Error('Invalid Order ID for payment confirmation');
-                }
-
-                const res = await fetch(`/api/orders/${orderId}/payment-confirmation`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                });
-
-                if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.error || 'Không thể xác nhận thanh toán');
-                }
-
-                setIsConfirmed(true);
             }
         } catch (err) {
             console.error('Confirm Payment Error:', err);

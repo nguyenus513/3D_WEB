@@ -1,137 +1,115 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/button';
-import { getBankConfig, BANK_INFO, type BankCode } from '@/lib/vietqr';
-import { CheckCircle, Box, Boxes, PenLine, Info } from 'lucide-react';
+import { PaymentQR } from '@/components/PaymentQR';
+import { CheckCircle, Box, Boxes, PenLine } from 'lucide-react';
 
-interface SubOrder {
-    type: string;
-    orderNumber: string;
-    status: string;
-    customConfig?: {
-        type?: string;
-        size?: string;
-    };
-}
-
-interface MasterOrder {
+interface OrderData {
     id: string;
-    order_number: string;
     order_code: string;
-    subtotal: number;
-    shipping: number;
+    order_type: string;
     total: number;
+    deposit_amount?: number;
     status: string;
     payment_status: string;
     created_at: string;
-    address: {
-        full_name: string;
-        phone: string;
+    shipping_address?: {
+        full_name?: string;
+        name?: string;
+        phone?: string;
         address_line?: string;
+        address?: string;
         ward?: string;
         district?: string;
-        province: string;
+        province?: string;
+        city?: string;
     };
-    orders?: { order_code: string; status: string; total: number }[];
-    print_orders?: { order_number: string; status: string; total_price: number }[];
-    custom_orders?: { order_number: string; status: string; estimated_price: number }[];
+    items?: Array<{
+        name: string;
+        quantity: number;
+        unit_price: number;
+        total_price: number;
+        item_type?: string;
+    }>;
 }
 
-const CheckIcon = () => (
-    <CheckCircle size={64} className="text-green-400" strokeWidth={2} />
-);
+interface PaymentConfig {
+    bank_code: string;
+    account_no: string;
+    account_name: string;
+}
+
+const getTypeLabel = (type: string) => {
+    switch (type) {
+        case 'product': return 'Sản phẩm';
+        case 'print_3d': return 'In 3D';
+        case 'custom': return 'Custom Figurine';
+        case 'mixed': return 'Hỗn hợp';
+        default: return 'Sản phẩm';
+    }
+};
 
 const getTypeIcon = (type: string) => {
     switch (type) {
-        case 'product': return <Box size={20} strokeWidth={1.5} />;
-        case 'print': return <Boxes size={20} strokeWidth={1.5} />;
+        case 'print_3d': return <Boxes size={20} strokeWidth={1.5} />;
         case 'custom': return <PenLine size={20} strokeWidth={1.5} />;
         default: return <Box size={20} strokeWidth={1.5} />;
     }
 };
 
-
-
-const getTypeLabel = (type: string) => {
-    switch (type) {
-        case 'product': return 'Sản phẩm';
-        case 'print': return 'In 3D';
-        case 'custom': return 'Custom';
-        default: return type;
-    }
-};
-
 const getTypeColor = (type: string) => {
     switch (type) {
-        case 'product': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-        case 'print': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+        case 'print_3d': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
         case 'custom': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-        default: return 'bg-[var(--material-glass)] text-[var(--text-secondary)]';
+        case 'mixed': return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
+        default: return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
     }
 };
 
 export default function CheckoutSuccessPage() {
     const params = useParams();
     const orderId = params.orderId as string;
-    const [order, setOrder] = useState<MasterOrder | null>(null);
+
+    const [order, setOrder] = useState<OrderData | null>(null);
+    const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
     const [loading, setLoading] = useState(true);
-    const [subOrders, setSubOrders] = useState<SubOrder[]>([]);
     const [hasConfirmedPayment, setHasConfirmedPayment] = useState(false);
 
     useEffect(() => {
-        const fetchOrder = async () => {
+        const fetchData = async () => {
             try {
-                const res = await fetch(`/api/orders/lookup?id=${orderId}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.success && data.data) {
-                        const orderData = data.data;
-                        setOrder({
-                            id: orderData.id,
-                            order_number: orderData.order_code,
-                            order_code: orderData.order_code,
-                            subtotal: orderData.total,
-                            shipping: 0,
-                            total: orderData.total,
-                            status: orderData.status,
-                            payment_status: orderData.payment_status,
-                            created_at: orderData.created_at,
-                            address: orderData.shipping_address || {},
-                            payment: orderData.payment,
-                        } as any);
+                const [orderRes, configRes] = await Promise.all([
+                    fetch(`/api/orders/lookup?id=${orderId}`),
+                    fetch('/api/payment-config'),
+                ]);
 
-                        if (orderData.payment_status === 'paid' || orderData.deposit_paid) {
-                            setHasConfirmedPayment(true);
-                        }
-
-                        setSubOrders([{
-                            type: orderData.order_type === 'custom' ? 'custom' : orderData.order_type === 'printing' ? 'print' : 'product',
-                            orderNumber: orderData.order_code,
-                            status: orderData.status,
-                            customConfig: orderData.custom_config,
-                        }]);
+                if (orderRes.ok) {
+                    const json = await orderRes.json();
+                    const data = json.data || json;
+                    setOrder(data);
+                    if (data.payment_status === 'paid' || data.status === 'pending_confirmation' || data.status === 'confirmed') {
+                        setHasConfirmedPayment(true);
                     }
+                }
+
+                if (configRes.ok) {
+                    const config = await configRes.json();
+                    setPaymentConfig(config);
                 }
             } catch (err) {
                 console.error('Failed to fetch order:', err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
-        if (orderId) {
-            fetchOrder();
-        }
+        if (orderId) fetchData();
     }, [orderId]);
-
-    const handleConfirmPayment = () => {
-        setHasConfirmedPayment(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
 
     if (loading) {
         return (
@@ -157,94 +135,114 @@ export default function CheckoutSuccessPage() {
         );
     }
 
-    if (!hasConfirmedPayment) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const orderAny = order as any;
-        const payment = orderAny?.payment;
+    const isCustomOrder = order.order_type === 'custom' || order.order_type === 'mixed';
+    const payAmount = order.deposit_amount || order.total;
 
-        const orderType = subOrders[0]?.type || 'product';
-        const isCustomOrder = orderType === 'custom';
-        const depositPercentage = isCustomOrder ? 0.5 : 1.0;
-        const depositLabel = isCustomOrder ? 'Đặt cọc 50%' : 'Thanh toán 100%';
-        const depositAmount = orderAny?.deposit_amount || Math.round(order.total * depositPercentage);
-
-        const qrUrl = payment?.qr_url || `https://img.vietqr.io/image/MB-0359123456-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(`MINWSUN_${orderId}`)}`;
-        const transferContent = payment?.transfer_content || `MINWSUN_${orderId}`;
-        const bankName = payment?.bank_id ? (BANK_INFO[payment.bank_id as BankCode]?.shortName || payment.bank_id) : 'MB Bank';
-        const accountNo = payment?.account_no || '0359123456';
-        const accountName = payment?.account_name || 'MINWSUN';
-
+    if (hasConfirmedPayment) {
         return (
             <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
-                <div className="max-w-[600px] mx-auto px-6">
-                    <AnimatedSection className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Vui Lòng Thanh Toán</h1>
-                        <p className="text-[var(--text-secondary)]">Quét mã QR để hoàn tất đơn hàng</p>
+                <div className="max-w-[800px] mx-auto px-6">
+                    <AnimatedSection className="text-center mb-12">
+                        <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                            className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6"
+                        >
+                            <CheckCircle size={64} className="text-green-400" strokeWidth={2} />
+                        </motion.div>
+                        <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-4">
+                            Đặt Hàng Thành Công!
+                        </h1>
+                        <p className="text-[var(--text-secondary)]">
+                            Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang chờ xác nhận thanh toán.
+                        </p>
                     </AnimatedSection>
 
                     <AnimatedSection delay={0.1}>
                         <div className="bg-[var(--material-panel)] rounded-3xl p-8 mb-6 border border-[var(--border-color)]">
-                            <div className="bg-white rounded-2xl p-4 max-w-[280px] mx-auto mb-8 shadow-2xl">
-                                <img
-                                    src={qrUrl}
-                                    alt="VietQR Payment"
-                                    className="w-full aspect-square object-contain"
-                                />
-                                <p className="text-center text-xs text-gray-500 mt-2 font-medium">Quét mã để chuyển khoản tự động</p>
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <p className="text-[var(--text-secondary)] text-sm">Mã đơn hàng</p>
+                                    <p className="text-2xl font-bold text-[var(--text-primary)] font-mono">{order.order_code}</p>
+                                </div>
+                                <div className={`px-4 py-2 rounded-xl text-sm font-medium border flex items-center gap-2 ${getTypeColor(order.order_type)}`}>
+                                    {getTypeIcon(order.order_type)}
+                                    {getTypeLabel(order.order_type)}
+                                </div>
                             </div>
 
-                            <div className="space-y-4 mb-8">
-                                <div className="bg-[var(--material-glass)] rounded-xl p-4 space-y-3">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[var(--text-secondary)]">Ngân hàng</span>
-                                        <span className="text-[var(--text-primary)] font-medium">{bankName}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[var(--text-secondary)]">Số tài khoản</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[var(--text-primary)] font-mono text-lg">{accountNo}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[var(--text-secondary)]">Chủ tài khoản</span>
-                                        <span className="text-[var(--text-primary)] font-medium uppercase">{accountName}</span>
-                                    </div>
-                                    <div className="h-px bg-[var(--border-color)] my-2" />
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[var(--text-secondary)]">{depositLabel}</span>
-                                        <span className="text-green-400 font-bold text-xl">{depositAmount.toLocaleString('vi-VN')}đ</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-2">
-                                        <span className="text-[var(--text-secondary)]">Nội dung CK</span>
-                                        <span className="text-yellow-400 font-mono font-bold bg-yellow-400/10 px-3 py-1 rounded-lg select-all cursor-text">{transferContent}</span>
+                            {order.items && order.items.length > 0 && (
+                                <div className="mb-6">
+                                    <p className="text-[var(--text-secondary)] text-sm mb-3">Chi tiết đơn hàng</p>
+                                    <div className="space-y-2">
+                                        {order.items.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center py-2 border-b border-[var(--border-color)] last:border-b-0">
+                                                <div className="flex items-center gap-2">
+                                                    {getTypeIcon(item.item_type || order.order_type)}
+                                                    <span className="text-[var(--text-primary)] text-sm">{item.name}</span>
+                                                    <span className="text-[var(--text-tertiary)] text-xs">x{item.quantity}</span>
+                                                </div>
+                                                <span className="text-[var(--text-primary)] text-sm font-medium">
+                                                    {(item.total_price || item.unit_price * item.quantity).toLocaleString('vi-VN')}đ
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
+                            )}
 
-                                <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                                    <Info size={20} className="text-blue-400 mt-0.5 shrink-0" strokeWidth={2} />
-                                    <p className="text-sm text-blue-200/80">
-                                        Nội dung chuyển khoản chính xác giúp hệ thống tự động xác nhận đơn hàng của bạn nhanh chóng hơn.
+                            <div className="border-t border-[var(--border-color)] pt-6 space-y-3">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-[var(--text-secondary)]">Tổng cộng</span>
+                                    <span className="text-[var(--text-primary)]">{order.total.toLocaleString('vi-VN')}đ</span>
+                                </div>
+                                {isCustomOrder && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-[var(--text-secondary)]">Đặt cọc 50%</span>
+                                        <span className="text-[var(--text-primary)]">{payAmount.toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </AnimatedSection>
+
+                    {order.shipping_address && (
+                        <AnimatedSection delay={0.2}>
+                            <div className="bg-[var(--material-panel)] rounded-3xl p-8 mb-6 border border-[var(--border-color)]">
+                                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Địa chỉ giao hàng</h3>
+                                <div className="text-[var(--text-secondary)] space-y-2">
+                                    {(order.shipping_address.full_name || order.shipping_address.name) && (
+                                        <p className="font-medium text-[var(--text-primary)] text-base">{order.shipping_address.full_name || order.shipping_address.name}</p>
+                                    )}
+                                    {order.shipping_address.phone && (
+                                        <p className="text-sm">{order.shipping_address.phone}</p>
+                                    )}
+                                    <p className="text-sm">
+                                        {[
+                                            order.shipping_address.address_line || order.shipping_address.address,
+                                            order.shipping_address.ward,
+                                            order.shipping_address.district,
+                                            order.shipping_address.province || order.shipping_address.city,
+                                        ].filter(Boolean).join(', ')}
                                     </p>
                                 </div>
                             </div>
+                        </AnimatedSection>
+                    )}
 
-                            <Button
-                                variant="default"
-                                size="lg"
-                                className="w-full h-14 text-lg font-medium shadow-lg shadow-primary/20"
-                                onClick={handleConfirmPayment}
-                            >
-                                Tôi đã chuyển khoản xong
-                            </Button>
-                        </div>
-
-                        <div className="text-center">
-                            <button
-                                onClick={() => setHasConfirmedPayment(true)}
-                                className="text-[var(--text-tertiary)] text-sm hover:text-[var(--text-primary)] transition-colors"
-                            >
-                                Bỏ qua bước này (Thanh toán sau)
-                            </button>
+                    <AnimatedSection delay={0.3}>
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                            <Link href="/account/orders">
+                                <Button variant="default" size="lg">
+                                    Xem đơn hàng của tôi
+                                </Button>
+                            </Link>
+                            <Link href="/products">
+                                <Button variant="secondary" size="lg">
+                                    Tiếp tục mua sắm
+                                </Button>
+                            </Link>
                         </div>
                     </AnimatedSection>
                 </div>
@@ -254,133 +252,75 @@ export default function CheckoutSuccessPage() {
 
     return (
         <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
-            <div className="max-w-[800px] mx-auto px-6">
-                <AnimatedSection className="text-center mb-12">
-                    <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                        className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6"
-                    >
-                        <CheckIcon />
-                    </motion.div>
-                    <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-4">
-                        Đặt Hàng Thành Công!
-                    </h1>
+            <div className="max-w-[700px] mx-auto px-6">
+                <AnimatedSection className="text-center mb-8">
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border mb-4 ${getTypeColor(order.order_type)}`}>
+                        {getTypeIcon(order.order_type)}
+                        {getTypeLabel(order.order_type)}
+                    </div>
+                    <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Thanh Toán Đơn Hàng</h1>
                     <p className="text-[var(--text-secondary)]">
-                        Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang chờ xác nhận thanh toán.
+                        Mã đơn: <span className="font-mono text-[var(--text-primary)]">{order.order_code}</span>
                     </p>
                 </AnimatedSection>
 
-                <AnimatedSection delay={0.1}>
-                    <div className="bg-[var(--material-panel)] rounded-3xl p-8 mb-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <p className="text-[var(--text-secondary)] text-sm">Mã đơn hàng</p>
-                                <p className="text-2xl font-bold text-[var(--text-primary)] font-mono">{orderId}</p>
-                            </div>
-                            <div className="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-xl text-sm font-medium">
-                                Chờ xác nhận
-                            </div>
-                        </div>
-
-                        {subOrders.length > 0 && (
-                            <div className="mb-6">
-                                <p className="text-[var(--text-secondary)] text-sm mb-3">Chi tiết đơn hàng</p>
-                                <div className="space-y-2">
-                                    {subOrders.map((sub, index) => (
-                                        <div
-                                            key={index}
-                                            className={`p-4 rounded-xl border ${getTypeColor(sub.type)}`}
-                                        >
-                                            <div className="flex items-center gap-3 mb-2">
-                                                {getTypeIcon(sub.type)}
-                                                <span className="font-mono text-sm">{sub.orderNumber}</span>
-                                                <span className="text-xs opacity-70">{getTypeLabel(sub.type)}</span>
-                                            </div>
-                                            {sub.type === 'custom' && sub.customConfig && (
-                                                <div className="ml-8 space-y-1 text-sm">
-                                                    <div className="flex gap-2">
-                                                        <span className="text-[var(--text-secondary)]">Loại:</span>
-                                                        <span className="text-[var(--text-primary)] capitalize">
-                                                            {sub.customConfig.type === 'single' ? 'Cá nhân (1 người)' :
-                                                                sub.customConfig.type === 'couple' ? 'Cặp đôi (2 người)' :
-                                                                    sub.customConfig.type === 'group' ? 'Nhóm (3+ người)' :
-                                                                        sub.customConfig.type || '—'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <span className="text-[var(--text-secondary)]">Kích thước:</span>
-                                                        <span className="text-[var(--text-primary)]">
-                                                            {sub.customConfig.size === 'S' ? 'S - 10cm' :
-                                                                sub.customConfig.size === 'M' ? 'M - 15cm' :
-                                                                    sub.customConfig.size === 'L' ? 'L - 20cm' :
-                                                                        sub.customConfig.size === 'XL' ? 'XL - 25cm' :
-                                                                            sub.customConfig.size || '—'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
+                {order.items && order.items.length > 0 && (
+                    <AnimatedSection delay={0.05}>
+                        <div className="bg-[var(--material-panel)] rounded-3xl p-6 mb-6 border border-[var(--border-color)]">
+                            <h3 className="text-sm font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-4">Chi tiết đơn hàng</h3>
+                            <div className="space-y-2">
+                                {order.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center py-2 border-b border-[var(--border-color)] last:border-b-0">
+                                        <div>
+                                            <p className="text-[var(--text-primary)] text-sm font-medium">{item.name}</p>
+                                            <p className="text-[var(--text-tertiary)] text-xs">SL: {item.quantity}</p>
                                         </div>
-                                    ))}
-                                </div>
+                                        <span className="text-[var(--text-primary)] text-sm">
+                                            {(item.total_price || item.unit_price * item.quantity).toLocaleString('vi-VN')}đ
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
-                        )}
-
-                        {order && (
-                            <div className="border-t border-[var(--border-color)] pt-6 space-y-3">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                    <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-[var(--text-secondary)]">Phí vận chuyển</span>
-                                    <span className="text-[var(--text-primary)]">{order.shipping.toLocaleString('vi-VN')}đ</span>
-                                </div>
-                                <div className="flex justify-between font-medium">
-                                    <span className="text-[var(--text-primary)]">Tổng cộng</span>
-                                    <span className="text-[var(--text-primary)] text-lg">{order.total.toLocaleString('vi-VN')}đ</span>
-                                </div>
+                            <div className="border-t border-[var(--border-color)] mt-4 pt-4 flex justify-between">
+                                <span className="text-[var(--text-secondary)] text-sm">Tổng cộng</span>
+                                <span className="text-[var(--text-primary)] font-semibold">{order.total.toLocaleString('vi-VN')}đ</span>
                             </div>
-                        )}
-                    </div>
-                </AnimatedSection>
-
-                {order?.address && (
-                    <AnimatedSection delay={0.2}>
-                        <div className="bg-[var(--material-panel)] rounded-3xl p-8 mb-6">
-                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Địa chỉ giao hàng</h3>
-                            <div className="text-[var(--text-secondary)] space-y-2">
-                                {order.address.full_name && (
-                                    <p className="font-medium text-[var(--text-primary)] text-base">{order.address.full_name}</p>
-                                )}
-                                {order.address.phone && (
-                                    <p className="text-sm text-[var(--text-secondary)]">{order.address.phone}</p>
-                                )}
-                                <p className="text-sm">
-                                    {[
-                                        order.address.address_line,
-                                        order.address.ward,
-                                        order.address.district,
-                                        order.address.province,
-                                    ].filter(Boolean).join(', ')}
-                                </p>
-                            </div>
+                            {isCustomOrder && (
+                                <div className="flex justify-between mt-2">
+                                    <span className="text-[var(--text-secondary)] text-sm">Cần thanh toán (đặt cọc 50%)</span>
+                                    <span className="text-green-400 font-bold">{payAmount.toLocaleString('vi-VN')}đ</span>
+                                </div>
+                            )}
                         </div>
                     </AnimatedSection>
                 )}
 
-                <AnimatedSection delay={0.3}>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link href="/account/orders">
-                            <Button variant="default" size="lg">
-                                Xem đơn hàng của tôi
-                            </Button>
-                        </Link>
-                        <Link href="/products">
-                            <Button variant="secondary" size="lg">
-                                Tiếp tục mua sắm
-                            </Button>
+                <AnimatedSection delay={0.1}>
+                    {paymentConfig?.account_no ? (
+                        <PaymentQR
+                            orderId={order.id}
+                            orderCode={order.order_code}
+                            amount={payAmount}
+                            bankId={paymentConfig.bank_code as any}
+                            accountNo={paymentConfig.account_no}
+                            accountName={paymentConfig.account_name}
+                            transferContent={order.order_code}
+                            onPaymentConfirmed={async () => {
+                                setHasConfirmedPayment(true);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                        />
+                    ) : (
+                        <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
+                            <p className="text-red-400">Lỗi cấu hình thanh toán. Vui lòng liên hệ admin.</p>
+                        </div>
+                    )}
+                </AnimatedSection>
+
+                <AnimatedSection delay={0.15}>
+                    <div className="text-center mt-6">
+                        <Link href="/account/orders" className="text-[var(--text-tertiary)] text-sm hover:text-[var(--text-primary)] transition-colors">
+                            Thanh toán sau — Xem đơn hàng của tôi
                         </Link>
                     </div>
                 </AnimatedSection>

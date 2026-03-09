@@ -1,15 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { useCart, CartItem } from '@/lib/store/cart';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
-import { PaymentQR } from '@/components/PaymentQR';
-import { Box, Boxes, PenLine } from 'lucide-react';
+import { Box, Boxes, PenLine, ShoppingBag } from 'lucide-react';
 
 function OrderItem({ item, onUpdateNotes }: { item: CartItem | any; onUpdateNotes?: (id: string, notes: string) => void }) {
     const getTypeIcon = () => {
@@ -66,114 +64,50 @@ export function CheckoutContent() {
     const { items, totalPrice: cartTotal, clearCart, updateItem } = useCart();
     const { data: session } = useSession();
 
-    const [loading, setLoading] = useState(true);
-    const [singleOrder, setSingleOrder] = useState<any | null>(null);
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
     const [isAddressValid, setIsAddressValid] = useState(false);
-    const [paymentConfig, setPaymentConfig] = useState<any>(null);
-
-    const mode = orderIdParam ? 'single' : 'cart';
-    const currentItems = mode === 'single' ? (singleOrder ? [singleOrder] : []) : items;
-
-    const subtotal = mode === 'single'
-        ? (singleOrder?.total || 0)
-        : cartTotal;
-
-    const finalTotal = subtotal;
-
-    const cartCode = useMemo(() => {
-        if (mode === 'single' && singleOrder) {
-            if (singleOrder.cart_code) {
-                return singleOrder.cart_code.toUpperCase();
-            }
-            const rawCode = singleOrder.order_code || singleOrder.id;
-            const cleanCode = rawCode.toString().replace(/[^a-fA-F0-9]/g, '').toUpperCase();
-            return cleanCode.substring(0, 8).padEnd(8, '0');
-        } else {
-            return Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0');
-        }
-    }, [mode, singleOrder]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchPaymentConfig = async () => {
-            try {
-                const res = await fetch('/api/payment-config');
-                if (res.ok) {
-                    const data = await res.json();
-                    setPaymentConfig(data);
-                }
-            } catch (error) {
-                console.error('Error fetching payment config:', error);
-            }
-        };
-        fetchPaymentConfig();
-    }, []);
-
-    useEffect(() => {
-        if (mode === 'single' && orderIdParam) {
-            setLoading(true);
-            const fetchOrder = async () => {
-                try {
-                    const res = await fetch(`/api/orders/${orderIdParam}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        setSingleOrder({
-                            ...data,
-                            name: `Đơn hàng ${data.order_code}`,
-                            type: data.order_type,
-                            price: data.subtotal,
-                            quantity: 1
-                        });
-                        if (data.shipping_address) {
-                            setShippingAddress(data.shipping_address);
-                            setIsAddressValid(true);
-                        }
-                    } else {
-                        console.error('Order not found');
-                    }
-                } catch (err) {
-                    console.error(err);
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchOrder();
-        } else {
-            setLoading(false);
+        if (orderIdParam) {
+            router.replace('/checkout/success/' + orderIdParam);
         }
-    }, [orderIdParam, mode]);
+    }, [orderIdParam, router]);
+
+    if (orderIdParam) {
+        return (
+            <div className="min-h-screen pt-24 pb-12 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    const subtotal = cartTotal;
+    const itemTypes = new Set(items.map(i => i.type || 'product'));
+    const hasCustom = itemTypes.has('custom');
+    const depositPercent = hasCustom ? 0.5 : 1;
+    const depositAmount = Math.round(subtotal * depositPercent);
 
     const handleAddressChange = (address: ShippingAddress) => {
         setShippingAddress(address);
         const isValid = !!(address.full_name && address.phone && address.address_line && address.province);
         setIsAddressValid(isValid);
-
-        if (mode === 'single' && orderIdParam && isValid) {
-            updateOrderAddress(orderIdParam, address);
-        }
     };
 
-    const updateOrderAddress = async (id: string, address: ShippingAddress) => {
-        await fetch(`/api/orders/${id}/update-address`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                shipping_address: address,
-                total: singleOrder?.subtotal || 0,
-            }),
-        });
-    };
-
-    const handleCartPayment = async () => {
+    const handlePlaceOrder = async () => {
         if (!shippingAddress || !isAddressValid) {
-            alert('Vui lòng chọn địa chỉ giao hàng hợp lệ');
+            setError('Vui lòng chọn địa chỉ giao hàng hợp lệ');
             return;
         }
 
         if ((shippingAddress.address_line || '').length < 5) {
-            alert('Địa chỉ giao hàng quá ngắn. Vui lòng nhập chi tiết hơn (tối thiểu 5 ký tự).');
+            setError('Địa chỉ giao hàng quá ngắn. Vui lòng nhập chi tiết hơn (tối thiểu 5 ký tự).');
             return;
         }
+
+        setIsSubmitting(true);
+        setError(null);
 
         try {
             const createRes = await fetch('/api/orders', {
@@ -213,7 +147,6 @@ export function CheckoutContent() {
 
             if (!createRes.ok) {
                 const errData = await createRes.json();
-                console.error('API Error Response:', JSON.stringify(errData, null, 2));
                 const errMsg = typeof errData.error === 'object'
                     ? JSON.stringify(errData.error)
                     : (errData.error || 'Không thể tạo đơn hàng');
@@ -222,38 +155,23 @@ export function CheckoutContent() {
 
             const { data: newOrder } = await createRes.json();
 
-            const confirmRes = await fetch(`/api/orders/${newOrder.id}/payment-confirmation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!confirmRes.ok) {
-                console.error('Payment confirmation failed for new order:', newOrder.id);
-            }
-
             clearCart();
-            router.push('/account/orders');
-        } catch (error) {
-            console.error('Checkout failed details:', error);
-            let userMsg = (error as Error).message;
+            router.push('/checkout/success/' + newOrder.id);
+        } catch (err) {
+            console.error('Checkout failed:', err);
+            let userMsg = (err as Error).message;
             if (userMsg.includes('[')) {
                 try {
                     const parsed = JSON.parse(userMsg);
                     if (Array.isArray(parsed)) userMsg = parsed[0]?.message || 'Dữ liệu không hợp lệ';
                 } catch { }
             }
-            alert(`Lỗi: ${userMsg}`);
-            throw error;
+            setError(userMsg);
+            setIsSubmitting(false);
         }
     };
 
-    if (loading) return (
-        <div className="min-h-screen pt-24 pb-12 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
-        </div>
-    );
-
-    if (mode === 'cart' && items.length === 0) {
+    if (items.length === 0) {
         return (
             <div className="min-h-screen pt-24 pb-12 text-center">
                 <h1 className="text-2xl text-[var(--text-primary)] mb-4">Giỏ hàng trống</h1>
@@ -264,91 +182,98 @@ export function CheckoutContent() {
 
     return (
         <div className="min-h-screen pt-24 pb-12 px-4 md:px-6">
-            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="max-w-4xl mx-auto space-y-6">
+                <AnimatedSection>
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Thanh Toán</h1>
 
-                <div className="lg:col-span-2 space-y-6">
-                    <AnimatedSection>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Thanh Toán</h1>
+                    <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)]">
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                            <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs">1</span>
+                            Địa chỉ nhận hàng
+                        </h2>
+                        <AddressSelector
+                            userId={session?.user?.id}
+                            value={shippingAddress}
+                            onChange={handleAddressChange}
+                        />
+                    </div>
 
-                        <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)]">
-                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                                <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs">1</span>
-                                Địa chỉ nhận hàng
-                            </h2>
-                            <AddressSelector
-                                userId={session?.user?.id}
-                                value={shippingAddress}
-                                onChange={handleAddressChange}
-                            />
+                    <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)] mt-6">
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                            <span className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs">2</span>
+                            Đơn hàng ({items.length} sản phẩm)
+                        </h2>
+                        <div className="space-y-1">
+                            {items.map((item, i) => (
+                                <OrderItem
+                                    key={i}
+                                    item={item}
+                                    onUpdateNotes={(id, notes) => updateItem(id, { notes })}
+                                />
+                            ))}
                         </div>
+                    </div>
 
-                        <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)] mt-6">
-                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                                <span className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs">2</span>
-                                Đơn hàng
-                            </h2>
-                            <div className="space-y-1">
-                                {currentItems.map((item, i) => (
-                                    <OrderItem
-                                        key={i}
-                                        item={item}
-                                        onUpdateNotes={mode === 'cart' ? (id, notes) => updateItem(id, { notes }) : undefined}
-                                    />
-                                ))}
+                    <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)] mt-6">
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                            <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs">3</span>
+                            Tổng cộng
+                        </h2>
+                        <div className="space-y-3 text-sm">
+                            <div className="flex justify-between text-[var(--text-secondary)]">
+                                <span>Tạm tính</span>
+                                <span>{subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
-                        </div>
-                    </AnimatedSection>
-                </div>
-
-                <div className="lg:col-span-1">
-                    <div className="sticky top-24 space-y-6">
-                        <div className="bg-[var(--material-panel)] rounded-3xl p-6 border border-[var(--border-color)]">
-                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Tổng cộng</h3>
-                            <div className="space-y-3 text-sm">
+                            {hasCustom && (
                                 <div className="flex justify-between text-[var(--text-secondary)]">
-                                    <span>Tạm tính</span>
-                                    <span>{subtotal.toLocaleString('vi-VN')}đ</span>
-                                </div>
-                                <div className="pt-3 border-t border-[var(--border-color)] flex justify-between items-end">
-                                    <span className="text-[var(--text-primary)] font-medium">Thành tiền</span>
-                                    <span className="text-2xl font-bold text-green-400">
-                                        {finalTotal.toLocaleString('vi-VN')}đ
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <AnimatePresence>
-                            {isAddressValid && paymentConfig?.account_no ? (
-                                <motion.div
-                                    key="payment-qr"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                >
-                                    <PaymentQR
-                                        orderId={mode === 'single' ? orderIdParam! : 'cart-placeholder'}
-                                        orderCode={singleOrder?.order_code || cartCode}
-                                        cartCode={cartCode}
-                                        transferContent={cartCode}
-                                        amount={finalTotal}
-                                        bankId={paymentConfig.bank_code}
-                                        accountNo={paymentConfig.account_no}
-                                        accountName={paymentConfig.account_name}
-                                        onPaymentConfirmed={mode === 'cart' ? handleCartPayment : undefined}
-                                    />
-                                </motion.div>
-                            ) : isAddressValid && !paymentConfig?.account_no ? (
-                                <div className="bg-red-500/10 rounded-3xl p-8 text-center border border-red-500/30">
-                                    <p className="text-red-400">Lỗi cấu hình thanh toán. Vui lòng liên hệ admin.</p>
-                                </div>
-                            ) : (
-                                <div className="bg-[var(--material-glass)] rounded-3xl p-8 text-center border border-[var(--border-color)] border-dashed">
-                                    <p className="text-[var(--text-secondary)]">Vui lòng nhập địa chỉ giao hàng để hiển thị mã QR thanh toán</p>
+                                    <span>Đặt cọc (50%)</span>
+                                    <span>{depositAmount.toLocaleString('vi-VN')}đ</span>
                                 </div>
                             )}
-                        </AnimatePresence>
+                            <div className="pt-3 border-t border-[var(--border-color)] flex justify-between items-end">
+                                <span className="text-[var(--text-primary)] font-medium">
+                                    {hasCustom ? 'Cần thanh toán' : 'Thành tiền'}
+                                </span>
+                                <span className="text-2xl font-bold text-green-400">
+                                    {(hasCustom ? depositAmount : subtotal).toLocaleString('vi-VN')}đ
+                                </span>
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                                <p className="text-red-400 text-sm">{error}</p>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={handlePlaceOrder}
+                            disabled={!isAddressValid || isSubmitting}
+                            className="w-full mt-6 py-4 px-6 bg-white text-black font-semibold rounded-2xl hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Đang tạo đơn hàng...
+                                </>
+                            ) : (
+                                <>
+                                    <ShoppingBag size={20} />
+                                    Đặt hàng
+                                </>
+                            )}
+                        </button>
+
+                        {!isAddressValid && (
+                            <p className="text-center text-[var(--text-tertiary)] text-sm mt-3">
+                                Vui lòng nhập địa chỉ giao hàng để tiếp tục
+                            </p>
+                        )}
                     </div>
-                </div>
+                </AnimatedSection>
             </div>
         </div>
     );

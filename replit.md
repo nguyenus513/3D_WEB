@@ -91,10 +91,16 @@ All secrets are configured in Replit's environment. Key groups:
 - **Security**: Cleanup API route secured with admin auth + cron secret, CSRF protection on mutations, rate limiting on sensitive routes, file validation with magic bytes, admin 2FA enforced
 - **Imports**: All PascalCase duplicate UI files removed (9 files), custom components renamed to custom-*.tsx to avoid case conflicts
 - **Runtime**: No console errors, all API routes returning correct status codes, health endpoint working
+- **Unified Checkout Flow (all 3 types use same pages)**:
+  - Product: Cart → `/checkout` (address + items + "Đặt hàng") → `/checkout/success/[orderId]` (payment QR) ✅
+  - Custom: Wizard → `/api/orders/custom` → `/checkout/success/[orderId]` (payment QR with 50% deposit) ✅
+  - 3D Printing: Upload → `/api/orders/printing` → `/checkout/success/[orderId]` (payment QR) ✅
+  - All types: PaymentQR → "Tôi đã chuyển khoản" → payment-confirmation API → Success view ✅
+  - Deleted: `/checkout/payment` (redundant), `/custom/success/[orderCode]` (had English text)
 - **E2E Tested Flows (all 3 order types)**:
-  - Product Order: Browse → Cart → Checkout → Create order (multiple items/sizes) → Admin confirm/process/ship ✅
-  - 3D Printing Order: Create with full spec (resin/trắng, infill 20%, layer 0.08mm, 2 STL files) → Admin views print_jobs with material/color/grams/hours ✅
-  - Custom Order: Create couple figurine (size M, 2 characters with glasses/hat descriptions, 4 reference images) → Admin views custom_config with character details ✅
+  - Product Order: Browse → Cart → Checkout → Create order → Payment QR → Admin confirm/process/ship ✅
+  - 3D Printing Order: Create with full spec (resin/trắng, infill 20%, layer 0.08mm, 2 STL files) → Admin views print_jobs ✅
+  - Custom Order: Create couple figurine (size M, 2 characters) → Admin views custom_config ✅
   - Admin Workflow: Confirm payment → Processing/Designing → Shipping (with tracking code) → Stock adjustment ✅
   - Customer: View all orders (product/custom/print_3d) with correct status ✅
   - API Security: All admin APIs return 401 without auth, cleanup route secured ✅

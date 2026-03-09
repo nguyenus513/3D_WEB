@@ -385,12 +385,7 @@ export default function PrintingPage() {
 
             const orderId = data.orderId;
 
-            // Store order type for payment page
-            sessionStorage.setItem('checkout_order_type', 'printing');
-            sessionStorage.setItem('checkout_order_id', orderId);
-
-            // Redirect to payment
-            router.push('/checkout/payment?orderId=' + orderId);
+            router.push('/checkout/success/' + orderId);
         } catch (err) {
             console.error('Submit error:', err);
             setError((err as Error).message);

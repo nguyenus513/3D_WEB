@@ -428,9 +428,7 @@ export default function CustomPage() {
                 throw new Error(result.error?.message || 'Không thể tạo đơn hàng');
             }
 
-            sessionStorage.setItem('checkout_order_type', 'custom');
-            sessionStorage.setItem('checkout_order_id', result.data.id);
-            router.push('/checkout?orderId=' + result.data.id);
+            router.push('/checkout/success/' + result.data.id);
         } catch (err) {
             setError((err as Error).message);
             setSubmitting(false);
