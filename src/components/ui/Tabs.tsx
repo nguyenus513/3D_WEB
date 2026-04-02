@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * Tabs Component
@@ -10,7 +10,6 @@
 import { useState, createContext, useContext, useRef, type ReactNode, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
-import { useJellyMotion } from '@/lib/jelly';
 
 // =============================================================================
 // Types
@@ -156,10 +155,9 @@ export function TabsTrigger({
 }: TabsTriggerProps) {
     const { activeTab, setActiveTab } = useTabsContext();
     const isActive = activeTab === value;
-    const jellyMotion = useJellyMotion({ disabled });
 
     return (
-        <motion.button
+        <button
             role="tab"
             aria-selected={isActive}
             aria-controls={`tabpanel-${value}`}
@@ -168,15 +166,13 @@ export function TabsTrigger({
             onClick={() => !disabled && setActiveTab(value)}
             className={clsx(
                 'relative px-4 py-2 text-sm font-medium rounded-lg',
-                'transition-colors duration-200 cursor-pointer min-h-[44px]',
+                'transition-colors duration-200 cursor-pointer',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0071E3]/50',
                 disabled && 'opacity-50 cursor-not-allowed',
                 !isActive && !disabled && 'text-white/60 hover:text-white hover:bg-white/5',
                 isActive && 'text-white',
-                'jelly-interactive',
                 className
             )}
-            {...jellyMotion}
         >
             {isActive && (
                 <motion.div
@@ -186,7 +182,7 @@ export function TabsTrigger({
                 />
             )}
             <span className="relative z-10">{children}</span>
-        </motion.button>
+        </button>
     );
 }
 

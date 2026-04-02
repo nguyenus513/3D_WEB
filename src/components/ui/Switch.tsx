@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * Switch (Spatial Edition)
@@ -12,7 +12,6 @@
 import { forwardRef, type ComponentProps } from 'react';
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
-import { useJellyMotion } from '@/lib/jelly';
 
 interface SwitchProps extends Omit<ComponentProps<'button'>, 'onChange'> {
     checked?: boolean;
@@ -53,14 +52,6 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
         ref
     ) {
         const config = sizeConfig[size];
-        const jellyMotion = useJellyMotion({
-            disabled,
-            hoverScale: 1.03,
-            tapScale: 0.97,
-            hoverY: -1,
-            stiffness: 360,
-            damping: 22,
-        });
 
         const handleClick = () => {
             if (!disabled) {
@@ -77,7 +68,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
 
         return (
             <div className={clsx('inline-flex items-center gap-3', className)}>
-                <motion.button
+                <button
                     ref={ref}
                     type="button"
                     role="switch"
@@ -87,29 +78,27 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
                     onClick={handleClick}
                     onKeyDown={handleKeyDown}
                     className={clsx(
-                        'relative inline-flex flex-shrink-0 rounded-full transition-all duration-300 ease-in-out cursor-pointer min-h-[44px] min-w-[44px]',
+                        'relative inline-flex flex-shrink-0 rounded-full transition-all duration-300 ease-in-out cursor-pointer',
                         'border border-white/5',
                         'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black',
                         config.track,
                         checked
                             ? 'bg-[var(--color-accent)] shadow-[0_0_15px_var(--color-accent-glow)]'
-                            : 'bg-black/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]',
-                        disabled && 'opacity-50 cursor-not-allowed grayscale',
-                        'jelly-interactive'
+                            : 'bg-black/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]', // Deep trench when off
+                        disabled && 'opacity-50 cursor-not-allowed grayscale'
                     )}
-                    {...jellyMotion}
                     {...props}
                 >
                     <motion.span
                         className={clsx(
                             'block rounded-full bg-white shadow-sm pointer-events-none',
                             config.thumb,
-                            checked && "shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                            checked && "shadow-[0_0_8px_rgba(255,255,255,0.8)]" // White glow on thumb
                         )}
                         initial={false}
                         animate={{
                             x: checked
-                                ? (config.track.startsWith('w-10') ? 22 : config.track.startsWith('w-14') ? 28 : 34)
+                                ? (config.track.startsWith('w-10') ? 22 : config.track.startsWith('w-14') ? 28 : 34) // Rough calc based on width - padding
                                 : config.padding,
                             scale: checked ? 1.1 : 1
                         }}
@@ -118,9 +107,9 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
                             stiffness: 500,
                             damping: 25,
                         }}
-                        style={{ marginTop: config.padding, marginLeft: 0 }}
+                        style={{ marginTop: config.padding, marginLeft: 0 }} // Reset margin, handle via x
                     />
-                </motion.button>
+                </button>
                 {label && (
                     <span
                         className={clsx(

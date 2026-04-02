@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * Dropdown Menu Component
@@ -19,7 +19,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconCheck, IconChevronRight } from '@tabler/icons-react';
 import { clsx } from 'clsx';
-import { useJellyMotion } from '@/lib/jelly';
 
 // =============================================================================
 // Types
@@ -130,19 +129,17 @@ export function Dropdown({ children, className }: DropdownProps) {
 
 export function DropdownTrigger({ children, className }: DropdownTriggerProps) {
     const { isOpen, setIsOpen } = useDropdownContext();
-    const jellyMotion = useJellyMotion({ hoverScale: 1.02, tapScale: 0.98, hoverY: -1 });
 
     return (
-        <motion.button
+        <button
             type="button"
             aria-haspopup="menu"
             aria-expanded={isOpen}
             onClick={() => setIsOpen(!isOpen)}
-            className={clsx('cursor-pointer jelly-interactive', className)}
-            {...jellyMotion}
+            className={clsx('cursor-pointer', className)}
         >
             {children}
-        </motion.button>
+        </button>
     );
 }
 
@@ -244,7 +241,6 @@ export function DropdownItem({
     className,
 }: DropdownItemProps) {
     const { setIsOpen } = useDropdownContext();
-    const jellyMotion = useJellyMotion({ disabled, hoverScale: 1.02, tapScale: 0.98, hoverY: 0 });
 
     const handleClick = () => {
         if (!disabled) {
@@ -261,7 +257,7 @@ export function DropdownItem({
     };
 
     return (
-        <motion.div
+        <div
             role="menuitem"
             tabIndex={disabled ? -1 : 0}
             aria-disabled={disabled}
@@ -273,17 +269,15 @@ export function DropdownItem({
                 'outline-none transition-colors',
                 !disabled && 'hover:bg-white/10 focus:bg-white/10',
                 disabled && 'opacity-50 cursor-not-allowed',
-                'jelly-interactive',
                 className
             )}
-            {...jellyMotion}
         >
             {icon && <span className="flex-shrink-0 text-white/60">{icon}</span>}
             <span className="flex-1">{children}</span>
             {shortcut && (
                 <span className="flex-shrink-0 text-xs text-white/40">{shortcut}</span>
             )}
-        </motion.div>
+        </div>
     );
 }
 
@@ -298,8 +292,6 @@ export function DropdownCheckboxItem({
     disabled = false,
     className,
 }: DropdownCheckboxItemProps) {
-    const jellyMotion = useJellyMotion({ disabled, hoverScale: 1.02, tapScale: 0.98, hoverY: 0 });
-
     const handleClick = () => {
         if (!disabled) {
             onCheckedChange?.(!checked);
@@ -307,7 +299,7 @@ export function DropdownCheckboxItem({
     };
 
     return (
-        <motion.div
+        <div
             role="menuitemcheckbox"
             aria-checked={checked}
             tabIndex={disabled ? -1 : 0}
@@ -319,16 +311,14 @@ export function DropdownCheckboxItem({
                 'outline-none transition-colors',
                 !disabled && 'hover:bg-white/10 focus:bg-white/10',
                 disabled && 'opacity-50 cursor-not-allowed',
-                'jelly-interactive',
                 className
             )}
-            {...jellyMotion}
         >
             <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
                 {checked && <IconCheck size={14} className="text-[#0071E3]" />}
             </span>
             <span className="flex-1">{children}</span>
-        </motion.div>
+        </div>
     );
 }
 

@@ -1,4 +1,4 @@
-﻿// Jelly Distortion Vertex Shader
+// Jelly Distortion Vertex Shader
 // Creates a wave/jelly effect based on scroll velocity
 
 export const jellyVertexShader = `
@@ -22,20 +22,6 @@ export const jellyVertexShader = `
     pos.y += cos(pos.x * 5.0 + uTime * 2.0) * uSpeed * 0.01;
     
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-  }
-`;
-
-// Jelly Fragment Shader
-// Solid color with opacity for jelly mesh
-
-export const jellyFragmentShader = `
-  uniform vec3 uColor;
-  uniform float uOpacity;
-  
-  varying vec2 vUv;
-  
-  void main() {
-    gl_FragColor = vec4(uColor, uOpacity);
   }
 `;
 
