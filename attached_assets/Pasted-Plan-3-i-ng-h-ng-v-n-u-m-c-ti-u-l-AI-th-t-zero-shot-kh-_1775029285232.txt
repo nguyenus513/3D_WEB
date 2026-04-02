@@ -1,0 +1,124 @@
+Plan #3 **đi đúng hướng** và nếu mục tiêu là “AI thật, zero-shot, không train, không gọi server AI” thì đây là phương án hợp lý nhất cho phần `/custom`.
+
+Nhưng nếu review để **triển khai thật không vấp**, mình chốt như sau:
+
+## Kết luận
+
+**Approve có điều kiện.**
+Giữ ý tưởng thay classifier cũ bằng `Xenova/mobileclip_s0`, nhưng cần sửa 4 điểm trước khi bắt tay vào code.
+
+## 1) Ý tưởng thay model là đúng
+
+Điểm mạnh nhất của plan là bỏ hướng “head tự chế” và chuyển sang zero-shot image-language model. Về mặt sản phẩm, cái này hợp hơn hẳn với flow `/custom`, vì trang hiện tại chỉ cần từ ảnh user upload để auto-fill kính và mũ vào form đang có sẵn, không cần train dataset riêng. Mà hiện state của từng nhân vật đúng là đã có `hasGlasses`, `glassesDescription`, `hasHat`, `hatDescription`, và `handleCharacterImageUpload` mới chỉ tạo `imagePreview` chứ chưa có AI chen vào .
+
+## 2) `propsDescription` là bổ sung tốt, nhưng plan đang thiếu chỗ lưu xuống order
+
+Hiện `CharacterData` **chưa có** `propsDescription`, `createEmptyCharacter()` cũng chưa khởi tạo nó, và payload submit sang `/api/orders/custom` mới chỉ gửi `hasGlasses`, `glassesDescription`, `hasHat`, `hatDescription` cho mỗi nhân vật .
+Nên nếu bạn chỉ sửa UI và worker mà **không sửa body submit**, thì `propsDescription` sẽ hiện trên web nhưng **bị mất khi tạo đơn**.
+
+Cần thêm tối thiểu:
+
+* `propsDescription` vào `CharacterData`
+* `propsDescription: ''` trong `createEmptyCharacter()`
+* `propsDescription` vào `characters.map(...)` khi `handleSubmit`
+* phần review ở `StepConfirm` nếu muốn admin/user thấy lại
+
+Điểm này nên đưa vào “in scope”, không nên để out-of-scope.
+
+## 3) Phần CSP trong plan là đúng và gần như bắt buộc
+
+`next.config.ts` hiện có CSP khá chặt, và `connect-src` mới cho phép các domain như Supabase, Google, VietQR, Sentry; **chưa có Hugging Face** .
+Vì plan của bạn tải weights từ Hugging Face ngay trên browser, nên việc thêm các domain HF vào `connect-src` là hợp lý.
+
+Điểm mình khuyên chỉnh nhẹ:
+
+* ngoài `connect-src`, nhớ kiểm tra luôn việc model tải từ đâu thực tế khi chạy. Nếu package dùng request đến domain khác với 3 domain bạn liệt kê thì CSP vẫn vỡ.
+* vì bạn dùng object URL cho ảnh local, `img-src 'self' data: blob:` hiện đã ổn cho preview ảnh user rồi 
+
+## 4) Câu “nothing changes in UX flow” có thể chưa đúng với branch hiện tại
+
+Trong file `src/app/custom/page.tsx` trên `main`, mình chưa thấy phần:
+
+* spinner “AI đang phân tích ảnh…”
+* badge “AI phân tích trên thiết bị của bạn”
+* dirty flags / stale-response token handling
+* worker integration cũ
+
+File hiện tại mới chỉ có:
+
+* upload ảnh
+* phụ kiện kính/mũ theo toggle thủ công
+* submit order bình thường 
+
+Nên câu này chỉ đúng nếu bạn đang nói về **một branch khác chưa search được**, còn nếu bám `main` thì phải sửa thành:
+
+> thêm AI analysis UX vào flow hiện có, không thay đổi step order và semantics của form.
+
+## 5) Path/file assumptions trong plan có khả năng chưa khớp repo
+
+Từ repo mình kiểm được:
+
+* `src/app/custom/page.tsx` có thật 
+* `next.config.ts` có thật 
+
+Nhưng các file như:
+
+* `src/lib/ai/workers/image-ai.worker.ts`
+* `src/lib/ai/types/custom-ai.ts`
+* `src/lib/ai/features/imagePreprocess.ts`
+* `src/lib/ai/runtime/ort.ts`
+* `replit.md`
+
+thì mình **không xác nhận được từ repo hiện tại**. Vì vậy plan #3 nên được viết lại theo hướng:
+
+* **nếu file đã có ở branch AI cũ** thì refactor/replace
+* **nếu chưa có** thì create mới
+
+Nếu không, lúc bắt tay vào code rất dễ lệch giữa “replace” và “create”.
+
+## 6) Một điểm nghiệp vụ nhỏ nhưng quan trọng
+
+Hiện phụ kiện trong form có 2 mode:
+
+* upload ảnh riêng
+* mô tả text
+
+và khi submit, backend chỉ upload file phụ kiện nếu `glassesMode === 'upload'` hoặc `hatMode === 'upload'`; còn text thì lấy từ `glassesDescription` / `hatDescription` .
+Vì vậy cách bạn làm `propsDescription` là **text-only** là hợp lý, vì nó không phá cơ chế upload hiện có. Nhưng nếu sau này muốn props có ảnh riêng thì schema `FileInfo.category` hiện cũng mới chỉ có `'main' | 'glasses' | 'hat'` thôi, chưa có `props` .
+
+## 7) Bản chỉnh sửa plan mình khuyên chốt
+
+Mình sẽ sửa plan #3 thành bản này:
+
+### Giữ nguyên
+
+* thay image AI hiện tại bằng `Xenova/mobileclip_s0`
+* dùng `@huggingface/transformers`
+* zero-shot labels cho glasses / hat / props
+* threshold riêng cho CLIP
+* dùng `imagePreview` object URL làm input
+* thêm domain HF vào CSP
+* bỏ các ONNX cũ nếu branch hiện tại thật sự còn dùng chúng
+
+### Phải thêm
+
+* `propsDescription` vào `CharacterData`
+* reset `propsDescription` khi upload ảnh mới
+* render `propsDescription` trong accessory panel
+* **persist `propsDescription` vào payload tạo order**
+* hiện lại `propsDescription` trong confirm step nếu muốn review đầy đủ
+
+### Phải đổi wording
+
+* đổi “nothing changes in UX flow” thành “giữ nguyên wizard flow, thêm AI autofill layer”
+* đổi “replace current files” thành “replace-or-create depending on branch state”
+
+## Verdict cuối
+
+**Plan #3 đáng làm và là phương án tốt hơn classifier cũ**, nhưng để mình ký là “ready to implement” thì cần sửa đúng 3 chỗ này trước:
+
+1. thêm persistence cho `propsDescription`
+2. chỉnh lại assumption về UX hiện tại
+3. đổi wording “replace” thành “replace/create as needed”
+
+Nếu bạn muốn, mình sẽ viết luôn cho bạn **bản plan #3 đã chỉnh chuẩn triển khai**, theo format dev task list rất gọn để đưa thẳng vào branch.

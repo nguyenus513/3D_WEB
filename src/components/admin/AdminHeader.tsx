@@ -1,59 +1,72 @@
-﻿'use client';
+'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAdminPath } from '@/hooks/useAdminPath';
-import { useNotifications, Notification } from '@/hooks/useNotifications';
-import { Menu, Search, Bell, CheckCircle, Pencil, ShoppingBag, Upload, Check } from 'lucide-react';
+import { useUiLabels } from '@/hooks/useUiLabels';
 
-const typeLabels: Record<string, string> = {
-    ready_made: 'Sản phẩm',
-    custom: 'Custom',
-    printing: 'In 3D',
-};
+interface Notification {
+    id: string;
+    order_code: string;
+    order_type: string;
+    status: string;
+    total: number;
+    created_at: string;
+}
 
-/** Get notification icon and color based on type */
-function getNotificationStyle(notification: Notification) {
-    switch (notification.type) {
-        case 'design_approved':
-            return {
-                icon: <CheckCircle size={16} className="text-emerald-400" strokeWidth={1.5} />,
-                bg: 'bg-emerald-500/20',
-            };
-        case 'design_rejected':
-            return {
-                icon: <Pencil size={16} className="text-amber-400" strokeWidth={1.5} />,
-                bg: 'bg-amber-500/20',
-            };
-        case 'design_uploaded':
-            return {
-                icon: <Upload size={16} className="text-cyan-400" strokeWidth={1.5} />,
-                bg: 'bg-cyan-500/20',
-            };
-        default:
-            return {
-                icon: <ShoppingBag size={16} className="text-blue-400" strokeWidth={1.5} />,
-                bg: 'bg-blue-500/20',
-            };
-    }
+interface AdminHeaderLabels {
+    searchPlaceholder?: string;
+    notifications?: {
+        title?: string;
+        pendingLabel?: string;
+        empty?: string;
+        viewAll?: string;
+    };
+    status?: {
+        pending?: string;
+        paid?: string;
+    };
+    orderTypes?: Record<string, string>;
+    time?: {
+        justNow?: string;
+        minutesAgo?: string;
+        hoursAgo?: string;
+        daysAgo?: string;
+    };
 }
 
 export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     const { adminRoot } = useAdminPath();
     const [showNotifications, setShowNotifications] = useState(false);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { t, formatLabel } = useUiLabels(['admin.header', 'admin.common']);
+    const labels = t<AdminHeaderLabels>('labels', {}) as AdminHeaderLabels;
 
-    const {
-        notifications,
-        unreadCount,
-        loading,
-        markAsRead,
-        markAllAsRead,
-        latestNotification,
-        clearLatest,
-    } = useNotifications({
-        endpoint: '/api/admin/notifications',
-        refreshInterval: 15000,
-    });
+    useEffect(() => {
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 5000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (showNotifications) {
+            fetchNotifications();
+        }
+    }, [showNotifications]);
+
+    const fetchNotifications = async () => {
+        try {
+            const res = await fetch('/api/admin/notifications');
+            if (res.ok) {
+                const data = await res.json();
+                setNotifications(data.orders || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch notifications:', error);
+        }
+        setLoading(false);
+    };
 
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -61,32 +74,19 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         const diffMs = now.getTime() - date.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffMins < 1) return labels.time?.justNow || '';
+        if (diffMins < 60) return formatLabel(labels.time?.minutesAgo || '', { count: diffMins });
 
         const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffHours < 24) return formatLabel(labels.time?.hoursAgo || '', { count: diffHours });
 
         const diffDays = Math.floor(diffHours / 24);
-        return `${diffDays} ngày trước`;
+        return formatLabel(labels.time?.daysAgo || '', { count: diffDays });
     };
 
-    const handleNotificationClick = async (notification: Notification) => {
-        if (!notification.is_read) {
-            await markAsRead(notification.id);
-        }
-        setShowNotifications(false);
-    };
-
-    const getNotificationLink = (notification: Notification): string => {
-        if (notification.ref_id && notification.ref_type === 'order') {
-            return `${adminRoot}/orders/${notification.ref_id}`;
-        }
-        return `${adminRoot}/orders`;
-    };
+    const pendingCount = notifications.filter(n => n.status === 'pending').length;
 
     return (
-        // Matching Miniver theme #1D1D1F
         <header className="sticky top-0 z-40 bg-[#1D1D1F] border-b border-white/5">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
                 {/* Mobile menu button */}
@@ -94,16 +94,20 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                     onClick={onMenuClick}
                     className="lg:hidden p-2 rounded-xl hover:bg-white/5 transition-colors mr-2"
                 >
-                    <Menu size={24} className="text-white" strokeWidth={1.5} />
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
                 </button>
 
                 {/* Search */}
                 <div className="flex-1 max-w-md">
                     <div className="relative">
-                        <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" strokeWidth={1.5} />
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                         <input
                             type="text"
-                            placeholder="Tìm kiếm..."
+                            placeholder={labels.searchPlaceholder}
                             className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
                         />
                     </div>
@@ -117,11 +121,12 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                             onClick={() => setShowNotifications(!showNotifications)}
                             className="relative p-2.5 rounded-xl hover:bg-white/5 transition-colors"
                         >
-                            <Bell size={20} className="text-white/70" strokeWidth={1.5} />
-                            {/* Badge */}
-                            {unreadCount > 0 && (
+                            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            {pendingCount > 0 && (
                                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-medium rounded-full flex items-center justify-center px-1">
-                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                    {pendingCount > 9 ? '9+' : pendingCount}
                                 </span>
                             )}
                         </button>
@@ -130,22 +135,12 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                         {showNotifications && (
                             <div className="absolute right-0 mt-2 w-96 bg-[#1D1D1F] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]">
                                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                                    <h3 className="text-white font-semibold">Thông báo</h3>
-                                    <div className="flex items-center gap-2">
-                                        {unreadCount > 0 && (
-                                            <>
-                                                <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
-                                                    {unreadCount} mới
-                                                </span>
-                                                <button
-                                                    onClick={markAllAsRead}
-                                                    className="text-xs text-white/40 hover:text-white/70 transition-colors flex items-center gap-1"
-                                                >
-                                                    <Check size={12} /> Đọc hết
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
+                                    <h3 className="text-white font-semibold">{labels.notifications?.title}</h3>
+                                    {pendingCount > 0 && (
+                                        <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+                                            {formatLabel(labels.notifications?.pendingLabel || '', { count: pendingCount })}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="max-h-80 overflow-y-auto">
                                     {loading ? (
@@ -154,46 +149,41 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         </div>
                                     ) : notifications.length === 0 ? (
                                         <div className="p-8 text-center text-white/50">
-                                            Không có thông báo mới
+                                            {labels.notifications?.empty}
                                         </div>
                                     ) : (
-                                        notifications.map((n) => {
-                                            const style = getNotificationStyle(n);
-                                            return (
-                                                <Link
-                                                    key={n.id}
-                                                    href={getNotificationLink(n)}
-                                                    onClick={() => handleNotificationClick(n)}
-                                                    className={`block p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${!n.is_read ? 'bg-white/[0.02]' : ''
-                                                        }`}
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        {/* Unread indicator */}
-                                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                                            {!n.is_read && (
-                                                                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                                            )}
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${style.bg}`}>
-                                                                {style.icon}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className={`text-sm ${!n.is_read ? 'text-white font-medium' : 'text-white/60'}`}>
-                                                                {n.title}
-                                                            </p>
-                                                            {n.message && (
-                                                                <p className="text-white/40 text-xs mt-0.5 truncate">
-                                                                    {n.message}
-                                                                </p>
-                                                            )}
-                                                            <p className="text-white/30 text-xs mt-1">
-                                                                {formatTime(n.created_at)}
-                                                            </p>
-                                                        </div>
+                                        notifications.map((n) => (
+                                            <Link
+                                                key={n.id}
+                                                href={`${adminRoot}/orders/${n.id}`}
+                                                onClick={() => setShowNotifications(false)}
+                                                className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.status === 'pending' ? 'bg-yellow-500/20' : 'bg-blue-500/20'
+                                                        }`}>
+                                                        <svg className={`w-4 h-4 ${n.status === 'pending' ? 'text-yellow-400' : 'text-blue-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                                        </svg>
                                                     </div>
-                                                </Link>
-                                            );
-                                        })
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-white text-sm font-medium">{n.order_code}</span>
+                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
+                                                                }`}>
+                                                                {n.status === 'pending' ? labels.status?.pending : labels.status?.paid}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-white/50 text-xs">{labels.orderTypes?.[n.order_type] || n.order_type}</span>
+                                                            <span className="text-white/30">&bull;</span>
+                                                            <span className="text-white/50 text-xs">{Number(n.total).toLocaleString('vi-VN')}d</span>
+                                                        </div>
+                                                        <p className="text-white/40 text-xs mt-1">{formatTime(n.created_at)}</p>
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        ))
                                     )}
                                 </div>
                                 <div className="p-3 border-t border-white/10">
@@ -202,7 +192,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         onClick={() => setShowNotifications(false)}
                                         className="block text-center text-sm text-white/70 hover:text-white transition-colors"
                                     >
-                                        Xem tất cả đơn hàng
+                                        {labels.notifications?.viewAll}
                                     </Link>
                                 </div>
                             </div>
@@ -210,29 +200,6 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                     </div>
                 </div>
             </div>
-
-            {/* Realtime Toast */}
-            {latestNotification && (
-                <div className="fixed top-20 right-6 z-[200] animate-in slide-in-from-right duration-300">
-                    <div className="bg-[#2a2a2c] border border-white/10 rounded-xl shadow-2xl p-4 max-w-sm flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getNotificationStyle(latestNotification).bg}`}>
-                            {getNotificationStyle(latestNotification).icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium">{latestNotification.title}</p>
-                            {latestNotification.message && (
-                                <p className="text-white/40 text-xs mt-0.5 truncate">{latestNotification.message}</p>
-                            )}
-                        </div>
-                        <button
-                            onClick={clearLatest}
-                            className="text-white/30 hover:text-white/60 flex-shrink-0"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                </div>
-            )}
         </header>
     );
 }

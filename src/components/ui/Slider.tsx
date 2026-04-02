@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * Slider Component
@@ -10,6 +10,7 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
+import { useJellyMotion } from '@/lib/jelly';
 
 // =============================================================================
 // Types
@@ -80,6 +81,7 @@ export function Slider({
     const [isDragging, setIsDragging] = useState(false);
     const trackRef = useRef<HTMLDivElement>(null);
     const config = sizeConfig[size];
+    const jellyThumb = useJellyMotion({ disabled, hoverScale: 1.05, tapScale: 0.97, hoverY: 0 });
 
     const value = controlledValue ?? internalValue;
     const percentage = ((value - min) / (max - min)) * 100;
@@ -217,6 +219,7 @@ export function Slider({
                     style={{ left: `${percentage}%` }}
                     animate={{ scale: isDragging ? 1.1 : 1 }}
                     transition={{ duration: 0.1 }}
+                    {...jellyThumb}
                 />
             </div>
         </div>
@@ -246,6 +249,7 @@ export function RangeSlider({
     const [activeThumb, setActiveThumb] = useState<0 | 1 | null>(null);
     const trackRef = useRef<HTMLDivElement>(null);
     const config = sizeConfig[size];
+    const jellyThumb = useJellyMotion({ disabled, hoverScale: 1.05, tapScale: 0.97, hoverY: 0 });
 
     const value = controlledValue ?? internalValue;
     const [minVal, maxVal] = value;
@@ -349,6 +353,7 @@ export function RangeSlider({
                         activeThumb === 0 && 'scale-110 cursor-grabbing'
                     )}
                     style={{ left: `${minPercent}%`, zIndex: activeThumb === 0 ? 10 : 1 }}
+                    {...jellyThumb}
                 />
 
                 {/* Max Thumb */}
@@ -368,6 +373,7 @@ export function RangeSlider({
                         activeThumb === 1 && 'scale-110 cursor-grabbing'
                     )}
                     style={{ left: `${maxPercent}%`, zIndex: activeThumb === 1 ? 10 : 1 }}
+                    {...jellyThumb}
                 />
             </div>
         </div>

@@ -1,0 +1,396 @@
+Chốt ngắn gọn: **phương án tối ưu nhất** cho web này là **1 web app, 0 AI API, 2 model AI thật chạy client-side + 1 engine trích đặc trưng 3D chạy trong Web Worker**.
+
+* **AI 1 cho ảnh custom**: dùng **MobileNetV3-Small đa nhãn** để đọc ảnh nhân vật và suy luận `hasGlasses`, `glassesType`, `hasHat`, `hatType`, `props`, `styleHint`.
+* **AI 2 cho in 3D**: dùng **XGBoost** để dự đoán `price`, `printTime`, `risk`.
+* **Không dùng GPT/LLM**, không dùng AI server, không gọi API AI.
+* **Tất cả chạy trong browser**, AI nặng đặt trong **Web Worker**, render UI vẫn mượt.
+
+Lý do chọn hướng này: ONNX Runtime Web được thiết kế cho suy luận ngay trong trình duyệt, hỗ trợ WebAssembly, WebGPU, WebNN; tài liệu của họ ghi rõ in-browser inference có lợi về tốc độ, riêng tư, offline và chi phí, đồng thời nhấn mạnh model client-side phải đủ nhỏ để chạy hiệu quả trên máy yếu. Quan trọng hơn, **WASM chạy được trên Chrome/Edge/Safari/iOS/Firefox**, còn **WebGPU không phủ hết mọi browser**, nên muốn “chạy được cho tất cả máy” thì phải lấy **WASM làm mặc định** và chỉ dùng WebGPU như tăng tốc tùy máy. ([ONNX Runtime][1])
+
+## 1) Phương thức hệ thống chốt
+
+```text
+Next.js Web App
+ ├─ /custom
+ │   ├─ upload ảnh
+ │   ├─ Web Worker: image-ai.worker.ts
+ │   ├─ MobileNetV3-Small ONNX/ORT
+ │   └─ auto-fill kính, nón, phụ kiện
+ │
+ ├─ /printing
+ │   ├─ upload STL/OBJ
+ │   ├─ Web Worker: mesh-ai.worker.ts
+ │   ├─ trích feature hình học
+ │   ├─ XGBoost model 1 -> giá
+ │   ├─ XGBoost model 2 -> giờ in
+ │   └─ XGBoost model 3 -> risk
+ │
+ └─ backend hiện có
+     ├─ auth
+     ├─ orders
+     ├─ checkout
+     └─ storage
+```
+
+**Ý nghĩa**:
+
+* web vẫn là một hệ thống web chuẩn môn học,
+* AI là **một phần của frontend runtime**, không phải dịch vụ ngoài,
+* deployment vẫn đơn giản như deploy web bình thường.
+
+## 2) Model nào tối ưu nhất
+
+### A. Ảnh custom: chọn **MobileNetV3-Small đa nhãn**
+
+Đây là lựa chọn tốt nhất nếu tiêu chí là: **nhẹ, nhanh, chạy được trên nhiều máy, đủ wow**.
+
+Bạn không cần object detection kiểu YOLO cho bài toán cốt lõi, vì mục tiêu của bạn không phải vẽ bounding box mà là **tự hiểu ảnh để điền form**: có kính không, nón loại gì, áo tốt nghiệp hay không, có hoa/sách/đạo cụ không. Với bài toán đó, **multi-label classification** là nhẹ hơn nhiều mà vẫn là AI thật.
+
+Keras/TensorFlow ghi rõ `MobileNetV3Small` là kiến trúc sẵn cho image classification; bảng tham chiếu của họ cho thấy bản `mobilenet_v3_small_1.0_224` chỉ khoảng **2.9M tham số, 66M MACs**, nhẹ hơn nhiều so với detector đầy đủ và phù hợp cho browser inference. ([TensorFlow][2])
+
+**Output nên có**:
+
+* `hasGlasses: boolean`
+* `glassesType: none | round | square | sunglasses`
+* `hasHat: boolean`
+* `hatType: none | cap | bucket_hat | graduation_cap`
+* `props: bouquet | book | guitar | none`
+* `styleHint: chibi | semi_realistic`
+
+**Vì sao không chọn YOLO làm core**:
+
+* cần gán nhãn bbox tốn công hơn,
+* model nặng hơn,
+* inference browser khó chịu hơn trên máy yếu,
+* nếu dùng Ultralytics thì phải để ý AGPL khi sau này thương mại hóa. Ultralytics docs ghi họ cho phép train custom model trên dataset riêng và cũng nêu rõ mô hình open-source theo AGPL-3.0, còn dùng thương mại thì có license enterprise. ([Ultralytics Docs][3])
+
+**Kết luận**:
+Core deploy = **MobileNetV3-Small**.
+Optional wow upgrade trên máy khỏe = **thêm YOLO-nano overlay** sau.
+
+### B. In 3D: chọn **XGBoost**
+
+Đây là lựa chọn tốt nhất cho pricing/risk vì dữ liệu của bạn là **tabular** chứ không phải ảnh hay ngôn ngữ.
+
+Input sẽ là:
+
+* volume
+* bbox x/y/z
+* surface area
+* triangle count
+* fill ratio
+* aspect ratio
+* infill
+* layer height
+* quantity
+* material type
+* support proxy
+* thin-part proxy
+
+XGBoost là thư viện gradient boosting được tài liệu chính thức mô tả là **highly efficient, flexible and portable**, rất hợp cho bài toán tabular nhỏ-vừa và dễ giải thích. ([XGBoost Documentation][4])
+
+Bạn nên train **3 model riêng**:
+
+1. `quote_regressor`
+2. `time_regressor`
+3. `risk_classifier`
+
+Cách này tốt hơn 1 model gộp vì:
+
+* dễ đánh giá,
+* dễ debug,
+* dễ thay đổi target.
+
+## 3) Cách chạy được trên mọi máy
+
+Không thể hứa mọi máy đều nhanh như nhau, nhưng có thể thiết kế để **mọi máy vẫn chạy được cùng chức năng lõi**.
+
+### Quy tắc runtime
+
+* **Mặc định**: chạy `WASM`
+* **Máy hỗ trợ tốt**: bật `WebGPU`
+* **Không dùng WebGL làm chính** vì ONNX Runtime ghi rõ WebGL đang ở trạng thái maintenance, còn WebGPU được khuyến nghị hơn cho hiệu năng. ([ONNX Runtime][5])
+
+### Tối ưu bắt buộc
+
+1. **Mọi AI chạy trong Web Worker**
+   Không để model chạy trên main thread.
+
+2. **Lazy load theo trang**
+
+   * chỉ tải model ảnh khi vào `/custom`
+   * chỉ tải model 3D khi vào `/printing`
+
+3. **Chỉ suy luận khi có hành động**
+
+   * upload ảnh mới chạy AI ảnh
+   * upload STL mới chạy AI 3D
+
+4. **Quantize model**
+
+   * MobileNetV3-Small: int8 hoặc ORT format
+   * model ảnh mục tiêu: dưới ~8MB sau tối ưu
+   * model XGBoost: nên nhỏ hơn 1MB mỗi model
+
+5. **Cache model**
+
+   * tải từ `/public/models`
+   * cache lâu bằng CDN/browser cache
+   * sau lần đầu có thể dùng lại
+
+6. **Có fallback nhẹ**
+
+   * máy rất yếu: chỉ chạy AI ảnh khi user bấm “Phân tích AI”
+   * mesh quá lớn: chỉ cho estimate/risk, không bật preview nâng cao
+
+ONNX Runtime Web còn có hướng tối ưu thêm: model ONNX có thể chuyển sang **ORT format** để giảm kích thước binary, giảm thời gian khởi tạo và peak memory. ([ONNX Runtime][1])
+
+## 4) Cách làm model để vừa đúng AI thật vừa deploy được
+
+### A. Model ảnh custom
+
+Dùng **multi-label classifier**.
+
+#### Nhãn dữ liệu
+
+* glasses
+* round_glasses
+* sunglasses
+* cap
+* bucket_hat
+* graduation_cap
+* bouquet
+* book
+* guitar
+* tie
+* veil
+* flower_crown
+* graduation_gown
+
+#### Dữ liệu
+
+* mỗi ảnh 1 nhân vật
+* chỉ cần nhãn mức ảnh, **không cần bbox**
+* số lượng khởi điểm: 300–800 ảnh/nhãn là đủ để ra bản đầu
+
+#### Train
+
+* backbone: `MobileNetV3Small`
+* input: `224x224`
+* loss: `binary_crossentropy`
+* sigmoid output nhiều nhãn
+* augmentation nhẹ:
+
+  * brightness
+  * crop
+  * flip
+  * blur nhẹ
+
+#### Export
+
+* Keras/PyTorch -> ONNX
+* tối ưu sang ORT format nếu được
+
+### B. Model 3D pricing/risk
+
+Dùng **XGBoost train offline**, nhưng inference chạy client-side.
+
+#### Dataset 1 dòng = 1 item in
+
+Feature:
+
+* `volume_cm3`
+* `bbox_x`, `bbox_y`, `bbox_z`
+* `surface_area`
+* `triangle_count`
+* `fill_ratio`
+* `slenderness`
+* `support_proxy`
+* `thin_part_proxy`
+* `material`
+* `infill_pct`
+* `layer_height`
+* `quantity`
+
+Target:
+
+* `final_price`
+* `actual_print_minutes`
+* `risk_label`
+
+#### Train
+
+* baseline: LinearRegression/RandomForest
+* main: XGBoost
+* metric:
+
+  * MAE
+  * MAPE
+  * accuracy risk
+
+#### Cách mang lên browser
+
+Có 2 cách:
+
+**Cách tối ưu nhất cho production/browser**
+Xuất model XGBoost sang **JSON** rồi viết một **tiny tree inference engine bằng TypeScript** trong Worker. XGBoost docs cho phép lưu model sang `.json`/`.ubj`, và JSON model format của họ là định dạng mở, có schema được mô tả. Cách này cực hợp để deploy trên mọi máy vì không phụ thuộc runtime tree ops của trình duyệt. ([XGBoost Documentation][6])
+
+**Cách dễ làm hơn**
+Convert XGBoost sang ONNX. Tài liệu `sklearn-onnx` có ví dụ converter cho `XGBRegressor` thông qua `update_registered_converter(...)`. ([ONNX][7])
+
+**Khuyên dùng**:
+
+* bản đầu để làm nhanh: **ONNX**
+* bản chốt production/browser ổn định nhất: **JSON + TS tree runner**
+
+## 5) Cấu trúc code nên tạo ngay
+
+```text
+src/
+  app/
+    custom/page.tsx
+    printing/page.tsx
+
+  lib/
+    ai/
+      runtime/
+        ort.ts
+        deviceTier.ts
+      workers/
+        image-ai.worker.ts
+        mesh-ai.worker.ts
+      models/
+        xgbRunner.ts
+      features/
+        meshFeatures.ts
+        imagePreprocess.ts
+      types/
+        custom-ai.ts
+        print-ai.ts
+
+public/
+  models/
+    accessory_classifier.ort
+    quote_xgb.json
+    time_xgb.json
+    risk_xgb.json
+```
+
+## 6) Luồng chạy cuối cùng
+
+### `/custom`
+
+1. user upload ảnh
+2. preview hiện ngay
+3. `image-ai.worker.ts` resize về `224x224`
+4. chạy `MobileNetV3-Small`
+5. trả JSON
+6. auto-fill form:
+
+   * `hasGlasses`
+   * `glassesDescription`
+   * `hasHat`
+   * `hatDescription`
+
+### `/printing`
+
+1. user upload STL
+2. `mesh-ai.worker.ts` parse mesh
+3. trích feature hình học
+4. chạy 3 model XGBoost
+5. trả về:
+
+   * `price`
+   * `hours`
+   * `risk`
+   * `confidence`
+6. UI hiển thị:
+
+   * giá AI
+   * giờ in AI
+   * risk AI
+   * badge “AI chạy trên thiết bị của bạn”
+
+## 7) Cách để web “wow” thật sự
+
+Đừng cố wow bằng chatbot. Wow đúng chỗ là:
+
+* **Upload ảnh → web tự hiểu kính/nón/phụ kiện**
+* **Upload STL → web tự báo giá/thời gian/rủi ro**
+* **Không gọi AI server**
+* **Hiển thị “AI chạy trực tiếp trên trình duyệt”**
+
+Đây là điểm demo rất mạnh vì:
+
+* dễ thấy ngay,
+* hợp môn web,
+* có AI thật,
+* kiến trúc gọn,
+* deploy đơn giản.
+
+## 8) Cách deploy đúng tiêu chí môn
+
+Phương án deploy chuẩn:
+
+* deploy web như bình thường trên Vercel/Netlify
+* model để ở `/public/models`
+* không cần AI backend riêng
+* backend hiện có vẫn chỉ lo auth/order/payment/storage
+
+Điểm mạnh khi bảo vệ:
+
+* kiến trúc web vẫn rõ ràng,
+* AI không tăng vận hành server,
+* có offline inference sau khi tải model,
+* có fallback theo năng lực máy.
+
+ONNX Runtime Web cũng có tài liệu riêng cho Next.js/web app và nhấn mạnh chuyện in-browser inference, xử lý model ONNX, tối ưu model size/init time cho web deployment. ([ONNX Runtime][1])
+
+## 9) Thứ tự làm để ra bản chạy được nhanh nhất
+
+### Phase 1
+
+* làm `mesh-ai.worker.ts`
+* trích feature
+* train 3 XGBoost
+* hiển thị giá/giờ/risk trên `/printing`
+
+### Phase 2
+
+* làm `image-ai.worker.ts`
+* train MobileNetV3-Small đa nhãn
+* auto-fill form custom
+
+### Phase 3
+
+* quantize + ORT format
+* cache model
+* device tier fallback
+* polish UI và demo
+
+## 10) Bản chốt cuối
+
+**Kiến trúc tối ưu nhất để bạn đi tiếp ngay:**
+
+* **AI ảnh custom**: `MobileNetV3-Small` đa nhãn, chạy browser, Web Worker, ONNX/ORT
+* **AI in 3D**: `XGBoost` cho giá/giờ/risk, train offline, inference browser bằng JSON runner hoặc ONNX
+* **Runtime**: `WASM default`, `WebGPU optional`
+* **Không dùng GPT, không AI API, không AI server**
+* **Deploy như web bình thường**
+
+Đây là phương án cân bằng nhất giữa:
+
+* AI thật
+* tốc độ
+* hiệu suất trên nhiều máy
+* dễ deploy
+* đúng yêu cầu môn
+* đủ wow để demo.
+
+[1]: https://onnxruntime.ai/docs/tutorials/web/ "Web | onnxruntime"
+[2]: https://www.tensorflow.org/api_docs/python/tf/keras/applications/MobileNetV3Small?utm_source=chatgpt.com "tf.keras.applications.MobileNetV3Small  |  TensorFlow v2.16.1"
+[3]: https://docs.ultralytics.com/vi/ "Trang chủ - Tài liệu Ultralytics YOLO"
+[4]: https://xgboost.readthedocs.io/ "XGBoost Documentation — xgboost 3.2.1 documentation"
+[5]: https://onnxruntime.ai/docs/get-started/with-javascript/web.html "Web | onnxruntime"
+[6]: https://xgboost.readthedocs.io/en/stable/tutorials/saving_model.html "Introduction to Model IO — xgboost 3.2.0 documentation"
+[7]: https://onnx.ai/sklearn-onnx/auto_tutorial/plot_gexternal_xgboost.html "Convert a pipeline with a XGBoost model - sklearn-onnx 1.20.0 documentation"

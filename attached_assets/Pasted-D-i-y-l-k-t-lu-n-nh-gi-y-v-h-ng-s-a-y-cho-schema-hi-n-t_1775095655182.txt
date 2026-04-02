@@ -1,0 +1,321 @@
+Dưới đây là **kết luận đánh giá đầy đủ** và **hướng sửa đầy đủ** cho schema hiện tại.
+
+## Kết luận tổng thể
+
+Schema này **đã có nền tốt**, nhưng **chưa đạt chuẩn production cao** nếu xét đồng thời 4 tiêu chí: bảo mật, toàn vẹn dữ liệu, hiệu năng vận hành, và khả năng maintain lâu dài. Nó có nhiều điểm đúng hướng như tách bảng theo domain, dùng PK/FK, có một số `UNIQUE`, `CHECK`, có thêm `checksum_sha256`, `object_key`, `product_variant_id`, `shipping_fee`, `outstanding_amount`, và thông tin session như `ip_address`, `user_agent`, `last_seen_at`. Tuy vậy, ngay phần đầu file cũng ghi rõ đây là schema “for context only” và “not meant to be run”, nên bản này vẫn nên xem là bản thiết kế gần hoàn chỉnh, chưa phải bản deploy cuối cùng. 
+
+Nếu chấm theo mức dùng production thực tế:
+
+* **Mô hình nghiệp vụ:** 8/10
+* **Bảo mật:** 4.5/10
+* **Toàn vẹn dữ liệu:** 6.5/10
+* **Hiệu năng:** 5.5/10
+* **Khả năng maintain dài hạn:** 6/10
+
+Điểm tổng quát hợp lý là **6.5–7/10**. Muốn lên mức **9–10/10**, bạn cần sửa cả schema lẫn contract ở application layer, đặc biệt ở auth/token, derived fields và index strategy. 
+
+## Những gì đang làm tốt
+
+Về mô hình dữ liệu, schema đã tách khá rõ các nhóm `users`, `accounts`, `sessions`, `products`, `product_variants`, `orders`, `order_items`, `order_revisions`, `design_versions`, `payments`, `payment_events`, `print_jobs`, `system_settings`. Đây là nền kiến trúc hợp lý cho một hệ thống bán hàng kèm custom design/printing. Các bảng chính đều có PK; nhiều quan hệ FK đã được khai báo; một số cột có `UNIQUE` như `orders.order_code`, `products.sku`, `order_items.full_code`, `payments.transaction_code`, `users.email`, `users.customer_code`, `sessions.sessionToken`. Nhiều cột số cũng đã có `CHECK` không âm hoặc `quantity > 0`. 
+
+Schema mới hơn bản đầu ở chỗ đã thêm vài cột hữu ích cho vận hành, như `files.checksum_sha256`, `files.original_filename`, `files.object_key`, `order_items.product_variant_id`, `orders.shipping_fee`, `orders.outstanding_amount`, `sessions.ip_address`, `sessions.user_agent`, `sessions.last_seen_at`. Những thứ này tốt cho truy vết, chống duplicate file, và hỗ trợ audit/debug. 
+
+## Các vấn đề lớn còn tồn tại
+
+### 1) Bảo mật auth/token vẫn là điểm yếu nhất
+
+Các trường cực kỳ nhạy cảm vẫn đang ở dạng raw text: `users.password`, `accounts.refresh_token`, `accounts.access_token`, `accounts.id_token`, `sessions.sessionToken`, `verification_tokens.token`. Trong khi đó `password_reset_tokens` lại dùng `token_hash`, nghĩa là phần reset password an toàn hơn phần session và verification hiện tại. Đây là dấu hiệu rất rõ cho thấy auth storage chưa chuẩn production. Nếu DB bị lộ hoặc một admin nội bộ đọc trực tiếp dữ liệu, bạn sẽ lộ ngay token dùng được thay vì chỉ lộ hash. 
+
+**Kết luận cho phần này:**
+
+* `users.password` phải đổi thành `password_hash`
+* `sessions.sessionToken` phải đổi thành `session_token_hash`
+* `verification_tokens.token` phải đổi thành `token_hash`
+* token OAuth trong `accounts` phải được **encrypt** trước khi lưu, không lưu raw text
+* cần job dọn session/token hết hạn theo `expires` và `expires_at` 
+
+### 2) Toàn vẹn dữ liệu chưa đủ chặt
+
+`notifications.user_id` là `NOT NULL` nhưng trong schema hiện tại **không có FK** trỏ sang `users`, nên có thể phát sinh notification mồ côi. Ngoài ra, cả `file_links` lẫn `notifications` đều đang dùng cặp `ref_type/ref_id`, tức quan hệ polymorphic. Cách này thuận tiện lúc viết app nhanh, nhưng DB không thể đảm bảo `ref_id` thật sự tồn tại trong bảng mà `ref_type` chỉ tới. Đây là điểm yếu integrity rất phổ biến. 
+
+Bên cạnh đó, `design_versions` chưa có unique theo `(order_id, version_number)` và `order_revisions` chưa có unique theo `(order_id, version)`, nên trong cùng một order có thể bị trùng version. `accounts` cũng chưa có unique cho `(provider, providerAccountId)`, nên có thể liên kết trùng tài khoản OAuth. 
+
+**Kết luận cho phần này:**
+
+* thêm FK cho `notifications.user_id`
+* bỏ `ref_type/ref_id` ở các bảng chính, thay bằng FK rõ ràng hoặc tách bảng mapping riêng
+* thêm unique:
+
+  * `accounts(provider, providerAccountId)`
+  * `design_versions(order_id, version_number)`
+  * `order_revisions(order_id, version)` 
+
+### 3) Các giá trị tính toán dễ bị lệch
+
+`order_items.total_price` đang là `DEFAULT ((quantity)::numeric * unit_price)`, nghĩa là chỉ tính tốt lúc insert. Sau đó nếu cập nhật `quantity` hoặc `unit_price`, giá trị này có thể không tự đồng bộ. `orders.outstanding_amount` cũng đang là `DEFAULT GREATEST(total_amount - deposit_amount, 0)`, nên về bản chất vẫn là một snapshot khởi tạo, không phải giá trị luôn đúng theo dữ liệu hiện tại. Đây là kiểu lỗi rất hay gây lệch tiền khi hệ thống chạy lâu. 
+
+Ngoài ra `orders` mới chỉ check từng cột không âm, nhưng chưa có các check liên hệ giữa chúng như `discount <= subtotal`, `deposit_amount <= total_amount`. `revision_count` cũng chưa có check không âm. 
+
+**Kết luận cho phần này:**
+
+* đổi `total_price` thành **generated column** hoặc trigger-maintained field
+* đổi `outstanding_amount` thành generated column hoặc bỏ hẳn và tính từ query/view
+* thêm check:
+
+  * `discount <= subtotal`
+  * `deposit_amount <= total_amount`
+  * `revision_count >= 0`
+  * `demo_images` và `finished_images` phải là array JSON nếu không null 
+
+### 4) Ràng buộc sản phẩm/kho chưa đủ mạnh
+
+`product_variants.stock` có check không âm, `reserved_stock` cũng có check không âm, nhưng chưa có check `reserved_stock <= stock`. Bảng `products` còn thiếu nhiều check tương tự cho `stock`, `sale_price`, `low_stock_alert`, `view_count`, `sold_count`, và shape của `images/specs/sizes`. Điều này khiến data bẩn có thể đi vào DB mà không bị chặn. 
+
+**Kết luận cho phần này:**
+
+* thêm:
+
+  * `reserved_stock <= stock`
+  * `products.stock >= 0`
+  * `sale_price IS NULL OR sale_price >= 0`
+  * cân nhắc `sale_price <= base_price`
+  * `low_stock_alert >= 0`
+  * `view_count >= 0`
+  * `sold_count >= 0`
+  * `images` là array, `specs` là object, `sizes` là array 
+
+### 5) Naming và convention chưa thống nhất
+
+Schema vẫn đang lẫn `camelCase` với `snake_case`: `userId`, `providerAccountId`, `sessionToken`, `emailVerified` tồn tại song song với `user_id`, `created_at`, `updated_at`. UUID default cũng đang lẫn `gen_random_uuid()` và `uuid_generate_v4()`. Phần type có nơi dùng enum thật (`USER-DEFINED`), có nơi dùng `text + CHECK`. Về kỹ thuật vẫn chạy được, nhưng về maintainability và migration thì không đẹp. 
+
+**Kết luận cho phần này:**
+
+* thống nhất toàn bộ về `snake_case`
+* thống nhất 1 chuẩn UUID default
+* thống nhất chiến lược type: hoặc enum thật, hoặc domain/table reference; tránh nửa nọ nửa kia 
+
+### 6) Hiệu năng chưa thể coi là hoàn chỉnh
+
+Trong file schema hiện tại, **không thấy định nghĩa index vận hành quan trọng** ngoài PK/UNIQUE. Điều đó không chứng minh chắc chắn hệ thống không có index ở migration khác, nhưng **trong bản bạn đưa thì chưa thể hiện**. Với workload thật, bạn gần như chắc chắn cần index cho:
+
+* mọi FK nóng: `orders.user_id`, `order_items.order_id`, `order_items.product_id`, `order_items.product_variant_id`, `payments.order_id`, `payment_events.payment_id`, `design_versions.order_id`, `print_jobs.order_item_id`, `user_addresses.user_id`, `sessions.userId`
+* các cột filter/sort thường dùng: `created_at`, `updated_at`, `status`, `payment_status`, `fulfillment_status`, `is_read`
+* cặp query thường gặp: `(user_id, created_at DESC)`, `(order_id, created_at DESC)`, `(status, created_at DESC)` 
+
+**Kết luận cho phần này:**
+thiếu một **index plan rõ ràng**, nên schema hiện tại chưa đủ tin cậy cho tăng tải production. 
+
+---
+
+## Hướng sửa đầy đủ
+
+## Giai đoạn 1: Sửa ngay các lỗi chặn production
+
+Đây là nhóm bắt buộc phải làm trước khi tự tin đưa lên production.
+
+### A. Hardening auth và secret storage
+
+1. Đổi:
+
+   * `users.password` → `password_hash`
+   * `sessions.sessionToken` → `session_token_hash`
+   * `verification_tokens.token` → `token_hash`
+2. Giữ `password_reset_tokens.token_hash` như hiện tại, nhưng thêm:
+
+   * `consumed_at`
+   * index theo `expires_at`
+3. Với `accounts`:
+
+   * đổi các token sang cột `encrypted_refresh_token`, `encrypted_access_token`, `encrypted_id_token`
+   * mã hóa ở application/KMS
+4. Thêm cleanup jobs cho:
+
+   * session hết hạn
+   * verification token hết hạn
+   * password reset token hết hạn 
+
+### B. Khóa integrity
+
+1. Thêm FK:
+
+   * `notifications.user_id -> users.id`
+2. Thêm unique:
+
+   * `accounts(provider, providerAccountId)`
+   * `design_versions(order_id, version_number)`
+   * `order_revisions(order_id, version)`
+3. Với `user_addresses`, thêm partial unique index:
+
+   * chỉ 1 địa chỉ default mỗi user
+4. Nếu dùng `admin_audit_log`, nên kiểm soát ở app hoặc trigger để `admin_id` thật sự là user có role `admin/staff` thay vì chỉ là FK sang `users`. 
+
+### C. Sửa derived data
+
+1. `order_items.total_price`:
+
+   * đổi thành generated stored column hoặc trigger `BEFORE INSERT/UPDATE`
+2. `orders.outstanding_amount`:
+
+   * generated stored column từ `total_amount - deposit_amount`
+3. `orders.subtotal`, `orders.total_amount`:
+
+   * hoặc tính bằng query/view
+   * hoặc cập nhật bằng trigger khi `order_items` thay đổi
+4. `orders.payment_status`:
+
+   * cân nhắc trigger đồng bộ theo tổng `payments.status = paid` 
+
+## Giai đoạn 2: Siết toàn bộ constraint để chống data bẩn
+
+### A. Orders
+
+Thêm check:
+
+* `discount <= subtotal`
+* `deposit_amount <= total_amount`
+* `revision_count >= 0`
+* `demo_images` là JSON array
+* `finished_images` là JSON array
+* `shipping_fee >= 0` đã có, giữ lại
+* `shipping_address_snapshot` object check đã có, giữ lại 
+
+### B. Products / Variants
+
+Thêm check:
+
+* `products.stock >= 0`
+* `products.base_price >= 0`
+* `products.sale_price >= 0`
+* cân nhắc `sale_price <= base_price`
+* `products.low_stock_alert >= 0`
+* `products.view_count >= 0`
+* `products.sold_count >= 0`
+* `product_variants.price >= 0`
+* `product_variants.reserved_stock <= stock`
+* `images` là array
+* `specs` là object
+* `sizes` là array 
+
+### C. Notes / Events / JSON
+
+Thêm check:
+
+* `activity_logs.metadata` là object
+* `payment_events.payload` là object
+* `gateway_response` là object
+* `configuration` trong `order_items` là object
+* `system_settings.value` đã là jsonb, nên giữ và cân nhắc validate theo key ở app layer 
+
+## Giai đoạn 3: Thiết kế lại quan hệ polymorphic
+
+`file_links(ref_type, ref_id)` và `notifications(ref_type, ref_id)` là điểm nên thay đổi về mặt thiết kế, không chỉ vá constraint. Production sạch hơn sẽ là:
+
+* `order_files(order_id, file_id, ...)`
+* `order_item_files(order_item_id, file_id, ...)`
+* `revision_files(order_revision_id, file_id, ...)`
+
+Với notifications:
+
+* `notifications` + nullable FK rõ ràng như `ref_order_id`, `ref_design_version_id`, `ref_payment_id`
+  hoặc
+* tách bảng phụ cho từng loại ref nếu nghiệp vụ phức tạp. 
+
+Lợi ích:
+
+* DB enforce được FK thật
+* query đơn giản hơn
+* index hiệu quả hơn
+* giảm bug do ref_type/ref_id không khớp
+
+## Giai đoạn 4: Index strategy đầy đủ
+
+Đây là bộ index nên có tối thiểu:
+
+### FK / join indexes
+
+* `accounts(userId)`
+* `notifications(user_id)`
+* `order_items(order_id)`
+* `order_items(product_id)`
+* `order_items(product_variant_id)`
+* `order_notes(order_id)`
+* `order_revisions(order_id)`
+* `design_versions(order_id)`
+* `payments(order_id)`
+* `payment_events(payment_id)`
+* `print_jobs(order_item_id)`
+* `user_addresses(user_id)`
+* `sessions(userId)` 
+
+### Workflow / dashboard indexes
+
+* `orders(user_id, created_at DESC)`
+* `orders(status, created_at DESC)`
+* `orders(payment_status, created_at DESC)`
+* `orders(fulfillment_status, created_at DESC)`
+* `notifications(user_id, is_read, created_at DESC)`
+* `payments(status, created_at DESC)`
+* `order_notes(order_id, created_at DESC)`
+* `design_versions(order_id, created_at DESC)` 
+
+### Search / lookup indexes
+
+* `orders(order_code)`
+* `payments(transaction_code)`
+* `files(checksum_sha256)`
+* partial unique: `user_addresses(user_id) WHERE is_default = true`
+* unique partial: `product_variants(sku) WHERE sku IS NOT NULL` nếu SKU variant phải unique 
+
+## Giai đoạn 5: Chuẩn hóa convention
+
+Đây là phần giúp schema “sạch” và dễ maintain lâu dài.
+
+1. Đổi toàn bộ sang `snake_case`
+
+   * `userId` → `user_id`
+   * `providerAccountId` → `provider_account_id`
+   * `sessionToken` → `session_token`
+   * `emailVerified` → `email_verified_at`
+2. Thống nhất UUID default về `gen_random_uuid()`
+3. Thống nhất type:
+
+   * enum thật cho status/type quan trọng
+   * tránh chỗ dùng `text + CHECK`, chỗ khác lại enum
+4. Thêm `updated_at` trigger cho các bảng chính:
+
+   * `users`, `products`, `product_variants`, `orders`, `user_profiles`, `payment_configs`, có thể cả `files` nếu metadata thay đổi nhiều 
+
+## Giai đoạn 6: Chuẩn vận hành production
+
+Schema tốt vẫn chưa đủ nếu thiếu quy tắc vận hành. Nên bổ sung:
+
+* migration có thứ tự rõ ràng
+* seed enum / setting cơ bản
+* job dọn session/token hết hạn
+* audit đầy đủ cho thao tác admin
+* backup/restore test
+* monitoring slow query
+* permission model rõ ràng
+* nếu dùng Supabase/Postgres public schema trực tiếp, cần thêm **RLS** và policy truy cập phù hợp theo user/admin/staff
+* nếu dữ liệu log/events lớn nhanh, cân nhắc partition sau này cho `activity_logs`, `admin_audit_log`, `payment_events` 
+
+---
+
+## Kết luận cuối cùng
+
+**Schema hiện tại chưa nên chốt làm bản production cuối.** Nó đã đủ tốt để làm nền phát triển tiếp, nhưng chưa nên xem là “done” vì còn 4 lỗ hổng cốt lõi:
+
+1. auth/token còn lưu raw secret
+2. integrity còn thủng ở `notifications.user_id`, version uniqueness và polymorphic refs
+3. giá trị tính toán như `total_price` và `outstanding_amount` chưa được đồng bộ chắc chắn
+4. chưa thể hiện một kế hoạch index production hoàn chỉnh trong chính file schema này 
+
+**Hướng sửa đúng nhất** là:
+
+* không chỉ vá từng cột,
+* mà nâng cấp đồng thời theo 6 nhóm ở trên:
+  **security → integrity → derived data → index → convention → operations**.
+
+Sau khi làm đủ các bước đó, schema này có thể lên mức **9/10 trở lên** và đủ an tâm hơn cho production thực chiến.
+
+Mình có thể làm tiếp cho bạn một bản **checklist migration chi tiết từng câu SQL**, theo thứ tự áp dụng an toàn lên database hiện tại.

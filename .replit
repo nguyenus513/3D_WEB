@@ -1,0 +1,54 @@
+modules = ["nodejs-20", "web", "postgresql-16"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+NEXT_PUBLIC_SUPABASE_URL = "https://mhycgniqnhiechiiveda.supabase.co"
+AUTH_TRUST_HOST = "true"
+AUTH_URL = "http://localhost:3000"
+GOOGLE_SERVICE_ACCOUNT_EMAIL = "miniver3dlab-storage@miniver3dlab.iam.gserviceaccount.com"
+GOOGLE_DRIVE_FOLDER_ID = "1r4lv4LUFcc5mHUpCHRZvHx6JgfN3o89F"
+GOOGLE_OAUTH_CLIENT_ID = "1068138232843-q5iu99qsjuo0olo74um088uicv19c3sh.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "1068138232843-q5iu99qsjuo0olo74um088uicv19c3sh.apps.googleusercontent.com"
+GMAIL_USER = "miniver.3dlab@gmail.com"
+ARCHIVE_DELAY_MINUTES = "2"
+CLOUDFLARE_ACCOUNT_ID = "df04b0cbc61f62cc46326e3bb52f1dba"
+R2_BUCKET_NAME = "miniver"
+R2_ACCESS_KEY_ID = "d49fed2d668275276b01a69a9a32e2b2"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 120000

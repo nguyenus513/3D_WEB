@@ -1,0 +1,171 @@
+Hiểu. Nếu đã chốt **“chỉ dùng model có sẵn, không train gì thêm”**, thì mình đổi khuyến nghị như sau:
+
+**Chốt phương án tốt nhất:**
+
+* **AI thật trên web** chỉ nên đặt ở **phần upload ảnh custom**.
+* Model mặc định nên dùng là **`Xenova/mobileclip_s0`** chạy trong browser qua `@huggingface/transformers` + ONNX Runtime Web. Model card của Xenova ghi rõ đây là bản ONNX tương thích với Transformers.js để chạy zero-shot image classification trong web; Apple ghi `MobileCLIP-S0` là biến thể nhỏ nhất, có zero-shot performance tương đương OpenAI ViT-B/16 nhưng **nhanh hơn 4.8x** và **nhỏ hơn 2.8x**. Bản ONNX int8 hiện có `vision_model_int8` khoảng **11.8 MB** và `text_model_int8` khoảng **42.8 MB**, nên thực tế hơn nhiều cho deployment rộng so với CLIP/OWL-ViT cỡ lớn. ([Hugging Face][1])
+
+**Cái không nên ép dùng model có sẵn:**
+
+* **Báo giá in 3D**. Với phần này, các hệ quote thực tế mô tả giá phụ thuộc vào **volume, size, raw material, labor/post-processing, material, finish, production mode** và thay đổi ngay khi người dùng đổi option. Vì vậy, nếu không train theo dữ liệu giá thật của web bạn, một model dựng sẵn sẽ không biết “đúng giá của riêng bạn”. Nói ngắn gọn: **không có pre-trained model phổ dụng nào đáng tin để quote 3D cho shop của bạn mà không train/fine-tune**. ([Sculpteo Learn][2])
+
+## Vậy nên chốt hệ thống thế này
+
+### 1) `/custom` = AI thật, dùng model có sẵn
+
+Dùng **`Xenova/mobileclip_s0`** để làm **zero-shot image classification** trên ảnh người dùng upload. Bạn không train gì cả; chỉ đưa vào một bộ nhãn cố định như:
+
+* `person wearing round glasses`
+* `person wearing square glasses`
+* `person wearing sunglasses`
+* `person wearing baseball cap`
+* `person wearing bucket hat`
+* `person wearing graduation cap`
+* `person holding bouquet`
+* `person holding book`
+* `person holding guitar`
+
+Rồi lấy nhãn điểm cao nhất để map vào form hiện có:
+
+* `hasGlasses`
+* `glassesDescription`
+* `hasHat`
+* `hatDescription`
+* `propsDescription`
+
+Cách dùng này đúng với model card của `Xenova/mobileclip_s0`: họ hướng dẫn load tokenizer, text model, processor, vision model rồi so embedding ảnh với embedding text để ra xác suất zero-shot. ([Hugging Face][1])
+
+### 2) `/custom` nếu muốn “wow hơn” trên máy khỏe
+
+Thêm **mode tùy chọn** dùng **`Xenova/owlvit-base-patch32`** để **zero-shot object detection** khi user bấm “Phân tích chi tiết”. Model card của Xenova ghi rõ OWL-ViT chạy được với Transformers.js cho zero-shot object detection trong browser. Nhưng bản ONNX q4 của nó khoảng **192 MB**, nên **không nên** tải mặc định cho mọi máy; chỉ bật khi user chủ động yêu cầu hoặc chỉ cho desktop. ([Hugging Face][3])
+
+### 3) `/printing` = engine kỹ thuật, không cố ép thành model AI
+
+Phần này nên làm **trung thực**:
+
+* parse file ngay trên browser,
+* trích đặc trưng hình học,
+* tính giá theo engine kỹ thuật của bạn.
+
+Three.js có loader sẵn cho **STL**, **OBJ** và **3MF**, nên bạn có thể parse ngay ở client bằng `STLLoader`, `OBJLoader`, `ThreeMFLoader`. ([Three.js][4])
+
+Nếu bạn muốn có phần “phân tích khả năng in”, hãy làm theo kiểu **design-check engine**:
+
+* thin wall
+* unsupported wall
+* overhang
+* hole/drain hole
+* clearance
+
+Formlabs công khai các guideline dạng này trong design guide của họ, ví dụ resin có khuyến nghị về supported wall, unsupported wall và overhang. 
+
+## Runtime nên chốt thế nào để chạy được trên nhiều máy
+
+Dùng:
+
+* `@huggingface/transformers`
+* `onnxruntime-web`
+
+Transformers.js ghi rõ model có thể chạy **trực tiếp trong browser**, mặc định trên **CPU qua WASM**, và có thể chuyển sang **WebGPU** nếu trình duyệt hỗ trợ; họ cũng khuyên dùng model quantized trong môi trường browser, với `q8` là mặc định tốt cho WASM và `q4` để giảm tải hơn nữa. ONNX Runtime Web cho thấy **WASM chạy được trên Chrome/Edge/Safari/iOS/Firefox**, còn WebGPU hỗ trợ hẹp hơn nhiều. Nên cấu hình đúng là: **WASM làm mặc định, WebGPU chỉ là tăng tốc tùy máy**. ([Hugging Face][5])
+
+## Cách làm ngay
+
+### Cài thư viện
+
+```bash
+npm install @huggingface/transformers onnxruntime-web
+```
+
+Transformers.js hướng dẫn cài như trên và dùng trực tiếp trong web app. ([Hugging Face][6])
+
+### Code mẫu cho `/custom`
+
+```ts
+import {
+  AutoTokenizer,
+  CLIPTextModelWithProjection,
+  AutoProcessor,
+  CLIPVisionModelWithProjection,
+  RawImage,
+  dot,
+  softmax,
+} from '@huggingface/transformers';
+
+const modelId = 'Xenova/mobileclip_s0';
+
+const tokenizer = await AutoTokenizer.from_pretrained(modelId);
+const textModel = await CLIPTextModelWithProjection.from_pretrained(modelId, {
+  device: 'wasm',
+  dtype: 'q8',
+});
+
+const processor = await AutoProcessor.from_pretrained(modelId);
+const visionModel = await CLIPVisionModelWithProjection.from_pretrained(modelId, {
+  device: 'wasm',
+  dtype: 'q8',
+});
+
+const labels = [
+  'person wearing round glasses',
+  'person wearing square glasses',
+  'person wearing sunglasses',
+  'person wearing baseball cap',
+  'person wearing bucket hat',
+  'person wearing graduation cap',
+  'person holding bouquet',
+  'person holding book',
+  'person holding guitar',
+];
+
+const textInputs = tokenizer(labels, { padding: 'max_length', truncation: true });
+const { text_embeds } = await textModel(textInputs);
+const textEmbeds = text_embeds.normalize().tolist();
+
+const image = await RawImage.read(file);
+const imageInputs = await processor(image);
+const { image_embeds } = await visionModel(imageInputs);
+const imageEmbeds = image_embeds.normalize().tolist();
+
+const probs = imageEmbeds.map(x => softmax(textEmbeds.map(y => 100 * dot(x, y))))[0];
+```
+
+Đoạn trên bám đúng kiểu dùng trong model card của `Xenova/mobileclip_s0`; bạn chỉ thay `cats/dogs/birds` bằng bộ nhãn của bạn rồi map sang form. ([Hugging Face][1])
+
+### Mapping vào form
+
+* nếu `round glasses` hoặc `square glasses` > ngưỡng, set `hasGlasses = true`
+* nếu `bucket hat` hoặc `graduation cap` > ngưỡng, set `hasHat = true`
+* lấy nhãn mạnh nhất để điền `glassesDescription` / `hatDescription`
+* nếu không nhãn nào vượt ngưỡng, để user nhập tay
+
+### Phần `/printing`
+
+* parse file bằng `STLLoader` / `OBJLoader` / `ThreeMFLoader`
+* tính `bbox`, `triangleCount`, `surfaceArea`, `volume`
+* dùng engine giá riêng của bạn
+* phần cảnh báo in dùng rule/check theo guideline kỹ thuật
+
+## Kết luận chốt
+
+Nếu bạn **không muốn train model**, thì mình khuyên chốt như này:
+
+* **Model có sẵn nên dùng thật sự:** `Xenova/mobileclip_s0`
+* **Model có sẵn chỉ nên để chế độ nâng cao:** `Xenova/owlvit-base-patch32`
+* **Không nên cố kiếm model có sẵn cho báo giá 3D**; phần đó nên làm bằng engine kỹ thuật của chính bạn
+
+Đó là phương án **đúng ràng buộc nhất**:
+
+* không train
+* không API AI
+* chạy ngay trên web
+* deploy được như web bình thường
+* vẫn có **AI thật** ở phần custom
+
+Nếu bạn muốn, mình sẽ viết tiếp cho bạn **bản tích hợp đúng file luôn** cho `/custom`: `worker.ts`, `hooks`, `model loader`, và đoạn map kết quả vào state hiện tại.
+
+[1]: https://huggingface.co/Xenova/mobileclip_s0 "Xenova/mobileclip_s0 · Hugging Face"
+[2]: https://learn.sculpteo.com/en/how-are-prices-calculated "How are prices calculated?"
+[3]: https://huggingface.co/Xenova/owlvit-base-patch32 "Xenova/owlvit-base-patch32 · Hugging Face"
+[4]: https://threejs.org/docs/pages/STLLoader.html "STLLoader - Three.js Docs"
+[5]: https://huggingface.co/docs/transformers.js/main/en/index?utm_source=chatgpt.com "Transformers.js"
+[6]: https://huggingface.co/docs/transformers.js/main/en/index "Transformers.js · Hugging Face"

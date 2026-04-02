@@ -1,0 +1,594 @@
+Chốt hệ thống cho bạn như này:
+
+1 hệ thống, 1 lõi tính thật, 2 chế độ in
+
+Lõi bắt buộc: dùng slicer thật để tính
+	•	FDM: grams, support grams, print time từ G-code
+	•	Resin: resin volume/support volume và print time từ mSLA slicing output
+
+Không dùng AI để đoán mấy số này.
+
+Lý do rất đơn giản: code hiện tại của bạn đang suy grams / hours / price từ volume và vài hằng số tay ở frontend, nên sai nhiều là đúng bản chất, không phải lỗi nhỏ  ￼  ￼  ￼.
+
+⸻
+
+Hệ thống mình chốt
+
+Slicer chính: PrusaSlicer CLI
+
+Mình chốt PrusaSlicer CLI làm lõi cho cả 2 loại in vì:
+	•	nhận STL/OBJ/AMF
+	•	xuất G-code cho FFF
+	•	xuất PNG layers cho mSLA
+	•	có CLI đầy đủ
+	•	hỗ trợ support material, raft, brim, skirt
+	•	chạy multithread  ￼
+
+Slicer phụ: CuraEngine chỉ cho FDM nếu cần
+
+CuraEngine cũng là console app để sinh G-code, chạy độc lập được và pipeline của nó đúng kiểu slicer thật: load model → slice layers → insets → skins → infill → G-code  ￼.
+Nhưng để hệ thống gọn, mình khuyên bản đầu chỉ dùng PrusaSlicer.
+
+⸻
+
+Kết luận cốt lõi
+
+Muốn:
+	•	free
+	•	nhanh
+	•	mượt
+	•	chính xác như slicer
+	•	có cả support
+
+Thì phải làm:
+
+Web app + backend worker + slicer thật
+
+Không thể browser-only, không thể AI-only.
+
+⸻
+
+Kiến trúc hoàn chỉnh
+
+Frontend Next.js
+  -> upload file 3D
+  -> chọn máy, vật liệu, layer, infill, support
+  -> nhận "kết quả nhanh"
+  -> nhận "kết quả chính xác"
+
+Backend API
+  -> nhận request quote
+  -> kiểm tra cache
+  -> đẩy job vào worker
+
+Slicer Worker
+  -> chạy PrusaSlicer CLI
+  -> parse kết quả
+  -> trả:
+     - main material
+     - support material
+     - total grams/ml
+     - print time
+     - layer count
+     - price
+
+AI layer (free, local)
+  -> orientation ranking
+  -> risk detection
+  -> profile recommendation
+  -> quote explanation
+
+
+⸻
+
+Nguyên tắc thiết kế đúng
+
+1. Số gram và thời gian phải đến từ slicer
+
+Không phải từ:
+	•	volume thuần
+	•	density × volume
+	•	AI regression
+	•	rule engine
+
+2. AI chỉ làm phần tối ưu và “wow”
+
+AI nên làm:
+	•	chọn orientation tốt
+	•	phát hiện model khó in
+	•	gợi ý preset máy/vật liệu
+	•	giải thích vì sao giá tăng
+	•	tăng tốc bằng ranking, không thay slicing
+
+3. Tách 2 tầng phản hồi
+
+Tầng 1: phản hồi nhanh
+
+Hiển thị ngay:
+	•	kích thước
+	•	preview
+	•	loại file
+	•	trạng thái model
+	•	“đang phân tích chính xác”
+
+Tầng 2: phản hồi chính xác
+
+Sau khi slice xong:
+	•	main grams
+	•	support grams
+	•	total grams
+	•	print time
+	•	layer count
+	•	exact quote
+
+⸻
+
+Chốt cách làm cho FDM
+
+FDM exact quote flow
+	1.	User upload STL/OBJ/3MF
+	2.	Hệ thống hash file
+	3.	Parse nhanh:
+	•	bbox
+	•	preview
+	4.	Worker gọi PrusaSlicer CLI với:
+	•	printer profile
+	•	filament profile
+	•	layer height
+	•	infill
+	•	support on/off
+	•	nozzle
+	•	brim/raft/skirt
+	5.	Slicer sinh G-code
+	6.	Parser đọc metadata/G-code:
+	•	filament used
+	•	support material
+	•	print time
+	•	layer count
+	7.	Price engine tính giá
+
+FDM output chuẩn
+
+{
+  "mode": "fdm",
+  "bboxMm": { "x": 72, "y": 58, "z": 110 },
+  "mainMaterialG": 38.4,
+  "supportMaterialG": 11.2,
+  "totalMaterialG": 49.6,
+  "printTimeMinutes": 327,
+  "layerCount": 550,
+  "source": "prusaslicer_exact",
+  "price": 189000
+}
+
+FDM giá tính như sau
+
+price
+= main_material_cost
++ support_material_cost
++ machine_time_cost
++ postprocess_cost
++ packaging_cost
++ waste/risk_cost
++ margin
+
+
+⸻
+
+Chốt cách làm cho Resin
+
+Resin exact quote flow
+	1.	User upload STL/OBJ/3MF
+	2.	Parse nhanh:
+	•	bbox
+	•	preview
+	3.	Worker gọi PrusaSlicer mSLA profile
+	4.	Slicer sinh PNG layers
+	5.	Từ sliced layers + support geometry, hệ thống tính:
+	•	main resin volume
+	•	support resin volume
+	•	total resin ml/g
+	•	print time theo profile máy
+	6.	Price engine tính giá
+
+Resin cần nói thật
+
+Với resin, cái bạn lấy được là:
+	•	material estimate theo slicer
+	•	time estimate theo slicer/profile
+
+Nó là cách đúng nhất trong phạm vi phần mềm, nhưng vẫn là “mức slicer”, không phải lượng resin hao hụt thực tế trong vat sau mỗi job.
+Dù vậy, đây vẫn là đúng hướng nhất nếu bạn muốn “chính xác như slicer”.
+
+Resin output chuẩn
+
+{
+  "mode": "resin",
+  "bboxMm": { "x": 45, "y": 40, "z": 92 },
+  "mainResinMl": 18.6,
+  "supportResinMl": 6.1,
+  "totalResinMl": 24.7,
+  "totalResinG": 27.2,
+  "printTimeMinutes": 248,
+  "layerCount": 1840,
+  "source": "prusaslicer_msla_exact",
+  "price": 235000
+}
+
+
+⸻
+
+AI nên dùng ở đâu để vừa free vừa hữu ích
+
+AI 1 — Orientation ranking
+
+Đây là AI đáng làm nhất.
+
+Nhiệm vụ
+
+Từ mesh:
+	•	bbox
+	•	overhang proxy
+	•	support risk
+	•	height/width ratio
+
+AI/rule engine chọn ra 2–3 orientation tốt nhất thay vì brute-force nhiều góc.
+
+Lợi ích
+	•	nhanh hơn
+	•	vẫn chính xác vì cuối cùng slicer vẫn chạy thật
+	•	giảm support/time
+
+AI 2 — Risk detection
+
+Phát hiện:
+	•	model dễ gãy
+	•	support quá nhiều
+	•	base nhỏ, dễ đổ
+	•	thin walls
+	•	mesh lỗi
+
+Output
+	•	low / medium / high risk
+	•	warning list
+	•	recommendation
+
+AI 3 — Preset recommendation
+
+AI gợi ý:
+	•	FDM hay resin
+	•	layer height nên dùng
+	•	infill phù hợp
+	•	support strategy
+
+Ví dụ
+	•	tượng nhiều chi tiết nhỏ → resin 0.05
+	•	model lớn, ít detail → FDM 0.2
+
+AI 4 — Quote explanation
+
+Sinh giải thích:
+	•	giá cao vì support nhiều
+	•	thời gian dài vì model cao và layer nhỏ
+	•	resin đắt hơn do support + wash/cure
+
+⸻
+
+Nhưng để rõ ràng: AI nào không được làm lõi?
+
+Không dùng AI để:
+	•	đoán grams
+	•	đoán support grams
+	•	đoán print time cuối
+	•	thay slicer
+
+Mấy số đó phải do slicer thật trả ra.
+
+⸻
+
+Stack phần mềm chốt
+
+Web
+	•	Next.js hiện tại
+
+API/backend
+	•	Next.js route handlers hoặc Node service riêng
+
+Worker
+	•	Node child process / queue worker
+
+Slicer
+	•	PrusaSlicer CLI
+
+Cache
+	•	file hash + config key
+	•	lưu DB hoặc Redis/file cache
+
+DB
+	•	có thể dùng hệ đang có
+
+AI
+	•	ban đầu: rule-based + geometry analysis
+	•	nâng cao: model nhẹ local, nhưng chỉ cho ranking/risk
+
+⸻
+
+Cache để hệ thống mượt
+
+Đây là phần quyết định tốc độ.
+
+Cache key
+
+sha256(file)
++ printerProfile
++ materialProfile
++ layerHeight
++ infill
++ supportPreset
++ orientation
+
+Nếu key trùng
+
+Trả ngay kết quả cũ.
+
+Kết quả
+	•	user upload lại file cũ sẽ phản hồi rất nhanh
+	•	admin mở lại đơn cũ không cần slice lại
+	•	rất hợp demo cuối kỳ
+
+⸻
+
+Cách làm để phản hồi nhanh thật
+
+Giai đoạn trả kết quả
+
+1. Ngay lập tức
+	•	preview 3D
+	•	bbox
+	•	file validity
+	•	trạng thái “đang slice chính xác…”
+
+2. Sau vài giây
+	•	main grams
+	•	support grams
+	•	time
+	•	exact price
+
+Tối ưu thêm
+	•	chỉ cho 2–3 preset layer height
+	•	chỉ cho vài printer profiles chuẩn
+	•	orientation chỉ thử 2–3 cách
+	•	queue job
+	•	cache toàn bộ result
+
+⸻
+
+Đề xuất profile in để hệ thống ổn định
+
+FDM
+
+Tạo profile cố định:
+	•	fdm_pla_standard
+	•	fdm_abs_standard
+	•	fdm_petg_standard
+
+Mỗi profile khóa:
+	•	nozzle
+	•	line width
+	•	perimeters
+	•	top/bottom layers
+	•	support preset
+	•	speed preset
+
+Resin
+
+Tạo profile cố định:
+	•	resin_standard_detail
+	•	resin_fast
+	•	resin_large_model
+
+Mỗi profile khóa:
+	•	layer height
+	•	lift speed
+	•	exposure schedule
+	•	support density preset
+
+Vì sao phải khóa preset
+
+Vì càng ít biến:
+	•	càng slice nhanh
+	•	càng dễ debug
+	•	càng dễ đúng
+	•	càng phù hợp đồ án
+
+⸻
+
+Giá nên tính như nào
+
+FDM
+
+material_cost = main_g * main_price_per_g
+support_cost  = support_g * support_price_per_g
+machine_cost  = print_time_h * machine_rate_per_h
+post_cost     = support_remove + cleanup + labor
+packaging     = fixed
+risk_margin   = fixed or %
+final_price   = subtotal + margin
+
+Resin
+
+material_cost = total_resin_g * resin_price_per_g
+machine_cost  = print_time_h * machine_rate_per_h
+post_cost     = wash + cure + support remove + finishing
+packaging     = fixed
+risk_margin   = fixed or %
+final_price   = subtotal + margin
+
+
+⸻
+
+Cách triển khai đúng trong repo của bạn
+
+Việc phải làm ngay
+
+1. Bỏ vai trò trung tâm của công thức hiện tại
+
+Vì hiện tại đang tính heuristic ở frontend  ￼  ￼
+
+2. Tạo route exact quote
+
+Ví dụ:
+	•	POST /api/printing/exact-quote
+	•	GET /api/printing/quote-status?id=...
+
+3. Tạo slicer worker
+
+Worker sẽ:
+	•	nhận file + config
+	•	chạy PrusaSlicer
+	•	parse output
+	•	lưu cache
+	•	trả JSON
+
+4. Tạo profile folder
+
+/printer-profiles
+  /fdm
+    fdm_pla_standard.ini
+    fdm_petg_standard.ini
+  /resin
+    resin_standard_detail.ini
+    resin_fast.ini
+
+5. Frontend chỉ render
+
+Frontend không tự tính giá nữa.
+Chỉ:
+	•	upload
+	•	polling status / await response
+	•	hiển thị result
+
+⸻
+
+API mình khuyên chốt
+
+Request
+
+{
+  "mode": "fdm",
+  "printerProfile": "fdm_pla_standard",
+  "materialProfile": "pla_white",
+  "layerHeight": 0.2,
+  "infill": 20,
+  "support": true,
+  "quantity": 1
+}
+
+Response
+
+{
+  "jobId": "q_123",
+  "status": "completed",
+  "result": {
+    "bboxMm": { "x": 72, "y": 58, "z": 110 },
+    "mainMaterialG": 38.4,
+    "supportMaterialG": 11.2,
+    "totalMaterialG": 49.6,
+    "printTimeMinutes": 327,
+    "layerCount": 550,
+    "price": 189000,
+    "source": "prusaslicer_exact"
+  }
+}
+
+
+⸻
+
+Free như thế nào
+
+Free đúng nghĩa phần mềm
+	•	PrusaSlicer: free/open-source CLI, có FFF + mSLA support  ￼
+	•	CuraEngine: free/open-source console G-code generator  ￼
+	•	Không cần OpenAI/Gemini/Claude API
+	•	Không cần model trả phí
+
+Cần nói thật
+
+Public deploy hoàn toàn miễn phí lâu dài thì không có gì đảm bảo.
+Nhưng:
+	•	phần mềm và thuật toán là free
+	•	bạn chỉ tốn hạ tầng nếu muốn public thật
+	•	demo/local deployment thì gần như free
+
+⸻
+
+Hệ thống “wow” nhất nhưng vẫn đúng kỹ thuật
+
+User thấy gì
+
+Với FDM
+	•	upload model
+	•	thấy preview + bbox ngay
+	•	sau vài giây có:
+	•	filament chính
+	•	filament support
+	•	tổng gram
+	•	thời gian in
+	•	giá chuẩn
+
+Với Resin
+	•	upload model
+	•	thấy preview + bbox ngay
+	•	sau vài giây có:
+	•	resin chính
+	•	resin support
+	•	tổng ml/g
+	•	thời gian in
+	•	giá chuẩn
+
+Kèm AI
+	•	“AI khuyên nên dùng resin vì model nhiều chi tiết nhỏ”
+	•	“AI phát hiện support sẽ cao nếu đặt hướng hiện tại”
+	•	“AI gợi ý orientation giảm support 18%”
+
+Đây mới là wow đúng nghĩa:
+	•	lõi tính đúng
+	•	AI hỗ trợ thông minh
+	•	hệ thống vẫn nhanh
+
+⸻
+
+Chốt cuối cùng
+
+Hệ thống mình chốt cho bạn là:
+
+PrusaSlicer CLI làm lõi exact quote cho cả FDM và resin
+
+vì nó:
+	•	xuất G-code cho FFF
+	•	xuất PNG layers cho mSLA
+	•	có CLI
+	•	hỗ trợ support/brim/skirt/raft
+	•	phù hợp để build exact quote engine free  ￼
+
+AI dùng thêm nhưng không thay slicer:
+	•	orientation ranking
+	•	risk detection
+	•	preset recommendation
+	•	quote explanation
+
+Để đảm bảo:
+	•	free → dùng open-source local
+	•	mượt → 2 tầng phản hồi + cache + preset giới hạn
+	•	chính xác → grams/time phải đến từ slicer thật
+	•	nhanh → worker + cache + shortlist orientation
+
+Đây là phương án tốt nhất và thực tế nhất cho đồ án của bạn.
+
+Ở bước tiếp theo, mình sẽ viết cho bạn bản triển khai kỹ thuật hoàn chỉnh gồm:
+	•	cây thư mục mới
+	•	route nào tạo
+	•	worker flow
+	•	parser output
+	•	cache schema
+	•	và chính xác phải thay đoạn nào trong /printing hiện tại để hệ thống chạy được.

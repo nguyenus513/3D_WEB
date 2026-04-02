@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * SpatialCard Component
@@ -14,6 +14,7 @@
 import { type ReactNode } from 'react';
 import { motion, type HTMLMotionProps } from 'framer-motion';
 import { clsx } from 'clsx';
+import { useJellyMotion } from '@/lib/jelly';
 
 // =============================================================================
 // Types
@@ -27,6 +28,7 @@ interface SpatialCardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
     variant?: SpatialVariant;
     depth?: SpatialDepth;
     hoverable?: boolean;
+    jelly?: boolean;
     className?: string;
 }
 
@@ -64,24 +66,34 @@ export function SpatialCard({
     variant = 'panel',
     depth = 'level-1',
     hoverable = true,
+    jelly = true,
     className,
     style,
     ...props
 }: SpatialCardProps) {
+    const jellyMotion = useJellyMotion({
+        disabled: !hoverable || !jelly,
+        hoverScale: 1.02,
+        tapScale: 0.99,
+        hoverY: -4,
+        stiffness: 180,
+        damping: 22,
+    });
+
+    const hoverMotion = hoverable
+        ? { ...(jellyMotion.whileHover || {}), boxShadow: 'var(--shadow-2)' }
+        : undefined;
 
     return (
         <motion.div
             initial={false}
-            whileHover={hoverable ? {
-                scale: 1.02,
-                y: -4,
-                boxShadow: 'var(--shadow-2)'
-            } : undefined}
-            transition={{
-                type: "spring",
+            whileHover={hoverMotion}
+            whileTap={jellyMotion.whileTap}
+            transition={jellyMotion.transition || {
+                type: 'spring',
                 mass: 1,
                 stiffness: 140,
-                damping: 20
+                damping: 20,
             }}
             style={{
                 ...variantStyles[variant],
@@ -93,6 +105,7 @@ export function SpatialCard({
             }}
             className={clsx(
                 'rounded-3xl relative overflow-hidden transition-colors',
+                jelly && 'jelly-interactive',
                 className
             )}
             {...props}

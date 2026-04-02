@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * Button (Spatial Edition)
@@ -13,11 +13,13 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
 import { clsx } from 'clsx';
+import { useJellyMotion } from '@/lib/jelly';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'glass';
     size?: 'sm' | 'md' | 'lg';
     isLoading?: boolean;
+    jelly?: boolean;
 }
 
 // Export styles for reuse in Links
@@ -59,16 +61,38 @@ export const buttonSizes = {
 const MotionBtn = motion.button;
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ className = '', variant = 'primary', size = 'md', isLoading, children, disabled, ...props }, ref) => {
+    ({
+        className = '',
+        variant = 'primary',
+        size = 'md',
+        isLoading,
+        jelly = true,
+        children,
+        disabled,
+        ...props
+    }, ref) => {
+        const jellyMotion = useJellyMotion({
+            disabled: !jelly || disabled || isLoading,
+            hoverScale: 1.02,
+            tapScale: 0.98,
+            hoverY: -1,
+            stiffness: 360,
+            damping: 20,
+        });
+
         return (
             <MotionBtn
                 ref={ref}
-                whileHover={!disabled && !isLoading ? { y: -1 } : undefined}
-                whileTap={!disabled && !isLoading ? { scale: 0.98 } : undefined}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                className={clsx(buttonBaseStyles, buttonVariants[variant], buttonSizes[size], className)}
+                className={clsx(
+                    buttonBaseStyles,
+                    buttonVariants[variant],
+                    buttonSizes[size],
+                    jelly && 'jelly-interactive',
+                    className
+                )}
                 disabled={disabled || isLoading}
-                {...(props as HTMLMotionProps<"button">)} // Cast props for Motion
+                {...jellyMotion}
+                {...(props as HTMLMotionProps<'button'>)}
             >
                 {/* Loading Spinner */}
                 {isLoading && (
