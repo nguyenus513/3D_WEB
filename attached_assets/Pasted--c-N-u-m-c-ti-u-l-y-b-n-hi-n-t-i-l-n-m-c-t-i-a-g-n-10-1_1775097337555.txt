@@ -1,0 +1,117 @@
+Được. Nếu mục tiêu là **đẩy bản hiện tại lên mức tối đa, gần 10/10 production**, thì kết luận thẳng là:
+
+**Bản hiện tại vẫn chưa max** vì còn giữ song song đường cũ và đường mới ở auth/token, vẫn còn polymorphic reference cũ, vẫn còn field tính toán có thể lệch, và chưa thấy bộ index production trong chính schema này. Cụ thể, `users.password` vẫn còn cạnh `password_hash`; `sessions.sessionToken` và `verification_tokens.token` vẫn là raw token; `accounts` vẫn giữ cả raw token lẫn `encrypted_*`; `file_links` vẫn còn; `notifications` vẫn còn `ref_type/ref_id`; `order_items.total_price` và `orders.outstanding_amount` vẫn là `DEFAULT` chứ chưa phải generated/trigger-maintained. 
+
+## Muốn lên mức tối đa, phải chốt 6 nhóm này
+
+### 1. Khóa hẳn bảo mật auth/token
+
+Đây là việc số 1.
+
+Phải làm:
+
+* bỏ `users.password`, chỉ giữ `password_hash`
+* bỏ `sessions.sessionToken`, thay bằng `session_token_hash`
+* bỏ `verification_tokens.token`, thay bằng `token_hash`
+* bỏ `accounts.refresh_token`, `accounts.access_token`, `accounts.id_token`, chỉ giữ `encrypted_refresh_token`, `encrypted_access_token`, `encrypted_id_token` 
+
+Nếu không xóa hẳn các cột raw secret này thì dù có thêm cột an toàn, hệ thống vẫn chưa thể gọi là tối đa.
+
+### 2. Xóa hẳn thiết kế nửa cũ nửa mới
+
+Hiện tại bạn đã có `order_files`, `order_item_files`, `revision_files`, và `notifications` đã có các FK riêng `ref_order_id`, `ref_design_version_id`, `ref_payment_id`, nhưng vẫn còn `file_links` và `notifications.ref_type/ref_id`. 
+
+Phải làm:
+
+* xóa `file_links`
+* xóa `notifications.ref_type`
+* xóa `notifications.ref_id`
+* chỉ giữ các bảng/link có FK rõ ràng 
+
+Đây là bước rất quan trọng để DB tự enforce integrity.
+
+### 3. Chuyển các field tính toán sang generated column hoặc trigger
+
+Hai chỗ nguy hiểm nhất hiện tại là:
+
+* `order_items.total_price`
+* `orders.outstanding_amount` 
+
+Cả hai đang là `DEFAULT`, nên chỉ đúng lúc insert ban đầu.
+
+Phải làm:
+
+* `order_items.total_price` → generated stored column hoặc trigger
+* `orders.outstanding_amount` → generated stored column hoặc trigger
+* tốt hơn nữa: thêm trigger đồng bộ `orders.subtotal`, `orders.total_amount`, `orders.payment_status` khi `order_items` hoặc `payments` thay đổi
+
+### 4. Bổ sung toàn bộ ràng buộc còn thiếu
+
+Hiện schema vẫn thiếu một số constraint quan trọng.
+
+Phải thêm:
+
+* unique `(provider, providerAccountId)` cho `accounts`
+* unique `(order_id, version_number)` cho `design_versions`
+* unique `(order_id, version)` cho `order_revisions`
+* check `reserved_stock <= stock` cho `product_variants`
+* check `discount <= subtotal` cho `orders`
+* check `deposit_amount <= total_amount` cho `orders`
+* check nhất quán `notifications.is_read` với `read_at` 
+
+Đây là phần giúp schema cứng hơn ở mức DB, không phụ thuộc app.
+
+### 5. Thêm bộ index production đầy đủ
+
+Trong schema bạn đưa, chưa thấy phần `CREATE INDEX` cho các cột nóng. 
+
+Tối thiểu phải có:
+
+* `orders(user_id, created_at desc)`
+* `orders(status, created_at desc)`
+* `orders(payment_status, created_at desc)`
+* `orders(fulfillment_status, created_at desc)`
+* `order_items(order_id)`
+* `order_items(product_id)`
+* `order_items(product_variant_id)`
+* `payments(order_id, created_at desc)`
+* `notifications(user_id, is_read, created_at desc)`
+* `design_versions(order_id, created_at desc)`
+* `sessions(userId)`
+* `payment_events(payment_id, created_at desc)`
+* partial unique cho `user_addresses(user_id) where is_default = true` 
+
+Không có index plan thì không thể gọi là tối đa về production readiness.
+
+### 6. Chuẩn hóa hoàn toàn convention
+
+Hiện vẫn còn lẫn `userId`, `providerAccountId`, `sessionToken`, `emailVerified` với `snake_case`. 
+
+Muốn sạch hẳn thì:
+
+* đổi toàn bộ sang `snake_case`
+* thống nhất `gen_random_uuid()`
+* thống nhất enum strategy
+* thêm trigger `updated_at` cho mọi bảng cần audit/update tracking
+
+## Kết luận cuối cùng ở mức “tối đa”
+
+Nếu bạn làm đủ 6 nhóm trên, thì schema này mới lên được mức gần tối đa:
+
+* **Security:** từ ~5.8 lên 9.5+
+* **Integrity:** từ ~8.2 lên 9.5+
+* **Performance readiness:** từ ~6.2 lên 9+
+* **Maintainability:** từ ~7.2 lên 9+ 
+
+**Tổng thể sau khi sửa đủ: ~9.5–10/10**.
+
+Nói ngắn gọn:
+
+* **Hiện tại:** chưa max
+* **Muốn max:** phải xóa hẳn đường cũ, không chỉ thêm đường mới
+* **Thứ tự ưu tiên chuẩn:**
+  **auth/token → polymorphic cleanup → generated fields → unique/check → indexes → naming cleanup**
+
+Ở trạng thái hiện tại, điểm chặn lớn nhất vẫn là **raw secret columns**, **polymorphic cũ chưa xóa**, và **thiếu index production**. 
+
+Mình có thể viết tiếp ngay một bản **ALTER TABLE / DROP COLUMN / CREATE INDEX / GENERATED COLUMN SQL hoàn chỉnh** để kéo đúng schema hiện tại này lên bản gần 10/10.

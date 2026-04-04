@@ -5,14 +5,10 @@ import { useState, useEffect, useRef } from 'react';
 import { OrderStatus } from '@/types/database';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
+import { motion } from 'framer-motion';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
-import PrintFileCard, { PrintFileCardData, OrderFileRecord } from '@/components/admin/PrintFileCard';
-import PrintFileDetail from '@/components/admin/PrintFileDetail';
-import VersionFeedbackCard from '@/components/ui/VersionFeedbackCard';
-import { ImageStack, ImageGallery, type OrderImage, type CharacterInfo } from '@/components/admin/ImageGallery';
+import { addCsrfToRequest } from '@/lib/security/csrf-client';
 
 // Force dynamic rendering and disable caching for this page
 // Note: 'dynamic' and 'revalidate' exports don't work in Client Components
@@ -20,20 +16,17 @@ import { ImageStack, ImageGallery, type OrderImage, type CharacterInfo } from '@
 
 interface CustomConfig {
     type?: 'single' | 'couple' | 'group';
-    photos?: { drive_file_id: string; file_name: string; web_view_link?: string }[];
+    images?: { url: string; thumbnail?: string; name?: string; key?: string }[];
     style?: string;
     size?: string;
-    demo_photo?: { drive_file_id: string; file_name: string; web_view_link?: string };
-    customer_approved?: boolean;
 }
 
 interface PrintingConfig {
-    stl_file?: { drive_file_id: string; file_name: string; web_view_link?: string };
-    print_type?: 'FDM' | 'Resin';
-    material?: string;
+    type?: 'fdm' | 'resin' | string;
     color?: string;
-    infill?: number;
-    layer_height?: number;
+    infill?: string;
+    layerHeight?: string;
+    files?: { url: string; name: string; key?: string }[];
 }
 
 interface OrderItem {
@@ -52,9 +45,11 @@ interface OrderItem {
 interface Order {
     id: string;
     order_code: string;
-    order_type: 'ready_made' | 'custom' | 'printing' | 'print_3d';
+    order_type: 'ready_made' | 'custom' | 'printing';
     status: string;
+    payment_status?: string;
     subtotal: number;
+    shipping_fee: number;
     total: number;
     deposit_amount: number;
     deposit_paid: boolean;
@@ -80,48 +75,24 @@ interface Order {
         customer_code: string;
     };
     order_items: OrderItem[];
-    // Order files from order_files table
-    order_files?: OrderFileRecord[];
     // Custom order config
     custom_config?: {
         type: string;
         size: string;
         notes?: string;
-        images?: { id: string; name: string; url: string; thumbnail: string | null; category?: string; characterIndex?: number }[];
-        characters?: { index: number; hasGlasses: boolean; glassesDescription?: string; hasHat: boolean; hatDescription?: string }[];
+        images?: { id: string; name: string; url: string; thumbnail: string }[];
     };
-    // Printing order config (order-level metadata only, per-item specs in print_config)
+    // Printing order config
     printing_config?: {
+        type: string;
+        color: string;
         quantity: number;
+        analysis?: { grams: number; hours: number; price: number };
+        files?: { url: string; name: string }[];
         notes?: string;
     };
-    // Demo image for review (legacy)
+    // Demo image for review
     demo_image_url?: string;
-    demo_images?: { url: string; label: string; uploaded_at: string }[];
-    finished_images?: { url: string; label: string; uploaded_at: string }[];
-    revision_count?: number;
-    revision_feedback?: string;
-    approved_at?: string;
-    archived_at?: string;
-}
-
-interface DesignImage {
-    id: string;
-    image_url: string;
-    label: string;
-    sort_order: number;
-    created_at: string;
-}
-
-interface DesignVersion {
-    id: string;
-    version_number: number;
-    status: 'pending_review' | 'approved' | 'rejected';
-    admin_note: string | null;
-    user_feedback: string | null;
-    created_at: string;
-    reviewed_at: string | null;
-    design_images: DesignImage[];
 }
 
 const statusLabels: Record<string, string> = {
@@ -135,7 +106,6 @@ const statusLabels: Record<string, string> = {
     approved: 'Đã xác nhận',
     production_pending: 'Chờ sản xuất',
     producing: 'Đang sản xuất',
-    finished: 'Hoàn thiện',
     printing: 'Đang in',
     shipping: 'Đang giao hàng',
     delivered: 'Đã giao',
@@ -153,7 +123,6 @@ const statusColors: Record<string, string> = {
     approved: 'bg-cyan-500/20 text-cyan-400',
     production_pending: 'bg-indigo-500/20 text-indigo-400',
     producing: 'bg-indigo-500/20 text-indigo-400',
-    finished: 'bg-teal-500/20 text-teal-400',
     printing: 'bg-violet-500/20 text-violet-400',
     shipping: 'bg-amber-500/20 text-amber-400',
     delivered: 'bg-emerald-500/20 text-emerald-400',
@@ -162,50 +131,6 @@ const statusColors: Record<string, string> = {
 
 // Statuses that trigger email notification
 const emailTriggerStatuses = ['confirmed', 'review', 'approved', 'shipping'];
-
-// =============================================================================
-// CustomImageSection — Bridge between order data and ImageGallery
-// =============================================================================
-
-function CustomImageSection({ images, characters }: {
-    images: { id: string; name: string; url: string; thumbnail: string | null; category?: string; characterIndex?: number }[];
-    characters?: CharacterInfo[];
-}) {
-    const [galleryOpen, setGalleryOpen] = useState(false);
-
-    // Convert to OrderImage format with defaults
-    const orderImages: OrderImage[] = images.map((img) => ({
-        id: img.id,
-        name: img.name,
-        url: img.url,
-        thumbnail: img.thumbnail,
-        category: (img.category || 'main') as OrderImage['category'],
-        characterIndex: img.characterIndex || 1,
-    }));
-
-    return (
-        <>
-            <div className="flex items-center gap-4">
-                <ImageStack images={orderImages} onOpen={() => setGalleryOpen(true)} />
-                <button
-                    onClick={() => setGalleryOpen(true)}
-                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                    Xem tất cả →
-                </button>
-            </div>
-
-            {/* Gallery Modal */}
-            {galleryOpen && (
-                <ImageGallery
-                    images={orderImages}
-                    characters={characters}
-                    onClose={() => setGalleryOpen(false)}
-                />
-            )}
-        </>
-    );
-}
 
 export default function AdminOrderDetailPage() {
     const params = useParams();
@@ -218,36 +143,39 @@ export default function AdminOrderDetailPage() {
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [adminNote, setAdminNote] = useState('');
     const [uploadingDemo, setUploadingDemo] = useState(false);
-    const [uploadingFinished, setUploadingFinished] = useState(false);
-    // Design versioning state
-    const [designVersions, setDesignVersions] = useState<DesignVersion[]>([]);
-    const [activeVersionTab, setActiveVersionTab] = useState<number>(0);
     const [archiving, setArchiving] = useState(false);
     const [archiveError, setArchiveError] = useState('');
+    const [brokenPhotoIds, setBrokenPhotoIds] = useState<Record<string, boolean>>({});
     // Lock fetches while optimistic update is in progress
     const isOptimisticUpdate = useRef(false);
     // Explicit UI override state
     const [optimisticStatus, setOptimisticStatus] = useState<OrderStatus | null>(null);
-    // File detail drawer state
-    const [selectedPrintFile, setSelectedPrintFile] = useState<PrintFileCardData | null>(null);
 
     // Archive order files (R2 → Google Drive)
     const handleArchiveFiles = async () => {
         if (!order) return;
+        const confirmed = window.confirm('Xác nhận lưu trữ file đơn hàng? Sau khi lưu trữ, user sẽ không xem lại được.');
+        if (!confirmed) return;
         setArchiving(true);
         setArchiveError('');
 
         try {
             const res = await fetch(`/api/admin/orders/${order.id}/archive`, {
                 method: 'POST',
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
             });
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error?.message || data.error || 'Archive failed');
+                const missing = data.missingOnDrive?.length ? `Missing on Drive: ${data.missingOnDrive.join(', ')}` : '';
+                throw new Error(data.error?.message || data.error || missing || 'Archive failed');
             }
 
-            alert(`✅ Đã lưu trữ ${data.archived} file sang Google Drive`);
+            if (data.alreadyArchived) {
+                alert('✅ Đơn hàng đã được lưu trữ trước đó');
+            } else {
+                alert(`✅ Đã lưu trữ ${data.archived} file sang Google Drive`);
+            }
             fetchOrder(); // Refresh to show updated admin_note
         } catch (error) {
             const msg = error instanceof Error ? error.message : 'Archive failed';
@@ -259,7 +187,6 @@ export default function AdminOrderDetailPage() {
     useEffect(() => {
         if (params.id && typeof params.id === 'string') {
             fetchOrder();
-            fetchDesignVersions(params.id as string);
         }
     }, [params.id]);
 
@@ -268,7 +195,6 @@ export default function AdminOrderDetailPage() {
         const orderId = params.id;
         // Skip fetch if optimistic update is locked
         if (isOptimisticUpdate.current) {
-            console.log("Skipping fetch due to optimistic lock");
             return;
         }
 
@@ -328,8 +254,6 @@ export default function AdminOrderDetailPage() {
             if (!isOptimisticUpdate.current) {
                 setOrder({
                     ...orderData,
-                    // deposit_paid column removed from DB — derive from payment_status
-                    deposit_paid: orderData.payment_status === 'paid' || orderData.payment_status === 'deposit_paid',
                     profiles: profileData ? {
                         full_name: profileData.full_name || shippingAddr?.full_name || 'Khách vãng lai',
                         email: profileData.email || '',
@@ -353,61 +277,32 @@ export default function AdminOrderDetailPage() {
         }
     };
 
-    const handleCancelOrder = async () => {
-        if (!order || !confirmCancel) return;
-        setUpdating(true);
-
-        try {
-            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: 'cancelled',
-                    admin_note: order.admin_note ? order.admin_note + '\n[System] Đã hủy đơn bởi Admin' : '[System] Đã hủy đơn bởi Admin'
-                }),
-            });
-
-            if (res.ok) {
-                setOrder({ ...order, status: 'cancelled' });
-                alert('Đã hủy đơn hàng thành công (nếu đơn đã xác nhận, kho sẽ được hoàn lại)');
-            } else {
-                const error = await res.json();
-                alert(`Lỗi khi hủy đơn: ${error.message}`);
-            }
-        } catch (error) {
-            console.error('Error cancelling order:', error);
-            alert('Lỗi hệ thống khi hủy đơn');
-        } finally {
-            setUpdating(false);
-            setConfirmCancel(false);
-        }
-    };
-
-    const [confirmCancel, setConfirmCancel] = useState(false);
-
     const handleConfirmPayment = async () => {
         if (!order) return;
         setUpdating(true);
+        const paymentStatus = order.order_type === 'ready_made' ? 'paid' : 'deposit_paid';
 
         try {
             const res = await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     deposit_paid: true,
+                    payment_status: paymentStatus,
                     status: 'confirmed',
+                    confirmed_at: new Date().toISOString(),
                     paid_at: new Date().toISOString(),
                 }),
             });
 
             if (res.ok) {
-                setOrder({ ...order, deposit_paid: true, status: 'confirmed' });
+                setOrder({ ...order, deposit_paid: true, payment_status: paymentStatus as any, status: 'confirmed' });
 
                 // Auto-send confirmation email
                 if (order.profiles?.email) {
                     await fetch('/api/send-email', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                         body: JSON.stringify({
                             type: 'confirmed',
                             data: {
@@ -436,6 +331,25 @@ export default function AdminOrderDetailPage() {
         setUpdating(true);
 
         const updates: Record<string, unknown> = { status: newStatus };
+        const now = new Date().toISOString();
+
+        // Save timestamp for each status
+        const timestampMap: Record<string, string> = {
+            confirmed: 'confirmed_at',
+            processing: 'processing_at',
+            designing: 'designing_at',
+            review: 'review_at',
+            revising: 'revising_at',
+            approved: 'approved_at',
+            producing: 'producing_at',
+            printing: 'printing_at',
+            shipping: 'shipped_at',
+            delivered: 'delivered_at',
+        };
+
+        if (timestampMap[newStatus]) {
+            updates[timestampMap[newStatus]] = now;
+        }
 
         if (newStatus === 'shipping') {
             updates.shipping_code = trackingCode;
@@ -444,7 +358,7 @@ export default function AdminOrderDetailPage() {
         try {
             const res = await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(updates),
             });
 
@@ -470,7 +384,7 @@ export default function AdminOrderDetailPage() {
 
                     await fetch('/api/send-email', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
                         body: JSON.stringify({ type: newStatus, data: emailData }),
                     });
                 }
@@ -489,181 +403,68 @@ export default function AdminOrderDetailPage() {
         try {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ admin_note: adminNote }),
+                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ admin_notes: adminNote }),
             });
         } catch (error) {
             console.error('Save note error:', error);
         }
     };
 
-    // Upload demo image for customer review (multi-image)
-    const handleUploadDemoImage = async (e: React.ChangeEvent<HTMLInputElement>, label?: string) => {
+    // Upload demo image for customer review
+    const handleUploadDemoImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!order || !e.target.files?.[0]) return;
 
         setUploadingDemo(true);
         try {
             const formData = new FormData();
             formData.append('file', e.target.files[0]);
-            formData.append('label', label || 'Demo');
 
             const res = await fetch(`/api/admin/orders/${order.id}/demo-image`, {
                 method: 'POST',
+                headers: addCsrfToRequest(),
                 body: formData,
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Upload failed');
 
-            // Update local state with new images
+            if (!res.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            // === OPTIMISTIC UI: Override UI state immediately ===
+            isOptimisticUpdate.current = true; // Lock fetches
+            setOptimisticStatus('review');     // Force UI to show 'review'
+
             setOrder(prev => {
                 if (!prev) return prev;
                 return {
                     ...prev,
-                    demo_images: data.demo_images || prev.demo_images,
-                    demo_image_url: data.demo_images?.[0]?.url || prev.demo_image_url,
+                    status: 'review',  // Also update data state
+                    demo_image_url: data.demo_image_url || prev.demo_image_url,
                 };
             });
 
-            // Refresh design versions
-            fetchDesignVersions(order.id);
+            alert('Upload thành công! Status đã chuyển sang "Chờ duyệt"');
 
-            alert(`Upload thành công!`);
+            // Hold UI override for 3s to mask any server lag/cache issues
+            setTimeout(() => {
+                router.refresh();
+                fetchOrder();
+
+                // Release overrides after Sync is likely done
+                setTimeout(() => {
+                    isOptimisticUpdate.current = false;
+                    setOptimisticStatus(null);
+                }, 1000);
+            }, 3000);
         } catch (error) {
             console.error('Demo upload error:', error);
             alert('Upload thất bại: ' + (error as Error).message);
         } finally {
             setUploadingDemo(false);
+            // Reset input
             e.target.value = '';
-        }
-    };
-
-    // Fetch design versions for this order
-    const fetchDesignVersions = async (orderId: string) => {
-        try {
-            const res = await fetch(`/api/orders/${orderId}/design-versions`);
-            const data = await res.json();
-            if (data.success && data.versions) {
-                setDesignVersions(data.versions);
-                // Set active tab to latest version
-                if (data.versions.length > 0) {
-                    setActiveVersionTab(data.versions.length - 1);
-                }
-            }
-        } catch (err) {
-            console.error('[DesignVersions] Fetch error:', err);
-        }
-    };
-
-    // Delete demo image by design_images ID
-    const handleDeleteDemoImage = async (imageId: string) => {
-        if (!order) return;
-        if (!confirm('Xóa ảnh demo này? (Ảnh sẽ bị xóa khỏi storage)')) return;
-
-        try {
-            const res = await fetch(`/api/admin/orders/${order.id}/demo-image`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image_id: imageId }),
-            });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Delete failed');
-
-            // Update local state
-            setOrder(prev => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    demo_images: data.demo_images || [],
-                };
-            });
-
-            // Refresh versions
-            fetchDesignVersions(order.id);
-        } catch (error) {
-            alert('Xóa thất bại: ' + (error as Error).message);
-        }
-    };
-
-    // Send demo to customer for review (explicit action)
-    const handleSendForReview = async () => {
-        if (!order) return;
-        const images = order.demo_images || [];
-        if (images.length === 0) {
-            alert('Vui lòng upload ảnh demo trước khi gửi cho khách!');
-            return;
-        }
-        setUpdating(true);
-        try {
-            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'review' }),
-            });
-            if (!res.ok) throw new Error('Failed to update status');
-            setOrder(prev => prev ? { ...prev, status: 'review' } : prev);
-            setOptimisticStatus('review');
-            alert('Đã gửi demo cho khách duyệt!');
-            setTimeout(() => { setOptimisticStatus(null); fetchOrder(); }, 2000);
-        } catch (error) {
-            alert('Lỗi: ' + (error as Error).message);
-        } finally {
-            setUpdating(false);
-        }
-    };
-
-    // Upload finished product image
-    const handleUploadFinishedImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!order || !e.target.files?.[0]) return;
-
-        setUploadingFinished(true);
-        try {
-            const formData = new FormData();
-            formData.append('file', e.target.files[0]);
-            formData.append('label', 'Thành phẩm');
-
-            const res = await fetch(`/api/admin/orders/${order.id}/finished-images`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Upload failed');
-
-            setOrder(prev => {
-                if (!prev) return prev;
-                return { ...prev, finished_images: data.finished_images || prev.finished_images };
-            });
-
-            alert(`Upload thành phẩm thành công! (${data.total_images} ảnh)`);
-        } catch (error) {
-            alert('Upload thất bại: ' + (error as Error).message);
-        } finally {
-            setUploadingFinished(false);
-            e.target.value = '';
-        }
-    };
-
-    // Mark order as finished (production complete)
-    const handleMarkFinished = async () => {
-        if (!order) return;
-        setUpdating(true);
-        try {
-            const res = await fetch(`/api/admin/orders/${order.id}/update`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'finished' }),
-            });
-            if (!res.ok) throw new Error('Failed to update status');
-            setOrder(prev => prev ? { ...prev, status: 'finished' } : prev);
-            setOptimisticStatus('finished');
-            alert('Đã đánh dấu hoàn thiện!');
-            setTimeout(() => { setOptimisticStatus(null); fetchOrder(); }, 2000);
-        } catch (error) {
-            alert('Lỗi: ' + (error as Error).message);
-        } finally {
-            setUpdating(false);
         }
     };
 
@@ -674,7 +475,7 @@ export default function AdminOrderDetailPage() {
 
     const getNextStatuses = () => {
         if (!order) return [];
-        const currentStatus = order.status;
+        const currentStatus = order.status === 'pending_confirmation' ? 'pending' : order.status;
 
         if (order.order_type === 'ready_made') {
             const flow = ['pending', 'confirmed', 'processing', 'shipping', 'delivered'];
@@ -697,7 +498,7 @@ export default function AdminOrderDetailPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
             </div>
         );
     }
@@ -705,7 +506,7 @@ export default function AdminOrderDetailPage() {
     if (!order) {
         return (
             <div className="text-center py-12">
-                <h2 className="text-xl text-[var(--text-primary)]">Không tìm thấy đơn hàng</h2>
+                <h2 className="text-xl text-white">Không tìm thấy đơn hàng</h2>
                 <Link href={`${adminRoot}/orders`} className="text-blue-400 mt-4 inline-block">
                     ← Quay lại
                 </Link>
@@ -722,7 +523,7 @@ export default function AdminOrderDetailPage() {
                 <div className="flex items-center gap-4">
                     <Link
                         href={`${adminRoot}/orders`}
-                        className="p-2 rounded-xl hover:bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                        className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -730,19 +531,12 @@ export default function AdminOrderDetailPage() {
                     </Link>
                     <div>
                         <div className="flex items-center gap-3">
-                            {/* Display cart_code if available, fallback to order_code */}
-                            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                                {(order as any).cart_code || order.order_code}
-                            </h1>
+                            <h1 className="text-2xl font-bold text-white">{order.order_code}</h1>
                             <span className={`px-3 py-1 rounded-full text-sm ${statusColors[order.status]}`}>
                                 {statusLabels[order.status]}
                             </span>
                         </div>
-                        {/* Show legacy order_code if cart_code exists */}
-                        {(order as any).cart_code && (
-                            <p className="text-[var(--text-tertiary)] text-sm mt-0.5">Code: {order.order_code}</p>
-                        )}
-                        <p className="text-[var(--text-secondary)] mt-1">Tạo lúc {formatDate(order.created_at)}</p>
+                        <p className="text-white/50 mt-1">Tạo lúc {formatDate(order.created_at)}</p>
                     </div>
                 </div>
             </div>
@@ -761,26 +555,16 @@ export default function AdminOrderDetailPage() {
                                 <div>
                                     <h3 className="text-yellow-400 font-semibold">Chờ xác nhận thanh toán</h3>
                                     <p className="text-yellow-400/70 text-sm mt-1">
-                                        {order.deposit_amount >= (order.total || 0) ? 'Tổng tiền thanh toán: ' : 'Số tiền cọc: '}
-                                        {order.deposit_amount.toLocaleString('vi-VN')}đ
+                                        Số tiền cọc: {order.deposit_amount.toLocaleString('vi-VN')}đ
                                     </p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setConfirmCancel(true)}
-                                        disabled={updating}
-                                        className="px-6 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/30 font-medium hover:bg-red-500/20 disabled:opacity-50"
-                                    >
-                                        Hủy đơn
-                                    </button>
-                                    <button
-                                        onClick={handleConfirmPayment}
-                                        disabled={updating}
-                                        className="px-6 py-2.5 rounded-xl bg-yellow-500 text-black font-medium hover:bg-yellow-400 disabled:opacity-50"
-                                    >
-                                        {updating ? 'Đang xử lý...' : (order.deposit_amount >= (order.total || 0) ? 'Xác nhận thanh toán' : 'Xác nhận tiền cọc')}
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={handleConfirmPayment}
+                                    disabled={updating}
+                                    className="px-6 py-2.5 rounded-xl bg-yellow-500 text-black font-medium hover:bg-yellow-400 disabled:opacity-50"
+                                >
+                                    {updating ? 'Đang xử lý...' : 'Xác nhận đã nhận tiền'}
+                                </button>
                             </div>
                         </motion.div>
                     )}
@@ -790,9 +574,9 @@ export default function AdminOrderDetailPage() {
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                         >
-                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Tiến trình đơn hàng</h2>
+                            <h2 className="text-lg font-semibold text-white mb-4">Tiến trình đơn hàng</h2>
 
                             {/* New Square Block Stepper */}
                             <OrderStatusStepper
@@ -803,271 +587,87 @@ export default function AdminOrderDetailPage() {
                                 updating={updating}
                             />
 
-                            {/* Allow cancelling confirmed orders to restore stock */}
-                            {order.status !== 'cancelled' && order.status !== 'delivered' && order.status !== 'completed' && (
-                                <div className="mt-4 flex justify-end">
-                                    <button
-                                        onClick={() => setConfirmCancel(true)}
-                                        className="text-xs text-red-400 hover:text-red-300 underline"
-                                    >
-                                        Hủy đơn hàng này (Hoàn kho)
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* ═══ DESIGN VERSIONS SECTION (Custom orders) ═══ */}
-                            {order.order_type === 'custom' && (
-                                <div className="mt-6 pt-6 border-t border-[var(--border-color)] space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-[var(--text-secondary)] font-semibold text-sm">🎨 Design Versions</p>
-                                        {designVersions.length > 0 && (
-                                            <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">
-                                                {designVersions.length} version{designVersions.length > 1 ? 's' : ''}
-                                            </span>
+                            {/* Demo Image Upload - For custom orders in designing/review status */}
+                            {order.order_type === 'custom' && ['designing', 'processing', 'review', 'revising'].includes(order.status) && (
+                                <div className="mt-6 pt-6 border-t border-white/10">
+                                    <p className="text-white/50 text-sm mb-3">📷 Upload ảnh preview cho khách:</p>
+                                    <label className={`
+                                        flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
+                                        border-2 border-dashed border-cyan-500/30 hover:border-cyan-500/50 
+                                        bg-cyan-500/10 hover:bg-cyan-500/20 transition-all cursor-pointer
+                                        ${uploadingDemo ? 'opacity-50 cursor-wait' : ''}
+                                    `}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleUploadDemoImage}
+                                            disabled={uploadingDemo}
+                                            className="hidden"
+                                        />
+                                        {uploadingDemo ? (
+                                            <>
+                                                <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                                                <span className="text-cyan-400 text-sm">Đang upload...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                                <span className="text-cyan-400 text-sm font-medium">Chọn ảnh demo</span>
+                                            </>
                                         )}
-                                    </div>
-
-                                    {/* Revision Feedback Alert */}
-                                    {order.status === 'revising' && (() => {
-                                        const rejectedVer = designVersions.find(v => v.status === 'rejected' && v.user_feedback);
-                                        return rejectedVer ? (
-                                            <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
-                                                <p className="text-pink-400 font-semibold text-sm mb-1">
-                                                    ✏ Khách yêu cầu chỉnh sửa V{rejectedVer.version_number}
-                                                </p>
-                                                <p className="text-[var(--text-secondary)] text-sm">{rejectedVer.user_feedback}</p>
-                                            </div>
-                                        ) : order.revision_feedback ? (
-                                            <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
-                                                <p className="text-pink-400 font-semibold text-sm mb-1">✏ Khách yêu cầu chỉnh sửa</p>
-                                                <p className="text-[var(--text-secondary)] text-sm">{order.revision_feedback}</p>
-                                            </div>
-                                        ) : null;
-                                    })()}
-
-                                    {/* Version Tabs */}
-                                    {designVersions.length > 0 && (
-                                        <div className="flex gap-2 overflow-x-auto pb-1">
-                                            {designVersions.map((ver, idx) => (
-                                                <button
-                                                    key={ver.id}
-                                                    onClick={() => setActiveVersionTab(idx)}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${idx === activeVersionTab
-                                                        ? ver.status === 'approved'
-                                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
-                                                            : ver.status === 'rejected'
-                                                                ? 'bg-pink-500/20 text-pink-400 border border-pink-500/50'
-                                                                : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
-                                                        : 'bg-white/5 text-[var(--text-tertiary)] border border-[var(--border-color)] hover:bg-[var(--material-glass)]'
-                                                        }`}
-                                                >
-                                                    V{ver.version_number}
-                                                    {ver.status === 'approved' && ' ✓'}
-                                                    {ver.status === 'rejected' && ' ✕'}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Active Version Content */}
-                                    {designVersions[activeVersionTab] && (() => {
-                                        const ver = designVersions[activeVersionTab];
-                                        return (
-                                            <div className="space-y-3">
-                                                {/* Version Feedback Card */}
-                                                <VersionFeedbackCard
-                                                    versionNumber={ver.version_number}
-                                                    status={ver.status}
-                                                    userFeedback={ver.user_feedback}
-                                                    adminNote={ver.admin_note}
-                                                    createdAt={ver.created_at}
-                                                    reviewedAt={ver.reviewed_at}
-                                                />
-
-                                                {/* Image Grid */}
-                                                {ver.design_images.length > 0 ? (
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        {ver.design_images.map((img) => (
-                                                            <div key={img.id} className="group relative">
-                                                                <a href={img.image_url} target="_blank" rel="noopener noreferrer">
-                                                                    <img
-                                                                        src={img.image_url}
-                                                                        alt={img.label || 'Demo'}
-                                                                        className="w-full aspect-square object-cover rounded-xl border border-[var(--border-color)] group-hover:border-white/30 transition-all"
-                                                                    />
-                                                                </a>
-                                                                <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-[var(--text-secondary)] px-2 py-0.5 rounded-full">
-                                                                    {img.label || `#${img.sort_order}`}
-                                                                </span>
-                                                                <button
-                                                                    onClick={() => handleDeleteDemoImage(img.id)}
-                                                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-400 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
-                                                                    title="Xóa ảnh"
-                                                                >
-                                                                    <span className="text-[var(--text-primary)] text-xs font-bold">✕</span>
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-[var(--text-tertiary)] text-sm text-center py-4">Chưa có ảnh</p>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Upload Demo (show when designing/revising/processing) */}
-                                    {['designing', 'processing', 'revising', 'review'].includes(order.status) && (
-                                        <>
-                                            <p className="text-[var(--text-secondary)] text-sm">📷 Upload ảnh demo:</p>
-                                            <label className={`
-                                                flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
-                                                border-2 border-dashed border-cyan-500/30 hover:border-cyan-500/50 
-                                                bg-cyan-500/10 hover:bg-cyan-500/20 transition-all cursor-pointer
-                                                ${uploadingDemo ? 'opacity-50 cursor-wait' : ''}
-                                            `}>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={(e) => handleUploadDemoImage(e)}
-                                                    disabled={uploadingDemo}
-                                                    className="hidden"
-                                                />
-                                                {uploadingDemo ? (
-                                                    <>
-                                                        <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-                                                        <span className="text-cyan-400 text-sm">Đang upload...</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                        </svg>
-                                                        <span className="text-cyan-400 text-sm font-medium">Thêm ảnh demo</span>
-                                                    </>
-                                                )}
-                                            </label>
-                                        </>
-                                    )}
-
-                                    {/* Send for Review Button */}
-                                    {['designing', 'revising'].includes(order.status) && designVersions.some(v => v.design_images.length > 0) && (
-                                        <button
-                                            onClick={handleSendForReview}
-                                            disabled={updating}
-                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-[var(--text-primary)] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-                                        >
-                                            {updating ? 'Đang gửi...' : '📤 Gửi cho khách duyệt'}
-                                        </button>
-                                    )}
+                                    </label>
+                                    <p className="text-white/30 text-xs mt-2 text-center">
+                                        Ảnh sẽ được gửi cho khách duyệt
+                                    </p>
                                 </div>
                             )}
 
-                            {/* ═══ FINISHED PRODUCT SECTION (Custom orders in producing/finished) ═══ */}
-                            {order.order_type === 'custom' && ['producing', 'finished', 'shipping', 'delivered'].includes(order.status) && (
-                                <div className="mt-6 pt-6 border-t border-[var(--border-color)] space-y-4">
-                                    <p className="text-[var(--text-secondary)] text-sm">📸 Ảnh thành phẩm:</p>
-
-                                    {/* Upload button (only when producing) */}
-                                    {order.status === 'producing' && (
-                                        <label className={`
-                                            flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
-                                            border-2 border-dashed border-teal-500/30 hover:border-teal-500/50 
-                                            bg-teal-500/10 hover:bg-teal-500/20 transition-all cursor-pointer
-                                            ${uploadingFinished ? 'opacity-50 cursor-wait' : ''}
-                                        `}>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleUploadFinishedImage}
-                                                disabled={uploadingFinished}
-                                                className="hidden"
-                                            />
-                                            {uploadingFinished ? (
-                                                <>
-                                                    <span className="w-4 h-4 border-2 border-teal-400/30 border-t-teal-400 rounded-full animate-spin" />
-                                                    <span className="text-teal-400 text-sm">Đang upload...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                    </svg>
-                                                    <span className="text-teal-400 text-sm font-medium">Thêm ảnh thành phẩm</span>
-                                                </>
-                                            )}
-                                        </label>
-                                    )}
-
-                                    {/* Finished Images Gallery */}
-                                    {(order.finished_images && order.finished_images.length > 0) && (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {order.finished_images.map((img, idx) => (
-                                                <a key={idx} href={img.url} target="_blank" rel="noopener noreferrer" className="group relative">
-                                                    <img
-                                                        src={img.url}
-                                                        alt={img.label || `Thành phẩm ${idx + 1}`}
-                                                        className="w-full aspect-square object-cover rounded-xl border border-[var(--border-color)] group-hover:border-teal-400/50 transition-all"
-                                                    />
-                                                    <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 text-[var(--text-secondary)] px-2 py-0.5 rounded-full">
-                                                        {img.label || `#${idx + 1}`}
-                                                    </span>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Mark as Finished */}
-                                    {order.status === 'producing' && (
-                                        <button
-                                            onClick={handleMarkFinished}
-                                            disabled={updating}
-                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-[var(--text-primary)] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-                                        >
-                                            {updating ? 'Đang xử lý...' : '✅ Xác nhận hoàn thiện đơn hàng'}
-                                        </button>
-                                    )}
+                            {/* Current Demo Image Preview */}
+                            {order.demo_image_url && (
+                                <div className="mt-6 pt-6 border-t border-white/10">
+                                    <p className="text-white/50 text-sm mb-3">🖼️ Ảnh demo hiện tại:</p>
+                                    <a href={order.demo_image_url} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                            src={order.demo_image_url}
+                                            alt="Demo preview"
+                                            className="w-full rounded-xl border border-white/10 hover:border-white/30 transition-all"
+                                        />
+                                    </a>
                                 </div>
                             )}
                         </motion.div>
                     )}
 
-                    {/* Archive Files Section - Show when order is delivered (not for ready-made products) */}
-                    {order.status === 'delivered' && order.order_type !== 'ready_made' && (
+                    {/* Archive Files Section - Show when order is delivered */}
+                    {order.status === 'delivered' && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-[var(--text-primary)] font-semibold flex items-center gap-2">
+                                    <h3 className="text-white font-semibold flex items-center gap-2">
                                         📦 Lưu trữ file
                                     </h3>
-                                    <p className="text-[var(--text-secondary)] text-sm mt-1">
-                                        {order.archived_at
-                                            ? `Đã lưu trữ lúc ${new Date(order.archived_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-                                            : 'Chuyển file từ R2 sang Google Drive để lưu trữ lâu dài'}
+                                    <p className="text-white/50 text-sm mt-1">
+                                        Chuyển file từ R2 sang Google Drive để lưu trữ lâu dài
                                     </p>
                                 </div>
-                                {order.archived_at ? (
-                                    <span className="px-4 py-2 rounded-xl bg-green-500/15 text-green-400 text-sm font-medium">
-                                        ✓ Đã lưu trữ
-                                    </span>
-                                ) : (
-                                    <button
-                                        onClick={handleArchiveFiles}
-                                        disabled={archiving}
-                                        className="px-6 py-2.5 rounded-xl bg-indigo-500 text-[var(--text-primary)] font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
-                                    >
-                                        {archiving ? (
-                                            <span className="flex items-center gap-2">
-                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                Đang lưu trữ...
-                                            </span>
-                                        ) : 'Archive to Drive'}
-                                    </button>
-                                )}
+                                <button
+                                    onClick={handleArchiveFiles}
+                                    disabled={archiving}
+                                    className="px-6 py-2.5 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
+                                >
+                                    {archiving ? (
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Đang lưu trữ...
+                                        </span>
+                                    ) : 'Archive to Drive'}
+                                </button>
                             </div>
                             {archiveError && (
                                 <p className="text-red-400 text-sm mt-3">❌ {archiveError}</p>
@@ -1080,9 +680,9 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
+                        <h2 className="text-lg font-semibold text-white mb-4">
                             {order.order_type === 'custom' ? 'Chi tiết đơn Custom' :
                                 order.order_type === 'printing' ? 'Chi tiết đơn In 3D' : 'Sản phẩm'}
                         </h2>
@@ -1091,9 +691,9 @@ export default function AdminOrderDetailPage() {
                             {order.order_type === 'custom' && order.custom_config && (
                                 <div className="space-y-3">
                                     {/* Row 1: Loại tranh */}
-                                    <div className="flex items-center justify-between py-3 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">Loại tranh</span>
-                                        <span className="text-[var(--text-primary)] font-medium">
+                                    <div className="flex items-center justify-between py-3 border-b border-white/10">
+                                        <span className="text-white/60">Loại tranh</span>
+                                        <span className="text-white font-medium">
                                             {order.custom_config.type === 'single' ? 'Cá nhân (1 người)' :
                                                 order.custom_config.type === 'couple' ? 'Couple (2 người)' :
                                                     'Nhóm (3+ người)'}
@@ -1101,9 +701,9 @@ export default function AdminOrderDetailPage() {
                                     </div>
 
                                     {/* Row 2: Kích thước */}
-                                    <div className="flex items-center justify-between py-3 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">Kích thước</span>
-                                        <span className="text-[var(--text-primary)] font-medium">
+                                    <div className="flex items-center justify-between py-3 border-b border-white/10">
+                                        <span className="text-white/60">Kích thước</span>
+                                        <span className="text-white font-medium">
                                             {order.custom_config.size === 'S' ? 'S - 10cm' :
                                                 order.custom_config.size === 'M' ? 'M - 15cm' :
                                                     order.custom_config.size === 'L' ? 'L - 20cm' :
@@ -1113,161 +713,190 @@ export default function AdminOrderDetailPage() {
                                     </div>
 
                                     {/* Row 3: Ghi chú */}
-                                    <div className="py-3 border-b border-[var(--border-color)]">
-                                        <p className="text-[var(--text-secondary)] mb-2">Ghi chú của khách</p>
-                                        <p className="text-[var(--text-primary)]">
+                                    <div className="py-3 border-b border-white/10">
+                                        <p className="text-white/60 mb-2">Ghi chú của khách</p>
+                                        <p className="text-white">
                                             {order.custom_config.notes || '—'}
                                         </p>
                                     </div>
 
-                                    {/* Row 4: Ảnh tham khảo — ImageGallery */}
+                                    {/* Row 4: Ảnh tham khảo */}
                                     <div className="py-3">
-                                        <p className="text-[var(--text-secondary)] mb-3">
+                                        <p className="text-white/60 mb-2">
                                             Ảnh tham khảo ({order.custom_config.images?.length || 0} ảnh)
                                         </p>
-                                        <CustomImageSection
-                                            images={order.custom_config.images || []}
-                                            characters={order.custom_config.characters}
-                                        />
+                                        {order.custom_config.images && order.custom_config.images.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {order.custom_config.images.map((img, idx) => (
+                                                    <a
+                                                        key={idx}
+                                                        href={img.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                                                    >
+                                                        <img
+                                                            src={img.thumbnail || img.url}
+                                                            alt={img.name}
+                                                            className="w-12 h-12 object-cover rounded"
+                                                        />
+                                                        <span className="text-white text-sm flex-1 truncate">
+                                                            {img.name || `Ảnh ${idx + 1}`}
+                                                        </span>
+                                                        <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                        </svg>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-white/40">—</p>
+                                        )}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Printing Order — per-item print config */}
-                            {(order.order_type === 'printing' || order.order_type === 'print_3d') && order.printing_config && (
-                                <div className="space-y-1">
-                                    {/* File List with per-item print specs */}
-                                    <div className="px-4 py-3">
-                                        <p className="text-[var(--text-tertiary)] text-[11px] uppercase tracking-wider font-medium mb-2">
-                                            Chi tiết đơn in 3D · {order.order_items?.length || 0} files
-                                        </p>
+                            {/* Printing Order - Show printing_config */}
+                            {order.order_type === 'printing' && order.printing_config && (
+                                <div className="space-y-4">
+                                    {/* Section 1: Options đã chọn */}
+                                    <div className="p-4 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl border border-orange-500/20">
+                                        <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                                            <span className="w-6 h-6 bg-orange-500/20 rounded-full flex items-center justify-center text-xs">1</span>
+                                            Thông số in 3D
+                                        </h3>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="p-3 bg-white/5 rounded-lg">
+                                                <p className="text-white/50 text-xs mb-1">Công nghệ</p>
+                                                <p className="text-white font-medium">
+                                                    {order.printing_config.type === 'fdm' ? '🔧 FDM' : '✨ Resin'}
+                                                </p>
+                                            </div>
+                                            <div className="p-3 bg-white/5 rounded-lg">
+                                                <p className="text-white/50 text-xs mb-1">Màu sắc</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className="w-4 h-4 rounded-full border border-white/30"
+                                                        style={{ backgroundColor: order.printing_config.color }}
+                                                    />
+                                                    <p className="text-white font-medium capitalize">{order.printing_config.color}</p>
+                                                </div>
+                                            </div>
+                                            <div className="p-3 bg-white/5 rounded-lg">
+                                                <p className="text-white/50 text-xs mb-1">Số lượng</p>
+                                                <p className="text-white font-medium">{order.printing_config.quantity} sản phẩm</p>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                        {order.order_items && order.order_items.length > 0 ? (
+                                    {/* Section 2: Phân tích file */}
+                                    {order.printing_config.analysis && (
+                                        <div className="p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl border border-blue-500/20">
+                                            <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                                                <span className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center text-xs">2</span>
+                                                Phân tích & Ước tính
+                                            </h3>
+                                            <div className="grid grid-cols-4 gap-3">
+                                                <div className="p-3 bg-white/5 rounded-lg text-center">
+                                                    <p className="text-white/50 text-xs mb-1">Trọng lượng</p>
+                                                    <p className="text-white font-bold text-lg">{order.printing_config.analysis.grams}g</p>
+                                                </div>
+                                                <div className="p-3 bg-white/5 rounded-lg text-center">
+                                                    <p className="text-white/50 text-xs mb-1">Thời gian in</p>
+                                                    <p className="text-white font-bold text-lg">{order.printing_config.analysis.hours}h</p>
+                                                </div>
+                                                <div className="p-3 bg-white/5 rounded-lg text-center">
+                                                    <p className="text-white/50 text-xs mb-1">Đơn giá</p>
+                                                    <p className="text-white font-bold text-lg">{order.printing_config.analysis.price.toLocaleString('vi-VN')}đ</p>
+                                                </div>
+                                                <div className="p-3 bg-emerald-500/10 rounded-lg text-center border border-emerald-500/30">
+                                                    <p className="text-emerald-400/70 text-xs mb-1">Tổng tiền</p>
+                                                    <p className="text-emerald-400 font-bold text-lg">
+                                                        {(order.printing_config.analysis.price * order.printing_config.quantity).toLocaleString('vi-VN')}đ
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Section 3: Files STL */}
+                                    <div className="p-4 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 rounded-xl border border-cyan-500/20">
+                                        <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                                            <span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">3</span>
+                                            File 3D (STL/OBJ)
+                                            {order.printing_config.files && (
+                                                <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full ml-auto">
+                                                    {order.printing_config.files.length} file
+                                                </span>
+                                            )}
+                                        </h3>
+                                        {order.printing_config.files && order.printing_config.files.length > 0 ? (
                                             <div className="space-y-2">
-                                                {order.order_items.map((item, idx) => {
-                                                    const matchedFile = order.order_files?.find(
-                                                        (f) => f.order_item_id === item.id
-                                                    ) || null;
-
-                                                    // Read from joined print_jobs table (alias: print_job in Supabase select)
-                                                    // Handle both object (1:1) and array (1:N) responses from Supabase
-                                                    const rawPc = (item as any).print_job || (item as any).print_config;
-                                                    const pc = Array.isArray(rawPc) ? rawPc[0] : rawPc;
-
-                                                    // Fallback: parse spec JSON for legacy orders
-                                                    // DB column is 'spec', not 'configuration' — check both for compat
-                                                    let rawSpec = (item as any).spec || (item as any).configuration || {};
-
-                                                    // Handle stringified JSON if Supabase returns text column
-                                                    if (typeof rawSpec === 'string') {
-                                                        try {
-                                                            rawSpec = JSON.parse(rawSpec);
-                                                        } catch (e) {
-                                                            console.error('Failed to parse spec JSON:', e);
-                                                            rawSpec = {};
-                                                        }
-                                                    }
-
-                                                    const opts = (rawSpec.printOptions as Record<string, unknown>) || rawSpec;
-
-                                                    // Derive print_tech from material since print_jobs has no print_tech column
-                                                    // petg = FDM, standard_resin = Resin/SLA
-                                                    const derivePrintTech = (material: string | null): string | undefined => {
-                                                        if (!material) return undefined;
-                                                        const m = material.toLowerCase();
-                                                        if (m === 'petg' || m === 'pla' || m === 'abs') return 'fdm';
-                                                        if (m.includes('resin')) return 'resin';
-                                                        return undefined;
-                                                    };
-
-                                                    const fileCardData: PrintFileCardData = {
-                                                        orderFile: matchedFile,
-                                                        itemName: (item as any).name || `File ${idx + 1}`,
-                                                        quantity: item.quantity,
-                                                        unitPrice: item.unit_price,
-                                                        totalPrice: item.total_price,
-                                                        spec: {
-                                                            print_tech: derivePrintTech(pc?.material) || (opts.print_tech as string) || (opts.type as string),
-                                                            material: pc?.material || (opts.material as string) || undefined,
-                                                            color: pc?.color || (opts.color as string),
-                                                            infill: pc?.infill?.toString() || (opts.infill as string)?.replace('%', ''),
-                                                            layer_height: pc?.layer_height?.toString() || (opts.layer_height as string) || (opts.layerHeight as string),
-                                                            volume: pc?.volume || (opts.volume as number),
-                                                            grams: pc?.estimated_grams || (opts.grams as number),
-                                                            hours: pc?.estimated_hours || (opts.hours as number),
-                                                        },
-                                                    };
-
-                                                    return (
-                                                        <PrintFileCard
-                                                            key={item.id || idx}
-                                                            file={fileCardData}
-                                                            index={idx}
-                                                            onClick={() => setSelectedPrintFile(fileCardData)}
-                                                        />
-                                                    );
-                                                })}
+                                                {order.printing_config.files.map((file, idx) => (
+                                                    <a
+                                                        key={idx}
+                                                        href={file.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors group"
+                                                    >
+                                                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center">
+                                                            <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-white font-medium truncate">{file.name}</p>
+                                                            <p className="text-white/40 text-xs">File 3D • Click để tải xuống</p>
+                                                        </div>
+                                                        <svg className="w-5 h-5 text-white/40 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                        </svg>
+                                                    </a>
+                                                ))}
                                             </div>
                                         ) : (
-                                            <p className="text-[var(--text-tertiary)] text-sm">Chưa có file</p>
+                                            <p className="text-white/40 italic">Chưa có file</p>
                                         )}
                                     </div>
 
-                                    {/* Notes (if any) */}
+                                    {/* Section 4: Ghi chú (if exists) */}
                                     {order.printing_config.notes && (
-                                        <>
-                                            <div className="border-t border-white/[0.06]" />
-                                            <div className="px-4 py-3">
-                                                <p className="text-[var(--text-tertiary)] text-[11px] uppercase tracking-wider font-medium mb-1.5">Ghi chú</p>
-                                                <p className="text-[var(--text-secondary)] text-sm whitespace-pre-wrap">{order.printing_config.notes}</p>
+                                        <div className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-xl border border-amber-500/20">
+                                            <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                                                <span className="w-6 h-6 bg-amber-500/20 rounded-full flex items-center justify-center text-xs">4</span>
+                                                Ghi chú của khách
+                                            </h3>
+                                            <div className="p-3 bg-white/5 rounded-lg">
+                                                <p className="text-white whitespace-pre-wrap">{order.printing_config.notes}</p>
                                             </div>
-                                        </>
+                                        </div>
                                     )}
-
-                                    {/* File Detail Drawer */}
-                                    <PrintFileDetail
-                                        file={selectedPrintFile}
-                                        orderId={order.id}
-                                        onClose={() => setSelectedPrintFile(null)}
-                                    />
                                 </div>
                             )}
 
                             {/* Ready Made Order - Show order_items */}
                             {order.order_type === 'ready_made' && (!order.order_items || order.order_items.length === 0) && (
                                 <div className="p-8 text-center">
-                                    <svg className="w-12 h-12 mx-auto text-[var(--text-tertiary)] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-12 h-12 mx-auto text-white/20 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                     </svg>
-                                    <p className="text-[var(--text-tertiary)]">Không có sản phẩm trong đơn hàng này</p>
+                                    <p className="text-white/40">Không có sản phẩm trong đơn hàng này</p>
                                 </div>
                             )}
 
-                            {order.order_type !== 'printing' && order.order_type !== 'print_3d' && order.order_items && order.order_items.length > 0 && order.order_items.map((item, idx) => {
+                            {order.order_items && order.order_items.length > 0 && order.order_items.map((item, idx) => {
                                 const config = item.configuration as CustomConfig | PrintingConfig | undefined;
                                 const isCustom = order.order_type === 'custom';
                                 const isPrinting = order.order_type === 'printing';
-                                const customConfig = isCustom ? config as CustomConfig : null;
-                                const printingConfig = isPrinting ? config as PrintingConfig : null;
-
-                                // Build item code display: cart_code_item_order_code
-                                const cartCode = (order as any).cart_code || order.order_code.substring(0, 8);
-                                const itemOrderCode = (item as any).item_order_code;
-                                const displayItemCode = itemOrderCode ? `${cartCode}_${itemOrderCode}` : null;
+                                const customConfig = isCustom ? (order.custom_config as CustomConfig || config as CustomConfig) : null;
+                                const printingConfig = isPrinting ? (order.printing_config as PrintingConfig || config as PrintingConfig) : null;
 
                                 return (
-                                    <div key={item.id || idx} className="p-4 bg-[var(--material-glass)] rounded-xl space-y-4">
-                                        {/* Item code badge (if available) */}
-                                        {displayItemCode && (
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs font-mono rounded">
-                                                    📦 {displayItemCode}
-                                                </span>
-                                            </div>
-                                        )}
+                                    <div key={item.id || idx} className="p-4 bg-white/5 rounded-xl space-y-4">
                                         {/* Main product info */}
                                         <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-[var(--material-glass)] flex-shrink-0">
+                                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
                                                 {item.product_image ? (
                                                     <img
                                                         src={item.product_image}
@@ -1280,27 +909,27 @@ export default function AdminOrderDetailPage() {
                                                     />
                                                 ) : null}
                                                 <div className={`w-full h-full flex items-center justify-center ${item.product_image ? 'hidden' : ''}`}>
-                                                    <svg className="w-8 h-8 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                                     </svg>
                                                 </div>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[var(--text-primary)] font-medium truncate">{item.product_name}</p>
-                                                <p className="text-[var(--text-secondary)] text-sm">
+                                                <p className="text-white font-medium truncate">{item.product_name}</p>
+                                                <p className="text-white/50 text-sm">
                                                     {item.product_sku} • {item.size} × {item.quantity}
                                                 </p>
-                                                <p className="text-[var(--text-tertiary)] text-xs mt-1">
+                                                <p className="text-white/40 text-xs mt-1">
                                                     {(item.unit_price || (item.total_price / (item.quantity || 1))).toLocaleString('vi-VN')}đ/sp
                                                 </p>
                                             </div>
-                                            <p className="text-[var(--text-primary)] font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
+                                            <p className="text-white font-medium">{item.total_price.toLocaleString('vi-VN')}đ</p>
                                         </div>
 
                                         {/* Custom Order: Photo uploads & style */}
                                         {
                                             isCustom && customConfig && (
-                                                <div className="pt-4 border-t border-[var(--border-color)] space-y-3">
+                                                <div className="pt-4 border-t border-white/10 space-y-3">
                                                     {/* Style & Type */}
                                                     <div className="flex flex-wrap gap-2">
                                                         {customConfig.type && (
@@ -1314,85 +943,70 @@ export default function AdminOrderDetailPage() {
                                                             </span>
                                                         )}
                                                         {customConfig.size && (
-                                                            <span className="px-2 py-1 bg-[var(--material-glass)] text-[var(--text-secondary)] text-xs rounded-full">
+                                                            <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full">
                                                                 Size: {customConfig.size}
                                                             </span>
                                                         )}
                                                     </div>
 
                                                     {/* Uploaded photos */}
-                                                    {customConfig.photos && customConfig.photos.length > 0 && (
+                                                    {customConfig.images && customConfig.images.length > 0 && (
                                                         <div>
-                                                            <p className="text-[var(--text-secondary)] text-xs mb-2">📸 Ảnh khách gửi ({customConfig.photos.length})</p>
+                                                            <p className="text-white/50 text-xs mb-2">Ảnh khách gửi ({customConfig.images.length})</p>
                                                             <div className="flex flex-wrap gap-2">
-                                                                {customConfig.photos.map((photo, idx) => (
-                                                                    <a
-                                                                        key={idx}
-                                                                        href={photo.web_view_link || `https://drive.google.com/file/d/${photo.drive_file_id}/view`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="w-16 h-16 rounded-lg overflow-hidden bg-[var(--material-glass)] hover:ring-2 hover:ring-cyan-500 transition-all"
-                                                                    >
-                                                                        <img
-                                                                            src={`https://lh3.googleusercontent.com/d/${photo.drive_file_id}=w200`}
-                                                                            alt={photo.file_name}
-                                                                            className="w-full h-full object-cover"
-                                                                            onError={(e) => {
-                                                                                e.currentTarget.src = '';
-                                                                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-[var(--text-tertiary)]"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>';
-                                                                            }}
-                                                                        />
-                                                                    </a>
-                                                                ))}
+                                                                {customConfig.images.map((photo, idx) => {
+                                                                    const photoKey = photo.key || photo.url || String(idx);
+                                                                    const isBroken = !!brokenPhotoIds[photoKey];
+
+                                                                    return (
+                                                                        <a
+                                                                            key={photoKey}
+                                                                            href={photo.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:ring-2 hover:ring-cyan-500 transition-all"
+                                                                        >
+                                                                            {isBroken ? (
+                                                                                <div className="w-full h-full flex items-center justify-center text-white/30">
+                                                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                                    </svg>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <img
+                                                                                    src={photo.thumbnail || photo.url}
+                                                                                    alt={photo.name || `Ảnh ${idx + 1}`}
+                                                                                    className="w-full h-full object-cover"
+                                                                                    onError={() => {
+                                                                                        setBrokenPhotoIds(prev => ({ ...prev, [photoKey]: true }));
+                                                                                    }}
+                                                                                />
+                                                                            )}
+                                                                        </a>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     )}
 
                                                     {/* Demo photo if approved */}
-                                                    {customConfig.demo_photo && (
-                                                        <div>
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <p className="text-[var(--text-secondary)] text-xs">🎨 Demo</p>
-                                                                {customConfig.customer_approved && (
-                                                                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">✓ Đã duyệt</span>
-                                                                )}
-                                                            </div>
-                                                            <a
-                                                                href={customConfig.demo_photo.web_view_link || `https://drive.google.com/file/d/${customConfig.demo_photo.drive_file_id}/view`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-block w-24 h-24 rounded-lg overflow-hidden bg-[var(--material-glass)] hover:ring-2 hover:ring-emerald-500 transition-all"
-                                                            >
-                                                                <img
-                                                                    src={`https://lh3.googleusercontent.com/d/${customConfig.demo_photo.drive_file_id}=w200`}
-                                                                    alt="Demo"
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            </a>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             )
                                         }
 
-                                        {/* Printing Order: STL file & specs */}
+                                        {/* Printing Order: Files & specs */}
                                         {
                                             isPrinting && printingConfig && (
-                                                <div className="pt-4 border-t border-[var(--border-color)] space-y-3">
+                                                <div className="pt-4 border-t border-white/10 space-y-3">
                                                     {/* Print specs */}
                                                     <div className="flex flex-wrap gap-2">
-                                                        {printingConfig.print_type && (
+                                                        {(printingConfig.type || (printingConfig as any).print_tech) && (
                                                             <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full">
-                                                                {printingConfig.print_type}
-                                                            </span>
-                                                        )}
-                                                        {printingConfig.material && (
-                                                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
-                                                                {printingConfig.material}
+                                                                {printingConfig.type || (printingConfig as any).print_tech}
                                                             </span>
                                                         )}
                                                         {printingConfig.color && (
-                                                            <span className="px-2 py-1 bg-[var(--material-glass)] text-[var(--text-secondary)] text-xs rounded-full flex items-center gap-1">
+                                                            <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full flex items-center gap-1">
                                                                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: printingConfig.color.toLowerCase() }}></span>
                                                                 {printingConfig.color}
                                                             </span>
@@ -1400,34 +1014,39 @@ export default function AdminOrderDetailPage() {
                                                     </div>
 
                                                     {/* Technical specs */}
-                                                    {(printingConfig.infill || printingConfig.layer_height) && (
-                                                        <div className="flex gap-4 text-xs text-[var(--text-secondary)]">
-                                                            {printingConfig.infill && <span>Infill: {printingConfig.infill}%</span>}
-                                                            {printingConfig.layer_height && <span>Layer: {printingConfig.layer_height}mm</span>}
+                                                    {(printingConfig.infill || printingConfig.layerHeight) && (
+                                                        <div className="flex gap-4 text-xs text-white/50">
+                                                            {printingConfig.infill && <span>Infill: {printingConfig.infill}</span>}
+                                                            {printingConfig.layerHeight && <span>Layer: {printingConfig.layerHeight}mm</span>}
                                                         </div>
                                                     )}
 
-                                                    {/* STL File */}
-                                                    {printingConfig.stl_file && (
-                                                        <a
-                                                            href={printingConfig.stl_file.web_view_link || `https://drive.google.com/file/d/${printingConfig.stl_file.drive_file_id}/view`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="flex items-center gap-3 p-3 bg-[var(--material-glass)] rounded-lg hover:bg-[var(--material-glass)] transition-colors"
-                                                        >
-                                                            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                                                                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                                </svg>
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-[var(--text-primary)] text-sm truncate">{printingConfig.stl_file.file_name}</p>
-                                                                <p className="text-[var(--text-tertiary)] text-xs">File STL • Click để xem</p>
-                                                            </div>
-                                                            <svg className="w-4 h-4 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                            </svg>
-                                                        </a>
+                                                    {/* Files */}
+                                                    {printingConfig.files && printingConfig.files.length > 0 && (
+                                                        <div className="space-y-2">
+                                                            {printingConfig.files.map((file, idx) => (
+                                                                <a
+                                                                    key={file.key || `${file.url}-${idx}`}
+                                                                    href={file.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                                                                >
+                                                                    <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                                                                        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-white text-sm truncate">{file.name}</p>
+                                                                        <p className="text-white/40 text-xs">File 3D • Click để xem</p>
+                                                                    </div>
+                                                                    <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                    </svg>
+                                                                </a>
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </div>
                                             )
@@ -1443,15 +1062,15 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú Admin</h2>
+                        <h2 className="text-lg font-semibold text-white mb-4">Ghi chú Admin</h2>
                         <textarea
                             value={adminNote}
                             onChange={(e) => setAdminNote(e.target.value)}
                             onBlur={handleSaveNote}
                             placeholder="Ghi chú nội bộ..."
-                            className="w-full p-4 bg-[var(--bg-void)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/20 border border-[var(--border-color)]"
+                            className="w-full p-4 bg-[#0a0a0a] rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-white/20 border border-white/10"
                             rows={3}
                         />
                     </motion.div>
@@ -1464,12 +1083,12 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                     >
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thông tin khách hàng</h2>
+                            <h2 className="text-lg font-semibold text-white">Thông tin khách hàng</h2>
                             {order.profiles?.customer_code && (
-                                <span className="text-xs bg-[var(--material-glass)] text-[var(--text-secondary)] px-2 py-1 rounded-full font-mono">
+                                <span className="text-xs bg-white/10 text-white/70 px-2 py-1 rounded-full font-mono">
                                     {order.profiles.customer_code}
                                 </span>
                             )}
@@ -1477,17 +1096,17 @@ export default function AdminOrderDetailPage() {
 
                         {/* Profile Info */}
                         <div className="space-y-4">
-                            <div className="flex items-center gap-3 p-3 bg-[var(--material-glass)] rounded-xl">
-                                <div className="w-10 h-10 rounded-full bg-[var(--material-glass)] flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[var(--text-primary)] font-medium truncate">
-                                        {order.profiles?.full_name || (order.shipping_address as any)?.full_name || (order.shipping_address as any)?.name || order.profiles?.email?.split('@')[0] || 'Khách hàng'}
+                                    <p className="text-white font-medium truncate">
+                                        {order.profiles?.full_name || order.shipping_address?.full_name || order.profiles?.email?.split('@')[0] || 'Khách hàng'}
                                     </p>
-                                    <p className="text-[var(--text-secondary)] text-sm">Khách hàng</p>
+                                    <p className="text-white/50 text-sm">Khách hàng</p>
                                 </div>
                             </div>
 
@@ -1495,28 +1114,28 @@ export default function AdminOrderDetailPage() {
                             <div className="grid gap-3">
                                 {order.profiles?.email && (
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-[var(--material-glass)] flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="text-[var(--text-secondary)] text-xs">Email</p>
-                                            <p className="text-[var(--text-primary)] text-sm">{order.profiles.email}</p>
+                                            <p className="text-white/50 text-xs">Email</p>
+                                            <p className="text-white text-sm">{order.profiles.email}</p>
                                         </div>
                                     </div>
                                 )}
 
                                 {(order.profiles?.phone || order.shipping_address?.phone) && (
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-[var(--material-glass)] flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="text-[var(--text-secondary)] text-xs">Số điện thoại</p>
-                                            <p className="text-[var(--text-primary)] text-sm">{order.profiles?.phone || order.shipping_address?.phone}</p>
+                                            <p className="text-white/50 text-xs">Số điện thoại</p>
+                                            <p className="text-white text-sm">{order.profiles?.phone || order.shipping_address?.phone}</p>
                                         </div>
                                     </div>
                                 )}
@@ -1529,76 +1148,68 @@ export default function AdminOrderDetailPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                     >
                         <div className="flex items-center gap-2 mb-4">
-                            <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Địa chỉ giao hàng</h2>
+                            <h2 className="text-lg font-semibold text-white">Địa chỉ giao hàng</h2>
                         </div>
-                        {order.shipping_address ? (() => {
-                            const addr = order.shipping_address as any;
-                            const displayName = addr.full_name || addr.name || '';
-                            const displayPhone = addr.phone || '';
-                            const displayAddress = addr.address_line || addr.address || '';
-                            const displayWard = addr.ward || '';
-                            const displayDistrict = addr.district || '';
-                            const displayProvince = addr.province || addr.city || '';
-                            return (
-                                <div className="space-y-2">
-                                    <p className="text-[var(--text-primary)] font-medium">{displayName}</p>
-                                    <p className="text-[var(--text-secondary)]">{displayPhone}</p>
-                                    <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
-                                        {[displayAddress, displayWard, displayDistrict, displayProvince].filter(Boolean).join(', ')}
-                                    </p>
-                                </div>
-                            );
-                        })() : (
-                            <p className="text-[var(--text-secondary)]">Chưa có địa chỉ</p>
+                        {order.shipping_address ? (
+                            <div className="space-y-2">
+                                <p className="text-white font-medium">{order.shipping_address.full_name}</p>
+                                <p className="text-white/70">{order.shipping_address.phone}</p>
+                                <p className="text-white/50 text-sm">
+                                    {order.shipping_address.address_line}
+                                    {order.shipping_address.ward && `, ${order.shipping_address.ward}`}
+                                    {order.shipping_address.district && `, ${order.shipping_address.district}`}
+                                    , {order.shipping_address.province}
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-white/50">Chưa có địa chỉ</p>
                         )}
                         {order.shipping_code && (
-                            <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+                            <div className="mt-4 pt-4 border-t border-white/10">
                                 <div className="flex items-center gap-2">
                                     <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                                     </svg>
-                                    <p className="text-[var(--text-secondary)] text-sm">Mã vận đơn</p>
+                                    <p className="text-white/70 text-sm">Mã vận đơn</p>
                                 </div>
-                                <p className="text-[var(--text-primary)] font-mono text-lg mt-1">{order.shipping_code}</p>
+                                <p className="text-white font-mono text-lg mt-1">{order.shipping_code}</p>
                             </div>
                         )}
                     </motion.div>
-
-
 
                     {/* Payment */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                        className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toán</h2>
+                        <h2 className="text-lg font-semibold text-white mb-4">Thanh toán</h2>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tổng sản phẩm</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white/70">Tổng sản phẩm</span>
+                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tổng sản phẩm</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white/70">Phí vận chuyển</span>
+                                <span className="text-white">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
-                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
-                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                            <div className="border-t border-white/10 pt-3 flex justify-between">
+                                <span className="text-white font-medium">Tổng cộng</span>
+                                <span className="text-white font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className={`flex justify-between ${order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                                <span>Tiền cọc {order.deposit_paid ? '(đã nhận)' : '(chờ)'}</span>
+                                <span>Tiền cọc {order.deposit_paid ? '(đã nhận)' : '(chưa)'}</span>
                                 <span>{order.deposit_amount.toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className="flex justify-between text-[var(--text-secondary)]">
+                            <div className="flex justify-between text-white/50">
                                 <span>Còn lại (COD)</span>
                                 <span>{remaining.toLocaleString('vi-VN')}đ</span>
                             </div>
@@ -1611,10 +1222,10 @@ export default function AdminOrderDetailPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                         >
-                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú khách</h2>
-                            <p className="text-[var(--text-secondary)]">{order.customer_note}</p>
+                            <h2 className="text-lg font-semibold text-white mb-4">Ghi chú khách</h2>
+                            <p className="text-white/70">{order.customer_note}</p>
                         </motion.div>
                     )}
                 </div>
@@ -1627,15 +1238,15 @@ export default function AdminOrderDetailPage() {
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="w-full max-w-md bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
+                            className="w-full max-w-md bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
                         >
-                            <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Nhập mã vận đơn</h2>
+                            <h2 className="text-xl font-bold text-white mb-4">Nhập mã vận đơn</h2>
                             <input
                                 type="text"
                                 value={trackingCode}
                                 onChange={(e) => setTrackingCode(e.target.value)}
                                 placeholder="VD: VTP123456789"
-                                className="w-full px-4 py-3 bg-[var(--bg-void)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-white/30 mb-4"
+                                className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 mb-4"
                             />
                             <div className="flex gap-3">
                                 <button
@@ -1647,7 +1258,7 @@ export default function AdminOrderDetailPage() {
                                 </button>
                                 <button
                                     onClick={() => setShowTrackingModal(false)}
-                                    className="px-6 py-3 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)]"
+                                    className="px-6 py-3 rounded-xl border border-white/20 text-white/70"
                                 >
                                     Hủy
                                 </button>
@@ -1656,40 +1267,6 @@ export default function AdminOrderDetailPage() {
                     </div>
                 )
             }
-
-            {/* Cancel Confirmation Modal */}
-            <AnimatePresence>
-                {confirmCancel && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-[var(--material-panel)] rounded-2xl p-6 max-w-md w-full border border-[var(--border-color)] shadow-2xl"
-                        >
-                            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">Xác nhận hủy đơn?</h3>
-                            <p className="text-[var(--text-secondary)] mb-6">
-                                Hành động này sẽ chuyển trạng thái đơn hàng sang "Đã hủy".
-                                {order?.deposit_paid ? ' Kho hàng sẽ được hoàn lại tự động.' : ''}
-                            </p>
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    onClick={() => setConfirmCancel(false)}
-                                    className="px-4 py-2 rounded-lg bg-[var(--material-glass)] text-[var(--text-primary)] hover:bg-[var(--material-glass)] transition-colors"
-                                >
-                                    Đóng
-                                </button>
-                                <button
-                                    onClick={handleCancelOrder}
-                                    className="px-4 py-2 rounded-lg bg-red-500 text-[var(--text-primary)] hover:bg-red-600 transition-colors"
-                                >
-                                    Xác nhận hủy
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
         </div >
     );
 }

@@ -1,0 +1,416 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  userId uuid NOT NULL,
+  type text NOT NULL,
+  provider text NOT NULL,
+  providerAccountId text NOT NULL,
+  refresh_token text,
+  access_token text,
+  expires_at bigint,
+  token_type text,
+  scope text,
+  id_token text,
+  session_state text,
+  encrypted_refresh_token text,
+  encrypted_access_token text,
+  encrypted_id_token text,
+  CONSTRAINT accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT accounts_userId_fkey FOREIGN KEY (userId) REFERENCES public.users(id)
+);
+CREATE TABLE public.activity_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  action text,
+  metadata jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT activity_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT activity_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.admin_audit_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  admin_id uuid NOT NULL,
+  action text NOT NULL,
+  resource_type text NOT NULL,
+  resource_id text,
+  details jsonb DEFAULT '{}'::jsonb,
+  ip_address text,
+  user_agent text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT admin_audit_log_pkey PRIMARY KEY (id),
+  CONSTRAINT admin_audit_log_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.categories (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  parent_id uuid,
+  sort_order smallint DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  description text,
+  CONSTRAINT categories_pkey PRIMARY KEY (id),
+  CONSTRAINT categories_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.categories(id)
+);
+CREATE TABLE public.design_images (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  version_id uuid NOT NULL,
+  image_url text NOT NULL,
+  label text,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT design_images_pkey PRIMARY KEY (id),
+  CONSTRAINT design_images_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.design_versions(id)
+);
+CREATE TABLE public.design_versions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  version_number integer NOT NULL DEFAULT 1,
+  status text NOT NULL DEFAULT 'pending_review'::text CHECK (status = ANY (ARRAY['pending_review'::text, 'approved'::text, 'rejected'::text])),
+  admin_note text,
+  user_feedback text,
+  created_at timestamp with time zone DEFAULT now(),
+  reviewed_at timestamp with time zone,
+  CONSTRAINT design_versions_pkey PRIMARY KEY (id),
+  CONSTRAINT design_versions_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.file_links (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  file_id uuid NOT NULL,
+  ref_type text CHECK (ref_type = ANY (ARRAY['order'::text, 'order_item'::text, 'revision'::text])),
+  ref_id uuid NOT NULL,
+  tag text,
+  created_at timestamp with time zone DEFAULT now(),
+  metadata jsonb DEFAULT '{}'::jsonb CHECK (metadata IS NULL OR jsonb_typeof(metadata) = 'object'::text),
+  CONSTRAINT file_links_pkey PRIMARY KEY (id),
+  CONSTRAINT file_links_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.files(id)
+);
+CREATE TABLE public.files (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  file_url text NOT NULL,
+  mime_type text,
+  size_bytes bigint,
+  provider text DEFAULT 'r2'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  checksum_sha256 text,
+  original_filename text,
+  object_key text,
+  CONSTRAINT files_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  title text NOT NULL,
+  message text,
+  type text NOT NULL CHECK (type = ANY (ARRAY['design_approved'::text, 'design_rejected'::text, 'design_uploaded'::text, 'order_status'::text, 'payment'::text])),
+  is_read boolean NOT NULL DEFAULT false,
+  ref_id uuid,
+  ref_type text CHECK (ref_type = ANY (ARRAY['order'::text, 'design_version'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  read_at timestamp with time zone,
+  ref_order_id uuid,
+  ref_design_version_id uuid,
+  ref_payment_id uuid,
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT notifications_ref_order_id_fkey FOREIGN KEY (ref_order_id) REFERENCES public.orders(id),
+  CONSTRAINT notifications_ref_design_version_id_fkey FOREIGN KEY (ref_design_version_id) REFERENCES public.design_versions(id),
+  CONSTRAINT notifications_ref_payment_id_fkey FOREIGN KEY (ref_payment_id) REFERENCES public.payments(id)
+);
+CREATE TABLE public.order_addresses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL UNIQUE,
+  full_name text NOT NULL,
+  phone text NOT NULL,
+  province text,
+  district text,
+  ward text,
+  address_line text NOT NULL,
+  CONSTRAINT order_addresses_pkey PRIMARY KEY (id),
+  CONSTRAINT order_addresses_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.order_files (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  file_id uuid NOT NULL,
+  tag text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object'::text),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT order_files_pkey PRIMARY KEY (id),
+  CONSTRAINT order_files_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
+  CONSTRAINT order_files_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.files(id)
+);
+CREATE TABLE public.order_item_files (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_item_id uuid NOT NULL,
+  file_id uuid NOT NULL,
+  tag text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object'::text),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT order_item_files_pkey PRIMARY KEY (id),
+  CONSTRAINT order_item_files_order_item_id_fkey FOREIGN KEY (order_item_id) REFERENCES public.order_items(id),
+  CONSTRAINT order_item_files_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.files(id)
+);
+CREATE TABLE public.order_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  product_id uuid,
+  item_code character varying NOT NULL,
+  full_code character varying NOT NULL UNIQUE,
+  name text NOT NULL,
+  sku character varying,
+  quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit_price numeric NOT NULL DEFAULT 0 CHECK (unit_price >= 0::numeric),
+  item_type USER-DEFINED NOT NULL DEFAULT 'product'::item_type_enum,
+  production_status USER-DEFINED DEFAULT 'waiting'::production_status,
+  created_at timestamp with time zone DEFAULT now(),
+  total_price numeric DEFAULT ((quantity)::numeric * unit_price),
+  configuration jsonb DEFAULT '{}'::jsonb CHECK (configuration IS NULL OR jsonb_typeof(configuration) = 'object'::text),
+  product_variant_id uuid,
+  CONSTRAINT order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
+  CONSTRAINT order_items_product_variant_id_fkey FOREIGN KEY (product_variant_id) REFERENCES public.product_variants(id)
+);
+CREATE TABLE public.order_notes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  author_id uuid,
+  content text NOT NULL,
+  type text CHECK (type = ANY (ARRAY['customer'::text, 'admin'::text, 'system'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT order_notes_pkey PRIMARY KEY (id),
+  CONSTRAINT order_notes_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id),
+  CONSTRAINT order_notes_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.order_revisions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  version integer NOT NULL,
+  status text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
+  feedback text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT order_revisions_pkey PRIMARY KEY (id),
+  CONSTRAINT order_revisions_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.order_status_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  status USER-DEFINED,
+  changed_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT order_status_history_pkey PRIMARY KEY (id),
+  CONSTRAINT order_status_history_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_code character varying NOT NULL UNIQUE,
+  user_id uuid,
+  subtotal numeric DEFAULT 0 CHECK (subtotal >= 0::numeric),
+  discount numeric DEFAULT 0 CHECK (discount >= 0::numeric),
+  total_amount numeric DEFAULT 0 CHECK (total_amount >= 0::numeric),
+  deposit_amount numeric DEFAULT 0 CHECK (deposit_amount >= 0::numeric),
+  order_type USER-DEFINED DEFAULT 'product'::order_type_enum,
+  status USER-DEFINED DEFAULT 'pending'::order_status,
+  payment_status USER-DEFINED DEFAULT 'pending'::payment_status,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  confirmed_at timestamp with time zone,
+  paid_at timestamp with time zone,
+  shipped_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  approved_at timestamp with time zone,
+  shipping_code text,
+  archived_at timestamp with time zone,
+  fulfillment_status USER-DEFINED NOT NULL DEFAULT 'pending'::fulfillment_status_enum,
+  shipping_address_snapshot jsonb CHECK (shipping_address_snapshot IS NULL OR jsonb_typeof(shipping_address_snapshot) = 'object'::text),
+  notes text,
+  admin_notes text,
+  demo_images jsonb DEFAULT '[]'::jsonb CHECK (demo_images IS NULL OR jsonb_typeof(demo_images) = 'array'::text),
+  finished_images jsonb DEFAULT '[]'::jsonb CHECK (finished_images IS NULL OR jsonb_typeof(finished_images) = 'array'::text),
+  revision_count integer DEFAULT 0 CHECK (revision_count IS NULL OR revision_count >= 0),
+  revision_feedback text,
+  shipping_fee numeric NOT NULL DEFAULT 0 CHECK (shipping_fee >= 0::numeric),
+  outstanding_amount numeric DEFAULT GREATEST((total_amount - deposit_amount), (0)::numeric),
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.password_reset_tokens (
+  user_id uuid NOT NULL,
+  token_hash text NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  consumed_at timestamp with time zone,
+  CONSTRAINT password_reset_tokens_pkey PRIMARY KEY (user_id),
+  CONSTRAINT password_reset_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.payment_configs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_type text NOT NULL UNIQUE CHECK (order_type = ANY (ARRAY['ready_made'::text, 'custom'::text, 'printing'::text])),
+  bank_code text NOT NULL,
+  account_no text NOT NULL,
+  account_name text NOT NULL,
+  is_active boolean DEFAULT true,
+  notes text,
+  updated_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payment_configs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.payment_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  payment_id uuid NOT NULL,
+  event_type text,
+  payload jsonb CHECK (payload IS NULL OR jsonb_typeof(payload) = 'object'::text),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payment_events_pkey PRIMARY KEY (id),
+  CONSTRAINT payment_events_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.payments(id)
+);
+CREATE TABLE public.payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  transaction_code character varying UNIQUE,
+  amount numeric NOT NULL CHECK (amount >= 0::numeric),
+  method character varying DEFAULT 'qr'::character varying,
+  status USER-DEFINED DEFAULT 'pending'::payment_status,
+  gateway_response jsonb CHECK (gateway_response IS NULL OR jsonb_typeof(gateway_response) = 'object'::text),
+  created_at timestamp with time zone DEFAULT now(),
+  confirmed_at timestamp with time zone,
+  CONSTRAINT payments_pkey PRIMARY KEY (id),
+  CONSTRAINT payments_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.print_jobs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_item_id uuid NOT NULL UNIQUE,
+  material text,
+  color text,
+  infill integer,
+  layer_height numeric,
+  estimated_hours numeric,
+  estimated_grams numeric,
+  status USER-DEFINED DEFAULT 'waiting'::print_status_enum,
+  created_at timestamp with time zone DEFAULT now(),
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  CONSTRAINT print_jobs_pkey PRIMARY KEY (id),
+  CONSTRAINT print_jobs_order_item_id_fkey FOREIGN KEY (order_item_id) REFERENCES public.order_items(id)
+);
+CREATE TABLE public.product_variants (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  product_id uuid NOT NULL,
+  sku character varying,
+  name text NOT NULL,
+  price numeric NOT NULL CHECK (price >= 0::numeric),
+  stock integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  image_url text,
+  images jsonb DEFAULT '[]'::jsonb,
+  is_active boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  reserved_stock integer NOT NULL DEFAULT 0 CHECK (reserved_stock >= 0),
+  CONSTRAINT product_variants_pkey PRIMARY KEY (id),
+  CONSTRAINT product_variants_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.products (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  category_id uuid,
+  sku character varying UNIQUE,
+  name text NOT NULL,
+  base_price numeric NOT NULL DEFAULT 0 CHECK (base_price >= 0::numeric),
+  sale_price numeric CHECK (sale_price IS NULL OR sale_price >= 0::numeric),
+  stock integer DEFAULT 0 CHECK (stock >= 0),
+  images jsonb DEFAULT '[]'::jsonb CHECK (images IS NULL OR jsonb_typeof(images) = 'array'::text),
+  specs jsonb DEFAULT '{}'::jsonb CHECK (specs IS NULL OR jsonb_typeof(specs) = 'object'::text),
+  is_active boolean DEFAULT false,
+  view_count integer DEFAULT 0 CHECK (view_count >= 0),
+  sold_count integer DEFAULT 0 CHECK (sold_count >= 0),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  description text,
+  short_description text,
+  is_featured boolean DEFAULT false,
+  tags ARRAY DEFAULT '{}'::text[],
+  low_stock_alert integer DEFAULT 5 CHECK (low_stock_alert IS NULL OR low_stock_alert >= 0),
+  sizes jsonb DEFAULT '[]'::jsonb CHECK (sizes IS NULL OR jsonb_typeof(sizes) = 'array'::text),
+  archived_at timestamp with time zone,
+  CONSTRAINT products_pkey PRIMARY KEY (id),
+  CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
+);
+CREATE TABLE public.revision_files (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_revision_id uuid NOT NULL,
+  file_id uuid NOT NULL,
+  tag text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object'::text),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT revision_files_pkey PRIMARY KEY (id),
+  CONSTRAINT revision_files_order_revision_id_fkey FOREIGN KEY (order_revision_id) REFERENCES public.order_revisions(id),
+  CONSTRAINT revision_files_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.files(id)
+);
+CREATE TABLE public.sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sessionToken text NOT NULL UNIQUE,
+  userId uuid NOT NULL,
+  expires timestamp with time zone NOT NULL,
+  ip_address inet,
+  user_agent text,
+  last_seen_at timestamp with time zone,
+  CONSTRAINT sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT sessions_userId_fkey FOREIGN KEY (userId) REFERENCES public.users(id)
+);
+CREATE TABLE public.system_settings (
+  key text NOT NULL,
+  value jsonb NOT NULL,
+  label text,
+  description text,
+  group_name text DEFAULT 'general'::text,
+  is_public boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT system_settings_pkey PRIMARY KEY (key)
+);
+CREATE TABLE public.user_addresses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  full_name text NOT NULL,
+  phone text NOT NULL,
+  province text,
+  district text,
+  ward text,
+  address_line text NOT NULL,
+  is_default boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_addresses_pkey PRIMARY KEY (id),
+  CONSTRAINT user_addresses_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_profiles (
+  user_id uuid NOT NULL,
+  full_name text,
+  phone text,
+  avatar_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_profiles_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.users (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text,
+  email text NOT NULL UNIQUE,
+  emailVerified timestamp with time zone,
+  image text,
+  password text,
+  phone character varying,
+  customer_code character varying UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  role text DEFAULT 'customer'::text CHECK (role = ANY (ARRAY['customer'::text, 'admin'::text, 'staff'::text])),
+  password_hash text CHECK (password_hash IS NULL OR length(password_hash) >= 20),
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.verification_tokens (
+  identifier text NOT NULL,
+  token text NOT NULL,
+  expires timestamp with time zone NOT NULL,
+  CONSTRAINT verification_tokens_pkey PRIMARY KEY (identifier, token)
+);

@@ -1,141 +1,137 @@
-# Miniver 3D Lab
+# Project Overview
 
-## Overview
-A Next.js 16 e-commerce/3D printing service application migrated from Vercel to Replit. Vietnamese-language UI with features including product catalog, user auth (Google OAuth via NextAuth), Supabase backend, Stripe payments, Cloudflare R2 storage, and Google Drive integration.
+A Next.js 16 (App Router) e-commerce/print-on-demand application migrated from Vercel to Replit. Uses React 19, TypeScript, Tailwind CSS, Supabase, NextAuth v5, Stripe, AWS S3/R2, Sentry, and Upstash Redis.
 
 ## Architecture
-- **Framework**: Next.js 16.1.1 with Turbopack, App Router (`src/app/`)
-- **Auth**: NextAuth v5 (beta) with Google OAuth + Supabase adapter
-- **Database**: Supabase (PostgreSQL via pooler)
-- **Storage**: Cloudflare R2 (primary), Google Drive (archive)
+
+- **Framework**: Next.js 16.1.1 with App Router (`src/app/`)
+- **Auth**: NextAuth v5 (beta) with Supabase adapter, JWT sessions
+- **Database**: Supabase (PostgreSQL) + direct `pg` connections
+- **Storage**: Cloudflare R2 (S3-compatible) for file uploads
 - **Payments**: Stripe
-- **Cache**: Upstash Redis (optional)
-- **Monitoring**: Sentry (client + server + edge)
-- **3D Rendering**: Three.js via @react-three/fiber
-- **Styling**: Tailwind CSS v3 + shadcn/ui + Framer Motion + GSAP
-- **State Management**: TanStack Query (React Query) for server state
-- **Theme**: next-themes with data-theme attribute (dark/light)
-- **UI Components**: shadcn/ui (lowercase in src/components/ui/)
+- **Email**: Nodemailer (Gmail) + Brevo API
+- **Cache/Rate limiting**: Upstash Redis
+- **Monitoring**: Sentry
+- **Styling**: Tailwind CSS v3 + Framer Motion + GSAP + Three.js
+- **Client-side AI**: XGBoost JSON inference in Web Worker (Phase 1), MobileCLIP zero-shot classification via Transformers.js (Phase 3)
 
-## Design System
-- **Theme Provider**: next-themes with `attribute="data-theme"`
-- **Dark Mode**: `tailwind.config.ts` uses `darkMode: ['selector', '[data-theme="dark"]']`
-- **CSS Variables**: Defined in `src/app/globals.css` with `[data-theme="light"]` / `[data-theme="dark"]` selectors
-  - `--bg-void`: Page backgrounds
-  - `--material-panel`: Card/panel backgrounds
-  - `--material-glass`: Glass/transparent overlays
-  - `--text-primary`, `--text-secondary`, `--text-tertiary`: Text hierarchy
-  - `--border-color`: Border colors
-  - `--color-accent`: Accent/action color (#0071E3)
-- **Components**: 31 shadcn/ui components (button, card, input, label, dialog, dropdown-menu, select, tabs, badge, avatar, separator, skeleton, table, textarea, tooltip, switch, checkbox, scroll-area, sheet, progress, accordion, popover, alert, alert-dialog, breadcrumb, sonner, input-otp, collapsible, navigation-menu, form)
-- **Form Handling**: react-hook-form + @hookform/resolvers + zod for form validation (login, register pages)
-- **Toast System**: Sonner (replaced custom Toast context)
+## Client-Side AI (src/lib/ai/)
 
-## Project Structure
+### Phase 1 — 3D Print quoting (PrusaSlicer backend + XGBoost AI assist)
+- **PrusaSlicer 2.9.2** installed via Nix at `/nix/store/.../prusa-slicer-2.9.2/bin/prusa-slicer`
+- `src/lib/slicer/types.ts` — shared types: `SlicerConfig`, `FdmSlicerResult`, `ResinSlicerResult`, `QuoteResult`, `JobStatus`
+- `src/lib/slicer/profiles.ts` — profile registry mapping profileId → INI path + defaults
+- `src/lib/slicer/slicerRunner.ts` — spawns PrusaSlicer CLI, parses bbox/volume from stdout, returns G-code buffer
+- `src/lib/slicer/outputParser.ts` — G-code parser for FDM (filament g, print time, layer count) + resin geometry calc
+- `src/lib/slicer/priceEngine.ts` — VND pricing: PLA 500/g, PETG 550/g, FDM machine 35,000/h; resin 3,500/ml, SLA machine 45,000/h
+- `src/lib/slicer/slicerCache.ts` — SHA256 content-addressed in-memory cache (24h TTL)
+- `src/lib/slicer/jobQueue.ts` — async in-memory job queue (1h TTL, status: queued/running/completed/failed)
+- `printer-profiles/fdm/fdm_pla_standard.ini` + `fdm_petg_standard.ini` — FDM INI profiles (Bambu Lab A1, 256×256×256mm)
+- `printer-profiles/resin/resin_standard_detail.ini` + `resin_fast.ini` — Resin SLA INI profiles (ELEGOO Mars 5 Ultra, 153.36×77.76×165mm)
+- `src/app/api/printing/exact-quote/route.ts` — POST: accepts `.3mf` multipart only → returns jobId or cached result
+- `src/app/api/printing/quote-status/route.ts` — GET: jobId → status/result polling
+- `src/app/api/analyze-stl/route.ts` — now returns only volume/bbox/triangleCount (pricing removed, handled by slicer backend)
+- Client-side AI (XGBoost) retained for: **risk detection**, **orientation hints**, **preset recommendations**
+- `types/print-ai.ts` — shared TypeScript interfaces (MeshFeatures, PrintAIResult, RiskLevel, Worker message types)
+- `runtime/deviceTier.ts` — device capability detection (high/mid/low)
+- `features/meshFeatures.ts` — client-side STL/OBJ parser + 13-feature extractor
+- `models/xgbRunner.ts` — XGBoost JSON tree ensemble runner (regression + OvR classification)
+- `workers/mesh-ai.worker.ts` — Web Worker: parses mesh + runs XGBoost inference off main thread
+- `public/models/` — 5 trained models: quote_xgb.json, time_xgb.json, risk_xgb_0/1/2.json (~367KB total)
+- `scripts/generate_print_models.js` — Node.js model training script (800 synthetic samples, seeded PRNG)
+
+### Phase 3 — Custom figurine accessory detection (MobileCLIP zero-shot)
+- `types/custom-ai.ts` — TypeScript interfaces (AccessoryPrediction with `propsDescription`, worker request/response with `imageUrl`)
+- `workers/image-ai.worker.ts` — Web Worker: Xenova/mobileclip_s0 via Transformers.js; lazy-loads on first message; pre-computes text embeddings for 10 labels; per-category softmax; dtype q8 WASM
+- Label groups (per-category softmax, independent detection):
+    - Glasses: round / square / sunglasses → Vietnamese
+    - Hat: baseball cap / bucket / graduation → Vietnamese
+    - Props: bouquet / book / guitar → Vietnamese (new in Phase 3)
+- `/custom` page: upload → imageUrl sent directly to worker → analyzing badge → dirty-flag user-override safety → AI autofill glasses/hat/props fields
+- Props chip: read-only, clearable, shown in accessory panel + StepConfirm; included in submit payload
+- CSP updated with HuggingFace CDN domains in connect-src
+- Dependency: `@huggingface/transformers@^4.0.0`
+
+## Key Directories
+
+- `src/app/` — Next.js App Router pages and API routes
+- `src/components/` — Shared React components
+- `src/lib/` — Utilities, DB clients, auth config
+- `src/services/` — Business logic layer
+- `src/repositories/` — Data access layer
+- `src/validators/` — Zod validation schemas
+- `middleware.ts` — Edge middleware for route protection (auth/admin guards)
+
+## Running the App
+
+```bash
+npm run dev   # dev server on port 5000
+npm run build # production build
+npm start     # production server on port 5000
 ```
-src/
-  app/           # Next.js App Router pages and API routes
-    api/health/  # Health check endpoint
-    status/      # System status page
-    error.tsx    # Global error boundary
-    not-found.tsx # 404 page
-    loading.tsx  # Root loading state
-  components/
-    ui/          # shadcn/ui components (lowercase)
-    providers/   # ThemeProvider, QueryProvider
-    layout/      # NavLusion, Footer, Navbar
-    admin/       # Admin components (sidebar, header, etc.)
-    account/     # Account sidebar
-    checkout/    # Checkout components
-    user/        # Landing page components (HeroJelly, BentoGrid, etc.)
-  controllers/   # Business logic controllers
-  hooks/         # Custom React hooks
-  lib/
-    api/         # API error handler utility
-    utils.ts     # cn() utility for class merging
-  repositories/  # Data access layer (Supabase client)
-  services/      # Service layer
-  styles/        # Global styles
-  types/         # TypeScript type definitions
-  validators/    # Input validation (Zod)
-  auth.ts        # NextAuth configuration
-  config/        # App configuration
-middleware.ts    # Next.js middleware (root)
-next.config.ts   # Next.js configuration
-```
 
-## Replit-Specific Configuration
-- **Port**: 5000 (bound to 0.0.0.0)
-- **Dev command**: `next dev -p 5000 -H 0.0.0.0`
-- **allowedDevOrigins**: Configured for Replit's dev domain
-- **CSP frame-ancestors**: Updated to allow Replit's iframe preview
-- **X-Frame-Options**: Set to allow Replit dev/app domains
+The workflow "Start application" runs `npm run dev` on port 5000.
 
-## Environment Variables
-All secrets are configured in Replit's environment. Key groups:
-- **Supabase**: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL
-- **Auth**: AUTH_SECRET, NEXTAUTH_SECRET, AUTH_URL, NEXTAUTH_URL, AUTH_TRUST_HOST, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-- **Google Services**: GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY (needs full key), GOOGLE_DRIVE_FOLDER_ID, GOOGLE_OAUTH_CLIENT_ID/SECRET
-- **Storage**: CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME
-- **Email**: GMAIL_USER, GMAIL_APP_PASSWORD, BREVO_API_KEY
-- **Payments**: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET (not yet provided)
-- **Cache**: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN (not yet provided)
-- **Security**: TOKEN_ENCRYPTION_KEY, ADMIN_SECRET_KEY
+## Required Environment Variables
 
-## Modernization Status
-- **Completed**: Core dependencies, shadcn/ui components, TanStack Query, next-themes, theme-aware styling across all pages, global error handling, API status page, loading states, TypeScript clean (0 errors), security audit fixes applied
-- **Blocked**: Prisma schema (needs direct Supabase connection URL, not pooler), repository migration (depends on Prisma)
-- **Not yet configured**: Stripe secrets, Upstash Redis secrets
+### Auth
+- `AUTH_SECRET` or `NEXTAUTH_SECRET` — NextAuth JWT signing secret
+- `NEXTAUTH_URL` — Full URL of the app (e.g. https://your-repl.replit.app)
+- `NEXT_PUBLIC_APP_URL` — Same as NEXTAUTH_URL (used for CORS)
 
-## Security Hardening (Production-Ready)
-- **Brute Force Protection**: Re-enabled in auth.ts — blocks after 5 failed attempts for 30 min (by email+IP)
-- **Rate Limiting**: Production limits restored — register 5/hr, login 10/min, upload 30/hr, orders 10/min
-- **CSRF**: Double-submit cookie pattern with `__Host-` prefix in production
-- **CSP**: Removed `unsafe-eval`, kept `unsafe-inline` (required for styled-jsx/Three.js)
-- **CORS**: Dynamic origin from `NEXT_PUBLIC_APP_URL` or `REPLIT_DEV_DOMAIN`
-- **2FA**: Fail-closed admin guard (denies on DB errors)
-- **File Validation**: Magic bytes + extension + size limits (100MB max, 500K triangles for STL)
-- **Middleware**: Unified single middleware (was split between `middleware.ts` + `src/proxy.ts`). Now includes rate limiting, Phoenix Protocol, admin separation, correlation IDs. Fail-closed on missing auth secret (returns 500).
-- **Brute Force Fallback**: In-memory rate limiter as fallback when DB brute-force check fails (10 attempts → 15min block)
-- **Debug Logs**: All `[AUTH DEBUG]` and step-by-step console.logs removed from auth, controllers, services
-- **Config Validation**: `unifiedConfig.ts` throws in production if env vars missing (fail-fast)
-- **Dead Code Removed**: `src/proxy.ts` deleted (was shadow middleware, never active)
+### Supabase
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL` — PostgreSQL connection string (pooled)
+- `DIRECT_URL` — PostgreSQL direct connection string
 
-## Testing & Validation
-- **TypeScript**: 0 errors (all variant="primary" fixed to "default", case-sensitivity conflicts resolved)
-- **Security**: Cleanup API route secured with admin auth + cron secret, CSRF protection on mutations, rate limiting on sensitive routes, file validation with magic bytes, admin 2FA enforced
-- **Imports**: All PascalCase duplicate UI files removed (9 files), custom components renamed to custom-*.tsx to avoid case conflicts
-- **Runtime**: No console errors, all API routes returning correct status codes, health endpoint working
-- **Unified Checkout Flow (all 3 types use same pages)**:
-  - Product: Cart → `/checkout` (address + items + "Đặt hàng") → `/checkout/success/[orderId]` (payment QR) ✅
-  - Custom: Wizard → `/api/orders/custom` → `/checkout/success/[orderId]` (payment QR with 50% deposit) ✅
-  - 3D Printing: Upload → `/api/orders/printing` → `/checkout/success/[orderId]` (payment QR) ✅
-  - All types: PaymentQR → "Tôi đã chuyển khoản" → payment-confirmation API → Success view ✅
-  - Deleted: `/checkout/payment` (redundant), `/custom/success/[orderCode]` (had English text)
-- **E2E Tested Flows (all 3 order types)**:
-  - Product Order: Browse → Cart → Checkout → Create order → Payment QR → Admin confirm/process/ship ✅
-  - 3D Printing Order: Create with full spec (resin/trắng, infill 20%, layer 0.08mm, 2 STL files) → Admin views print_jobs ✅
-  - Custom Order: Create couple figurine (size M, 2 characters) → Admin views custom_config ✅
-  - Admin Workflow: Confirm payment → Processing/Designing → Shipping (with tracking code) → Stock adjustment ✅
-  - Customer: View all orders (product/custom/print_3d) with correct status ✅
-  - API Security: All admin APIs return 401 without auth, cleanup route secured ✅
-  - Public pages: FAQ, About, Register, Forgot Password, 404, Theme toggle ✅
-- **Bug Fixes Found During E2E**:
-  - Fixed `file_links(*)` join in OrderRepository.ts — `file_links` uses polymorphic ref_id/ref_type (not FK), causing PGRST200 errors on customer order listing
-  - Fixed `product_name` → `name` column reference in AdminOrderController.ts stock adjustment code
-  - Fixed shipping address persistence: `OrderRepository.create` now falls back to `shippingAddress` if `shippingAddressSnapshot` is not set
-  - Fixed 2FA fail-open security: `admin-guard.ts` now denies access if 2FA check encounters DB errors (was previously fail-open)
-- **Test Accounts**: Admin (picapica10104@gmail.com) and Customer (ngynhaatminh@gmail.com) — passwords stored in Supabase
+### Stripe
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
 
-## UI Component Convention
-- **shadcn/ui** (lowercase): `button.tsx`, `card.tsx`, `input.tsx`, etc. — standard shadcn components
-- **Custom** (renamed): `custom-input.tsx`, `custom-skeleton.tsx`, `custom-switch.tsx` — project-specific components with extra features (e.g. ProductGridSkeleton, label/error support)
-- **Custom** (PascalCase, unique): `Animations.tsx`, `GlassCard.tsx`, `VersionFeedbackCard.tsx`, `FloatingDock.tsx`, etc.
-- **Removed**: Old custom `Toast.tsx`, `Alert.tsx`, `Breadcrumb.tsx` (replaced by standard shadcn versions)
-- **Barrel export**: `src/components/ui/index.ts` re-exports all components correctly
+### Cloudflare R2 (S3-compatible storage)
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME`
+- `R2_ENDPOINT`
+- `R2_PUBLIC_URL`
+- `NEXT_PUBLIC_R2_PUBLIC_URL`
+- `CLOUDFLARE_ACCOUNT_ID`
 
-## Notes
-- GOOGLE_PRIVATE_KEY was truncated during migration — needs to be re-added with the full key
-- Stripe and Upstash Redis secrets are not yet configured
-- WebGL/Three.js content won't render in headless environments but works in real browsers
-- Admin route (`/admin/`) re-exports from `/sys_internal/` — actual admin code lives in `src/app/sys_internal/`
+### Google OAuth & Drive
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY`
+- `GOOGLE_DRIVE_FOLDER_ID`
+- `GOOGLE_DRIVE_CUSTOM_FOLDER_ID`
+- `GOOGLE_DRIVE_PRINTING_FOLDER_ID`
+- `GOOGLE_DRIVE_PRODUCTS_FOLDER_ID`
+
+### Email
+- `GMAIL_USER`
+- `GMAIL_APP_PASSWORD`
+- `BREVO_API_KEY`
+
+### Upstash Redis
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+### Misc
+- `TOKEN_ENCRYPTION_KEY` — For encrypting tokens at rest
+- `WEBHOOK_SECRET` — For webhook verification
+- `BANK_NAME`, `BANK_ACCOUNT_NUMBER`, `BANK_ACCOUNT_NAME` — Bank transfer info
+
+## Replit Migration Notes
+
+- Dev/start scripts bind to `0.0.0.0:5000` for Replit's proxied preview
+- CORS fallback uses `*` when `NEXT_PUBLIC_APP_URL` is not set
+- Package manager: npm (package-lock.json)
+- `allowedDevOrigins` in `next.config.ts` covers `*.spock.replit.dev` and `*.replit.dev` to suppress cross-origin HMR warnings in the Replit preview pane
+- `src/auth.ts` uses `config.supabase.url` / `config.supabase.serviceRoleKey` (from `unifiedConfig`) instead of raw `process.env` directly — this prevents module-load crashes when env vars are missing in dev (unifiedConfig provides placeholder fallbacks)
+- All production secrets are stored in Replit Secrets: `AUTH_SECRET`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `TOKEN_ENCRYPTION_KEY`, `GOOGLE_CLIENT_SECRET`, `GMAIL_APP_PASSWORD`, `BREVO_API_KEY`, `R2_SECRET_ACCESS_KEY`, and others
+- Non-sensitive config set as shared env vars: `NEXT_PUBLIC_SUPABASE_URL`, `AUTH_TRUST_HOST`, `GOOGLE_CLIENT_ID`, `GMAIL_USER`, `R2_ACCESS_KEY_ID`, `R2_BUCKET_NAME`, `CLOUDFLARE_ACCOUNT_ID`, etc.
+- If Supabase-related endpoints return DNS errors (`ENOTFOUND`), the Supabase free-tier project may be paused — reactivate it at app.supabase.com

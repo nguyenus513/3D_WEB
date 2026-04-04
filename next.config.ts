@@ -1,10 +1,4 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from '@sentry/nextjs';
-
-// Bundle analyzer — activate with ANALYZE=true
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
-  enabled: process.env.ANALYZE === 'true',
-});
 
 /**
  * Security Headers Configuration
@@ -13,6 +7,25 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
  * - X-Frame-Options: Prevents clickjacking
  * - X-Content-Type-Options: Prevents MIME sniffing
  */
+const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+let appOrigin: string | null = null;
+
+if (rawAppUrl) {
+  try {
+    appOrigin = new URL(rawAppUrl).origin;
+  } catch {
+    appOrigin = null;
+  }
+}
+
+const allowUnsafeEval = process.env.NODE_ENV !== 'production' || process.env.CSP_ALLOW_UNSAFE_EVAL === 'true';
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  ...(allowUnsafeEval ? ["'unsafe-eval'"] : []),
+  'https://www.googletagmanager.com',
+];
+
 const securityHeaders = [
   {
     key: 'X-DNS-Prefetch-Control',
@@ -21,6 +34,10 @@ const securityHeaders = [
   {
     key: 'Strict-Transport-Security',
     value: 'max-age=63072000; includeSubDomains; preload'
+  },
+  {
+    key: 'X-Frame-Options',
+    value: 'SAMEORIGIN'
   },
   {
     key: 'X-Content-Type-Options',
@@ -42,14 +59,14 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+      `script-src ${scriptSrc.join(' ')}`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com",
       "font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com",
       "img-src 'self' data: blob: https: http:",
       "media-src 'self' blob:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://img.vietqr.io https://www.googleapis.com https://oauth2.googleapis.com https://provinces.open-api.vn https://accounts.google.com https://*.sentry.io",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://img.vietqr.io https://www.googleapis.com https://oauth2.googleapis.com https://provinces.open-api.vn https://accounts.google.com",
       "frame-src 'self' https://accounts.google.com",
-      "frame-ancestors 'self' https://*.replit.dev https://*.replit.app",
+      "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",
     ].join('; ')
@@ -57,31 +74,33 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: process.env.REPLIT_DEV_DOMAIN
-    ? [process.env.REPLIT_DEV_DOMAIN]
-    : [],
-
+  // Disable source maps in production for security
   productionBrowserSourceMaps: false,
 
   // Security headers
   async headers() {
-    return [
+    const headersRules = [
       {
         // Apply to all routes
         source: '/:path*',
         headers: securityHeaders,
       },
-      {
+    ];
+
+    if (appOrigin) {
+      headersRules.push({
         // CORS for API routes
         source: '/api/:path*',
         headers: [
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: process.env.NEXT_PUBLIC_APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:3000') },
+          { key: 'Access-Control-Allow-Origin', value: appOrigin },
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization' },
         ],
-      },
-    ];
+      });
+    }
+
+    return headersRules;
   },
 
   // Powered by header removal (hide Next.js signature)
@@ -115,24 +134,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Wrap with Sentry + Bundle Analyzer
-export default withSentryConfig(withBundleAnalyzer(nextConfig), {
-  // Sentry options
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-
-  // Suppress source map upload in dev (only upload when SENTRY_AUTH_TOKEN is set)
-  silent: !process.env.SENTRY_AUTH_TOKEN,
-
-  // Auto-instrument server functions
-  widenClientFileUpload: true,
-
-  // Disable Sentry telemetry
-  telemetry: false,
-
-  // Do NOT upload source maps unless explicitly configured
-  sourcemaps: {
-    disable: !process.env.SENTRY_AUTH_TOKEN,
-  },
-
-});
+export default nextConfig;

@@ -1,0 +1,88 @@
+
+> app@0.1.0 dev
+> next dev -p 5000 -H 0.0.0.0
+
+[1G[0K[1m[38;2;173;127;168m▲ Next.js 16.1.1[39m[22m (Turbopack)
+- Local:         http://localhost:5000
+- Network:       http://0.0.0.0:5000
+- Experiments (use with caution):
+  · clientTraceMetadata
+  · proxyClientMaxBodySize: 52428800
+
+[32m[1m✓[22m[39m Starting...
+[32m[1m✓[22m[39m Ready in 1457ms
+[MIDDLEWARE] Path: / | Auth: true | Role: admin | isNewUser: false
+ GET / [32m200[39m in 3.0s[2m (compile: 2.5s, proxy.ts: 103ms, render: 420ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/auth/session [32m200[39m in 1351ms[2m (compile: 951ms, render: 400ms)[22m
+ GET /api/featured-products [32m200[39m in 1388ms[2m (compile: 360ms, proxy.ts: 33ms, render: 995ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+[Supabase Admin] Initializing client. URL present: [33mtrue[39m Key present: [33mtrue[39m Key length: [33m219[39m
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/auth/session [32m200[39m in 491ms[2m (compile: 104ms, render: 387ms)[22m
+ GET /api/notifications [32m200[39m in 1564ms[2m (compile: 41ms, proxy.ts: 124ms, render: 1399ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1223ms[2m (compile: 5ms, proxy.ts: 15ms, render: 1203ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1252ms[2m (compile: 3ms, proxy.ts: 10ms, render: 1239ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1286ms[2m (compile: 3ms, proxy.ts: 10ms, render: 1273ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1334ms[2m (compile: 4ms, proxy.ts: 10ms, render: 1320ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 3.1s[2m (compile: 4ms, proxy.ts: 11ms, render: 3.1s)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1257ms[2m (compile: 4ms, proxy.ts: 11ms, render: 1242ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1255ms[2m (compile: 3ms, proxy.ts: 11ms, render: 1241ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1402ms[2m (compile: 3ms, proxy.ts: 10ms, render: 1389ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1236ms[2m (compile: 3ms, proxy.ts: 10ms, render: 1224ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1286ms[2m (compile: 4ms, proxy.ts: 15ms, render: 1267ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1610ms[2m (compile: 3ms, proxy.ts: 9ms, render: 1598ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1276ms[2m (compile: 3ms, proxy.ts: 10ms, render: 1264ms)[22m
+[MIDDLEWARE] Path: / | Auth: true | Role: admin | isNewUser: false
+ GET / [32m200[39m in 77ms[2m (compile: 6ms, proxy.ts: 13ms, render: 58ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/auth/session [32m200[39m in 549ms[2m (compile: 75ms, render: 473ms)[22m
+ GET /api/featured-products [32m200[39m in 576ms[2m (compile: 7ms, proxy.ts: 105ms, render: 464ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/auth/session [32m200[39m in 374ms[2m (compile: 74ms, render: 300ms)[22m
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1271ms[2m (compile: 3ms, proxy.ts: 99ms, render: 1170ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1330ms[2m (compile: 2ms, proxy.ts: 8ms, render: 1319ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1283ms[2m (compile: 2ms, proxy.ts: 9ms, render: 1272ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1294ms[2m (compile: 3ms, proxy.ts: 12ms, render: 1278ms)[22m
+[AUTH DEBUG] JWT Callback | Trigger: undefined | User: false | Email: picapica10104@gmail.com
+[AUTH DEBUG] DB Query Success | Role: admin | Phone: true | Token Before: admin
+ GET /api/notifications [32m200[39m in 1371ms[2m (compile: 2ms, proxy.ts: 10ms, render: 1358ms)[22m
+[?25h
+[1G[0K⠙[1G[0K

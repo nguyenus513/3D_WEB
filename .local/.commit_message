@@ -1,0 +1,36 @@
+Task #13: Đồng bộ UI Account với Admin — Flat Monochrome
+
+Sync customer-facing /account UI to match admin panel's flat monochrome
+design language. Three areas addressed:
+
+1. PrintFileDetail.tsx (drawer "Chi tiết file")
+   - Removed all gradient backgrounds → bg-[#111111] flat
+   - Header icon container: cyan gradient → bg-white/[0.06] / text-white/40
+   - File name card: cyan gradient → bg-white/[0.04] border-white/[0.06]
+   - File type badge: bg-cyan-500/15 text-cyan-400 → bg-white/[0.08] text-white/50
+   - Tech labels: emoji (🔧 🔧FDM, ✨ Resin) → Lucide icons (Cpu, FlaskConical)
+   - Pricing card: emerald gradient → bg-white/[0.04] border-white/[0.06]
+   - Total price: text-emerald-400 → text-white font-bold
+   - Download button: gradient → bg-white text-black hover:bg-white/90
+   - Header icon svg size: w-4.5 h-4.5 → w-4 h-4 (Tailwind-safe class)
+   - Fallback download extension: .stl → .3mf (correct for this app)
+   - Drawer max-w-lg → max-w-md; animation easing improved
+
+2. Status badges — normalized 4-tier monochrome scale
+   Replaced colorful statusColors in account/orders/page.tsx and
+   account/page.tsx:
+   - Waiting/pending:  bg-white/[0.08] text-white/50
+   - Processing/active: bg-white/[0.10] text-white/65
+   - Confirmed/shipped: bg-white/[0.12] text-white/70
+   - Attention (review): bg-white/[0.20] text-white  (bright tier, no special-case font-semibold)
+   - Delivered/done:  bg-white/[0.20] text-white
+   - Cancelled:       bg-white/[0.05] text-white/30
+
+3. AccountSidebar.tsx polish
+   - Removed backdrop-blur-xl from user info card and nav
+   - Card backgrounds: bg-white/5 → bg-[#1D1D1F] (matches admin sidebar)
+   - Borders: border-white/10 → border-white/[0.06]
+   - Active nav: border-l-2 border-l-white + bg-white/[0.08] (left border indicator)
+   - Icon size: 20px → 18px; text-sm labels; tighter spacing
+
+No layout, routing, or data changes — purely visual sync.

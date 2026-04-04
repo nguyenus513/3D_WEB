@@ -1,0 +1,127 @@
+Mình xem lại bản mới nhất rồi: **đã tiến bộ rõ rệt**, nhưng **vẫn chưa đạt mức production hoàn chỉnh**. Nếu chấm lại, mình nâng từ khoảng **7/10 lên 8/10**. Lý do là bạn đã sửa được khá nhiều điểm quan trọng về integrity và chất lượng dữ liệu, nhưng vẫn còn vài lỗi “chốt hạ” ở auth/token, derived fields, uniqueness và index strategy. 
+
+## Những gì đã được sửa tốt
+
+Bản này đã khá hơn hẳn ở mấy điểm sau:
+
+* `accounts` có thêm `encrypted_refresh_token`, `encrypted_access_token`, `encrypted_id_token`, tức là bạn đã đi đúng hướng cho OAuth secret storage. 
+* `notifications` đã có FK cho `user_id`, và còn thêm các FK tường minh như `ref_order_id`, `ref_design_version_id`, `ref_payment_id`. Đây là bước nâng cấp rất tốt về integrity. 
+* Bạn đã thêm `order_files`, `order_item_files`, `revision_files`, tức là đã bắt đầu thay thế mô hình polymorphic bằng bảng quan hệ rõ ràng hơn. 
+* Nhiều cột `jsonb` đã có check kiểu dữ liệu: `metadata` là object, `payload` là object, `gateway_response` là object, `configuration` là object, `demo_images` và `finished_images` là array, `products.images/specs/sizes` có check tương ứng. 
+* `products` đã được siết tốt hơn với check cho `base_price`, `sale_price`, `stock`, `view_count`, `sold_count`, `low_stock_alert`. `product_variants.price` cũng đã có check không âm. 
+* `password_reset_tokens` đã thêm `consumed_at`, đây là cải tiến tốt cho vòng đời token reset password. 
+* `users` đã có thêm `password_hash` với check độ dài tối thiểu. 
+
+## Những gì vẫn chưa ổn
+
+### 1) Auth/security vẫn chưa “đóng sổ”
+
+Đây vẫn là điểm yếu lớn nhất.
+
+* `users.password` vẫn còn tồn tại song song với `password_hash`. Nếu app hoặc dev lỡ ghi vào `password`, bạn vẫn có nguy cơ lưu plaintext password. 
+* `sessions.sessionToken` vẫn là raw token, chưa đổi sang hash. 
+* `verification_tokens.token` vẫn là raw token. 
+* `accounts` tuy có thêm cột encrypted, nhưng vẫn giữ cả `refresh_token`, `access_token`, `id_token` dạng raw text. Nghĩa là về thực tế, rủi ro vẫn còn nguyên nếu app chưa bỏ hẳn cột cũ. 
+
+**Kết luận:** phần bảo mật mới “thêm đường mới”, chứ chưa “đóng đường cũ”. Muốn production chắc, phải bỏ hoặc ngừng dùng hoàn toàn các cột raw secret này. 
+
+### 2) Polymorphic design vẫn chưa được dọn sạch
+
+Bạn đã thêm `order_files`, `order_item_files`, `revision_files`, và thêm các FK tường minh cho `notifications`, nhưng các bảng cũ kiểu polymorphic vẫn còn:
+
+* `file_links(ref_type, ref_id)` vẫn tồn tại. 
+* `notifications` vẫn còn `ref_type`, `ref_id` song song với `ref_order_id`, `ref_design_version_id`, `ref_payment_id`. 
+
+Như vậy DB đang ở trạng thái “nửa cũ nửa mới”, dễ gây lệch logic. App có thể ghi vào cả 2 cách, và không có constraint nào đảm bảo chỉ dùng một cách duy nhất.
+
+### 3) Derived fields vẫn có nguy cơ lệch
+
+* `order_items.total_price` vẫn là `DEFAULT ((quantity)::numeric * unit_price)`, chưa phải generated column hay trigger-maintained. Update quantity hoặc price là có thể lệch. 
+* `orders.outstanding_amount` vẫn là `DEFAULT GREATEST(total_amount - deposit_amount, 0)`, cũng có cùng vấn đề. 
+
+Đây là lỗi rất hay gây sai số liệu tiền.
+
+### 4) Một số unique/ràng buộc quan trọng vẫn thiếu
+
+Bản này vẫn chưa thấy:
+
+* `accounts(provider, providerAccountId)` unique. 
+* `design_versions(order_id, version_number)` unique. 
+* `order_revisions(order_id, version)` unique. 
+* `product_variants.reserved_stock <= stock` check. Hiện mới chỉ có `reserved_stock >= 0`. 
+* `notifications` chưa có check đảm bảo `is_read` và `read_at` nhất quán. 
+* `orders` chưa có check `discount <= subtotal` và `deposit_amount <= total_amount`. 
+
+### 5) Index strategy vẫn chưa xuất hiện trong schema
+
+Trong bản bạn dán, mình vẫn **chưa thấy phần `CREATE INDEX`** cho các cột nóng như:
+
+* `orders.user_id`
+* `order_items.order_id`
+* `payments.order_id`
+* `notifications.user_id`
+* `design_versions.order_id`
+* `sessions.userId`
+* các cột `status`, `payment_status`, `created_at` 
+
+Điều này rất quan trọng. Schema có thể đúng logic nhưng vẫn chậm khi lên production nếu thiếu index.
+
+### 6) Naming/convention vẫn chưa thống nhất
+
+Vẫn còn lẫn:
+
+* `userId`
+* `providerAccountId`
+* `sessionToken`
+* `emailVerified`
+
+bên cạnh các cột `snake_case` khác. 
+
+Không phải lỗi phá hệ thống, nhưng với production dài hạn thì đây là nợ kỹ thuật nên dọn.
+
+---
+
+# Kết luận cuối cùng
+
+## Đánh giá hiện tại
+
+Schema bản mới nhất này:
+
+* **đã đủ tốt để phát triển tiếp**
+* **đã tốt hơn rõ rệt so với bản trước**
+* nhưng **vẫn chưa nên chốt là production-final**
+
+Mình chấm:
+
+* **Business model:** 8.5/10
+* **Integrity:** 8/10
+* **Security:** 5.5/10
+* **Performance readiness:** 6/10
+* **Maintainability:** 7/10
+
+**Tổng thể: khoảng 8/10.** 
+
+## Để lên 9.5–10/10, cần chốt nốt các việc sau
+
+### Bắt buộc
+
+* bỏ hẳn `users.password`, chỉ giữ `password_hash`
+* bỏ raw token ở `accounts`
+* đổi `sessions.sessionToken` thành hash
+* đổi `verification_tokens.token` thành hash
+* bỏ `file_links`
+* bỏ `notifications.ref_type/ref_id`
+* thêm unique cho account/version
+* đổi `total_price` và `outstanding_amount` sang generated column hoặc trigger
+* thêm check cho `discount <= subtotal`, `deposit_amount <= total_amount`, `reserved_stock <= stock`
+* thêm bộ index production
+
+### Nên làm
+
+* chuẩn hóa toàn bộ sang `snake_case`
+* thống nhất 1 chuẩn UUID function
+* thêm trigger `updated_at`
+* thêm consistency check cho `notifications.read_at`
+* thêm unique partial cho default address / variant sku nếu nghiệp vụ cần
+
+**Tóm gọn:** bản này **đã khá**, nhưng còn vài “ống nước cũ” chưa khóa. Nếu chốt nốt phần token, uniqueness, generated fields và indexes thì mới thật sự thành bản production cứng.

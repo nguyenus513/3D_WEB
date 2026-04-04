@@ -1,0 +1,235 @@
+Được. Gom lại theo đúng ý bạn:
+
+Chốt hệ thống
+
+Dùng PrusaSlicer để tính:
+	•	khối lượng vật liệu
+	•	thời gian in
+	•	giới hạn khổ in
+cho cả FDM và resin trong web.
+
+PrusaSlicer có thể nhận model 3D và xuất:
+	•	G-code cho FFF/FDM
+	•	PNG layers cho mSLA/resin
+và có CLI để chạy tự động trong hệ thống.  ￼
+
+⸻
+
+Chốt 2 máy trong hệ thống
+
+FDM
+
+Bambu Lab A1, nozzle 0.4 mm
+
+Giới hạn khổ in:
+	•	256 × 256 × 256 mm
+	•	nozzle mặc định 0.4 mm
+	•	filament 1.75 mm  ￼
+
+Resin
+
+ELEGOO Mars 5 Ultra
+
+Giới hạn khổ in:
+	•	153.36 × 77.76 × 165 mm
+	•	layer thickness hỗ trợ 0.01–0.2 mm
+	•	công nghệ MSLA  ￼
+
+⸻
+
+Nhưng phải nói thật 1 điều rất quan trọng
+
+Với FDM:
+
+Dùng PrusaSlicer để tính gram và thời gian là hợp lý.
+
+Với resin:
+
+PrusaSlicer có thể slice mSLA và cho estimate, nhưng Mars 5 Ultra chính hãng dùng Chitubox theo thông số của ELEGOO. Nghĩa là:
+	•	nếu bạn muốn 1 hệ thống thống nhất, dùng PrusaSlicer cho web quote là được
+	•	nhưng nếu muốn chuẩn sát máy Mars 5 Ultra nhất, file in cuối và kiểm tra cuối vẫn nên theo Chitubox.  ￼
+
+Kết luận thực dụng
+
+Bạn có thể chốt:
+	•	Web quote engine thống nhất = PrusaSlicer
+	•	Resin production final = Chitubox nếu cần xác nhận cuối
+
+Nếu muốn đơn giản tuyệt đối, vẫn có thể dùng PrusaSlicer cho cả hai, nhưng phải chấp nhận:
+	•	FDM đáng tin hơn
+	•	resin là mức “chuẩn slicer”, chưa chắc trùng 100% với Mars 5 Ultra + Chitubox
+
+⸻
+
+Cách làm hệ thống
+
+1. Upload model
+
+User upload:
+	•	.stl
+	•	.obj
+	•	.3mf
+
+2. Chọn mode in
+	•	fdm
+	•	resin
+
+3. Kiểm tra khổ in ngay
+
+Nếu FDM
+
+So bbox model với:
+	•	256 x 256 x 256
+
+Nếu resin
+
+So bbox model với:
+	•	153.36 x 77.76 x 165
+
+Nếu vượt quá thì báo ngay:
+	•	“Model vượt khổ in của máy”
+
+⸻
+
+4. Gọi PrusaSlicer CLI để slice thật
+
+Với FDM
+
+Dùng profile:
+	•	Bambu A1
+	•	nozzle 0.4
+	•	filament profile
+	•	layer height
+	•	infill
+	•	support preset
+
+Output cần lấy:
+	•	filament used
+	•	support material
+	•	print time
+	•	layer count
+
+Với resin
+
+Dùng profile:
+	•	mSLA
+	•	khổ 153.36 x 77.76 x 165
+	•	layer height resin preset
+	•	support preset
+
+Output cần lấy:
+	•	resin volume/weight
+	•	support volume/weight
+	•	print time
+	•	layer count
+
+⸻
+
+5. Dữ liệu hệ thống nên trả về
+
+FDM
+
+{
+  "mode": "fdm",
+  "printer": "Bambu Lab A1",
+  "nozzle": 0.4,
+  "buildVolumeMm": { "x": 256, "y": 256, "z": 256 },
+  "mainMaterialG": 42.1,
+  "supportMaterialG": 8.4,
+  "totalMaterialG": 50.5,
+  "printTimeMinutes": 315,
+  "layerCount": 540,
+  "source": "prusaslicer"
+}
+
+Resin
+
+{
+  "mode": "resin",
+  "printer": "Elegoo Mars 5 Ultra",
+  "buildVolumeMm": { "x": 153.36, "y": 77.76, "z": 165 },
+  "mainResinG": 23.7,
+  "supportResinG": 5.9,
+  "totalResinG": 29.6,
+  "printTimeMinutes": 246,
+  "layerCount": 1800,
+  "source": "prusaslicer"
+}
+
+
+⸻
+
+Cấu hình nên khóa cứng
+
+FDM preset
+	•	printer: Bambu Lab A1
+	•	nozzle: 0.4
+	•	layer height: 0.12 / 0.20 / 0.28
+	•	infill: 10 / 15 / 20 / 30
+	•	support: off / on
+	•	material: PLA / PETG
+
+Resin preset
+	•	printer size: 153.36 x 77.76 x 165
+	•	layer height: 0.03 / 0.05 / 0.1
+	•	support: light / medium / heavy
+	•	resin type: standard / abs-like
+
+Càng ít preset thì:
+	•	càng ổn định
+	•	càng nhanh
+	•	càng dễ debug
+
+⸻
+
+Cách triển khai trong web
+
+Route duy nhất
+
+POST /api/printing/exact-quote
+
+Input:
+	•	file
+	•	mode = fdm | resin
+	•	material preset
+	•	layer height
+	•	support on/off
+	•	infill nếu là FDM
+
+Backend flow
+	1.	nhận file
+	2.	parse bbox
+	3.	check khổ in theo mode
+	4.	gọi PrusaSlicer CLI
+	5.	parse output
+	6.	trả JSON result
+
+⸻
+
+Chốt cuối cùng
+
+Nếu bạn muốn “gom lại”
+
+Thì mình chốt phương án này:
+
+PrusaSlicer là quote engine chung
+	•	tính gram
+	•	tính thời gian
+	•	kiểm khổ in
+cho cả:
+	•	Bambu Lab A1 0.4 mm
+	•	ELEGOO Mars 5 Ultra
+
+Giới hạn khổ in:
+	•	FDM A1: 256 x 256 x 256 mm  ￼
+	•	Resin Mars 5 Ultra: 153.36 x 77.76 x 165 mm  ￼
+
+Cảnh báo thật:
+	•	FDM: dùng PrusaSlicer khá ổn
+	•	Resin: dùng được để thống nhất hệ web, nhưng nếu cần sát máy ELEGOO nhất thì production cuối vẫn nên đối chiếu Chitubox vì Mars 5 Ultra chính hãng ghi slicer là Chitubox  ￼
+
+Nếu bạn muốn, mình sẽ viết tiếp cho bạn bản config chuẩn hoàn chỉnh:
+	•	tên preset
+	•	field DB
+	•	output parser
+	•	và rule validate khổ in cho 2 máy này.
