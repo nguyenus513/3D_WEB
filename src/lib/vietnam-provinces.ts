@@ -3,7 +3,7 @@
  * Using open-api.vn for Vietnam geography data
  */
 
-const API_BASE = 'https://provinces.open-api.vn/api';
+const API_BASE = '/api/geo';
 
 export interface Province {
     code: number;
@@ -112,3 +112,5 @@ export function formatAddress(
         .filter(Boolean)
         .join(', ');
 }
+
+

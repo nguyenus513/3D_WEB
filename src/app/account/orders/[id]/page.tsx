@@ -377,6 +377,9 @@ export default function AccountOrderDetailPage() {
                                         return { label: statusLabel, color: colorMap[status] || 'bg-gray-500/20 text-gray-300' };
                                     };
                                     const badge = getStatusBadge(itemStatus);
+                                    const quantity = Number(item.quantity || 1);
+                                    const unitPrice = Number(item.unit_price || 0);
+                                    const itemTotal = Number(item.total_price || unitPrice * quantity || 0);
 
                                     return (
                                         <div

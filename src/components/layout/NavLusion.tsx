@@ -8,6 +8,7 @@ import { useCart } from '@/lib/store/cart';
 import { useSession } from 'next-auth/react';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 const navLinks = [
     {
@@ -69,6 +70,7 @@ export function NavLusion() {
     const { data: session, status } = useSession();
     const isLoggedIn = status === 'authenticated' && session?.user;
     const pathname = usePathname();
+    const [currentPath, setCurrentPath] = useState(pathname);
     const notifRef = useRef<HTMLDivElement>(null);
 
     const {
@@ -112,6 +114,15 @@ export function NavLusion() {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    useEffect(() => {
+        const pathWithQuery = `${pathname}${window.location.search}`;
+        setCurrentPath(pathWithQuery);
+        if (!pathname.startsWith('/login') && !pathname.startsWith('/register')) {
+            sessionStorage.setItem('miniver.returnTo', pathWithQuery);
+        }
+    }, [pathname]);
+
 
     return (
         <>
@@ -210,10 +221,7 @@ export function NavLusion() {
                                                                     <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">{n.message}</p>
                                                                 )}
                                                                 <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
-                                                                    {new Date(n.created_at).toLocaleDateString('vi-VN', {
-                                                                        day: '2-digit', month: '2-digit',
-                                                                        hour: '2-digit', minute: '2-digit',
-                                                                    })}
+                                                                    {formatOrderDate(n.created_at)}
                                                                 </p>
                                                             </div>
                                                             {!n.is_read && (
@@ -264,7 +272,7 @@ export function NavLusion() {
                             <div className="flex items-center gap-2">
                                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                     <Link
-                                        href={`/login?callbackUrl=${encodeURIComponent(pathname)}`}
+                                        href={`/login?callbackUrl=${encodeURIComponent(currentPath)}`}
                                         className="h-12 px-5 rounded-full bg-[var(--material-glass)] backdrop-blur-xl text-[var(--text-primary)] text-sm font-medium flex items-center hover:bg-[var(--material-glass)] transition-colors border border-[var(--border-color)]"
                                     >
                                         Đăng nhập
@@ -272,7 +280,7 @@ export function NavLusion() {
                                 </motion.div>
                                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                     <Link
-                                        href={`/register?callbackUrl=${encodeURIComponent(pathname)}`}
+                                        href={`/register?callbackUrl=${encodeURIComponent(currentPath)}`}
                                         className="h-12 px-5 rounded-full bg-[var(--material-glass)] backdrop-blur-xl text-[var(--text-primary)] text-sm font-medium flex items-center hover:bg-[var(--material-glass)] transition-colors border border-[var(--border-color)]"
                                     >
                                         Đăng ký
@@ -322,9 +330,9 @@ export function NavLusion() {
                                                 key={link.name}
                                                 href={link.href}
                                                 onClick={() => setIsOpen(false)}
-                                                className={`flex items-center gap-4 py-3 px-4 rounded-xl text-[var(--text-primary)] font-medium text-lg hover:bg-[var(--material-glass)] transition-colors group relative ${isActive ? 'bg-[var(--material-glass)]' : ''}`}
+                                                className={`group relative flex items-center gap-4 rounded-xl px-4 py-3 text-lg font-medium transition-colors active:bg-white/80 ${isActive ? 'bg-white text-black hover:bg-white/90' : 'text-white hover:bg-white/10'}`}
                                             >
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border ${isActive ? 'bg-[var(--material-glass)] text-[var(--text-primary)] border-[var(--border-color)]' : 'bg-[var(--material-glass)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] group-hover:bg-[var(--material-glass)] border-[var(--border-color)]'}`}>
+                                                <div className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${isActive ? 'border-black/20 bg-black text-white' : 'border-white/15 bg-white/10 text-white group-hover:bg-white/15'}`}>
                                                     {link.icon}
                                                 </div>
                                                 <div className="flex-1 flex items-center justify-between">
@@ -332,7 +340,7 @@ export function NavLusion() {
                                                     {isActive && (
                                                         <motion.span
                                                             layoutId="nav-dot"
-                                                            className="w-2 h-2 rounded-full bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]"
+                                                            className="h-2 w-2 rounded-full bg-black shadow-[0_0_8px_rgba(0,0,0,0.35)]"
                                                         />
                                                     )}
                                                 </div>
@@ -346,17 +354,17 @@ export function NavLusion() {
                             <Link
                                 href="/custom"
                                 onClick={() => setIsOpen(false)}
-                                className="flex items-center justify-between bg-[var(--color-accent)] text-[var(--text-primary)] rounded-full px-6 py-4 hover:bg-[#0077ED] transition-all group shadow-[0_8px_20px_-5px_rgba(0,113,227,0.4)]"
+                                className="group flex items-center justify-between rounded-full bg-white px-6 py-4 text-black shadow-[0_10px_28px_-10px_rgba(255,255,255,0.55)] transition-all hover:bg-white/90 active:bg-white/80"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-[var(--material-glass)] flex items-center justify-center">
-                                        <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-white">
+                                        <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                         </svg>
                                     </div>
                                     <span className="font-bold tracking-wide">ĐẶT HÀNG NGAY</span>
                                 </div>
-                                <svg className="w-5 h-5 text-[var(--text-primary)] group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="h-5 w-5 text-black transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                                 </svg>
                             </Link>

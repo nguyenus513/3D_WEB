@@ -45,3 +45,12 @@ next-env.d.ts
 *.json.key
 service-account*.json
 credentials*.json
+
+.vercel
+
+# local audit/deploy artifacts
+.tmp-*
+.tmp-*/
+playwright-report/
+test-results/
+.vercel.bak-*/

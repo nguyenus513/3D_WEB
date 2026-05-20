@@ -7,7 +7,7 @@
  * @see backend-dev-guidelines.md - Rule #6: Use Repository Pattern for Data Access
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { MongoSupabaseCompatClient as SupabaseClient } from '@/lib/mongodb/supabase-compat';
 import { generateId } from '@/lib/generateId';
 import {
     Order,
@@ -231,6 +231,8 @@ export class OrderRepository {
                 status: 'pending' as OrderStatus,
                 payment_status: 'pending' as PaymentStatus,
                 shipping_address_snapshot: orderData.shippingAddressSnapshot || orderData.shippingAddress || null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             })
             .select()
             .single();
@@ -263,12 +265,15 @@ export class OrderRepository {
                 sku: item.sku || null,
                 quantity: item.quantity,
                 unit_price: item.unitPrice,
-                // total_price is a GENERATED column (quantity * unit_price) — do NOT insert
+                total_price: item.totalPrice ?? item.unitPrice * item.quantity,
+                configuration: item.configuration || {},
+                size: (item.configuration as any)?.size || null,
                 item_code: itemCode,
                 full_code: fullCode,
                 production_status: 'waiting',
                 // item_type_enum: product, custom, print_3d
                 item_type: item.itemType === 'print' ? 'print_3d' : (item.itemType || 'product'),
+                created_at: new Date().toISOString(),
             };
         });
 
@@ -510,3 +515,4 @@ export class OrderRepository {
         return (data || []) as OrderItem[];
     }
 }
+

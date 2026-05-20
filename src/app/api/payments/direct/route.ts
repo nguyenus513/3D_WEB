@@ -11,8 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { generateHexCode } from '@/lib/utils/generateHexCode';
 import {
     generateParentCode,
@@ -35,11 +34,7 @@ import {
 import { BANK_INFO } from '@/lib/vietqr';
 import { notifyAllAdmins } from '@/lib/notifications';
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 interface DirectPayRequest {
     productId: string;

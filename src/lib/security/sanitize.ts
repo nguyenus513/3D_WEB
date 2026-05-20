@@ -2,10 +2,18 @@
  * Security Sanitization Utilities
  * 
  * Provides XSS protection for user-generated content.
- * Uses isomorphic-dompurify for both server and client.
+ * Avoids DOM-dependent packages so API routes remain compatible with
+ * serverless runtimes.
  */
 
-import DOMPurify from 'isomorphic-dompurify';
+const ALLOWED_TAGS = new Set([
+    'b', 'i', 'u', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre',
+    'span', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
+]);
+
+const ALLOWED_ATTRS = new Set(['href', 'target', 'rel', 'class', 'id']);
+const URI_ATTRS = new Set(['href']);
 
 /**
  * Sanitize HTML content to prevent XSS attacks
@@ -18,18 +26,20 @@ import DOMPurify from 'isomorphic-dompurify';
 export function sanitizeHtml(dirty: string): string {
     if (!dirty) return '';
 
-    return DOMPurify.sanitize(dirty, {
-        ALLOWED_TAGS: [
-            'b', 'i', 'u', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li',
-            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre',
-            'span', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
-        ],
-        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'id'],
-        ALLOW_DATA_ATTR: false,
-        ADD_ATTR: ['target'], // Force target for links
-        FORBID_TAGS: ['script', 'style', 'iframe', 'form', 'input', 'button'],
-        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
-    });
+    return dirty
+        .replace(/<!--([\s\S]*?)-->/g, '')
+        .replace(/<(script|style|iframe|form|input|button)\b[\s\S]*?<\/\1>/gi, '')
+        .replace(/<(script|style|iframe|form|input|button)\b[^>]*\/?>/gi, '')
+        .replace(/<\/?([a-z0-9-]+)([^>]*)>/gi, (match, tagName: string, rawAttrs: string) => {
+            const tag = tagName.toLowerCase();
+            if (!ALLOWED_TAGS.has(tag)) return '';
+
+            if (match.startsWith('</')) return `</${tag}>`;
+            if (tag === 'br') return '<br>';
+
+            const attrs = sanitizeAttributes(rawAttrs);
+            return `<${tag}${attrs}>`;
+        });
 }
 
 /**
@@ -41,7 +51,28 @@ export function sanitizeHtml(dirty: string): string {
  */
 export function stripHtml(dirty: string): string {
     if (!dirty) return '';
-    return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
+    return dirty
+        .replace(/<!--([\s\S]*?)-->/g, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/[<>]/g, '');
+}
+
+function sanitizeAttributes(rawAttrs: string): string {
+    const attrs: string[] = [];
+    const attrRegex = /([a-zA-Z0-9:-]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+))?/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = attrRegex.exec(rawAttrs)) !== null) {
+        const attrName = match[1].toLowerCase();
+        if (!ALLOWED_ATTRS.has(attrName) || attrName.startsWith('on')) continue;
+
+        const rawValue = (match[2] || '').replace(/^['"]|['"]$/g, '');
+        if (URI_ATTRS.has(attrName) && sanitizeUrl(rawValue) === '') continue;
+
+        attrs.push(`${attrName}="${escapeHtml(rawValue)}"`);
+    }
+
+    return attrs.length ? ` ${attrs.join(' ')}` : '';
 }
 
 /**

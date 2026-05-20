@@ -2,15 +2,9 @@
 * Upload Service
 *
 * Business logic layer for file uploads.
-* Handles routing to R2 or Google Drive based on file type.
+* Handles routing to Cloudflare R2.
 */
 
-import {
-    uploadWithNaming,
-    isDriveConnected,
-    getDirectUrl,
-    getThumbnailUrl,
-} from '@/lib/google-drive-oauth';
 import {
     isR2Configured,
     uploadToR2,
@@ -232,119 +226,14 @@ export class UploadService {
             }
         }
 
-        // Determine storage destination
-        // STRATEGY:
-        // - Images -> R2 (Hot Storage) for fast CDN delivery
-        // - 3D Models (printing) -> R2 for reliable signed URL downloads
-        // - 3D Models (other) -> Google Drive (Production Storage) for manufacturing/archival
-
+        // Store every accepted upload in Cloudflare R2.
         try {
-            console.log('[UploadService] Starting upload:', { type: params.type, filename: file.name, size: file.size });
-
-            if (is3DModel) {
-                // Printing files go to R2 for reliable download via signed URLs
-                if (params.type === 'printing') {
-                    console.log('[UploadService] Routing 3D printing file to R2...');
-                    return await this.uploadToR2Storage(buffer, file, params, userId);
-                }
-                console.log('[UploadService] Routing 3D model to Google Drive...');
-                return await this.uploadToDrive(buffer, file, params);
-            } else {
-                // Images (standard + RAW) go to R2
-                console.log('[UploadService] Routing image/RAW to R2...');
-                return await this.uploadToR2Storage(buffer, file, params, userId);
-            }
+            console.log('[UploadService] Routing upload to R2:', { type: params.type, filename: file.name, size: file.size, is3DModel });
+            return await this.uploadToR2Storage(buffer, file, params, userId);
         } catch (error) {
-            console.error('[UploadService] Upload failed:', error);
-
-            // Fallback strategy
-            if (is3DModel) {
-                // If Drive fails for 3D model, try R2 as backup? 
-
-                // Or typically we might just fail since Drive is required for production.
-                // But let's try R2 as backup if Drive fails, just to save the file.
-                console.warn('[UploadService] Google Drive upload failed. Retrying with R2 backup...');
-                try {
-                    return await this.uploadToR2Storage(buffer, file, params, userId);
-                } catch (r2Error) {
-                    throw error; // Throw original error if both fail
-                }
-            } else {
-                // If R2 fails for image, try Drive as backup
-                console.warn('[UploadService] R2 upload failed. Retrying with Google Drive backup...');
-                return await this.uploadToDrive(buffer, file, params);
-            }
+            console.error('[UploadService] R2 upload failed:', error);
+            throw error;
         }
-    }
-
-    /**
-     * Upload to Google Drive (STL/OBJ files)
-     */
-    private async uploadToDrive(
-        buffer: Buffer,
-        file: File,
-        params: UploadRequestInput
-    ): Promise<UploadResult> {
-        const connected = await isDriveConnected();
-        if (!connected) {
-            throw new BadRequestError('Google Drive chưa được kết nối. Vui lòng vào Admin Settings để kết nối.');
-        }
-
-        // Map upload types to Drive folder types
-        // uploadWithNaming only accepts: product, printing, custom_main, custom_accessory, custom_preview
-        const driveTypeMap: Record<string, 'product' | 'printing' | 'custom_main' | 'custom_accessory' | 'custom_preview'> = {
-            'product': 'product',
-            'product-size': 'product',
-            'printing': 'printing',
-            'custom': 'custom_main',
-            'custom_single': 'custom_main',
-            'custom_couple': 'custom_main',
-            'custom_group': 'custom_main',
-        };
-        const driveType = driveTypeMap[params.type] || 'custom_main';
-
-        const options = {
-            type: driveType,
-            index: params.index ?? 1,
-            sku: params.sku ?? undefined,
-            customerCode: params.customerCode ?? undefined,
-            orderCode: params.orderCode ?? undefined,
-        };
-
-        const result = await uploadWithNaming(
-            buffer,
-            file.name,
-            file.type || 'application/octet-stream',
-            options
-        );
-
-        // Insert into files + file_links for unified tracking
-        const category = determineCategory(params, file.name);
-        const fileId = await insertFileRecord({
-            orderCode: params.orderCode || undefined,
-            driveFileId: result.fileId,
-            driveUrl: getDirectUrl(result.fileId),
-            storageProvider: 'drive',
-            fileName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            sizeBytes: buffer.length,
-            category,
-            ownerId: params.customerCode || 'SYSTEM',
-        });
-
-        return {
-            success: true,
-            storage: 'drive',
-            file: {
-                id: result.fileId,
-                name: result.fileName,
-                url: getDirectUrl(result.fileId),
-                thumbnail: getThumbnailUrl(result.fileId, 400),
-                viewUrl: result.webViewLink,
-                downloadUrl: result.webContentLink,
-                fileId: fileId || undefined,
-            },
-        };
     }
 
     /**
@@ -431,8 +320,7 @@ export class UploadService {
                 );
             }
 
-            console.warn('[Upload] Falling back to Google Drive...');
-            return this.uploadToDrive(buffer, file, params);
+            throw error;
         }
     }
 

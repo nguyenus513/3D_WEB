@@ -83,7 +83,7 @@ async function sendViaGmail(options: EmailOptions): Promise<{ success: boolean; 
 
     try {
         await transporter.sendMail({
-            from: `"Miniver 3D Lab" <${user}>`,
+            from: `"${process.env.EMAIL_FROM_NAME || 'Miniver 3D Lab'}" <${process.env.EMAIL_FROM || user}>`,
             to: options.to,
             subject: options.subject,
             html: options.html,
@@ -123,7 +123,7 @@ async function sendViaBrevo(options: EmailOptions): Promise<{ success: boolean; 
                 'content-type': 'application/json',
             },
             body: JSON.stringify({
-                sender: { name: 'Miniver 3D Lab', email: process.env.GMAIL_USER || 'noreply@miniver.lab' },
+                sender: { name: process.env.EMAIL_FROM_NAME || 'Miniver 3D Lab', email: process.env.EMAIL_FROM || process.env.GMAIL_USER || 'miniver.3dlab@gmail.com' },
                 to: [{ email: options.to }],
                 subject: options.subject,
                 htmlContent: options.html,

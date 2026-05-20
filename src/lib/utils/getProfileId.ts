@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Smart Profile ID Lookup Utility
  * 
  * Handles corrupted session IDs by falling back to email lookup.
  * Use this in all APIs that need to query user-specific data.
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { MongoSupabaseCompatClient as SupabaseClient } from '@/lib/mongodb/supabase-compat';
 
 interface SessionUser {
     id?: string;
@@ -102,3 +102,4 @@ export async function requireProfileId(
     }
     return profileId;
 }
+

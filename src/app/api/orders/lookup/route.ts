@@ -7,19 +7,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { getBankConfigForOrderTypeAsync } from '@/lib/vietqr';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('order-lookup');
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 export async function GET(request: NextRequest) {
     try {
@@ -84,9 +79,23 @@ export async function GET(request: NextRequest) {
         // Determine order type
         const orderType = order.order_type || 'ready_made';
 
-        // Calculate totals
-        const total = order.total_amount || 0;
         const orderItems = order.items || [];
+
+        const toAmount = (value: unknown): number => {
+            const amount = Number(value ?? 0);
+            return Number.isFinite(amount) && amount > 0 ? amount : 0;
+        };
+
+        const calculateItemsTotal = (items: any[]): number => items.reduce((sum, item) => {
+            const itemTotal = toAmount(item.total_price);
+            if (itemTotal > 0) return sum + itemTotal;
+            return sum + toAmount(item.unit_price) * Math.max(1, Number(item.quantity || 1));
+        }, 0);
+
+        // Calculate totals; repair legacy/partial Mongo rows where total_amount is 0/missing.
+        const storedTotal = toAmount(order.total_amount) || toAmount(order.total) || toAmount(order.subtotal);
+        const itemsTotal = calculateItemsTotal(orderItems);
+        const total = storedTotal || itemsTotal;
 
         // Calculate deposit based on order type
         // Rules: 
@@ -96,7 +105,8 @@ export async function GET(request: NextRequest) {
         // - mixed = 50% of custom items + 100% of print/product items
         const getDepositAmount = (orderType: string, total: number, items: any[]): number => {
             // If already stored, use that
-            if (order.deposit_amount) return order.deposit_amount;
+            const storedDeposit = toAmount(order.deposit_amount);
+            if (storedDeposit > 0) return storedDeposit;
 
             // Custom only: 50%
             if (orderType === 'custom') {
@@ -123,6 +133,16 @@ export async function GET(request: NextRequest) {
             return total;
         };
         const depositAmount = getDepositAmount(orderType, total, orderItems);
+
+        if ((toAmount(order.total_amount) === 0 || toAmount(order.deposit_amount) === 0) && total > 0) {
+            supabaseAdmin
+                .from('orders')
+                .update({ total_amount: total, deposit_amount: depositAmount })
+                .eq('id', order.id)
+                .then(({ error }) => {
+                    if (error) log.warn('Lazy total repair failed', { orderId: order.id, error: error.message });
+                });
+        }
 
         // Map canonical DB order_type to payment_configs order_type
         // payment_configs uses: 'printing', 'ready_made', 'custom'
@@ -155,14 +175,17 @@ export async function GET(request: NextRequest) {
         const items = (order.items || []).map((item: any) => {
             // print_job is an array from PostgREST join, take first entry
             const pj = Array.isArray(item.print_job) ? item.print_job[0] : item.print_job;
+            const quantity = Number(item.quantity || 1);
+            const unitPrice = Number(item.unit_price || 0);
+            const itemTotal = Number(item.total_price || unitPrice * quantity || 0);
             return {
                 id: item.id,
                 name: item.name,
                 product_name: item.name,
                 product_sku: item.sku,
-                quantity: item.quantity,
-                unit_price: item.unit_price,
-                total_price: item.total_price,
+                quantity,
+                unit_price: unitPrice,
+                total_price: itemTotal,
                 item_order_code: item.item_code,
                 cart_order_code: item.full_code || null,
                 production_status: item.production_status,
@@ -195,7 +218,7 @@ export async function GET(request: NextRequest) {
                 fulfillment_status: order.fulfillment_status || 'pending',
                 shipping_address: order.shipping_address || order.shipping_address_snapshot || null,
                 shipping_code: order.shipping_code || null,
-                created_at: order.created_at,
+                created_at: order.created_at || order.updated_at || order.paid_at || order.confirmed_at || null,
                 approved_at: order.approved_at || null,
                 // Demo / review fields
                 demo_images: order.demo_images || [],

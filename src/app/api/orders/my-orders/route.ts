@@ -1,4 +1,4 @@
-/**
+﻿/**
  * User Orders API - Compatible with existing schema
  * GET /api/orders/my-orders
  * 
@@ -6,15 +6,10 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 export async function GET(request: NextRequest) {
     try {
@@ -58,7 +53,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Transform to response format
-        const response = (orders || []).map(order => {
+        const response = (orders || []).map((order: any) => {
             return {
                 id: order.id,
                 order_code: order.order_code,
@@ -66,17 +61,20 @@ export async function GET(request: NextRequest) {
                 total_amount: order.total_amount || 0,
                 status: order.status || 'pending',
                 payment_status: order.payment_status || 'pending',
-                created_at: order.created_at,
+                created_at: order.created_at || order.updated_at || order.paid_at || order.confirmed_at || null,
                 // ALWAYS return items as array (never null/undefined)
                 items: (order.order_items || []).map((item: any) => {
+                    const quantity = Number(item.quantity || 1);
+                    const unitPrice = Number(item.unit_price || 0);
+                    const itemTotal = Number(item.total_price || unitPrice * quantity || 0);
                     return {
                         id: item.id,
                         item_code: item.item_code,
                         full_code: item.full_code,
                         name: item.name || 'Sản phẩm',
-                        quantity: item.quantity || 1,
-                        unit_price: item.unit_price || 0,
-                        total_price: item.total_price || 0,
+                        quantity,
+                        unit_price: unitPrice,
+                        total_price: itemTotal,
                         item_type: item.item_type || 'product',
                         production_status: item.production_status || 'waiting',
                     };
@@ -99,3 +97,6 @@ export async function GET(request: NextRequest) {
         }, { status: 500 });
     }
 }
+
+
+

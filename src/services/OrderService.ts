@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Order Service
  *
  * Business logic layer for orders.
@@ -280,7 +280,7 @@ export class OrderService {
 
     /**
      * Reserve stock for each item in the order
-     * Matches item.size → product_variant, then calls reserveStock + increment_sold_count
+     * Matches item.size â†’ product_variant, then calls reserveStock + increment_sold_count
      */
     private async reserveStockForOrder(items: CreateOrderInput['items']): Promise<void> {
         const supabase = getAdminSupabase();
@@ -309,20 +309,20 @@ export class OrderService {
                     continue;
                 }
 
-                // Cascade matching: size → price → first
+                // Cascade matching: size â†’ price â†’ first
                 let matchedVariant = null;
 
                 // 1. Match by size name or SKU (if size is provided and non-empty)
                 if (size) {
                     matchedVariant = allVariants.find(
-                        v => v.name === size || v.sku === size
+                        (v: any) => v.name === size || v.sku === size
                     );
                 }
 
                 // 2. Match by unit price
                 if (!matchedVariant && unitPrice) {
                     matchedVariant = allVariants.find(
-                        v => Number(v.price) === Number(unitPrice)
+                        (v: any) => Number(v.price) === Number(unitPrice)
                     );
                 }
 
@@ -371,7 +371,7 @@ export class OrderService {
                     // Match by price, then fallback to first
                     const unitPrice = (item as any).unit_price;
                     let matchedVariant = allVariants.find(
-                        v => Number(v.price) === Number(unitPrice)
+                        (v: any) => Number(v.price) === Number(unitPrice)
                     ) || allVariants[0];
 
                     await this.productRepo.restoreStock(matchedVariant.id, qty);
@@ -387,3 +387,5 @@ export class OrderService {
         }
     }
 }
+
+

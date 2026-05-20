@@ -6,15 +6,10 @@
  * Supports both item_code (8 char) and full_code (16+ char) formats
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getPaymentConfig, getOrderTypeForProduct, generateQRUrl } from '@/lib/services/paymentConfigService';
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 export async function GET(
     request: NextRequest,

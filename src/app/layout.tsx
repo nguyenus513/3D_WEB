@@ -1,18 +1,10 @@
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
-
-const beVietnamPro = Be_Vietnam_Pro({
-  subsets: ["latin", "vietnamese"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-  variable: "--font-be-vietnam-pro",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -21,7 +13,7 @@ export const metadata: Metadata = {
     template: '%s | Miniver 3D Lab',
   },
   description: 'Dịch vụ in 3D chuyên nghiệp, thiết kế mô hình theo yêu cầu, và sản phẩm độc đáo.',
-  keywords: ["3D print", "mô hình 3D", "custom", "in 3D", "tượng 3D", "figure"],
+  keywords: ['3D print', 'mô hình 3D', 'custom', 'in 3D', 'tượng 3D', 'figure'],
   icons: {
     icon: '/globe.svg',
   },
@@ -34,7 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${beVietnamPro.variable} antialiased font-sans bg-[var(--bg-void)] text-[var(--text-primary)]`}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
+      <body className={`antialiased bg-[var(--bg-void)] text-[var(--text-primary)]`}>
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>

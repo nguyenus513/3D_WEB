@@ -16,6 +16,11 @@ export type ProductStatusType = z.infer<typeof ProductStatus>;
 export const ProductType = z.enum(['ready_made', 'custom', 'print_on_demand']);
 export type ProductTypeS = z.infer<typeof ProductType>;
 
+const optionalCategoryId = z.preprocess(
+    (value) => value === '' ? null : value,
+    z.string().min(1).optional().nullable(),
+);
+
 // =============================================================================
 // Image & Size Schemas
 // =============================================================================
@@ -54,7 +59,7 @@ export const CreateProductSchema = z.object({
     name: z.string().min(1).max(150),
     sku: z.string().min(1).max(50),
     slug: z.string().max(150).optional(),
-    category_id: z.string().uuid().optional().nullable(),
+    category_id: optionalCategoryId,
     type: ProductType.default('ready_made'),
     status: ProductStatus.default('draft'),
     short_description: z.string().max(300).optional().nullable(),
@@ -81,9 +86,9 @@ export type VariantInput = z.infer<typeof VariantInputSchema>;
 // =============================================================================
 
 export const UpdateProductSchema = z.object({
-    id: z.string().uuid(),
+    id: z.string().min(1),
     name: z.string().min(1).max(150).optional(),
-    sku: z.string().min(1).max(20).optional(),
+    sku: z.string().min(1).max(50).optional(),
     slug: z.string().max(150).optional(),
     status: ProductStatus.optional(),
     is_active: z.boolean().optional(),

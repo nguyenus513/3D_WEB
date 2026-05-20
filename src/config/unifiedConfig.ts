@@ -14,14 +14,20 @@ import { z } from 'zod';
 // =============================================================================
 
 const envSchema = z.object({
-    // Supabase (Required)
-    NEXT_PUBLIC_SUPABASE_URL: z.string().url('NEXT_PUBLIC_SUPABASE_URL must be a valid URL'),
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
-    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+    // MongoDB (Required for production)
+    MONGODB_URI: z.string().optional(),
+    db_MONGODB_URI: z.string().optional(),
+    MONGODB_DB_NAME: z.string().optional().default('intelligentroutex'),
+
+    // Supabase (Legacy/optional during MongoDB migration)
+    NEXT_PUBLIC_SUPABASE_URL: z.string().url('NEXT_PUBLIC_SUPABASE_URL must be a valid URL').optional(),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 
     // NextAuth (Optional - uses defaults if not set)
     NEXTAUTH_URL: z.string().url().optional().default('http://localhost:3000'),
-    NEXTAUTH_SECRET: z.string().min(32).optional().default('default-dev-secret-must-be-at-least-32-chars'),
+    AUTH_SECRET: z.string().optional(),
+    NEXTAUTH_SECRET: z.string().optional().default('default-dev-secret-must-be-at-least-32-chars'),
 
     // Cloudflare R2 Storage (Optional in dev)
     R2_ACCOUNT_ID: z.string().optional(),
@@ -90,7 +96,14 @@ function getEnvIssueMessage(issues: z.ZodIssue[]): string {
 }
 
 function parseEnv() {
-    const result = envSchema.safeParse(process.env);
+    const rawEnv = {
+        ...process.env,
+        MONGODB_URI: process.env.MONGODB_URI || process.env.db_MONGODB_URI,
+        NEXTAUTH_SECRET: (process.env.NEXTAUTH_SECRET && process.env.NEXTAUTH_SECRET.length >= 32)
+            ? process.env.NEXTAUTH_SECRET
+            : (process.env.AUTH_SECRET && process.env.AUTH_SECRET.length >= 32) ? process.env.AUTH_SECRET : undefined,
+    };
+    const result = envSchema.safeParse(rawEnv);
 
     if (!result.success) {
         const message = `\n❌ Invalid environment variables:\n${getEnvIssueMessage(result.error.issues)}\n`;
@@ -105,13 +118,14 @@ function parseEnv() {
 
         // Return partial config with defaults for dev
         return envSchema.parse({
-            ...process.env,
+            ...rawEnv,
             // Provide fallbacks for required fields in dev
-            NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-            NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
-            SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder',
+            MONGODB_URI: rawEnv.MONGODB_URI || 'mongodb://miniver:miniver_dev_password@localhost:27017/intelligentroutex?authSource=admin',
+            MONGODB_DB_NAME: process.env.MONGODB_DB_NAME || 'intelligentroutex',
             NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
-            NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'dev-secret-must-be-at-least-32-chars',
+            NEXTAUTH_SECRET: (process.env.NEXTAUTH_SECRET && process.env.NEXTAUTH_SECRET.length >= 32)
+                ? process.env.NEXTAUTH_SECRET
+                : (process.env.AUTH_SECRET && process.env.AUTH_SECRET.length >= 32) ? process.env.AUTH_SECRET : 'dev-secret-must-be-at-least-32-chars',
         });
     }
 
@@ -140,12 +154,20 @@ export const config = {
     },
 
     /**
-     * Supabase Configuration
+     * MongoDB Configuration
+     */
+    mongodb: {
+        uri: env.MONGODB_URI || env.db_MONGODB_URI || '',
+        dbName: env.MONGODB_DB_NAME,
+    },
+
+    /**
+     * Supabase Configuration (legacy/optional)
      */
     supabase: {
-        url: env.NEXT_PUBLIC_SUPABASE_URL,
-        anonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+        url: env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+        anonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
+        serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder',
     },
 
     /**
@@ -259,3 +281,7 @@ export const config = {
 
 export type Config = typeof config;
 export type EnvSchema = z.infer<typeof envSchema>;
+
+
+
+

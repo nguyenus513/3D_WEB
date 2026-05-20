@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Notification Helper Library
  * Creates notifications for SaaS-grade event tracking.
  *
@@ -74,7 +74,7 @@ export async function notifyAllAdmins(params: Omit<CreateNotificationParams, 'us
     }
 
     // Create notification for each admin
-    const notifications = admins.map(admin => ({
+    const notifications = admins.map((admin: any) => ({
         user_id: admin.id,
         title: params.title,
         message: params.message || null,
@@ -91,3 +91,4 @@ export async function notifyAllAdmins(params: Omit<CreateNotificationParams, 'us
         console.error('[Notification] Failed to notify admins:', insertError.message);
     }
 }
+

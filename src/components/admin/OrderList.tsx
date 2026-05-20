@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 import type { Order, OrderType } from '@/types/database';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 const statusTabs = [
     { key: 'all', label: 'Tất cả' },
@@ -60,6 +61,27 @@ interface OrderWithProfile extends Order {
         phone?: string;
         instagram_username?: string;
     } | null;
+}
+
+function getOrderShippingInfo(order: OrderWithProfile) {
+    return ((order as any).shipping_address_snapshot || (order as any).shipping_address || {}) as {
+        full_name?: string;
+        phone?: string;
+    };
+}
+
+function getOrderCustomerName(order: OrderWithProfile) {
+    const shippingInfo = getOrderShippingInfo(order);
+    return order.profiles?.full_name
+        || (order.profiles as any)?.name
+        || shippingInfo.full_name
+        || order.profiles?.email?.split('@')[0]
+        || 'Chưa có tên khách hàng';
+}
+
+function getOrderCustomerPhone(order: OrderWithProfile) {
+    const shippingInfo = getOrderShippingInfo(order);
+    return order.profiles?.phone || shippingInfo.phone || '-';
 }
 
 export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps) {
@@ -153,28 +175,36 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
 
     // Filter orders
     const filteredOrders = orders.filter(order => {
+        const actualType = (order as any).order_type || 'ready_made';
+        const matchesType = orderType === 'all'
+            || (orderType === 'ready_made' && (actualType === 'ready_made' || actualType === 'product'))
+            || (orderType === 'printing' && (actualType === 'printing' || actualType === 'print_3d'))
+            || actualType === orderType;
         const matchesStatus = activeStatus === 'all' || order.status === activeStatus;
         const profile = order.profiles as { full_name?: string; email?: string } | null;
 
-        // Use shipping_address_snapshot fallback
-        const shippingName = (order.shipping_address_snapshot as any)?.full_name;
-        const shippingPhone = (order.shipping_address_snapshot as any)?.phone;
+        const shippingInfo = getOrderShippingInfo(order);
+        const customerName = getOrderCustomerName(order);
+        const customerPhone = getOrderCustomerPhone(order);
         // Search by cart_code (preferred), order_code (fallback), customer name, or user_id
         const displayCode = (order as any).cart_code || order.order_code;
         const matchesSearch =
             displayCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
             order.order_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (shippingName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            customerPhone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (shippingInfo.full_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (order.user_id && order.user_id.toLowerCase().includes(searchTerm.toLowerCase()));
 
         // Date filter
-        const orderDate = new Date(order.created_at);
-        const matchesDay = !dateFilter.day || orderDate.getDate() === parseInt(dateFilter.day);
-        const matchesMonth = !dateFilter.month || (orderDate.getMonth() + 1) === parseInt(dateFilter.month);
-        const matchesYear = !dateFilter.year || orderDate.getFullYear() === parseInt(dateFilter.year);
+        const orderDate = order.created_at ? new Date(order.created_at) : null;
+        const hasValidDate = !!orderDate && !Number.isNaN(orderDate.getTime());
+        const matchesDay = !dateFilter.day || (hasValidDate && orderDate.getDate() === parseInt(dateFilter.day));
+        const matchesMonth = !dateFilter.month || (hasValidDate && (orderDate.getMonth() + 1) === parseInt(dateFilter.month));
+        const matchesYear = !dateFilter.year || (hasValidDate && orderDate.getFullYear() === parseInt(dateFilter.year));
 
-        return matchesStatus && matchesSearch && matchesDay && matchesMonth && matchesYear;
+        return matchesType && matchesStatus && matchesSearch && matchesDay && matchesMonth && matchesYear;
     });
 
     const getStatusCount = (status: string) => {
@@ -318,7 +348,8 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                             </thead>
                             <tbody>
                                 {filteredOrders.map((order) => {
-                                    const shippingInfo = order.shipping_address_snapshot as any;
+                                    const customerName = getOrderCustomerName(order);
+                                    const customerPhone = getOrderCustomerPhone(order);
                                     return (
                                         <tr
                                             key={order.id}
@@ -340,10 +371,10 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                             <td className="px-5 py-4">
                                                 <div>
                                                     <span className="text-[var(--text-primary)] block">
-                                                        {order.profiles?.full_name || shippingInfo?.full_name || 'Khách vãng lai'}
+                                                        {customerName}
                                                     </span>
                                                     <span className="text-[var(--text-secondary)] text-sm">
-                                                        {order.profiles?.phone || shippingInfo?.phone || '-'}
+                                                        {customerPhone}
                                                     </span>
                                                 </div>
                                             </td>
@@ -364,13 +395,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                             </td>
                                             <td className="px-5 py-4">
                                                 <span className="text-[var(--text-secondary)] text-sm">
-                                                    {new Date(order.created_at).toLocaleString('vi-VN', {
-                                                        day: '2-digit',
-                                                        month: '2-digit',
-                                                        year: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                    })}
+                                                    {formatOrderDate(order.created_at)}
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4">
@@ -393,6 +418,12 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                             </td>
                                             <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center justify-end gap-2">
+                                                    <Link
+                                                        href={`${adminRoot}/orders/${order.id}`}
+                                                        className="px-3 py-1.5 bg-white/10 text-[var(--text-primary)] rounded-lg text-sm hover:bg-white/20 whitespace-nowrap"
+                                                    >
+                                                        Xem
+                                                    </Link>
                                                     {order.status === 'pending' && (
                                                         <button
                                                             onClick={() => handleConfirmPayment(order.id)}

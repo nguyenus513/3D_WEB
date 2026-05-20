@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, ReactNode } from 'react';
-import { motion, useInView, useAnimation, Variant } from 'framer-motion';
+import { ReactNode, useEffect, useRef } from 'react';
 
 interface AnimatedSectionProps {
     children: ReactNode;
@@ -10,60 +9,16 @@ interface AnimatedSectionProps {
     animation?: 'fadeInUp' | 'fadeIn' | 'scaleUp' | 'slideInLeft' | 'slideInRight';
 }
 
-const animations: Record<string, { hidden: Variant; visible: Variant }> = {
-    fadeInUp: {
-        hidden: { opacity: 0, y: 60 },
-        visible: { opacity: 1, y: 0 },
-    },
-    fadeIn: {
-        hidden: { opacity: 0 },
-        visible: { opacity: 1 },
-    },
-    scaleUp: {
-        hidden: { opacity: 0, scale: 0.8 },
-        visible: { opacity: 1, scale: 1 },
-    },
-    slideInLeft: {
-        hidden: { opacity: 0, x: -60 },
-        visible: { opacity: 1, x: 0 },
-    },
-    slideInRight: {
-        hidden: { opacity: 0, x: 60 },
-        visible: { opacity: 1, x: 0 },
-    },
-};
-
 export function AnimatedSection({
     children,
     className = '',
-    delay = 0,
-    animation = 'fadeInUp'
+    delay: _delay = 0,
+    animation: _animation = 'fadeInUp'
 }: AnimatedSectionProps) {
-    const ref = useRef(null);
-    const isInView = useInView(ref, { once: true, margin: '-100px' });
-    const controls = useAnimation();
-
-    useEffect(() => {
-        if (isInView) {
-            controls.start('visible');
-        }
-    }, [isInView, controls]);
-
     return (
-        <motion.div
-            ref={ref}
-            initial="hidden"
-            animate={controls}
-            variants={animations[animation]}
-            transition={{
-                duration: 0.8,
-                delay,
-                ease: [0.25, 0.1, 0.25, 1], // Custom easing
-            }}
-            className={className}
-        >
+        <div className={className}>
             {children}
-        </motion.div>
+        </div>
     );
 }
 
@@ -75,31 +30,8 @@ interface TextRevealProps {
 }
 
 export function TextReveal({ text, className = '', delay = 0 }: TextRevealProps) {
-    const ref = useRef(null);
-    const isInView = useInView(ref, { once: true, margin: '-50px' });
-
-    const words = text.split(' ');
-
-    return (
-        <span ref={ref} className={className}>
-            {words.map((word, wordIndex) => (
-                <span key={wordIndex} className="inline-block overflow-hidden mr-[0.25em] pb-2 -mb-2">
-                    <motion.span
-                        className="inline-block"
-                        initial={{ y: '100%' }}
-                        animate={isInView ? { y: 0 } : { y: '100%' }}
-                        transition={{
-                            duration: 0.6,
-                            delay: delay + wordIndex * 0.1,
-                            ease: [0.25, 0.1, 0.25, 1],
-                        }}
-                    >
-                        {word}
-                    </motion.span>
-                </span>
-            ))}
-        </span>
-    );
+    void delay;
+    return <span className={className}>{text}</span>;
 }
 
 // Parallax effect component
@@ -110,28 +42,8 @@ interface ParallaxProps {
 }
 
 export function Parallax({ children, speed = 0.5, className = '' }: ParallaxProps) {
-    const ref = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const element = ref.current;
-        if (!element) return;
-
-        const handleScroll = () => {
-            const rect = element.getBoundingClientRect();
-            const scrolled = window.innerHeight - rect.top;
-            const yOffset = scrolled * speed * 0.1;
-            element.style.transform = `translateY(${yOffset}px)`;
-        };
-
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [speed]);
-
-    return (
-        <div ref={ref} className={className} style={{ willChange: 'transform' }}>
-            {children}
-        </div>
-    );
+    void speed;
+    return <div className={className}>{children}</div>;
 }
 
 // Magnetic button effect

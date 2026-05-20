@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import type { Profile, Order } from '@/types/database';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
@@ -165,7 +166,7 @@ export default function AdminCustomerDetailPage() {
                             </div>
                             <div className="text-center p-4 rounded-xl bg-[var(--material-glass)]">
                                 <p className="text-2xl font-bold text-[var(--text-primary)]">
-                                    {new Date(customer.created_at).toLocaleDateString('vi-VN')}
+                                    {formatOrderDate(customer.created_at)}
                                 </p>
                                 <p className="text-[var(--text-secondary)] text-sm">Ngày tham gia</p>
                             </div>
@@ -242,7 +243,7 @@ export default function AdminCustomerDetailPage() {
                                     <div>
                                         <span className="text-[var(--text-primary)] font-medium block">{order.order_code}</span>
                                         <span className="text-[var(--text-secondary)] text-sm">
-                                            {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                                            {formatOrderDate(order.created_at)}
                                         </span>
                                     </div>
                                 </div>

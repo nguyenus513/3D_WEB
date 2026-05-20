@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Design Versions API
  * GET /api/orders/[id]/design-versions - List all design versions for an order
  *
@@ -74,7 +74,7 @@ export async function GET(
         }
 
         // Sort images within each version
-        const sortedVersions = (versions || []).map(v => ({
+        const sortedVersions = (versions || []).map((v: any) => ({
             ...v,
             design_images: (v.design_images || []).sort(
                 (a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order
@@ -92,3 +92,4 @@ export async function GET(
         return NextResponse.json({ error: 'Internal error' }, { status: 500 });
     }
 }
+

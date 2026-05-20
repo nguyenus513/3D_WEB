@@ -207,7 +207,7 @@ export async function POST(
             .eq('version_id', versionId)
             .order('sort_order', { ascending: true });
 
-        const demoImagesSync = (allImages || []).map(img => ({
+        const demoImagesSync = (allImages || []).map((img: any) => ({
             url: img.image_url,
             label: img.label || 'Demo',
             uploaded_at: img.created_at,
@@ -351,7 +351,7 @@ export async function DELETE(
             .eq('version_id', imageToDelete.version_id)
             .order('sort_order', { ascending: true });
 
-        const demoImagesSync = (remainingImages || []).map(img => ({
+        const demoImagesSync = (remainingImages || []).map((img: any) => ({
             url: img.image_url,
             label: img.label || 'Demo',
             uploaded_at: img.created_at,
@@ -372,3 +372,4 @@ export async function DELETE(
         return NextResponse.json({ error: 'Delete failed: ' + (error as Error).message }, { status: 500 });
     }
 }
+

@@ -111,8 +111,11 @@ export function getItemStatusLabel(status: string): string {
 /**
  * Format date: DD/MM/YYYY HH:MM:SS
  */
-export function formatOrderDate(dateString: string): string {
+export function formatOrderDate(dateString?: string | null): string {
+    if (!dateString) return 'Chưa có ngày giờ';
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return 'Chưa có ngày giờ';
+
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();

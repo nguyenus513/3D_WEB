@@ -10,19 +10,14 @@
  * - Rate limited
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { SecurityLogger, isRateLimited, rateLimitedResponse } from '@/lib/security';
 import { createLogger } from '@/lib/logger';
 import crypto from 'crypto';
 
 const log = createLogger('qr-webhook');
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 interface WebhookPayload {
     reference_code: string;
@@ -200,7 +195,7 @@ export async function POST(request: NextRequest) {
                         .select('status')
                         .eq('parent_id', childOrder.parent_id);
 
-                    const allPaid = allChildren?.every(c => c.status === 'paid');
+                    const allPaid = allChildren?.every((c: any) => c.status === 'paid');
 
                     if (allPaid) {
                         await supabaseAdmin

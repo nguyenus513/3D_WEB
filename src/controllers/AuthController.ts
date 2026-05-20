@@ -1,11 +1,10 @@
-/**
+﻿/**
  * Auth Controller
  *
  * Request handling layer for auth APIs.
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { BaseController, RateLimitError } from '@/lib/core/BaseController';
 import { AuthService } from '@/services/AuthService';
 import { AuthRepository } from '@/repositories/AuthRepository';
@@ -15,19 +14,8 @@ import {
     ResetPasswordSchema,
     VerifyEmailSchema,
 } from '@/validators/auth.schema';
-import { config } from '@/config/unifiedConfig';
 import { checkRateLimit } from '@/lib/security/redis-rate-limit';
 import { securityLog, getIpFromRequest, sanitizeObject } from '@/lib/security';
-
-// =============================================================================
-// Supabase Admin Client
-// =============================================================================
-
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
 
 // =============================================================================
 // Auth Controller
@@ -38,7 +26,7 @@ export class AuthController extends BaseController {
 
     constructor() {
         super();
-        const authRepo = new AuthRepository(supabaseAdmin);
+        const authRepo = new AuthRepository();
         this.authService = new AuthService(authRepo);
     }
 
@@ -143,3 +131,4 @@ export class AuthController extends BaseController {
 // =============================================================================
 
 export const authController = new AuthController();
+

@@ -1,40 +1,47 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { pingMongoDb } from '@/lib/mongodb';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 
+type ServiceStatus = { status: 'up' | 'down' | 'disabled'; latency?: number; db?: string };
+
 export async function GET() {
-    const services: Record<string, { status: 'up' | 'down'; latency?: number }> = {};
+    const services: Record<string, ServiceStatus> = {};
 
     try {
         const dbStart = Date.now();
-        const supabase = getAdminSupabase();
-        const { error } = await supabase.from('users').select('id').limit(1);
+        const result = await pingMongoDb();
         services.database = {
-            status: error ? 'down' : 'up',
+            status: result.ok === 1 ? 'up' : 'down',
             latency: Date.now() - dbStart,
+            db: result.db,
         };
     } catch {
         services.database = { status: 'down', latency: 0 };
     }
 
-    try {
-        const supabaseStart = Date.now();
-        const supabase = getAdminSupabase();
-        const { error } = await supabase.auth.getSession();
-        services.supabase = {
-            status: error ? 'down' : 'up',
-            latency: Date.now() - supabaseStart,
-        };
-    } catch {
-        services.supabase = { status: 'down', latency: 0 };
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+            const supabaseStart = Date.now();
+            const supabase = getAdminSupabase();
+            const { error } = await supabase.auth.getSession();
+            services.supabase_legacy = {
+                status: error ? 'down' : 'up',
+                latency: Date.now() - supabaseStart,
+            };
+        } catch {
+            services.supabase_legacy = { status: 'down', latency: 0 };
+        }
+    } else {
+        services.supabase_legacy = { status: 'disabled' };
     }
 
-    const allUp = Object.values(services).every(s => s.status === 'up');
+    const healthy = services.database.status === 'up';
 
     return NextResponse.json({
-        status: allUp ? 'healthy' : 'degraded',
+        status: healthy ? 'healthy' : 'degraded',
         timestamp: new Date().toISOString(),
         services,
     }, {
-        status: allUp ? 200 : 503,
+        status: healthy ? 200 : 503,
     });
 }

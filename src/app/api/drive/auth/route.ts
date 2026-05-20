@@ -1,27 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUrl } from '@/lib/google-drive-oauth';
-import { requireAdmin } from '@/lib/security/admin-guard';
+import { NextResponse } from 'next/server';
 
-/**
- * GET /api/drive/auth
- * Redirects admin to Google OAuth consent screen
- * 
- * SECURITY: Requires admin authentication
- */
-export async function GET(request: NextRequest) {
-    try {
-        // SECURITY: Admin only
-        const { authorized, response } = await requireAdmin(request);
-        if (!authorized) return response;
-
-        const authUrl = await getAuthUrl();
-        const { createLogger } = await import('@/lib/logger');
-        createLogger('drive-auth').debug('Generated auth URL');
-        return NextResponse.redirect(authUrl);
-    } catch (error) {
-        console.error('OAuth auth error:', error);
-        return NextResponse.json({
-            error: 'OAuth not configured'
-        }, { status: 500 });
-    }
+export async function GET() {
+    return NextResponse.json({ error: 'Google Drive integration is disabled. Files are stored in Cloudflare R2.' }, { status: 410 });
 }

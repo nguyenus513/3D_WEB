@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/security/admin-guard';
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
                     .order('created_at', { ascending: false });
 
                 const orderCount = orders?.length || 0;
-                const totalSpent = orders?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
+                const totalSpent = orders?.reduce((sum: number, o: { total_amount?: number }) => sum + Number(o.total_amount || 0), 0) || 0;
                 const lastOrderDate = orders?.[0]?.created_at;
 
                 return {
@@ -62,3 +62,4 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
+

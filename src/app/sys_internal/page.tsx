@@ -265,7 +265,7 @@ export default function AdminDashboard() {
                                                 {order.order_code}
                                             </span>
                                         </td>
-                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{order.customer_name || 'Khách'}</td>
+                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{order.customer_name || 'Chưa có tên khách hàng'}</td>
                                         <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{typeLabels[order.order_type] || order.order_type}</td>
                                         <td className="px-4 lg:px-5 py-4 text-[var(--text-primary)] text-sm whitespace-nowrap">{order.total.toLocaleString('vi-VN')}đ</td>
                                         <td className="px-4 lg:px-5 py-4">
@@ -285,3 +285,4 @@ export default function AdminDashboard() {
         </div>
     );
 }
+

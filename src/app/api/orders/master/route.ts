@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { generateId } from '@/lib/generateId';
 import { z } from 'zod';
 import { createLogger } from '@/lib/logger';
@@ -8,11 +8,7 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('master-order');
 
 // Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 // Cart item schema for validation - extremely flexible to handle all cart item formats
 const CartItemSchema = z.object({

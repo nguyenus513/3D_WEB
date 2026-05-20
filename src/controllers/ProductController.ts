@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Product Controller
  *
  * Request handling layer for product APIs.
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { BaseController, UnauthorizedError, BadRequestError } from '@/lib/core/BaseController';
 import { ProductService } from '@/services/ProductService';
 import { ProductRepository } from '@/repositories/ProductRepository';
@@ -14,7 +14,6 @@ import {
     UpdateProductSchema,
     ProductQuerySchema,
 } from '@/validators/product.schema';
-import { config } from '@/config/unifiedConfig';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { revalidateTag } from 'next/cache';
 
@@ -22,11 +21,7 @@ import { revalidateTag } from 'next/cache';
 // Supabase Admin Client
 // =============================================================================
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 // =============================================================================
 // Product Controller
@@ -161,3 +156,4 @@ export class ProductController extends BaseController {
 // =============================================================================
 
 export const productController = new ProductController();
+

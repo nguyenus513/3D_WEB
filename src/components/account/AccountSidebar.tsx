@@ -67,14 +67,19 @@ export function AccountSidebar() {
                             key={item.href}
                             href={item.href}
                             className={`
-                                flex items-center gap-3 px-5 py-4 transition-colors border-b border-[var(--border-color)] last:border-b-0
+                                group flex items-center gap-3 px-5 py-4 transition-colors border-b border-[var(--border-color)] last:border-b-0
                                 ${isActive
                                     ? 'bg-[var(--material-glass)] text-[var(--text-primary)]'
                                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--material-glass)]'
                                 }
                             `}
                         >
-                            <Icon size={20} strokeWidth={1.5} />
+                            <span className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-colors ${isActive
+                                ? 'bg-white text-black border-white'
+                                : 'bg-white/10 text-white border-white/10 group-hover:bg-white/15'
+                                }`}>
+                                <Icon size={17} strokeWidth={1.75} />
+                            </span>
                             <span className="font-medium">{item.name}</span>
                             {isActive && <ChevronRight size={16} className="ml-auto text-[var(--text-secondary)]" />}
                         </Link>

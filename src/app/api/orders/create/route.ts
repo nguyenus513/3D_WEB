@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { generateId } from '@/lib/generateId';
 import { stripHtml } from '@/lib/security/sanitize';
 
-// Supabase admin client with service role key (bypasses RLS)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseAdmin = getAdminSupabase();
 
 interface OrderItem {
     productId?: string;
@@ -17,6 +13,15 @@ interface OrderItem {
     price: number;
     quantity: number;
     size?: string;
+}
+
+interface ProductRow {
+    id: string;
+    name: string;
+    sku?: string | null;
+    base_price?: number;
+    sale_price?: number | null;
+    product_variants?: Array<{ id: string; name?: string; sku?: string; price: number }>;
 }
 
 interface CreateOrderRequest {
@@ -179,7 +184,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const productMap = new Map((products || []).map(p => [p.id, p]));
+        const productRows = (products || []) as ProductRow[];
+        const productMap = new Map(productRows.map((product) => [product.id, product]));
 
         // Calculate order items with server-side pricing
         const orderItems = items.map((item, index) => {
@@ -208,7 +214,7 @@ export async function POST(request: NextRequest) {
 
                     // Fallback to product base/sale price if no variant match
                     if (!matchedVariantId) {
-                        unitPrice = product.sale_price ?? product.base_price;
+                        unitPrice = product.sale_price ?? product.base_price ?? unitPrice;
                     }
                 }
             }

@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { useCart, CartItem } from '@/lib/store/cart';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
-import { Box, Boxes, PenLine, ShoppingBag } from 'lucide-react';
+import { Box, Boxes, MapPin, PenLine, ShoppingBag } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -119,7 +119,7 @@ export function CheckoutContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     items: items.map(item => ({
-                        product_id: item.productId || null,
+                        product_id: item.productId || (item as any).product_id || (item as any).product?.id || null,
                         product_name: item.name,
                         quantity: item.quantity,
                         price: item.price,
@@ -193,7 +193,9 @@ export function CheckoutContent() {
                     <Card className="rounded-3xl bg-[var(--material-panel)] border-[var(--border-color)]">
                         <CardHeader>
                             <CardTitle className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                                <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs">1</span>
+                                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-black text-white">
+                                    <MapPin size={15} strokeWidth={1.7} />
+                                </span>
                                 Địa chỉ nhận hàng
                             </CardTitle>
                         </CardHeader>

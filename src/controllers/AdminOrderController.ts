@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin Order Controller
  *
  * Request handling layer for admin order management APIs.
@@ -6,9 +6,8 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { BaseController, UnauthorizedError, NotFoundError } from '@/lib/core/BaseController';
-import { config } from '@/config/unifiedConfig';
 import { requireAdmin } from '@/lib/security/admin-guard';
 
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
@@ -29,7 +28,7 @@ function resolveFileUrl(fileUrl: string, provider?: string): string {
     if (fileUrl.startsWith('/api/files/')) {
         return fileUrl;
     }
-    // Raw R2 key — serve via proxy (e.g. "KH-xxx/2026-02-19/xxx/xxx.jpg")
+    // Raw R2 key â€” serve via proxy (e.g. "KH-xxx/2026-02-19/xxx/xxx.jpg")
     if (provider === 'r2' || !fileUrl.startsWith('/')) {
         return `/api/files/${fileUrl}`;
     }
@@ -56,7 +55,7 @@ const ALLOWED_UPDATE_FIELDS: ReadonlySet<string> = new Set([
 
 export class AdminOrderController extends BaseController {
 
-    private _supabase: ReturnType<typeof createClient> | null = null;
+    private _supabase: ReturnType<typeof getAdminSupabase> | null = null;
 
     /**
      * Lazy initialize Supabase Admin Client
@@ -64,13 +63,38 @@ export class AdminOrderController extends BaseController {
      */
     private get supabase() {
         if (!this._supabase) {
-            this._supabase = createClient(
-                config.supabase.url,
-                config.supabase.serviceRoleKey,
-                { auth: { persistSession: false } }
-            );
+            this._supabase = getAdminSupabase();
         }
         return this._supabase;
+    }
+
+
+    private async getProfilesByIds(userIds: string[]): Promise<Map<string, any>> {
+        const ids = [...new Set(userIds.filter(Boolean))];
+        if (ids.length === 0) return new Map();
+
+        const { data } = await this.supabase
+            .from('users')
+            .select('*')
+            .in('id', ids) as any;
+
+        return new Map((data || []).map((profile: any) => [profile.id, profile]));
+    }
+
+    private resolveProfile(order: any, profileMap?: Map<string, any>) {
+        const profile = order.user || profileMap?.get(order.user_id) || null;
+        const shipping = order.shipping_address || order.shipping_address_snapshot || {};
+        if (!profile && !shipping?.full_name && !shipping?.phone) return null;
+
+        return {
+            ...(profile || {}),
+            id: profile?.id || order.user_id || null,
+            full_name: profile?.profile?.full_name || profile?.full_name || profile?.name || shipping?.full_name || null,
+            name: profile?.name || profile?.full_name || shipping?.full_name || null,
+            email: profile?.email || null,
+            phone: profile?.profile?.phone || profile?.phone || shipping?.phone || null,
+            customer_code: profile?.customer_code || null,
+        };
     }
 
     /**
@@ -84,12 +108,13 @@ export class AdminOrderController extends BaseController {
 
             const { searchParams } = new URL(request.url);
             const status = searchParams.get('status');
+            const type = searchParams.get('type') || searchParams.get('order_type');
             const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
             const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')));
             const start = (page - 1) * limit;
             const end = start + limit - 1;
 
-            // Query unified orders table — join users AND user_profiles for full_name
+            // Query unified orders table â€” join users AND user_profiles for full_name
             let query = this.supabase
                 .from('orders')
                 .select('*, user:users(id, name, email, phone, customer_code, profile:user_profiles(full_name, phone)), items:order_items(*)', { count: 'exact' })
@@ -100,6 +125,16 @@ export class AdminOrderController extends BaseController {
                 query = query.eq('status', status);
             }
 
+            if (type && type !== 'all') {
+                if (type === 'ready_made' || type === 'product' || type === 'products') {
+                    query = query.in('order_type', ['ready_made', 'product']);
+                } else if (type === 'printing' || type === 'print_3d') {
+                    query = query.in('order_type', ['printing', 'print_3d']);
+                } else {
+                    query = query.eq('order_type', type);
+                }
+            }
+
             const { data: orders, error, count } = await query;
 
             if (error) {
@@ -107,20 +142,19 @@ export class AdminOrderController extends BaseController {
                 throw new Error(`Failed to list orders: ${error.message}`);
             }
 
+            const profileMap = await this.getProfilesByIds((orders || []).map((order: any) => order.user_id));
+
             // Transform to expected frontend format
-            const transformedOrders = (orders || []).map((o: any) => ({
+            const transformedOrders = (orders || [])
+                .map((o: any) => ({
                 ...o,
-                profiles: o.user ? {
-                    ...o.user,
-                    // full_name: prefer user_profiles.full_name, fallback to users.name
-                    full_name: o.user.profile?.full_name || o.user.name || null,
-                    phone: o.user.profile?.phone || o.user.phone || null,
-                } : null,
+                profiles: this.resolveProfile(o, profileMap),
                 total: o.total_amount,
                 order_items: o.items,
                 order_type: o.order_type || this.inferOrderType(o.items),
                 _source_table: 'orders'
-            }));
+                }))
+                .filter((order: any) => this.matchesOrderType(order, type));
 
             return this.handleSuccess({
                 orders: transformedOrders,
@@ -164,8 +198,27 @@ export class AdminOrderController extends BaseController {
                 .select('*, file:files(*)')
                 .in('ref_id', allRefIds);
 
+            const fileIds = [...new Set((fileLinks || []).map((link: any) => link.file_id).filter(Boolean))];
+            let filesById = new Map<string, any>();
+            if (fileIds.length > 0) {
+                const { data: linkedFiles } = await this.supabase
+                    .from('files')
+                    .select('*')
+                    .in('id', fileIds) as any;
+                filesById = new Map((linkedFiles || []).map((file: any) => [file.id, file]));
+            }
+
             // Map to frontend structure
-            const items = Array.isArray(order.items) ? order.items : [];
+            const toAmount = (value: unknown): number => {
+                const amount = Number(value ?? 0);
+                return Number.isFinite(amount) ? amount : 0;
+            };
+            const items = Array.isArray(order.items) ? order.items.map((item: any) => {
+                const quantity = Math.max(1, Number(item.quantity || 1));
+                const unitPrice = toAmount(item.unit_price);
+                const totalPrice = toAmount(item.total_price) || unitPrice * quantity;
+                return { ...item, quantity, unit_price: unitPrice, total_price: totalPrice };
+            }) : [];
             const mainItem = items[0] || {};
             const itemConfig = mainItem.configuration || {};
             const rawOrderType = order.order_type || this.inferOrderType(items);
@@ -175,7 +228,7 @@ export class AdminOrderController extends BaseController {
             // Map file_links for admin consumption
             // files table columns: id, file_url, mime_type, size_bytes, provider, created_at
             const orderFiles = Array.isArray(fileLinks) ? fileLinks.map((fl: any) => {
-                const f = fl.file || {};
+                const f = fl.file || filesById.get(fl.file_id) || {};
                 // Extract a display name from file_url (last segment or drive ID)
                 const fileUrl = f.file_url || '';
                 const displayName = fileUrl.split('/').pop() || fileUrl || 'unknown';
@@ -240,19 +293,19 @@ export class AdminOrderController extends BaseController {
             }
 
             // Build profile with full_name resolution
-            const resolvedProfile = order.user ? {
-                ...order.user,
-                full_name: order.user.profile?.full_name || order.user.name || null,
-                phone: order.user.profile?.phone || order.user.phone || null,
-            } : null;
+            const profileMap = await this.getProfilesByIds([order.user_id]);
+            const resolvedProfile = this.resolveProfile(order, profileMap);
 
             return this.handleSuccess({
                 order: {
                     ...order,
                     profiles: resolvedProfile,
-                    order_items: order.items,
+                    order_items: items,
                     order_files: orderFiles,
-                    total: order.total_amount,
+                    total: toAmount(order.total_amount) || toAmount(order.total) || toAmount(order.subtotal),
+                    subtotal: toAmount(order.subtotal) || toAmount(order.total_amount) || toAmount(order.total),
+                    shipping_fee: toAmount(order.shipping_fee),
+                    deposit_amount: toAmount(order.deposit_amount),
                     customer_note: order.notes,
                     admin_note: order.admin_notes,
                     order_type: orderType,
@@ -285,12 +338,31 @@ export class AdminOrderController extends BaseController {
                 update.status = body.status;
             }
 
-            // Payment fields (deposit_paid column removed — derive payment_status instead)
+            update.updated_at = new Date().toISOString();
+
+            // Payment fields (deposit_paid column removed â€” derive payment_status instead)
             if (body.paid_at !== undefined) update.paid_at = body.paid_at;
             if (body.payment_status !== undefined) update.payment_status = body.payment_status;
 
             // Shipping
             if (body.shipping_code !== undefined) update.shipping_code = body.shipping_code;
+
+            // Status timestamps used by admin/user timelines
+            for (const field of [
+                'confirmed_at',
+                'processing_at',
+                'designing_at',
+                'review_at',
+                'revising_at',
+                'approved_at',
+                'producing_at',
+                'printing_at',
+                'shipped_at',
+                'delivered_at',
+                'completed_at',
+            ]) {
+                if (body[field] !== undefined) update[field] = body[field];
+            }
 
             // Admin notes (frontend sends `admin_note`, DB column is `admin_notes`)
             if (body.admin_note !== undefined) {
@@ -374,7 +446,7 @@ export class AdminOrderController extends BaseController {
 
             for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
                 if (Object.keys(attemptUpdate).length === 0) {
-                    // All fields were removed due to missing columns — only status matters
+                    // All fields were removed due to missing columns â€” only status matters
                     console.warn('[AdminOrder] All update fields removed due to missing DB columns:', removedFields);
                     break;
                 }
@@ -429,6 +501,7 @@ export class AdminOrderController extends BaseController {
                 return this.handleSuccess({
                     success: true,
                     message: 'Order updated successfully',
+                    order: data,
                     updatedFields: Object.keys(attemptUpdate),
                 });
             }
@@ -564,6 +637,18 @@ export class AdminOrderController extends BaseController {
             return 'ready_made';
         }
     }
+
+    private matchesOrderType(order: any, requestedType: string | null): boolean {
+        if (!requestedType || requestedType === 'all') return true;
+        const actualType = order.order_type || this.inferOrderType(order.items || order.order_items || []);
+        if (requestedType === 'ready_made' || requestedType === 'product' || requestedType === 'products') {
+            return actualType === 'ready_made' || actualType === 'product';
+        }
+        if (requestedType === 'printing' || requestedType === 'print_3d') {
+            return actualType === 'printing' || actualType === 'print_3d';
+        }
+        return actualType === requestedType;
+    }
 }
 
 // =============================================================================
@@ -571,3 +656,5 @@ export class AdminOrderController extends BaseController {
 // =============================================================================
 
 export const adminOrderController = new AdminOrderController();
+
+

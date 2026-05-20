@@ -1,45 +1,26 @@
-/**
+﻿/**
  * Profile Controller
  *
  * Request handling layer for profile API.
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { auth } from '@/auth';
 import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { ProfileService } from '@/services/ProfileService';
 import { ProfileRepository } from '@/repositories/ProfileRepository';
 import { UpdateProfileSchema } from '@/validators/profile.schema';
-import { config } from '@/config/unifiedConfig';
 
 // =============================================================================
 // Profile Controller
 // =============================================================================
 
 export class ProfileController extends BaseController {
-    private _supabase: ReturnType<typeof createClient> | null = null;
     private readonly profileService: ProfileService;
-
-    /**
-     * Lazy initialize Supabase Admin Client
-     * Prevents startup crashes if env vars are missing during build/init
-     */
-    private get supabase() {
-        if (!this._supabase) {
-            this._supabase = createClient(
-                config.supabase.url,
-                config.supabase.serviceRoleKey,
-                { auth: { persistSession: false } }
-            );
-        }
-        return this._supabase;
-    }
 
     constructor() {
         super();
-        // Initialize repository and service with getter reference
-        const profileRepo = new ProfileRepository(this.supabase);
+        const profileRepo = new ProfileRepository();
         this.profileService = new ProfileService(profileRepo);
     }
 
@@ -103,3 +84,4 @@ export class ProfileController extends BaseController {
 // =============================================================================
 
 export const profileController = new ProfileController();
+

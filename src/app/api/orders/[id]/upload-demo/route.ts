@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Admin API: Upload Demo (Simple)
  * POST /api/orders/[id]/upload-demo
- * Changes status: designing → review
+ * Changes status: designing â†’ review
  *
  * Simple URL-based upload (no file). Creates a design version.
  * For file uploads, use /api/admin/orders/[id]/demo-image instead.
@@ -107,7 +107,7 @@ export async function POST(
             .eq('version_id', versionId)
             .order('sort_order', { ascending: true });
 
-        const demoImagesSync = (allImages || []).map(img => ({
+        const demoImagesSync = (allImages || []).map((img: any) => ({
             url: img.image_url,
             label: img.label || 'Demo',
             uploaded_at: img.created_at,
@@ -140,3 +140,4 @@ export async function POST(
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
+

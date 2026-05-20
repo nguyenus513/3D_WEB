@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Google Drive OAuth Integration
  * Uses Admin's personal Google account (15GB free storage)
- * Tokens stored securely in Supabase
+ * Tokens stored securely in MongoDB
  * 
  * SECURITY:
  * - State parameter for CSRF protection
@@ -9,7 +9,7 @@
  */
 
 import { google } from 'googleapis';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { randomBytes } from 'crypto';
 import { encryptTokenData, decryptTokenData } from '@/lib/security/token-encryption';
 
@@ -19,11 +19,8 @@ const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
 const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL + '/api/drive/callback';
 const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-// Supabase admin client (server-side only)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// MongoDB admin client (server-side only)
+const supabaseAdmin = getAdminSupabase();
 
 // OAuth2 client
 function getOAuth2Client() {
@@ -105,7 +102,7 @@ export async function getTokensFromCode(code: string) {
 }
 
 /**
- * Save tokens to Supabase settings (encrypted)
+ * Save tokens to MongoDB settings (encrypted)
  */
 export async function saveTokens(tokens: {
     access_token?: string | null;
@@ -139,7 +136,7 @@ export async function saveTokens(tokens: {
 }
 
 /**
- * Get tokens from Supabase (decrypted)
+ * Get tokens from MongoDB (decrypted)
  */
 export async function getStoredTokens() {
     const { data, error } = await supabaseAdmin
@@ -181,7 +178,7 @@ export async function getStoredTokens() {
  * Only OAuth (user's own account) works for file uploads.
  */
 export async function getDriveClient(options: { useServiceAccount?: boolean } = {}) {
-    // 1. Try OAuth (User Account) FIRST — required for file uploads
+    // 1. Try OAuth (User Account) FIRST â€” required for file uploads
     if (!options.useServiceAccount) {
         try {
             const tokens = await getStoredTokens();
@@ -202,24 +199,24 @@ export async function getDriveClient(options: { useServiceAccount?: boolean } = 
                             expiry_date: credentials.expiry_date,
                         });
                         oauth2Client.setCredentials(credentials);
-                        console.log('[DRIVE] ✓ Token refreshed successfully');
+                        console.log('[DRIVE] âœ“ Token refreshed successfully');
                     } catch (refreshError) {
                         console.error('[DRIVE] Token refresh failed:', refreshError);
                         throw new Error('Google Drive token expired and refresh failed. Please re-login as admin.');
                     }
                 }
 
-                console.log('[DRIVE] ✓ Using OAuth (personal account)');
+                console.log('[DRIVE] âœ“ Using OAuth (personal account)');
                 return google.drive({ version: 'v3', auth: oauth2Client });
             }
         } catch (tokenError) {
             console.error('[DRIVE] OAuth token retrieval error:', tokenError);
         }
 
-        console.warn('[DRIVE] ⚠ No OAuth tokens in DB. Admin needs to re-login with Google.');
+        console.warn('[DRIVE] âš  No OAuth tokens in DB. Admin needs to re-login with Google.');
     }
 
-    // 2. Service Account — ONLY if explicitly requested
+    // 2. Service Account â€” ONLY if explicitly requested
     // WARNING: Service Accounts have 0 quota on personal Gmail. Cannot upload files.
     if (options.useServiceAccount) {
         const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -427,7 +424,7 @@ export async function buildFolderPath(pathSegments: string[]): Promise<string> {
  * - ORD-{orderCode}/06_FINAL/
  */
 export const FolderPaths = {
-    // Products: products/ (flat folder — not order-based)
+    // Products: products/ (flat folder â€” not order-based)
     product: () => ['products'],
 
     // LEGACY: Printing: customers/{cusCode}/printing/{orderCode}/
@@ -551,3 +548,4 @@ export async function uploadWithNaming(
 // Aliases for backward compatibility
 export const uploadFile = uploadFileOAuth;
 export const ensureFolder = createOrGetSubfolder;
+

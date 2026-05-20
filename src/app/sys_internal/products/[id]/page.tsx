@@ -143,6 +143,8 @@ export default function AdminProductEditPage() {
             const productData = {
                 id: params.id,
                 name: formData.name,
+                sku: formData.sku,
+                status: formData.status,
                 is_active: formData.status === 'active',
                 base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : 0,
                 sale_price: null,
@@ -181,18 +183,17 @@ export default function AdminProductEditPage() {
     const handleDelete = async () => {
         if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
 
-        const supabase = getSupabase();
-        const { error: deleteError } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', params.id);
-
-        if (deleteError) {
-            setError('Không thể xóa sản phẩm: ' + deleteError.message);
-            return;
+        try {
+            const response = await fetch(`/api/admin/products?id=${encodeURIComponent(String(params.id))}`, { method: 'DELETE' });
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result?.success) {
+                setError('Không thể xóa sản phẩm: ' + (result?.error?.message || result?.error || `HTTP ${response.status}`));
+                return;
+            }
+            router.push(`${adminRoot}/products`);
+        } catch (error) {
+            setError('Không thể xóa sản phẩm: ' + (error instanceof Error ? error.message : 'Unknown error'));
         }
-
-        router.push(`${adminRoot}/products`);
     };
 
     // Image upload

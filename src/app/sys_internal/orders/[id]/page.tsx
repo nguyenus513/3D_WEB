@@ -143,59 +143,35 @@ export default function AdminOrderDetailPage() {
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [adminNote, setAdminNote] = useState('');
     const [uploadingDemo, setUploadingDemo] = useState(false);
-    const [archiving, setArchiving] = useState(false);
-    const [archiveError, setArchiveError] = useState('');
     const [brokenPhotoIds, setBrokenPhotoIds] = useState<Record<string, boolean>>({});
     // Lock fetches while optimistic update is in progress
     const isOptimisticUpdate = useRef(false);
     // Explicit UI override state
     const [optimisticStatus, setOptimisticStatus] = useState<OrderStatus | null>(null);
+    const dynamicPath = Array.isArray(params.path) ? params.path : [];
+    const orderId = typeof params.id === 'string'
+        ? params.id
+        : dynamicPath[0] === 'orders' && typeof dynamicPath[1] === 'string'
+            ? dynamicPath[1]
+            : null;
 
-    // Archive order files (R2 → Google Drive)
-    const handleArchiveFiles = async () => {
-        if (!order) return;
-        const confirmed = window.confirm('Xác nhận lưu trữ file đơn hàng? Sau khi lưu trữ, user sẽ không xem lại được.');
-        if (!confirmed) return;
-        setArchiving(true);
-        setArchiveError('');
-
-        try {
-            const res = await fetch(`/api/admin/orders/${order.id}/archive`, {
-                method: 'POST',
-                headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
-            });
-            const data = await res.json();
-
-            if (!res.ok) {
-                const missing = data.missingOnDrive?.length ? `Missing on Drive: ${data.missingOnDrive.join(', ')}` : '';
-                throw new Error(data.error?.message || data.error || missing || 'Archive failed');
-            }
-
-            if (data.alreadyArchived) {
-                alert('✅ Đơn hàng đã được lưu trữ trước đó');
-            } else {
-                alert(`✅ Đã lưu trữ ${data.archived} file sang Google Drive`);
-            }
-            fetchOrder(); // Refresh to show updated admin_note
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Archive failed';
-            setArchiveError(msg);
-            console.error('Archive error:', msg);
-        }
-        setArchiving(false);
-    };
     useEffect(() => {
-        if (params.id && typeof params.id === 'string') {
+        if (orderId) {
             fetchOrder();
+        } else {
+            setLoading(false);
         }
-    }, [params.id]);
+    }, [orderId]);
 
     const fetchOrder = async () => {
+        return fetchOrderData();
+    };
+
+    const fetchOrderData = async (force = false) => {
         // Guard against undefined orderId
-        const orderId = params.id;
         // Skip fetch if optimistic update is locked
-        if (isOptimisticUpdate.current) {
-            return;
+        if (isOptimisticUpdate.current && !force) {
+            return null;
         }
 
         if (!orderId || typeof orderId !== 'string') {
@@ -248,30 +224,34 @@ export default function AdminOrderDetailPage() {
             }));
 
             // Get shipping address for fallback
-            const shippingAddr = orderData.shipping_address as { full_name?: string; phone?: string } | null;
+            const shippingAddr = (orderData.shipping_address || orderData.shipping_address_snapshot) as { full_name?: string; phone?: string } | null;
+            const fallbackCustomerName = shippingAddr?.full_name || profileData?.email?.split('@')[0] || 'Chưa có tên khách hàng';
 
             // Safely set order only if not locked (double check)
             if (!isOptimisticUpdate.current) {
                 setOrder({
                     ...orderData,
                     profiles: profileData ? {
-                        full_name: profileData.full_name || shippingAddr?.full_name || 'Khách vãng lai',
+                        full_name: profileData.full_name || fallbackCustomerName,
                         email: profileData.email || '',
                         phone: profileData.phone || shippingAddr?.phone || '',
                         customer_code: profileData.customer_code || '',
                     } : {
-                        full_name: shippingAddr?.full_name || 'Khách vãng lai',
+                        full_name: fallbackCustomerName,
                         email: '',
                         phone: shippingAddr?.phone || '',
                         customer_code: '',
                     },
+                    shipping_address: orderData.shipping_address || orderData.shipping_address_snapshot,
                     order_items: items,
                 } as Order);
             }
             setAdminNote(orderData.admin_note || '');
             setTrackingCode(orderData.shipping_code || '');
+            return orderData;
         } catch (error) {
             console.error('Error fetching order:', error);
+            return null;
         } finally {
             setLoading(false);
         }
@@ -296,7 +276,8 @@ export default function AdminOrderDetailPage() {
             });
 
             if (res.ok) {
-                setOrder({ ...order, deposit_paid: true, payment_status: paymentStatus as any, status: 'confirmed' });
+                const freshOrder = await fetchOrderData(true);
+                setOrder({ ...(freshOrder || order), deposit_paid: true, payment_status: (freshOrder?.payment_status || paymentStatus) as any, status: freshOrder?.status || 'confirmed' } as Order);
 
                 // Auto-send confirmation email
                 if (order.profiles?.email) {
@@ -363,7 +344,8 @@ export default function AdminOrderDetailPage() {
             });
 
             if (res.ok) {
-                setOrder({ ...order, status: newStatus, ...updates } as Order);
+                const freshOrder = await fetchOrderData(true);
+                setOrder({ ...(freshOrder || order), status: freshOrder?.status || newStatus, ...(!freshOrder ? updates : {}) } as Order);
                 setShowTrackingModal(false);
 
                 // Auto-send email for trigger statuses
@@ -514,7 +496,12 @@ export default function AdminOrderDetailPage() {
         );
     }
 
-    const remaining = order.total - order.deposit_amount;
+    const orderTotal = Number(order.total || 0);
+    const orderSubtotal = Number(order.subtotal || orderTotal || 0);
+    const orderShippingFee = Number((order as any).shipping_fee || 0);
+    const orderDeposit = Number(order.deposit_amount || 0);
+    const isPaymentConfirmed = order.payment_status === 'paid' || order.payment_status === 'deposit_paid' || order.deposit_paid === true;
+    const remaining = Math.max(orderTotal - orderDeposit, 0);
 
     return (
         <div className="space-y-6">
@@ -545,7 +532,7 @@ export default function AdminOrderDetailPage() {
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Payment Confirmation */}
-                    {!order.deposit_paid && (
+                    {!isPaymentConfirmed && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -555,7 +542,7 @@ export default function AdminOrderDetailPage() {
                                 <div>
                                     <h3 className="text-yellow-400 font-semibold">Chờ xác nhận thanh toán</h3>
                                     <p className="text-yellow-400/70 text-sm mt-1">
-                                        Số tiền cọc: {order.deposit_amount.toLocaleString('vi-VN')}đ
+                                        Số tiền cọc: {orderDeposit.toLocaleString('vi-VN')}đ
                                     </p>
                                 </div>
                                 <button
@@ -570,7 +557,7 @@ export default function AdminOrderDetailPage() {
                     )}
 
                     {/* Visual Progress Stepper */}
-                    {order.deposit_paid && (
+                    {isPaymentConfirmed && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -636,41 +623,6 @@ export default function AdminOrderDetailPage() {
                                         />
                                     </a>
                                 </div>
-                            )}
-                        </motion.div>
-                    )}
-
-                    {/* Archive Files Section - Show when order is delivered */}
-                    {order.status === 'delivered' && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-[#1D1D1F] rounded-2xl border border-white/10 p-6"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-white font-semibold flex items-center gap-2">
-                                        📦 Lưu trữ file
-                                    </h3>
-                                    <p className="text-white/50 text-sm mt-1">
-                                        Chuyển file từ R2 sang Google Drive để lưu trữ lâu dài
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={handleArchiveFiles}
-                                    disabled={archiving}
-                                    className="px-6 py-2.5 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-400 disabled:opacity-50 transition-colors"
-                                >
-                                    {archiving ? (
-                                        <span className="flex items-center gap-2">
-                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            Đang lưu trữ...
-                                        </span>
-                                    ) : 'Archive to Drive'}
-                                </button>
-                            </div>
-                            {archiveError && (
-                                <p className="text-red-400 text-sm mt-3">❌ {archiveError}</p>
                             )}
                         </motion.div>
                     )}
@@ -1195,19 +1147,19 @@ export default function AdminOrderDetailPage() {
                         <div className="space-y-3">
                             <div className="flex justify-between">
                                 <span className="text-white/70">Tổng sản phẩm</span>
-                                <span className="text-white">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white">{orderSubtotal.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-white/70">Phí vận chuyển</span>
-                                <span className="text-white">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white">{orderShippingFee.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white font-medium">Tổng cộng</span>
-                                <span className="text-white font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-white font-bold">{orderTotal.toLocaleString('vi-VN')}đ</span>
                             </div>
-                            <div className={`flex justify-between ${order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                                <span>Tiền cọc {order.deposit_paid ? '(đã nhận)' : '(chưa)'}</span>
-                                <span>{order.deposit_amount.toLocaleString('vi-VN')}đ</span>
+                            <div className={`flex justify-between ${isPaymentConfirmed ? 'text-green-400' : 'text-yellow-400'}`}>
+                                <span>Tiền cọc {isPaymentConfirmed ? '(đã nhận)' : '(chưa)'}</span>
+                                <span>{orderDeposit.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div className="flex justify-between text-white/50">
                                 <span>Còn lại (COD)</span>

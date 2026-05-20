@@ -1,32 +1,8 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getMongoSupabaseCompatClient, MongoSupabaseCompatClient } from '@/lib/mongodb/supabase-compat';
 
-/**
- * Admin Supabase client using service role key
- * This client BYPASSES RLS - only use in server-side admin routes!
- * 
- * WARNING: Never expose this on client-side!
- */
+let adminClient: MongoSupabaseCompatClient | null = null;
 
-let adminClient: SupabaseClient | null = null;
-
-export function getAdminSupabase(): SupabaseClient {
-    if (adminClient) return adminClient;
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    console.log('[Supabase Admin] Initializing client. URL present:', !!supabaseUrl, 'Key present:', !!serviceRoleKey, 'Key length:', serviceRoleKey?.length);
-
-    if (!supabaseUrl || !serviceRoleKey) {
-        throw new Error('Missing Supabase admin credentials');
-    }
-
-    adminClient = createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-    });
-
+export function getAdminSupabase(): MongoSupabaseCompatClient {
+    adminClient ??= getMongoSupabaseCompatClient();
     return adminClient;
 }

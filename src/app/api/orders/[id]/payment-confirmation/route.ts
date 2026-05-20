@@ -3,53 +3,44 @@
  *
  * Called when customer clicks "Tôi đã chuyển khoản".
  * Updates order status to pending_confirmation and notifies admin.
- * 
- * Supports both legacy orders table and new order_child table.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { SecurityLogger, getClientIP } from '@/lib/security';
 
-// Supabase Admin
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
-/**
- * POST /api/orders/[id]/payment-confirmation
- * Customer confirms they have made the bank transfer
- */
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { createLogger } = await import('@/lib/logger');
     const log = createLogger('payment-confirmation');
-    log.info('API called');
+
     try {
         const { id: orderId } = await params;
-        log.info('Processing order', { orderId });
-
         const session = await auth();
 
         if (!orderId) {
             return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
         }
 
-        // Try order_child first (new system)
-        let order = null;
-        let orderTable = 'order_child';
+        let order: {
+            id: string;
+            user_id?: string | null;
+            order_code: string;
+            status: string;
+            total: number;
+        } | null = null;
+        let orderTable: 'order_child' | 'orders' = 'order_child';
 
         const { data: childOrder } = await supabaseAdmin
             .from('order_child')
             .select('id, user_id, code_child, status, total_price')
             .eq('id', orderId)
-            .single();
+            .maybeSingle();
 
         if (childOrder) {
             order = {
@@ -60,12 +51,11 @@ export async function POST(
                 total: childOrder.total_price,
             };
         } else {
-            // Fallback to legacy orders table
             const { data: legacyOrder } = await supabaseAdmin
                 .from('orders')
                 .select('id, user_id, order_code, status, total_amount')
                 .eq('id', orderId)
-                .single();
+                .maybeSingle();
 
             if (legacyOrder) {
                 order = {
@@ -83,50 +73,30 @@ export async function POST(
             return NextResponse.json({ error: 'Đơn hàng không tồn tại' }, { status: 404 });
         }
 
-        // Verify ownership (allow if logged in user owns order, or guest order)
         if (session?.user?.id && order.user_id && session.user.id !== order.user_id) {
             return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 403 });
         }
 
-        // Check if order is in correct state
         if (!['pending', 'pending_confirmation', 'expired'].includes(order.status)) {
             return NextResponse.json({
-                error: 'Đơn hàng đã được xử lý hoặc không ở trạng thái chờ thanh toán'
+                error: 'Đơn hàng đã được xử lý hoặc không ở trạng thái chờ thanh toán',
             }, { status: 400 });
         }
 
-        // Update order status based on table type
-        if (orderTable === 'order_child') {
-            const { error: updateError } = await supabaseAdmin
-                .from('order_child')
-                .update({
-                    status: 'pending_confirmation',
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', orderId);
+        const updatePayload = orderTable === 'order_child'
+            ? { status: 'pending_confirmation', updated_at: new Date().toISOString() }
+            : { status: 'pending_confirmation', payment_status: 'pending', updated_at: new Date().toISOString() };
 
-            if (updateError) {
-                console.error('[PaymentConfirmation] Update error:', updateError);
-                return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
-            }
-        } else {
-            // For orders table - mark as pending admin confirmation
-            const { error: updateError } = await supabaseAdmin
-                .from('orders')
-                .update({
-                    status: 'pending_confirmation',
-                    payment_status: 'pending',
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', orderId);
+        const { error: updateError } = await supabaseAdmin
+            .from(orderTable)
+            .update(updatePayload)
+            .eq('id', orderId);
 
-            if (updateError) {
-                console.error('[PaymentConfirmation] Update error:', updateError);
-                return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
-            }
+        if (updateError) {
+            log.error('Update error', updateError);
+            return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
         }
 
-        // Log security event
         await SecurityLogger.log({
             event_type: 'ADMIN_ACTION',
             severity: 'INFO',
@@ -147,7 +117,7 @@ export async function POST(
             status: 'pending_confirmation',
         });
     } catch (error) {
-        console.error('[PaymentConfirmation] Error:', error);
+        log.error('Unhandled error', error);
         return NextResponse.json({ error: 'Đã có lỗi xảy ra' }, { status: 500 });
     }
 }

@@ -1,99 +1,64 @@
-/**
+﻿/**
  * Auth Repository
  *
- * Data access layer for auth-related tables.
+ * MongoDB data access layer for auth-related collections.
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
-
-// =============================================================================
-// Types
-// =============================================================================
+import { getMongoCollections, getMongoCollection } from '@/lib/mongodb';
 
 export interface VerificationToken {
     identifier: string;
     token: string;
-    expires: string;
+    expires: Date;
 }
 
 export interface PasswordResetToken {
     user_id: string;
     token_hash: string;
-    expires_at: string;
-    created_at: string;
+    expires_at: Date;
+    created_at: Date;
 }
 
-// =============================================================================
-// Auth Repository
-// =============================================================================
-
 export class AuthRepository {
-    constructor(private readonly db: SupabaseClient) { }
-
-    /**
-     * Create a new user profile
-     */
     async createUser(data: {
         email: string;
         hashedPassword: string;
         name?: string;
         phone?: string;
     }): Promise<{ id: string; customer_code: string }> {
+        const { profiles } = await getMongoCollections();
         const userId = crypto.randomUUID();
         const customerCode = 'KH-' + crypto.randomUUID().substring(0, 8).toUpperCase();
+        const now = new Date();
 
-        const { data: user, error } = await this.db
-            .from('users')
-            .insert({
-                id: userId,
-                email: data.email,
-                name: data.name || null,
-                phone: data.phone || null,
-                password: data.hashedPassword,
-                customer_code: customerCode,
-                role: 'customer',
-            })
-            .select('id, customer_code')
-            .single();
+        await profiles.insertOne({
+            _id: userId,
+            email: data.email.toLowerCase(),
+            full_name: data.name || null,
+            phone: data.phone || null,
+            password: data.hashedPassword,
+            customer_code: customerCode,
+            role: 'customer',
+            email_verified: false,
+            created_at: now,
+            updated_at: now,
+        });
 
-        if (error) {
-            console.error('[AuthRepository.createUser] Supabase error:', JSON.stringify(error));
-            throw new Error(error.message || 'Failed to create user');
-        }
-        return user;
+        return { id: userId, customer_code: customerCode };
     }
 
-    /**
-     * Check if email exists
-     */
     async emailExists(email: string): Promise<boolean> {
-        const { data } = await this.db
-            .from('users')
-            .select('id')
-            .eq('email', email.toLowerCase())
-            .single();
-        return !!data;
+        const { profiles } = await getMongoCollections();
+        return !!(await profiles.findOne({ email: email.toLowerCase() }, { projection: { _id: 1 } }));
     }
 
-    /**
-     * Get user by email
-     */
     async getUserByEmail(email: string): Promise<{ id: string; email: string } | null> {
-        const { data, error } = await this.db
-            .from('users')
-            .select('id, email')
-            .eq('email', email.toLowerCase())
-            .single();
-
-        if (error?.code === 'PGRST116') return null;
-        if (error) throw error;
-        return data;
+        const { profiles } = await getMongoCollections();
+        const user = await profiles.findOne({ email: email.toLowerCase() }, { projection: { _id: 1, email: 1 } });
+        return user ? { id: user._id, email: user.email || email.toLowerCase() } : null;
     }
 
-    /**
-     * Create address for user
-     */
     async createAddress(userId: string, address: {
         full_name?: string;
         phone?: string;
@@ -102,109 +67,92 @@ export class AuthRepository {
         district?: string;
         province?: string;
     }): Promise<void> {
-        const { error } = await this.db.from('user_addresses').insert({
-            user_id: userId,
-            full_name: address.full_name || '',
-            phone: address.phone || '',
-            address_line: address.address_line || '',
-            ward: address.ward || null,
-            district: address.district || null,
-            province: address.province || null,
-            is_default: true,
-        });
-
-        if (error) {
-            console.error('[AuthRepository.createAddress] Failed to save address:', JSON.stringify(error));
-            // Don't throw — address failure should not block registration
+        try {
+            const { addresses } = await getMongoCollections();
+            await addresses.insertOne({
+                _id: crypto.randomUUID(),
+                user_id: userId,
+                label: 'Nhà',
+                full_name: address.full_name || '',
+                phone: address.phone || '',
+                address_line: address.address_line || '',
+                ward: address.ward || null,
+                district: address.district || null,
+                province: address.province || '',
+                is_default: true,
+                created_at: new Date(),
+            });
+        } catch (error) {
+            console.error('[AuthRepository.createAddress] Failed to save address:', error);
         }
     }
 
-    /**
-     * Save OTP verification token
-     */
     async saveVerificationToken(email: string, otp: string, expiresAt: Date): Promise<void> {
-        const { error } = await this.db.from('verification_tokens').insert({
-            identifier: email,
+        const verificationTokens = await getMongoCollection<VerificationToken & { _id: string }>('verification_tokens');
+        await verificationTokens.insertOne({
+            _id: crypto.randomUUID(),
+            identifier: email.toLowerCase(),
             token: otp,
-            expires: expiresAt.toISOString(),
+            expires: expiresAt,
         });
-        if (error) throw error;
     }
 
-    /**
-     * Verify OTP token
-     */
     async verifyOtp(email: string, otp: string): Promise<boolean> {
-        const { data, error } = await this.db
-            .from('verification_tokens')
-            .select('*')
-            .eq('identifier', email)
-            .eq('token', otp)
-            .gt('expires', new Date().toISOString())
-            .single();
+        const verificationTokens = await getMongoCollection<VerificationToken & { _id: string }>('verification_tokens');
+        const token = await verificationTokens.findOne({
+            identifier: email.toLowerCase(),
+            token: otp,
+            expires: { $gt: new Date() },
+        });
 
-        if (error || !data) return false;
+        if (!token) return false;
 
-        // Delete used token
-        await this.db
-            .from('verification_tokens')
-            .delete()
-            .eq('identifier', email)
-            .eq('token', otp);
-
+        await verificationTokens.deleteOne({ _id: token._id });
         return true;
     }
 
-    /**
-     * Mark email as verified (no-op: email_verified column does not exist)
-     */
-    async markEmailVerified(_email: string): Promise<void> {
-        // Column email_verified does not exist in profiles table
-        // This method is kept for compatibility but does nothing
-        return;
+    async markEmailVerified(email: string): Promise<void> {
+        const { profiles } = await getMongoCollections();
+        await profiles.updateOne(
+            { email: email.toLowerCase() },
+            { $set: { email_verified: true, updated_at: new Date() } }
+        );
     }
 
-    /**
-     * Save password reset token
-     */
     async saveResetToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
-        await this.db.from('password_reset_tokens').upsert({
-            user_id: userId,
-            token_hash: tokenHash,
-            expires_at: expiresAt.toISOString(),
-            created_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
+        const passwordResetTokens = await getMongoCollection<PasswordResetToken & { _id: string }>('password_reset_tokens');
+        await passwordResetTokens.updateOne(
+            { user_id: userId },
+            {
+                $set: {
+                    token_hash: tokenHash,
+                    expires_at: expiresAt,
+                    created_at: new Date(),
+                },
+                $setOnInsert: { _id: userId },
+            },
+            { upsert: true }
+        );
     }
 
-    /**
-     * Verify reset token and get user
-     */
     async verifyResetToken(tokenHash: string): Promise<string | null> {
-        const { data, error } = await this.db
-            .from('password_reset_tokens')
-            .select('user_id')
-            .eq('token_hash', tokenHash)
-            .gt('expires_at', new Date().toISOString())
-            .single();
+        const passwordResetTokens = await getMongoCollection<PasswordResetToken & { _id: string }>('password_reset_tokens');
+        const token = await passwordResetTokens.findOne({
+            token_hash: tokenHash,
+            expires_at: { $gt: new Date() },
+        });
 
-        if (error || !data) return null;
-        return data.user_id;
+        return token?.user_id || null;
     }
 
-    /**
-     * Update user password
-     */
     async updatePassword(userId: string, hashedPassword: string): Promise<void> {
-        const { error } = await this.db
-            .from('users')
-            .update({ password: hashedPassword })
-            .eq('id', userId);
-        if (error) throw error;
+        const { profiles } = await getMongoCollections();
+        const passwordResetTokens = await getMongoCollection<PasswordResetToken & { _id: string }>('password_reset_tokens');
 
-        // Delete used reset token
-        await this.db
-            .from('password_reset_tokens')
-            .delete()
-            .eq('user_id', userId);
+        await profiles.updateOne(
+            { _id: userId },
+            { $set: { password: hashedPassword, updated_at: new Date() } }
+        );
+        await passwordResetTokens.deleteMany({ user_id: userId });
     }
 }

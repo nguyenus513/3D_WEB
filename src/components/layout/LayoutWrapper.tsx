@@ -9,7 +9,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     // Admin pages have their own layout (sidebar + header)
-    const isAdminPage = pathname.startsWith('/admin') || pathname.startsWith('/sys_internal');
+    const firstSegment = pathname.split('/').filter(Boolean)[0] || '';
+    const isAdminTokenPage = /^[a-zA-Z0-9]{50}$/.test(firstSegment);
+    const isAdminPage = pathname.startsWith('/admin') || pathname.startsWith('/sys_internal') || isAdminTokenPage;
 
     // Admin pages have their own layout - no nav/footer
     if (isAdminPage) {

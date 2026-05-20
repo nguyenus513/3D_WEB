@@ -1,17 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { getAdminSupabase } from '@/lib/supabase/admin';
 import { CartRepository } from '@/repositories/CartRepository';
 import { OrderRepository } from '@/repositories/OrderRepository';
-import { config } from '@/config/unifiedConfig';
 import { generateId } from '@/lib/generateId';
 import { buildTransferContent, getDefaultPaymentConfig, getPaymentConfig, type PaymentOrderType } from '@/lib/services/paymentConfigService';
 import { migrateOrderToArchive } from '@/lib/storage/migrate-to-drive';
 import { BadRequestError, NotFoundError } from '@/lib/core/BaseController';
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 export class CheckoutService {
     constructor(
@@ -172,3 +167,4 @@ export class CheckoutService {
         };
     }
 }
+

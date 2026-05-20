@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
 import type { Order } from '@/types/database';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
@@ -169,9 +170,9 @@ export default function AdminCustomPage() {
                                                 {statusLabels[order.status] || order.status}
                                             </span>
                                         </div>
-                                        <p className="text-[var(--text-secondary)]">{order.shipping_address_snapshot?.full_name || 'Khách'}</p>
+                                        <p className="text-[var(--text-secondary)]">{(order as any).profiles?.full_name || (order as any).shipping_address_snapshot?.full_name || (order as any).shipping_address?.full_name || 'Chưa có tên khách hàng'}</p>
                                         <p className="text-[var(--text-secondary)] text-sm mt-1">
-                                            {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                                            {formatOrderDate(order.created_at)}
                                         </p>
                                     </div>
                                 </div>

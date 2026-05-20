@@ -120,7 +120,6 @@ export type OrderType = 'ready_made' | 'custom' | 'printing';
  * Get bank config from Supabase database
  * SECURITY: Bank account info stored securely in database with RLS
  */
-import { getAdminSupabase } from './supabase/admin';
 
 // Cache for bank configs (refreshed on demand)
 const bankConfigCache: Map<OrderType, { config: VietQRConfig; timestamp: number }> = new Map();
@@ -131,6 +130,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  */
 async function fetchBankConfigFromDB(orderType: OrderType): Promise<VietQRConfig | null> {
     try {
+        const { getAdminSupabase } = await import('./supabase/admin');
         const supabase = getAdminSupabase();
 
         const { data, error } = await supabase
@@ -245,3 +245,4 @@ export async function preloadBankConfigs(): Promise<void> {
     const types: OrderType[] = ['ready_made', 'custom', 'printing'];
     await Promise.all(types.map(t => getBankConfigForOrderTypeAsync(t)));
 }
+

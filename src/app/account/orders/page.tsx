@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Box } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 interface OrderItem {
     id: string;
@@ -170,13 +171,7 @@ export default function AccountOrdersPage() {
                                     {order.order_code}
                                 </span>
                                 <span className="text-[var(--text-secondary)] text-sm">
-                                    {new Date(order.created_at).toLocaleString('vi-VN', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    })}
+                                    {formatOrderDate(order.created_at)}
                                 </span>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>

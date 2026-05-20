@@ -3,7 +3,7 @@
  * 
  * Hybrid Storage Flow:
  * - Product images: R2 (permanent, fast serving via Worker)
- * - Customer uploads (images): R2 → Drive after order complete
+ * - Customer uploads (images): R2 â†’ Drive after order complete
  * - STL/OBJ files: Direct to Google Drive
  */
 
@@ -29,6 +29,29 @@ export function isR2Configured(): boolean {
 }
 
 // Create S3 client for R2
+function toAsciiMetadataValue(value: unknown): string {
+    return Array.from(String(value ?? '').normalize('NFKD'))
+        .map((char) => {
+            const code = char.charCodeAt(0);
+            if (code >= 0x0300 && code <= 0x036f) return '';
+            if (code === 0x0d || code === 0x0a) return ' ';
+            return code >= 0x20 && code <= 0x7e ? char : '_';
+        })
+        .join('')
+        .slice(0, 1024);
+}
+
+function sanitizeR2Metadata(metadata?: Record<string, string>): Record<string, string> | undefined {
+    if (!metadata) return undefined;
+
+    return Object.fromEntries(
+        Object.entries(metadata).map(([key, value]) => [
+            key.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase(),
+            toAsciiMetadataValue(value),
+        ])
+    );
+}
+
 function getR2Client(): S3Client {
     if (!isR2Configured()) {
         throw new Error('R2 not configured. Set CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY');
@@ -193,7 +216,7 @@ export async function uploadToR2(
         Body: file,
         ContentType: contentType,
         CacheControl: 'public, max-age=31536000', // 1 year cache for images
-        Metadata: metadata,
+        Metadata: sanitizeR2Metadata(metadata),
     });
 
     await client.send(command);
@@ -359,3 +382,4 @@ export function isR2Url(url: string): boolean {
     }
     return r2Indicators.some(indicator => url.includes(indicator));
 }
+

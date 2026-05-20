@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Address Repository
  *
  * Data access layer for addresses table.
@@ -7,7 +7,7 @@
  * @see backend-dev-guidelines.md - Rule #6: Use Repository Pattern for Data Access
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { MongoSupabaseCompatClient as SupabaseClient } from '@/lib/mongodb/supabase-compat';
 
 // =============================================================================
 // Types
@@ -261,3 +261,4 @@ export class AddressRepository {
         return count || 0;
     }
 }
+

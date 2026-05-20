@@ -25,17 +25,17 @@ interface OrderData {
 }
 
 const steps = [
-    { id: 1, title: 'Ch?n lo?i', desc: 'Single, Couple ho?c Group' },
-    { id: 2, title: 'Upload ?nh', desc: 'T?i l n ?nh c?a b?n' },
-    { id: 3, title: 'K ch thu?c', desc: 'Ch?n size mong mu?n' },
-    { id: 4, title: 'X c nh?n', desc: 'Ki?m tra don h ng' },
+    { id: 1, title: 'Chọn loại', desc: 'Single, Couple hoặc Group' },
+    { id: 2, title: 'Upload ảnh', desc: 'Tải lên ảnh của bạn' },
+    { id: 3, title: 'Kích thước', desc: 'Chọn size mong muốn' },
+    { id: 4, title: 'Xác nhận', desc: 'Kiểm tra đơn hàng' },
 ];
 
 const orderTypes = [
     {
         id: 'single' as OrderType,
         name: 'Single',
-        desc: '1 ngu?i',
+        desc: '1 người',
         price: 350000,
         icon: (
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +46,7 @@ const orderTypes = [
     {
         id: 'couple' as OrderType,
         name: 'Couple',
-        desc: '2 ngu?i',
+        desc: '2 người',
         price: 550000,
         icon: (
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,7 +57,7 @@ const orderTypes = [
     {
         id: 'group' as OrderType,
         name: 'Group',
-        desc: '3+ ngu?i',
+        desc: '3+ người',
         price: 750000,
         icon: (
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,7 +241,7 @@ export default function CustomPage() {
             <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20 flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-12 h-12 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-[var(--text-secondary)]"> ang t?i...</p>
+                    <p className="text-[var(--text-secondary)]">Đang tải...</p>
                 </div>
             </div>
         );
@@ -256,10 +256,10 @@ export default function CustomPage() {
                         Custom Order
                     </span>
                     <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-4">
-                        T?o M  H nh C?a B?n
+                        Tạo Mô Hình Của Bạn
                     </h1>
                     <p className="text-[var(--text-secondary)]">
-                        Ch? c?n upload ?nh, ch ng t i s? bi?n n  th nh m  h nh 3D
+                        Chỉ cần upload ảnh, chúng tôi sẽ biến nó thành mô hình 3D
                     </p>
                 </AnimatedSection>
 
@@ -299,7 +299,7 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Ch?n lo?i don h ng</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Chọn loại đơn hàng</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {orderTypes.map((type) => (
                                         <button
@@ -334,7 +334,7 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Upload ?nh c?a b?n</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Upload ảnh của bạn</h2>
 
                                 {/* Drop Zone */}
                                 <div
@@ -364,8 +364,8 @@ export default function CustomPage() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                             </svg>
                                         </div>
-                                        <p className="text-[var(--text-primary)] font-medium">K o th? ?nh v o d y</p>
-                                        <p className="text-[var(--text-secondary)] text-sm mt-2">ho?c click d? ch?n file</p>
+                                        <p className="text-[var(--text-primary)] font-medium">Kéo thả ảnh vào đây</p>
+                                        <p className="text-[var(--text-secondary)] text-sm mt-2">hoặc click để chọn file</p>
                                     </label>
                                 </div>
 
@@ -400,7 +400,7 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Ch?n k ch thu?c</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Chọn kích thước</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                                     {sizes.map((size) => (
                                         <button
@@ -422,11 +422,11 @@ export default function CustomPage() {
                                 </div>
 
                                 <div className="mb-6">
-                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Ghi ch  th m (t y ch?n)</label>
+                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Ghi chú thêm (tùy chọn)</label>
                                     <textarea
                                         value={orderData.notes}
                                         onChange={(e) => setOrderData(prev => ({ ...prev, notes: e.target.value }))}
-                                        placeholder="M  t? chi ti?t y u c?u c?a b?n..."
+                                        placeholder="Mô tả chi tiết yêu cầu của bạn..."
                                         className="w-full p-4 bg-[#2D2D2F] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
                                         rows={4}
                                     />
@@ -442,24 +442,24 @@ export default function CustomPage() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                             >
-                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">X c nh?n don h ng</h2>
+                                <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">Xác nhận đơn hàng</h2>
 
                                 <div className="space-y-6">
                                     {/* Order Summary */}
                                     <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                                        <h3 className="text-[var(--text-primary)] font-medium mb-4">T m t?t don h ng</h3>
+                                        <h3 className="text-[var(--text-primary)] font-medium mb-4">Tóm tắt đơn hàng</h3>
                                         <div className="space-y-3 text-sm">
                                             <div className="flex justify-between">
-                                                <span className="text-[var(--text-secondary)]">Lo?i don</span>
+                                                <span className="text-[var(--text-secondary)]">Loại đơn</span>
                                                 <span className="text-[var(--text-primary)]">{orderTypes.find(t => t.id === orderData.type)?.name}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-[var(--text-secondary)]">K ch thu?c</span>
+                                                <span className="text-[var(--text-secondary)]">Kích thước</span>
                                                 <span className="text-[var(--text-primary)]">{sizes.find(s => s.id === orderData.size)?.name}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-[var(--text-secondary)]">S? ?nh</span>
-                                                <span className="text-[var(--text-primary)]">{orderData.images.length} ?nh</span>
+                                                <span className="text-[var(--text-secondary)]">Số ảnh</span>
+                                                <span className="text-[var(--text-primary)]">{orderData.images.length} ảnh</span>
                                             </div>
                                             {orderData.notes && (
                                                 <div className="pt-3 border-t border-[var(--border-color)]">
@@ -468,13 +468,13 @@ export default function CustomPage() {
                                                 </div>
                                             )}
                                             <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
-                                                <span className="text-[var(--text-primary)] font-medium">T?ng c?ng</span>
+                                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
                                                 <span className="text-[var(--text-primary)] font-bold text-lg">
                                                     {totalPrice.toLocaleString('vi-VN')}d
                                                 </span>
                                             </div>
                                             <p className="text-[var(--text-tertiary)] text-xs mt-2">
-                                                Thanh to n t?i bu?c Checkout sau khi th m v o gi? h ng.
+                                                Thanh toán tại bước Checkout sau khi thêm vào giỏ hàng.
                                             </p>
                                         </div>
                                     </div>
@@ -498,7 +498,7 @@ export default function CustomPage() {
                             disabled={currentStep === 1 || submitting}
                             className={currentStep === 1 ? 'opacity-50' : ''}
                         >
-                            ? Quay l?i
+                            ← Quay lại
                         </Button>
 
                         {currentStep < 4 ? (
@@ -507,7 +507,7 @@ export default function CustomPage() {
                                 onClick={nextStep}
                                 disabled={currentStep === 2 && orderData.images.length === 0}
                             >
-                                Ti?p t?c ?
+                                Tiếp tục →
                             </Button>
                         ) : (
                             <Button
@@ -518,10 +518,10 @@ export default function CustomPage() {
                                 {submitting ? (
                                     <span className="flex items-center gap-2">
                                         <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                                        ang x? l ...
+                                        Đang xử lý...
                                     </span>
                                 ) : (
-                                    `Th m v o gi? h ng - ${totalPrice.toLocaleString('vi-VN')}d`
+                                    `Thêm vào giỏ hàng - ${totalPrice.toLocaleString('vi-VN')}đ`
                                 )}
                             </Button>
                         )}

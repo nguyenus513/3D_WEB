@@ -1,19 +1,14 @@
-import { NextRequest } from 'next/server';
+﻿import { NextRequest } from 'next/server';
 import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { CartRepository } from '@/repositories/CartRepository';
 import { OrderRepository } from '@/repositories/OrderRepository';
 import { CartService } from '@/services/CartService';
 import { CheckoutService } from '@/services/CheckoutService';
 import { addressSchema } from '@/lib/validations/checkout';
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 export class CheckoutController extends BaseController {
     private readonly cartService: CartService;
@@ -78,3 +73,4 @@ export class CheckoutController extends BaseController {
 }
 
 export const checkoutController = new CheckoutController();
+

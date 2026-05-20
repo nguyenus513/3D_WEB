@@ -8,6 +8,7 @@ import { ShoppingBag, Clock, CheckCircle, Box, PenLine } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 interface OrderStats {
     total: number;
@@ -209,13 +210,7 @@ export default function AccountPage() {
                                         <div>
                                             <p className="text-[var(--text-primary)] font-medium font-mono tracking-wider">{order.order_code}</p>
                                             <p className="text-[var(--text-tertiary)] text-sm">
-                                                {new Date(order.created_at).toLocaleString('vi-VN', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })} • {order.item_count} sản phẩm
+                                                {formatOrderDate(order.created_at)} • {order.item_count} sản phẩm
                                             </p>
                                         </div>
                                     </div>

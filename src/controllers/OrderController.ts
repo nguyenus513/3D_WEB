@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Order Controller
  *
  * Request handling layer for orders API.
@@ -8,24 +8,20 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { auth } from '@/auth';
 import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { OrderService } from '@/services/OrderService';
 import { OrderRepository } from '@/repositories/OrderRepository';
 import { ProfileRepository } from '@/repositories/ProfileRepository';
 import { OrderQuerySchema, CreateOrderSchema } from '@/validators/order.schema';
-import { config } from '@/config/unifiedConfig';
 import { notifyAllAdmins } from '@/lib/notifications';
 
 // =============================================================================
 // Supabase Admin Client (Singleton)
 // =============================================================================
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey
-);
+const supabaseAdmin = getAdminSupabase();
 
 // =============================================================================
 // Order Controller
@@ -184,3 +180,4 @@ export class OrderController extends BaseController {
 // =============================================================================
 
 export const orderController = new OrderController();
+

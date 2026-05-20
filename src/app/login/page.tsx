@@ -4,7 +4,7 @@ import { useState, Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signIn, getCsrfToken } from 'next-auth/react';
+import { signIn, getCsrfToken, getProviders } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +19,7 @@ import {
     FormControl,
     FormMessage,
 } from '@/components/ui/form';
-import { Layers, Mail, Lock, EyeOff, Eye } from 'lucide-react';
+import { Layers, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
     email: z.string().min(1, 'Email là bắt buộc').email('Email không hợp lệ'),
@@ -29,14 +29,23 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+function getSafeLocalPath(value: string | null | undefined, fallback = '/account') {
+    if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
+    if (value.startsWith('/login') || value.startsWith('/register')) return fallback;
+    return value;
+}
+
 function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const callbackUrl = searchParams.get('callbackUrl') || '/account';
+    const rawCallbackUrl = searchParams.get('callbackUrl') || searchParams.get('redirect');
+    const [storedReturnTo, setStoredReturnTo] = useState('/account');
+    const callbackUrl = getSafeLocalPath(rawCallbackUrl || storedReturnTo);
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isMounted, setIsMounted] = useState(false);
+    const [googleEnabled, setGoogleEnabled] = useState(false);
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -49,6 +58,17 @@ function LoginForm() {
 
     useEffect(() => {
         setIsMounted(true);
+        const savedReturnTo = sessionStorage.getItem('miniver.returnTo');
+        if (savedReturnTo) {
+            setStoredReturnTo(getSafeLocalPath(savedReturnTo));
+            return;
+        }
+        try {
+            const referrer = document.referrer ? new URL(document.referrer) : null;
+            if (referrer?.origin === window.location.origin) {
+                setStoredReturnTo(getSafeLocalPath(`${referrer.pathname}${referrer.search}`));
+            }
+        } catch { }
     }, []);
 
     useEffect(() => {
@@ -56,6 +76,14 @@ function LoginForm() {
             await getCsrfToken();
         };
         initCsrf();
+    }, []);
+
+    useEffect(() => {
+        const loadProviders = async () => {
+            const providers = await getProviders();
+            setGoogleEnabled(Boolean(providers?.google));
+        };
+        loadProviders().catch(() => setGoogleEnabled(false));
     }, []);
 
     if (!isMounted) return null;
@@ -107,6 +135,7 @@ function LoginForm() {
                     return;
                 }
 
+                sessionStorage.removeItem('miniver.returnTo');
                 window.location.href = callbackUrl;
             }
         } catch {
@@ -199,14 +228,11 @@ function LoginForm() {
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                                                onClick={() => setShowPassword((value) => !value)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
                                             >
-                                                {showPassword ? (
-                                                    <EyeOff size={20} strokeWidth={1.5} />
-                                                ) : (
-                                                    <Eye size={20} strokeWidth={1.5} />
-                                                )}
+                                                {showPassword ? <EyeOff size={20} strokeWidth={1.8} /> : <Eye size={20} strokeWidth={1.8} />}
                                             </button>
                                         </div>
                                     </FormControl>
@@ -261,9 +287,16 @@ function LoginForm() {
 
                 {/* Google Login */}
                 <button
-                    onClick={() => signIn('google', { callbackUrl: '/api/auth/google-callback' })}
-                    disabled={loading}
+                    onClick={() => {
+                        if (!googleEnabled) {
+                            setError('Google login chưa được cấu hình trên server.');
+                            return;
+                        }
+                        signIn('google', { callbackUrl: `/api/auth/google-callback?callbackUrl=${encodeURIComponent(callbackUrl)}` });
+                    }}
+                    disabled={loading || !googleEnabled}
                     className="w-full flex items-center justify-center gap-3 py-4 bg-[var(--material-glass)] hover:opacity-80 border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] font-medium transition-all disabled:opacity-50"
+                    title={googleEnabled ? 'Đăng nhập bằng Google' : 'Google login chưa được cấu hình'}
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Cart Controller
  *
  * API controller for shopping cart endpoints.
  * Extends BaseController for standardized responses.
  *
- * @see backend-dev-guidelines.md - Rule #8: Route → Controller → Service
+ * @see backend-dev-guidelines.md - Rule #8: Route â†’ Controller â†’ Service
  */
 
 import { NextRequest } from 'next/server';
@@ -12,16 +12,12 @@ import { z } from 'zod';
 import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { CartService } from '@/services/CartService';
 import { CartRepository } from '@/repositories/CartRepository';
-import { createClient } from '@/lib/supabase/server';
 import { auth } from '@/auth';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { config } from '@/config/unifiedConfig';
 
 // Admin client for cart operations
-const supabaseAdmin = createAdminClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey
-);
+const supabaseAdmin = getAdminSupabase();
 
 // =============================================================================
 // Validation Schemas
@@ -203,3 +199,4 @@ export class CartController extends BaseController {
 // =============================================================================
 
 export const cartController = new CartController();
+

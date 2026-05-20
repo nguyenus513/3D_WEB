@@ -35,6 +35,7 @@ interface CustomOrderRequest {
         characterIndex?: number;
         size?: number;
         type?: string;
+        fileId?: string;
     }>;
     characters?: Array<{
         index: number;
@@ -189,20 +190,28 @@ export async function POST(request: NextRequest) {
                 // img.id from frontend = R2 key (e.g. "KH-xxx/2026-02-19/xxx/xxx.jpg")
                 // img.name = original filename
                 const r2Key = img.id || img.name;
-                if (!r2Key) continue;
+                if (!r2Key && !img.fileId) continue;
 
-                // Find existing file record by matching file_url patterns:
-                // UploadService stores as "/api/files/{key}"
-                // Also check for raw key in case of older records
-                const proxyPath = `/api/files/${r2Key}`;
-                const { data: existingFiles } = await supabase
-                    .from('files')
-                    .select('id')
-                    .or(`file_url.eq.${proxyPath},file_url.eq.${r2Key}`)
-                    .order('created_at', { ascending: true })
-                    .limit(1);
+                const proxyPath = r2Key ? `/api/files/${r2Key}` : null;
+                let existingFile = img.fileId ? { id: img.fileId } : null;
 
-                const existingFile = existingFiles?.[0] || null;
+                if (!existingFile && proxyPath) {
+                    const { data: byProxy } = await supabase
+                        .from('files')
+                        .select('id')
+                        .eq('file_url', proxyPath)
+                        .maybeSingle();
+                    existingFile = byProxy || null;
+                }
+
+                if (!existingFile && r2Key) {
+                    const { data: byRawKey } = await supabase
+                        .from('files')
+                        .select('id')
+                        .eq('file_url', r2Key)
+                        .maybeSingle();
+                    existingFile = byRawKey || null;
+                }
 
                 if (existingFile) {
                     // Link existing file to order_item with enriched metadata

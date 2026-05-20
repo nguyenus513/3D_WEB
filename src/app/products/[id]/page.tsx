@@ -384,9 +384,9 @@ export default function ProductDetailPage() {
                                 {/* Primary: Add to Cart */}
                                 <button
                                     onClick={handleAddToCart}
-                                    className={`w-full py-4 rounded-xl font-semibold transition-all cursor-pointer ${addedToCart
-                                        ? 'bg-green-500 text-[var(--text-primary)]'
-                                        : 'bg-white text-black hover:bg-[var(--material-glass)]'
+                                    className={`w-full rounded-xl px-6 py-4 font-semibold transition-all cursor-pointer ${addedToCart
+                                        ? 'bg-white text-black'
+                                        : 'bg-white text-black hover:bg-white/90'
                                         }`}
                                 >
                                     {addedToCart ? '✓ Đã thêm vào giỏ' : 'Thêm vào giỏ hàng'}
@@ -396,7 +396,7 @@ export default function ProductDetailPage() {
                                 <div className="flex gap-3">
                                     <button
                                         onClick={handleBuyNow}
-                                        className="flex-1 py-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-[var(--text-primary)] hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer"
+                                        className="flex-1 rounded-xl bg-white px-6 py-4 font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.99] cursor-pointer"
                                     >
                                         Thanh toán ngay
                                     </button>

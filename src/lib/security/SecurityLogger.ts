@@ -1,14 +1,13 @@
-/**
+﻿/**
  * Security Logger Service
  *
  * Centralized logging for security-related events.
- * Writes to Supabase `security_logs` table.
+ * Writes to MongoDB `security_logs` table.
  *
  * @see DEVELOPMENT_GUIDE.md - Security Layer
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 
 // =============================================================================
 // Types
@@ -38,14 +37,10 @@ interface SecurityLogEntry {
 }
 
 // =============================================================================
-// Supabase Admin Client (for logging)
+// MongoDB Admin Client (for logging)
 // =============================================================================
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 // =============================================================================
 // Security Logger Class
@@ -189,3 +184,4 @@ export function getClientIP(request: Request): string | null {
 export function getUserAgent(request: Request): string | null {
     return request.headers.get('user-agent');
 }
+

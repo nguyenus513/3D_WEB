@@ -1,0 +1,12 @@
+﻿.next
+node_modules
+playwright-report
+test-results
+.tmp-ui-smoke
+.vercel/output
+.env
+.env.*
+!.env.example
+.tmp-vercel-env
+.tmp-payos-env-check
+.tmp-supabase-inventory.txt

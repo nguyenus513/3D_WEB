@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { PaymentQR } from '@/components/PaymentQR';
-import { BankCode } from '@/lib/vietqr';
+import { BankCode } from '@/lib/vietqr-public';
 
 interface OrderData {
     id: string;
@@ -119,7 +119,7 @@ export default function QRChildPage() {
                 </motion.div>
                 <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Thanh toán thành công!</h1>
                 <p className="text-[var(--text-secondary)] mb-2">Mã đơn hàng: <span className="font-mono text-[var(--text-primary)]">{code}</span></p>
-                <p className="text-green-400 text-lg mb-8">{totalWithShipping.toLocaleString('vi-VN')}đ</p>
+                <p className="text-green-400 text-lg mb-8">{totalWithShipping.toLocaleString('vi-VN')}?</p>
                 <Link
                     href="/account/orders"
                     className="px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-[var(--material-glass)]"
@@ -171,3 +171,4 @@ export default function QRChildPage() {
         </div>
     );
 }
+

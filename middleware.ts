@@ -91,7 +91,8 @@ function getClientIp(request: NextRequest): string {
 }
 
 export async function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl;
+    const { pathname, search } = request.nextUrl;
+    const bypassRateLimit = process.env.E2E_BYPASS_RATE_LIMIT === '1' && request.headers.get('x-e2e-test') === '1';
 
     if (
         pathname.startsWith('/_next') ||
@@ -107,12 +108,14 @@ export async function middleware(request: NextRequest) {
             return NextResponse.next();
         }
 
-        const { allowed, resetIn } = checkRateLimit(ip, pathname);
-        if (!allowed) {
-            return new NextResponse('Too Many Requests', {
-                status: 429,
-                headers: { 'Retry-After': String(resetIn) }
-            });
+        if (!bypassRateLimit) {
+            const { allowed, resetIn } = checkRateLimit(ip, pathname);
+            if (!allowed) {
+                return new NextResponse('Too Many Requests', {
+                    status: 429,
+                    headers: { 'Retry-After': String(resetIn) }
+                });
+            }
         }
 
         const response = NextResponse.next();
@@ -129,17 +132,23 @@ export async function middleware(request: NextRequest) {
         return new NextResponse('Server configuration error', { status: 500 });
     }
 
-    const token = await getToken({ req: request, secret });
+    const token = await getToken({
+        req: request,
+        secret,
+        secureCookie: request.nextUrl.protocol === 'https:',
+    });
     const isLoggedIn = !!token;
     const userRole = token?.role as string | undefined;
     const isAdmin = userRole === 'admin';
 
-    const { allowed, resetIn } = checkRateLimit(ip, pathname);
-    if (!allowed) {
-        return new NextResponse('Too Many Requests', {
-            status: 429,
-            headers: { 'Retry-After': String(resetIn) }
-        });
+    if (!bypassRateLimit) {
+        const { allowed, resetIn } = checkRateLimit(ip, pathname);
+        if (!allowed) {
+            return new NextResponse('Too Many Requests', {
+                status: 429,
+                headers: { 'Retry-After': String(resetIn) }
+            });
+        }
     }
 
     const isUserOnlyRoute = USER_ONLY_ROUTES.some(route =>
@@ -172,18 +181,22 @@ export async function middleware(request: NextRequest) {
     const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
     if (isProtectedRoute && !isLoggedIn) {
         const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('callbackUrl', pathname);
+        loginUrl.searchParams.set('callbackUrl', `${pathname}${search}`);
         return NextResponse.redirect(loginUrl);
     }
 
     if (isLoggedIn && (pathname === '/login' || pathname === '/register')) {
+        const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || request.nextUrl.searchParams.get('redirect');
+        const safeCallbackUrl = callbackUrl?.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : null;
         if (isAdmin) {
             return NextResponse.redirect(new URL('/api/admin/launch', request.url));
         }
         if (token?.isNewUser) {
-            return NextResponse.redirect(new URL('/complete-profile', request.url));
+            const completeProfileUrl = new URL('/complete-profile', request.url);
+            if (safeCallbackUrl) completeProfileUrl.searchParams.set('callbackUrl', safeCallbackUrl);
+            return NextResponse.redirect(completeProfileUrl);
         }
-        return NextResponse.redirect(new URL('/account', request.url));
+        return NextResponse.redirect(new URL(safeCallbackUrl || '/account', request.url));
     }
 
     if (isLoggedIn && pathname === '/complete-profile') {
@@ -208,3 +221,4 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot)$).*)',
     ],
 };
+

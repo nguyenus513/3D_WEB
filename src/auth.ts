@@ -1,21 +1,16 @@
-/**
+﻿/**
  * NextAuth.js Configuration
  *
- * This file configures authentication with:
- * - Credentials Provider (Email/Password)
- * - Custom email verification using our sendEmailWithFallback
- * - Supabase as database adapter
- * - Brute force protection
+ * MongoDB-backed auth for IE213.Q22.
  */
 
+import { randomUUID } from 'node:crypto';
 import NextAuth from 'next-auth';
-import type { NextAuthConfig, User } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
-import { SupabaseAdapter } from '@auth/supabase-adapter';
 import bcrypt from 'bcryptjs';
-import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
+import { getMongoCollections } from '@/lib/mongodb';
 import { isLoginBlocked, recordFailedAttempt, clearFailedAttempts } from '@/lib/security/brute-force';
 
 const inMemoryLoginAttempts = new Map<string, { count: number; blockedUntil: number }>();
@@ -25,19 +20,23 @@ const FALLBACK_BLOCK_DURATION = 15 * 60 * 1000;
 function checkFallbackRateLimit(key: string): boolean {
     const now = Date.now();
     const record = inMemoryLoginAttempts.get(key);
+
     if (record && now < record.blockedUntil) return false;
     if (record && now >= record.blockedUntil) {
         inMemoryLoginAttempts.delete(key);
     }
+
     return true;
 }
 
 function recordFallbackAttempt(key: string): void {
     const record = inMemoryLoginAttempts.get(key) || { count: 0, blockedUntil: 0 };
     record.count++;
+
     if (record.count >= MAX_FALLBACK_ATTEMPTS) {
         record.blockedUntil = Date.now() + FALLBACK_BLOCK_DURATION;
     }
+
     inMemoryLoginAttempts.set(key, record);
 }
 
@@ -45,50 +44,41 @@ function clearFallbackAttempts(key: string): void {
     inMemoryLoginAttempts.delete(key);
 }
 
-// Supabase client with service role for auth operations
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Need to add this to .env.local
-    { auth: { persistSession: false } }
-);
+function getProfileDisplayName(email: string, name?: string | null): string {
+    const fallback = email.split('@')[0]
+        .replace(/[._]/g, ' ')
+        .replace(/\d+/g, '')
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
 
-/**
- * Extract IP address from request headers
- */
+    return name || fallback || 'Khách hàng';
+}
+
 async function getClientIp(): Promise<string> {
     try {
         const headersList = await headers();
-        // Check various headers for real IP (behind proxies)
         const forwardedFor = headersList.get('x-forwarded-for');
-        if (forwardedFor) {
-            return forwardedFor.split(',')[0].trim();
-        }
+        if (forwardedFor) return forwardedFor.split(',')[0].trim();
 
         const realIp = headersList.get('x-real-ip');
-        if (realIp) {
-            return realIp;
-        }
+        if (realIp) return realIp;
 
         const cfConnectingIp = headersList.get('cf-connecting-ip');
-        if (cfConnectingIp) {
-            return cfConnectingIp;
-        }
+        if (cfConnectingIp) return cfConnectingIp;
 
-        return '0.0.0.0'; // Fallback
+        return '0.0.0.0';
     } catch {
         return '0.0.0.0';
     }
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-    // Temporarily disable adapter to test Google OAuth
-    // adapter: SupabaseAdapter({
-    //     url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    //     secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    // }),
     session: {
-        strategy: 'jwt', // Use JWT for session (stateless, faster)
-        maxAge: 86400, // 24 hours (default is 30 days)
+        strategy: 'jwt',
+        maxAge: 86400,
     },
     pages: {
         signIn: '/login',
@@ -103,16 +93,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 password: { label: 'Password', type: 'password' },
             },
             async authorize(credentials) {
-                // Security: Minimal logging, no sensitive data
                 if (!credentials?.email || !credentials?.password) {
                     throw new Error('Email và mật khẩu là bắt buộc');
                 }
 
                 const email = (credentials.email as string).toLowerCase().trim();
-
                 const ipAddress = await getClientIp();
-
                 const fallbackKey = `${email}:${ipAddress}`;
+
                 if (!checkFallbackRateLimit(fallbackKey)) {
                     throw new Error('Tài khoản tạm khóa. Thử lại sau 15 phút.');
                 }
@@ -132,14 +120,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     console.error('[Auth] Brute force DB check failed, using in-memory fallback');
                 }
 
-                const { data: user, error } = await supabaseAdmin
-                    .from('users')
-                    .select('*')
-                    .eq('email', email)
-                    .single();
+                const { profiles } = await getMongoCollections();
+                const user = await profiles.findOne({ email });
 
-
-                if (error || !user) {
+                if (!user) {
                     recordFallbackAttempt(fallbackKey);
                     await recordFailedAttempt(email, ipAddress).catch(() => {});
                     throw new Error('Thông tin đăng nhập không chính xác');
@@ -149,10 +133,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     throw new Error('Tài khoản này không dùng mật khẩu');
                 }
 
-                const isValid = await bcrypt.compare(
-                    credentials.password as string,
-                    user.password
-                );
+                const isValid = await bcrypt.compare(credentials.password as string, user.password);
 
                 if (!isValid) {
                     recordFallbackAttempt(fallbackKey);
@@ -164,17 +145,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 await clearFailedAttempts(email, ipAddress).catch(() => {});
 
                 return {
-                    id: user.id,
+                    id: user._id,
                     email: user.email,
-                    name: user.full_name || user.name,
-                    image: user.image,
+                    name: user.full_name || user.email || email,
                     role: user.role,
                     customerCode: user.customer_code,
                 };
             },
         }),
-        // Google OAuth Provider - only add if credentials exist
-        // NOTE: Only basic scopes here. Drive access uses separate OAuth flow (/api/drive/callback)
         ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [
             Google({
                 clientId: process.env.GOOGLE_CLIENT_ID,
@@ -187,48 +165,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async signIn({ user, account }) {
             if (account?.provider === 'google' && user.email) {
                 try {
-                    const { data: existingProfile, error: queryError } = await supabaseAdmin
-                        .from('users')
-                        .select('id, phone, role')
-                        .eq('email', user.email.toLowerCase())
-                        .maybeSingle();
+                    const { profiles } = await getMongoCollections();
+                    const email = user.email.toLowerCase();
+                    const existingProfile = await profiles.findOne({ email });
 
                     if (!existingProfile) {
-
-                        // Generate UUID BEFORE insert - we control the ID
-                        const profileId = crypto.randomUUID();
+                        const profileId = randomUUID();
                         const { generateId } = await import('@/lib/generateId');
+                        const now = new Date();
                         const customerCode = generateId.user();
 
-                        const { error: insertError } = await supabaseAdmin
-                            .from('users')
-                            .insert({
-                                id: profileId,  // EXPLICIT ID - prevents mismatch
-                                email: user.email.toLowerCase(),
-                                // Extract name from Google profile or email
-                                full_name: user.name || user.email.split('@')[0]
-                                    .replace(/[._]/g, ' ')
-                                    .replace(/\d+/g, '')
-                                    .trim()
-                                    .split(' ')
-                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                    .join(' ') || 'Khách hàng',
-                                customer_code: customerCode,
-                                role: 'customer',
-                            });
+                        await profiles.insertOne({
+                            _id: profileId,
+                            email,
+                            full_name: getProfileDisplayName(email, user.name),
+                            customer_code: customerCode,
+                            role: 'customer',
+                            email_verified: true,
+                            created_at: now,
+                            updated_at: now,
+                        });
 
-                        if (insertError) {
-                            console.error('[Auth] Failed to create profile for Google user:', insertError.message);
-                        }
-
-                        // ALWAYS set user.id to our controlled UUID
                         user.id = profileId;
-                        // Mark as new user - needs to complete profile
                         (user as { isNewUser?: boolean }).isNewUser = true;
+                        (user as { role?: string }).role = 'customer';
+                        (user as { customerCode?: string }).customerCode = customerCode;
                     } else {
-                        user.id = existingProfile.id;
-                        const isProfileIncomplete = existingProfile.role !== 'admin' && !existingProfile.phone;
-                        (user as { isNewUser?: boolean }).isNewUser = isProfileIncomplete;
+                        user.id = existingProfile._id;
+                        (user as { role?: string }).role = existingProfile.role || 'customer';
+                        (user as { customerCode?: string }).customerCode = existingProfile.customer_code || undefined;
+                        (user as { isNewUser?: boolean }).isNewUser = existingProfile.role !== 'admin' && !existingProfile.phone;
                     }
                 } catch (error) {
                     console.error('[Auth] Google signIn error:', error);
@@ -238,7 +204,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
             return true;
         },
-        async jwt({ token, user, account, trigger, session }) {
+        async jwt({ token, user, account }) {
             const email = token.email || user?.email;
 
             if (user) {
@@ -247,26 +213,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.role = (user as { role?: string }).role;
                 token.customerCode = (user as { customerCode?: string }).customerCode;
 
-                // For Google OAuth, handle isNewUser flag
                 if (account?.provider === 'google') {
                     token.isNewUser = (user as { isNewUser?: boolean }).isNewUser || false;
                 }
             }
 
-            // ALWAYS fetch latest role + phone from DB (handles changes after login)
             if (email) {
                 try {
-                    const { data: profile } = await supabaseAdmin
-                        .from('users')
-                        .select('id, role, customer_code, phone')
-                        .eq('email', (email as string).toLowerCase())
-                        .single();
+                    const { profiles } = await getMongoCollections();
+                    const profile = await profiles.findOne({ email: (email as string).toLowerCase() });
 
                     if (profile) {
-                        token.id = profile.id;
+                        token.id = profile._id;
                         token.role = profile.role;
                         token.customerCode = profile.customer_code;
-                        // Refresh isNewUser: admin never needs profile completion
                         token.isNewUser = profile.role !== 'admin' && !profile.phone;
                     }
                 } catch (error) {

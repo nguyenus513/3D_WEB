@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Product Detail Layout with SEO Metadata
  * 
  * Server Component that generates dynamic metadata for product pages
@@ -9,8 +9,8 @@ import { createClient } from '@supabase/supabase-js';
 
 // Supabase client for server-side data fetching
 const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'),
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder')
 );
 
 interface Product {
@@ -87,3 +87,4 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ProductLayout({ children }: Props) {
     return <>{children}</>;
 }
+

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase/client';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 // import type { Order } from '@/types/database'; // Don't use legacy type if it conflicts
 
 const statusColors: Record<string, string> = {
@@ -61,7 +62,7 @@ export default function AdminPrintingPage() {
             .from('orders')
             .select(`
                 id, order_code, cart_code, user_id, order_type,
-                total_amount, status, payment_status, shipping_address,
+                total_amount, status, payment_status, shipping_address, shipping_address_snapshot,
                 created_at, updated_at,
                 order_items(id, order_id, name, quantity, unit_price, total_price)
             `)
@@ -170,7 +171,7 @@ export default function AdminPrintingPage() {
                             </thead>
                             <tbody>
                                 {orders.map((order) => {
-                                    const shippingInfo = order.shipping_address_snapshot as any;
+                                    const shippingInfo = (order.shipping_address_snapshot || order.shipping_address) as any;
                                     return (
                                         <tr key={order.id} className="border-b border-[var(--border-color)] hover:bg-[var(--material-glass)] transition-colors">
                                             <td className="px-5 py-4">
@@ -186,10 +187,10 @@ export default function AdminPrintingPage() {
                                                 )}
                                             </td>
                                             <td className="px-5 py-4 text-[var(--text-secondary)]">
-                                                {shippingInfo?.full_name || 'Khách'}
+                                                {shippingInfo?.full_name || 'Chưa có tên khách hàng'}
                                             </td>
                                             <td className="px-5 py-4 text-[var(--text-secondary)]">
-                                                {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                                                {formatOrderDate(order.created_at)}
                                             </td>
                                             <td className="px-5 py-4 text-[var(--text-primary)]">
                                                 {Number(order.total_amount).toLocaleString('vi-VN')}đ

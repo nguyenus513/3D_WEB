@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cart Repository v2
  *
  * Uses `orders` + `order_items` tables instead of deprecated `carts` + `cart_items`.
@@ -8,7 +8,7 @@
  * @see implementation_plan.md - Phase 3: Cart Flow Refactoring
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { MongoSupabaseCompatClient as SupabaseClient } from '@/lib/mongodb/supabase-compat';
 import { CartItem as ClientCartItem, CartItemType, PrintOptions, PrintFileInfo } from '@/lib/store/cart';
 import { generateId } from '@/lib/generateId';
 import { Order, OrderItem, FulfillmentStatus, ProductionStatus } from '@/types/database';
@@ -367,7 +367,7 @@ export class CartRepository {
             .eq('order_id', cartId);
 
         const subtotal = (items || []).reduce(
-            (sum, item) => sum + (item.unit_price * item.quantity),
+            (sum: number, item: any) => sum + (item.unit_price * item.quantity),
             0
         );
 
@@ -479,3 +479,5 @@ export class CartRepository {
         };
     }
 }
+
+

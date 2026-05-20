@@ -13,14 +13,10 @@ import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { AddressService } from '@/services/AddressService';
 import { AddressRepository } from '@/repositories/AddressRepository';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 
 // Admin client for address operations
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey
-);
+const supabaseAdmin = getAdminSupabase();
 
 // =============================================================================
 // Validation Schemas
@@ -178,3 +174,4 @@ export class AddressController extends BaseController {
 // =============================================================================
 
 export const addressController = new AddressController();
+

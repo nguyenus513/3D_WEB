@@ -2,8 +2,7 @@
  * Admin Notifications API
  * GET /api/admin/notifications
  *
- * Fetches notifications from the notifications table for admin users.
- * Supports both the new notification system and legacy order-based notifications.
+ * Returns unread admin notifications enriched with order data for the header dropdown.
  */
 
 import { NextResponse } from 'next/server';
@@ -11,9 +10,19 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 
+
+function repairNotificationText(value: unknown, fallback = '') {
+    if (typeof value !== 'string' || value.length === 0) return fallback;
+    if (!/[\u00c3\u00c4\u00c2]/.test(value)) return value;
+    try {
+        return Buffer.from(value, 'latin1').toString('utf8');
+    } catch {
+        return value;
+    }
+}
+
 export async function GET() {
     try {
-        // Verify admin auth
         const session = await auth();
         const userRole = (session?.user as { role?: string })?.role;
         if (!session?.user || userRole !== 'admin') {
@@ -27,11 +36,11 @@ export async function GET() {
             return NextResponse.json({ error: 'Profile not found' }, { status: 401 });
         }
 
-        // Fetch notifications for this admin
         const { data: notifications, error: notifError } = await supabase
             .from('notifications')
             .select('*')
             .eq('user_id', profileId)
+            .eq('is_read', false)
             .order('created_at', { ascending: false })
             .limit(20);
 
@@ -39,35 +48,46 @@ export async function GET() {
             console.error('[AdminNotifications] Fetch error:', notifError);
         }
 
-        // Get unread count
         const { count } = await supabase
             .from('notifications')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', profileId)
             .eq('is_read', false);
 
-        // Also fetch pending orders (legacy compatibility — actionable items)
-        const { data: pendingOrders } = await supabase
-            .from('orders')
-            .select(`
-                id,
-                order_code,
-                order_type,
-                status,
-                total: total_amount,
-                created_at,
-                users:user_id (
-                    name,
-                    email
-                )
-            `)
-            .in('status', ['pending', 'pending_confirmation', 'paid'])
-            .order('created_at', { ascending: false })
-            .limit(5);
+        const orderIds = [...new Set((notifications || [])
+            .map((notification: any) => notification.ref_order_id || (notification.ref_type === 'order' ? notification.ref_id : null))
+            .filter(Boolean))];
+
+        let ordersById = new Map<string, any>();
+        if (orderIds.length > 0) {
+            const { data: relatedOrders } = await supabase
+                .from('orders')
+                .select('id, order_code, order_type, status, total_amount, total, subtotal, created_at')
+                .in('id', orderIds);
+
+            ordersById = new Map((relatedOrders || []).map((order: any) => [order.id, order]));
+        }
+
+        const notificationItems = (notifications || []).map((notification: any) => {
+            const orderId = notification.ref_order_id || (notification.ref_type === 'order' ? notification.ref_id : null);
+            const order = orderId ? ordersById.get(orderId) : null;
+            return {
+                id: orderId || notification.id,
+                notification_id: notification.id,
+                order_code: order?.order_code || repairNotificationText(notification.title, 'Thông báo'),
+                order_type: order?.order_type || notification.ref_type || notification.type,
+                status: order?.status || notification.type,
+                total: Number(order?.total_amount ?? order?.total ?? order?.subtotal ?? 0),
+                created_at: notification.created_at,
+                title: repairNotificationText(notification.title),
+                message: repairNotificationText(notification.message),
+                is_read: Boolean(notification.is_read),
+            };
+        });
 
         return NextResponse.json({
             notifications: notifications || [],
-            orders: pendingOrders || [],
+            orders: notificationItems,
             unread_count: count || 0,
         });
     } catch (error) {

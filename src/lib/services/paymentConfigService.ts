@@ -1,19 +1,10 @@
-/**
+﻿/**
  * Payment Config Service
- * Fetches bank account configuration from payment_configs table
- * Fetches customer_code from profiles table
+ * MongoDB-backed payment configuration helpers.
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getMongoCollections } from '@/lib/mongodb';
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
-
-// Order type mapping for payment_configs table
 export type PaymentOrderType = 'ready_made' | 'custom' | 'printing';
 
 export interface PaymentConfig {
@@ -26,7 +17,16 @@ export interface PaymentConfig {
     notes: string | null;
 }
 
-// Map product types to payment_configs order_type
+interface PaymentConfigDocument {
+    _id: string;
+    order_type: PaymentOrderType;
+    bank_code: string;
+    account_no: string;
+    account_name: string;
+    is_active?: boolean | null;
+    notes?: string | null;
+}
+
 export function getOrderTypeForProduct(productType: string): PaymentOrderType {
     switch (productType) {
         case 'product':
@@ -41,98 +41,69 @@ export function getOrderTypeForProduct(productType: string): PaymentOrderType {
     }
 }
 
-/**
- * Fetch active payment config for a specific order type
- */
-export async function getPaymentConfig(orderType: PaymentOrderType): Promise<PaymentConfig | null> {
-    // Query with is_active filter - handle both boolean and string types
-    const { data, error } = await supabaseAdmin
-        .from('payment_configs')
-        .select('*')
-        .eq('order_type', orderType)
-        .in('is_active', [true, 'true']) // Handle both boolean and string types
-        .limit(1)
-        .maybeSingle();
+function mapPaymentConfig(config: PaymentConfigDocument): PaymentConfig {
+    return {
+        id: config._id,
+        order_type: config.order_type,
+        bank_code: config.bank_code,
+        account_no: config.account_no,
+        account_name: config.account_name,
+        is_active: config.is_active !== false,
+        notes: config.notes || null,
+    };
+}
 
-    if (error || !data) {
+export async function getPaymentConfig(orderType: PaymentOrderType): Promise<PaymentConfig | null> {
+    try {
+        const { payment_configs } = await getMongoCollections() as unknown as {
+            payment_configs: import('mongodb').Collection<PaymentConfigDocument>;
+        };
+        const data = await payment_configs.findOne({ order_type: orderType, is_active: { $ne: false } });
+        return data ? mapPaymentConfig(data) : null;
+    } catch (error) {
         console.error(`[PaymentConfig] Failed to fetch config for ${orderType}:`, error);
         return null;
     }
-
-    return data as PaymentConfig;
 }
 
-/**
- * Get default fallback config if DB lookup fails
- * Returns null - callers must handle missing config
- * SECURITY: No hardcoded bank info in code
- */
 export function getDefaultPaymentConfig(): PaymentConfig | null {
-    console.warn('[PaymentConfig] DB config not found. Please ensure payment_configs table has active entries.');
+    console.warn('[PaymentConfig] DB config not found. Please ensure payment_configs collection has active entries.');
     return null;
 }
 
-/**
- * Fetch customer_code from profiles table
- * Format: KH-XXXXXXXX or USR-XXXXXXXX
- * Supports email fallback for corrupted session IDs
- */
 export async function getCustomerCode(userId: string, email?: string | null): Promise<string | null> {
-    // First try by userId
-    const { data, error } = await supabaseAdmin
-        .from('users')
-        .select('customer_code')
-        .eq('id', userId)
-        .single();
+    try {
+        const { profiles } = await getMongoCollections();
+        const byId = await profiles.findOne({ _id: userId }, { projection: { customer_code: 1 } });
 
-    if (data?.customer_code) {
-        return data.customer_code;
-    }
-
-    // Fallback to email lookup if userId not found
-    if (email) {
-        const { data: emailData } = await supabaseAdmin
-            .from('users')
-            .select('customer_code')
-            .eq('email', email.toLowerCase())
-            .single();
-
-        if (emailData?.customer_code) {
-            console.log('[PaymentConfig] Using email fallback for customer_code lookup');
-            return emailData.customer_code;
+        if (byId?.customer_code) {
+            return byId.customer_code;
         }
-    }
 
-    if (error) {
+        if (email) {
+            const byEmail = await profiles.findOne(
+                { email: email.toLowerCase() },
+                { projection: { customer_code: 1 } }
+            );
+
+            if (byEmail?.customer_code) {
+                console.log('[PaymentConfig] Using email fallback for customer_code lookup');
+                return byEmail.customer_code;
+            }
+        }
+    } catch (error) {
         console.error(`[PaymentConfig] Failed to fetch customer_code for user ${userId}:`, error);
     }
+
     return null;
 }
 
-/**
- * Generate fallback customer code from user ID if DB lookup fails
- * Format: USR-{first 8 chars of UUID}
- */
 export function generateFallbackCustomerCode(userId: string): string {
-    // Return first 10 hex chars of UUID
     return userId.replace(/-/g, '').substring(0, 10).toUpperCase();
 }
 
-/**
- * VietQR Transfer Content Max Length
- * Reference: https://vietqr.io - addInfo field limit is 25 characters
- * Format: {cart_code} only (8 chars)
- * This is the identifier shown in bank transfer description
- */
 export const VIETQR_MAX_TRANSFER_CONTENT_LENGTH = 25;
 
-/**
- * Build and validate transfer content for VietQR
- * Format: {cart_code} only
- * Example: 1E08D23A (8 chars)
- * 
- * @throws Error if content exceeds 25 characters
- */
 export function buildTransferContent(cartCode: string): string {
     if (cartCode.length > VIETQR_MAX_TRANSFER_CONTENT_LENGTH) {
         throw new Error(
@@ -144,16 +115,10 @@ export function buildTransferContent(cartCode: string): string {
     return cartCode;
 }
 
-/**
- * @deprecated Use buildTransferContent instead (with validation)
- */
 export function generateTransferContent(cartCode: string): string {
     return buildTransferContent(cartCode);
 }
 
-/**
- * Generate VietQR URL
- */
 export function generateQRUrl(
     bankCode: string,
     accountNo: string,
@@ -169,40 +134,28 @@ export function generateQRUrl(
     return `https://img.vietqr.io/image/${bankCode}-${accountNo}-compact2.png?${params.toString()}`;
 }
 
-/**
- * Complete payment setup helper
- * Returns all info needed for QR generation
- */
 export async function getPaymentSetup(
     userId: string,
     productType: string,
     orderCode: string,
     amount: number,
     email?: string | null,
-    cartCode?: string  // NEW: 8-char cart code for transfer content
+    cartCode?: string
 ): Promise<{
     customerCode: string;
     transferContent: string;
     qrUrl: string;
     bankInfo: PaymentConfig;
 }> {
-    // Get customer code from profiles (with email fallback)
     const customerCode = await getCustomerCode(userId, email) || generateFallbackCustomerCode(userId);
-
-    // Get payment config from payment_configs table
     const orderType = getOrderTypeForProduct(productType);
     const bankInfo = await getPaymentConfig(orderType);
 
-    // SECURITY: Fail if no config found - don't use hardcoded fallback
     if (!bankInfo) {
         throw new Error(`Payment config không tồn tại cho loại đơn hàng: ${orderType}. Vui lòng liên hệ admin.`);
     }
 
-    // Generate transfer content: cart_code only (8 chars)
-    // Fallback: use first 8 chars of orderCode for legacy orders without cartCode
     const transferContent = buildTransferContent(cartCode || orderCode.substring(0, 8).toUpperCase());
-
-    // Generate QR URL
     const qrUrl = generateQRUrl(
         bankInfo.bank_code,
         bankInfo.account_no,
@@ -218,4 +171,3 @@ export async function getPaymentSetup(
         bankInfo,
     };
 }
-

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadWithNaming } from '@/lib/google-drive-oauth';
 import { downloadFromR2, deleteFromR2 } from '@/lib/storage/r2';
 // Define Interfaces Locally as they are not exported from database types anymore
@@ -20,10 +20,7 @@ interface PrintingConfig {
     };
 }
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getAdminSupabase();
 
 export async function archiveOrderFiles(orderId: string) {
     console.log(`[Archiver] Starting archive for order ${orderId}`);
@@ -96,7 +93,7 @@ export async function archiveOrderFiles(orderId: string) {
             }
         }
 
-        // Printing Order Files — use order_files table
+        // Printing Order Files â€” use order_files table
         if (order_type === 'printing' || order_type === 'print_3d') {
             // Find files for this item from order_files table
             const itemFiles = orderFiles.filter((f: any) => f.order_item_id === item.id);
@@ -131,3 +128,4 @@ export async function archiveOrderFiles(orderId: string) {
     console.log(`[Archiver] Completed archive for ${orderId}`);
     return { success: true };
 }
+

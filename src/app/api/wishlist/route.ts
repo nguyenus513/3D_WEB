@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getSupabase } from '@/lib/supabase/client';
+import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getMongoDb } from '@/lib/mongodb/client';
 import { getProfileId } from '@/lib/utils/getProfileId';
 
 /**
@@ -14,7 +15,7 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const supabase = getSupabase();
+        const supabase = getAdminSupabase();
 
         // Smart profile ID lookup with email fallback
         const profileId = await getProfileId(session.user, supabase);
@@ -22,29 +23,16 @@ export async function GET() {
             return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
         }
 
-        const { data, error } = await supabase
-            .from('wishlists')
-            .select(`
-                id,
-                created_at,
-                product:products (
-                    id,
-                    name,
-                    slug,
-                    sku,
-                    base_price,
-                    sale_price,
-                    images,
-                    status
-                )
-            `)
-            .eq('user_id', profileId)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('[Wishlist] Error fetching:', error);
-            return NextResponse.json({ error: 'Failed to fetch wishlist' }, { status: 500 });
-        }
+        const db = await getMongoDb();
+        const wishlistRows = await db.collection('wishlists')
+            .find({ user_id: profileId })
+            .sort({ created_at: -1 })
+            .toArray();
+        const productIds = wishlistRows.map((row) => row.product_id).filter(Boolean);
+        const products = productIds.length > 0
+            ? await db.collection('products').find({ _id: { $in: productIds } }).toArray()
+            : [];
+        const productsById = new Map(products.map((product) => [String(product._id), product]));
 
         // Filter out products that are no longer active
         interface WishlistItem {
@@ -52,9 +40,24 @@ export async function GET() {
             created_at: string;
             product: { status?: string } | null;
         }
-        const activeWishlist = (data as WishlistItem[] | null)?.filter((item: WishlistItem) =>
-            item.product && item.product.status === 'active'
-        ) || [];
+        const activeWishlist = wishlistRows.map((item) => {
+            const product = productsById.get(String(item.product_id));
+            if (!product || product.is_active !== true) return null;
+            return {
+                id: String(item._id),
+                created_at: item.created_at,
+                product: {
+                    id: String(product._id),
+                    name: product.name,
+                    slug: product.slug || String(product._id),
+                    sku: product.sku,
+                    base_price: product.base_price || 0,
+                    sale_price: product.sale_price ?? null,
+                    images: product.images || [],
+                    status: product.is_active ? 'active' : 'draft',
+                },
+            };
+        }).filter(Boolean);
 
         return NextResponse.json({
             success: true,
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
         }
 
-        const supabase = getSupabase();
+        const supabase = getAdminSupabase();
 
         // Smart profile ID lookup with email fallback
         const profileId = await getProfileId(session.user, supabase);
@@ -92,13 +95,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
         }
 
-        // Check if already in wishlist
-        const { data: existing } = await supabase
-            .from('wishlists')
-            .select('id')
-            .eq('user_id', profileId)
-            .eq('product_id', productId)
-            .single();
+        const db = await getMongoDb();
+        const existing = await db.collection('wishlists').findOne({ user_id: profileId, product_id: productId });
 
         if (existing) {
             return NextResponse.json({
@@ -108,18 +106,11 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Add to wishlist
-        const { error } = await supabase
-            .from('wishlists')
-            .insert({
-                user_id: profileId,
-                product_id: productId,
-            });
-
-        if (error) {
-            console.error('[Wishlist] Error adding:', error);
-            return NextResponse.json({ error: 'Failed to add to wishlist' }, { status: 500 });
-        }
+        await db.collection('wishlists').insertOne({
+            user_id: profileId,
+            product_id: productId,
+            created_at: new Date().toISOString(),
+        });
 
         return NextResponse.json({
             success: true,
@@ -148,7 +139,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
         }
 
-        const supabase = getSupabase();
+        const supabase = getAdminSupabase();
 
         // Smart profile ID lookup with email fallback
         const profileId = await getProfileId(session.user, supabase);
@@ -156,16 +147,8 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Profile not found' }, { status: 400 });
         }
 
-        const { error } = await supabase
-            .from('wishlists')
-            .delete()
-            .eq('user_id', profileId)
-            .eq('product_id', productId);
-
-        if (error) {
-            console.error('[Wishlist] Error removing:', error);
-            return NextResponse.json({ error: 'Failed to remove from wishlist' }, { status: 500 });
-        }
+        const db = await getMongoDb();
+        await db.collection('wishlists').deleteMany({ user_id: profileId, product_id: productId });
 
         return NextResponse.json({
             success: true,

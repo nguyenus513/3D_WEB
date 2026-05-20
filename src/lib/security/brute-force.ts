@@ -1,10 +1,10 @@
-/**
- * Brute Force Protection
- * 
- * Tracks failed login attempts and blocks repeated failures.
+﻿/**
+ * Brute Force Protection backed by MongoDB.
  */
 
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { randomUUID } from 'node:crypto';
+import { getMongoCollections } from '@/lib/mongodb';
+import type { FailedLoginAttemptDocument } from '@/lib/mongodb';
 
 interface FailedAttempt {
     id: string;
@@ -16,103 +16,84 @@ interface FailedAttempt {
     blocked_until: string | null;
 }
 
-// Configuration
-const MAX_ATTEMPTS = 5; // Max failed attempts before block
-const BLOCK_DURATION_MINUTES = 30; // How long to block
-const ATTEMPT_WINDOW_MINUTES = 15; // Window to count attempts
+const MAX_ATTEMPTS = 5;
+const BLOCK_DURATION_MINUTES = 30;
+const ATTEMPT_WINDOW_MINUTES = 15;
 
-/**
- * Check if login is blocked for this email/IP combination
- */
+function toFailedAttempt(attempt: FailedLoginAttemptDocument): FailedAttempt {
+    return {
+        id: attempt._id,
+        email: attempt.email,
+        ip_address: attempt.ip_address,
+        attempt_count: attempt.attempt_count || 0,
+        first_attempt_at: (attempt.first_attempt_at || new Date()).toISOString(),
+        last_attempt_at: (attempt.last_attempt_at || new Date()).toISOString(),
+        blocked_until: attempt.blocked_until?.toISOString() || null,
+    };
+}
+
 export async function isLoginBlocked(email: string, ipAddress: string): Promise<{
     blocked: boolean;
     blockedUntil?: Date;
     remainingAttempts?: number;
 }> {
-    const supabase = getAdminSupabase();
-
-    const { data: attempt } = await supabase
-        .from('failed_login_attempts')
-        .select('*')
-        .eq('email', email.toLowerCase())
-        .eq('ip_address', ipAddress)
-        .single();
+    const { failed_login_attempts } = await getMongoCollections();
+    const normalizedEmail = email.toLowerCase();
+    const attempt = await failed_login_attempts.findOne({ email: normalizedEmail, ip_address: ipAddress });
 
     if (!attempt) {
         return { blocked: false, remainingAttempts: MAX_ATTEMPTS };
     }
 
-    // Check if currently blocked
     if (attempt.blocked_until) {
-        const blockedUntil = new Date(attempt.blocked_until);
+        const blockedUntil = attempt.blocked_until;
         if (blockedUntil > new Date()) {
             return { blocked: true, blockedUntil };
         }
 
-        // Block expired, reset attempts
-        await supabase
-            .from('failed_login_attempts')
-            .delete()
-            .eq('id', attempt.id);
-
+        await failed_login_attempts.deleteOne({ _id: attempt._id });
         return { blocked: false, remainingAttempts: MAX_ATTEMPTS };
     }
 
-    // Check if attempts are in the window
     const windowStart = new Date();
     windowStart.setMinutes(windowStart.getMinutes() - ATTEMPT_WINDOW_MINUTES);
 
-    if (new Date(attempt.first_attempt_at) < windowStart) {
-        // Old attempts, reset
-        await supabase
-            .from('failed_login_attempts')
-            .delete()
-            .eq('id', attempt.id);
-
+    if (attempt.first_attempt_at && attempt.first_attempt_at < windowStart) {
+        await failed_login_attempts.deleteOne({ _id: attempt._id });
         return { blocked: false, remainingAttempts: MAX_ATTEMPTS };
     }
 
-    const remainingAttempts = Math.max(0, MAX_ATTEMPTS - attempt.attempt_count);
+    const remainingAttempts = Math.max(0, MAX_ATTEMPTS - (attempt.attempt_count || 0));
     return { blocked: remainingAttempts === 0, remainingAttempts };
 }
 
-/**
- * Record a failed login attempt
- */
 export async function recordFailedAttempt(email: string, ipAddress: string): Promise<{
     blocked: boolean;
     blockedUntil?: Date;
     attemptCount: number;
 }> {
-    const supabase = getAdminSupabase();
+    const { failed_login_attempts } = await getMongoCollections();
     const normalizedEmail = email.toLowerCase();
-
-    // Try to update existing record
-    const { data: existing } = await supabase
-        .from('failed_login_attempts')
-        .select('*')
-        .eq('email', normalizedEmail)
-        .eq('ip_address', ipAddress)
-        .single();
+    const now = new Date();
+    const existing = await failed_login_attempts.findOne({ email: normalizedEmail, ip_address: ipAddress });
 
     if (existing) {
-        const newCount = existing.attempt_count + 1;
+        const newCount = (existing.attempt_count || 0) + 1;
         const shouldBlock = newCount >= MAX_ATTEMPTS;
+        const blockedUntil = shouldBlock
+            ? new Date(now.getTime() + BLOCK_DURATION_MINUTES * 60 * 1000)
+            : null;
 
-        let blockedUntil: Date | null = null;
-        if (shouldBlock) {
-            blockedUntil = new Date();
-            blockedUntil.setMinutes(blockedUntil.getMinutes() + BLOCK_DURATION_MINUTES);
-        }
-
-        await supabase
-            .from('failed_login_attempts')
-            .update({
-                attempt_count: newCount,
-                last_attempt_at: new Date().toISOString(),
-                blocked_until: blockedUntil?.toISOString() || null,
-            })
-            .eq('id', existing.id);
+        await failed_login_attempts.updateOne(
+            { _id: existing._id },
+            {
+                $set: {
+                    attempt_count: newCount,
+                    last_attempt_at: now,
+                    blocked_until: blockedUntil,
+                },
+            }
+        );
 
         return {
             blocked: shouldBlock,
@@ -121,61 +102,39 @@ export async function recordFailedAttempt(email: string, ipAddress: string): Pro
         };
     }
 
-    // Create new record
-    await supabase
-        .from('failed_login_attempts')
-        .insert({
-            email: normalizedEmail,
-            ip_address: ipAddress,
-            attempt_count: 1,
-        });
+    await failed_login_attempts.insertOne({
+        _id: randomUUID(),
+        email: normalizedEmail,
+        ip_address: ipAddress,
+        attempt_count: 1,
+        first_attempt_at: now,
+        last_attempt_at: now,
+        created_at: now,
+    });
 
-    return {
-        blocked: false,
-        attemptCount: 1,
-    };
+    return { blocked: false, attemptCount: 1 };
 }
 
-/**
- * Clear failed attempts on successful login
- */
 export async function clearFailedAttempts(email: string, ipAddress: string): Promise<void> {
-    const supabase = getAdminSupabase();
-
-    await supabase
-        .from('failed_login_attempts')
-        .delete()
-        .eq('email', email.toLowerCase())
-        .eq('ip_address', ipAddress);
+    const { failed_login_attempts } = await getMongoCollections();
+    await failed_login_attempts.deleteMany({ email: email.toLowerCase(), ip_address: ipAddress });
 }
 
-/**
- * Get all blocked IPs for an email (admin use)
- */
 export async function getBlockedAttempts(email: string): Promise<FailedAttempt[]> {
-    const supabase = getAdminSupabase();
+    const { failed_login_attempts } = await getMongoCollections();
+    const attempts = await failed_login_attempts
+        .find({
+            email: email.toLowerCase(),
+            blocked_until: { $gt: new Date() },
+        })
+        .sort({ blocked_until: -1 })
+        .toArray();
 
-    const { data } = await supabase
-        .from('failed_login_attempts')
-        .select('*')
-        .eq('email', email.toLowerCase())
-        .not('blocked_until', 'is', null)
-        .gt('blocked_until', new Date().toISOString());
-
-    return data || [];
+    return attempts.map(toFailedAttempt);
 }
 
-/**
- * Unblock a specific IP for an email (admin use)
- */
 export async function unblockIp(email: string, ipAddress: string): Promise<boolean> {
-    const supabase = getAdminSupabase();
-
-    const { error } = await supabase
-        .from('failed_login_attempts')
-        .delete()
-        .eq('email', email.toLowerCase())
-        .eq('ip_address', ipAddress);
-
-    return !error;
+    const { failed_login_attempts } = await getMongoCollections();
+    const result = await failed_login_attempts.deleteMany({ email: email.toLowerCase(), ip_address: ipAddress });
+    return result.acknowledged;
 }

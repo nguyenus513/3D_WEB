@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * AdminSidebar (Visionary Spatial Edition)
@@ -16,6 +16,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { clsx } from 'clsx';
 import { LayoutGrid, Box, Tag, Star, ClipboardList, Users, Settings, ChevronDown, Layers, LogOut } from 'lucide-react';
+import { useAdminPath } from '@/hooks/useAdminPath';
 
 interface NavItem {
     name: string;
@@ -70,10 +71,11 @@ const navConfig: NavItem[] = [
 
 export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
     const pathname = usePathname();
+    const { adminRoot } = useAdminPath();
     const { data: session } = useSession();
-    const [expandedItems, setExpandedItems] = useState<string[]>(['Khách hàng']);
+    const [expandedItems, setExpandedItems] = useState<string[]>(['Đơn hàng']);
 
-    const effectiveRoot = '/admin';
+    const effectiveRoot = adminRoot;
 
     const toggleExpand = (name: string) => {
         setExpandedItems(prev =>
@@ -207,3 +209,4 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
         </aside>
     );
 }
+

@@ -7,11 +7,14 @@ import { useUiLabels } from '@/hooks/useUiLabels';
 
 interface Notification {
     id: string;
+    notification_id?: string;
     order_code: string;
     order_type: string;
     status: string;
     total: number;
     created_at: string;
+    title?: string;
+    message?: string;
 }
 
 interface AdminHeaderLabels {
@@ -68,6 +71,21 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         setLoading(false);
     };
 
+    const formatCurrency = (value: number) => {
+        const amount = Number.isFinite(Number(value)) ? Number(value) : 0;
+        return `${amount.toLocaleString('vi-VN')}đ`;
+    };
+
+    const markAsRead = async (notification: Notification) => {
+        if (!notification.notification_id) return;
+        setNotifications((current) => current.filter((item) => item.notification_id !== notification.notification_id));
+        try {
+            await fetch(`/api/notifications/${notification.notification_id}`, { method: 'PATCH' });
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error);
+        }
+    };
+
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
         const now = new Date();
@@ -84,7 +102,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         return formatLabel(labels.time?.daysAgo || '', { count: diffDays });
     };
 
-    const pendingCount = notifications.filter(n => n.status === 'pending').length;
+    const pendingCount = notifications.length;
 
     return (
         <header className="sticky top-0 z-40 bg-[#1D1D1F] border-b border-white/5">
@@ -156,7 +174,10 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                             <Link
                                                 key={n.id}
                                                 href={`${adminRoot}/orders/${n.id}`}
-                                                onClick={() => setShowNotifications(false)}
+                                                onClick={() => {
+                                                    markAsRead(n);
+                                                    setShowNotifications(false);
+                                                }}
                                                 className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
                                             >
                                                 <div className="flex items-start gap-3">
@@ -168,7 +189,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-white text-sm font-medium">{n.order_code}</span>
+                                                            <span className="text-white text-sm font-medium">{n.title || n.order_code}</span>
                                                             <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
                                                                 }`}>
                                                                 {n.status === 'pending' ? labels.status?.pending : labels.status?.paid}
@@ -177,8 +198,9 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                                         <div className="flex items-center gap-2 mt-0.5">
                                                             <span className="text-white/50 text-xs">{labels.orderTypes?.[n.order_type] || n.order_type}</span>
                                                             <span className="text-white/30">&bull;</span>
-                                                            <span className="text-white/50 text-xs">{Number(n.total).toLocaleString('vi-VN')}d</span>
+                                                            <span className="text-white/50 text-xs">{formatCurrency(n.total)}</span>
                                                         </div>
+                                                        {n.message && <p className="mt-1 line-clamp-2 text-xs text-white/50">{n.message}</p>}
                                                         <p className="text-white/40 text-xs mt-1">{formatTime(n.created_at)}</p>
                                                     </div>
                                                 </div>

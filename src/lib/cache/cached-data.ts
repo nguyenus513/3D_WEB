@@ -1,31 +1,40 @@
-/**
+﻿/**
  * Cached Data Fetchers
  *
  * Server-side cached data access layer using Next.js unstable_cache.
  * Provides revalidation tags for on-demand cache invalidation.
- *
- * Usage (in Server Components or API Routes):
- *   import { getCachedProducts, getCachedCategories } from '@/lib/cache/cached-data';
- *
- * Cache invalidation (after admin creates/updates product):
- *   import { revalidateTag } from 'next/cache';
- *   revalidateTag('products');
  */
 
 import { unstable_cache } from 'next/cache';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getMongoCollections } from '@/lib/mongodb';
+import type { CategoryDocument, ProductDocument } from '@/lib/mongodb';
 
-// =============================================================================
-// Supabase Admin (server-side only)
-// =============================================================================
+type PublicCategory = Omit<CategoryDocument, '_id'> & { id: string };
+type PublicProduct = Omit<ProductDocument, '_id'> & {
+    id: string;
+    is_active: boolean;
+    product_variants?: unknown[];
+};
 
-function getSupabaseAdmin() {
-    return createClient(
-        config.supabase.url,
-        config.supabase.serviceRoleKey,
-        { auth: { persistSession: false } }
-    );
+function mapCategory(category: CategoryDocument): PublicCategory {
+    const { _id, ...rest } = category;
+    return {
+        id: _id,
+        ...rest,
+    };
+}
+
+function mapProduct(product: ProductDocument, productVariants: unknown[] = []): PublicProduct {
+    const { _id, ...rest } = product;
+    const status = product.status || 'draft';
+
+    return {
+        id: _id,
+        ...rest,
+        status,
+        is_active: status === 'active',
+        product_variants: productVariants,
+    };
 }
 
 // =============================================================================
@@ -38,23 +47,22 @@ function getSupabaseAdmin() {
  */
 export const getCachedProducts = unstable_cache(
     async () => {
-        const supabase = getSupabaseAdmin();
-        const { data, error } = await supabase
-            .from('products')
-            .select('*, product_variants(*)')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
+        try {
+            const { products } = await getMongoCollections();
+            const data = await products
+                .find({ status: 'active' })
+                .sort({ created_at: -1 })
+                .toArray();
 
-        if (error) {
+            return data.map(product => mapProduct(product));
+        } catch (error) {
             console.error('[Cache] Failed to fetch products:', error);
             return [];
         }
-
-        return data || [];
     },
     ['products-list'],
     {
-        revalidate: 60, // Revalidate every 60 seconds
+        revalidate: 60,
         tags: ['products'],
     }
 );
@@ -65,25 +73,23 @@ export const getCachedProducts = unstable_cache(
  */
 export const getCachedFeaturedProducts = unstable_cache(
     async (limit = 8) => {
-        const supabase = getSupabaseAdmin();
-        const { data, error } = await supabase
-            .from('products')
-            .select('*, product_variants(*)')
-            .eq('is_active', true)
-            .eq('is_featured', true)
-            .order('created_at', { ascending: false })
-            .limit(limit);
+        try {
+            const { products } = await getMongoCollections();
+            const data = await products
+                .find({ status: 'active', is_featured: true })
+                .sort({ created_at: -1 })
+                .limit(limit)
+                .toArray();
 
-        if (error) {
+            return data.map(product => mapProduct(product));
+        } catch (error) {
             console.error('[Cache] Failed to fetch featured products:', error);
             return [];
         }
-
-        return data || [];
     },
     ['featured-products'],
     {
-        revalidate: 300, // 5 minutes
+        revalidate: 300,
         tags: ['products', 'featured'],
     }
 );
@@ -94,27 +100,26 @@ export const getCachedFeaturedProducts = unstable_cache(
 
 /**
  * Get all categories (cached for 10 minutes).
- * Categories rarely change — long cache is safe.
  * Invalidated by revalidateTag('categories').
  */
 export const getCachedCategories = unstable_cache(
     async () => {
-        const supabase = getSupabaseAdmin();
-        const { data, error } = await supabase
-            .from('categories')
-            .select('*')
-            .order('sort_order', { ascending: true });
+        try {
+            const { categories } = await getMongoCollections();
+            const data = await categories
+                .find({})
+                .sort({ sort_order: 1, name: 1 })
+                .toArray();
 
-        if (error) {
+            return data.map(mapCategory);
+        } catch (error) {
             console.error('[Cache] Failed to fetch categories:', error);
             return [];
         }
-
-        return data || [];
     },
     ['categories-list'],
     {
-        revalidate: 600, // 10 minutes
+        revalidate: 600,
         tags: ['categories'],
     }
 );

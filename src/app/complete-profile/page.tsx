@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,9 @@ interface FormData {
 export default function CompleteProfilePage() {
     const { data: session, status, update } = useSession();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const rawCallbackUrl = searchParams.get('callbackUrl') || '/account';
+    const callbackUrl = rawCallbackUrl.startsWith('/') && !rawCallbackUrl.startsWith('//') ? rawCallbackUrl : '/account';
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -98,9 +101,9 @@ export default function CompleteProfilePage() {
     // Redirect if not authenticated
     useEffect(() => {
         if (status === 'unauthenticated') {
-            router.push('/login');
+            router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
         }
-    }, [status, router]);
+    }, [status, router, callbackUrl]);
 
     const validateForm = (): boolean => {
         setError('');
@@ -210,8 +213,7 @@ export default function CompleteProfilePage() {
             // Update session to clear isNewUser flag
             await update();
 
-            // Redirect to account
-            router.push('/account');
+            router.push(callbackUrl);
             router.refresh();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra');

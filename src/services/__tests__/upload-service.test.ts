@@ -5,7 +5,7 @@ import { UploadService } from '@/services/UploadService';
 vi.mock('@/lib/google-drive-oauth', () => {
     return {
         isDriveConnected: vi.fn(),
-        uploadToPath: vi.fn(),
+        uploadWithNaming: vi.fn(),
         getDirectUrl: vi.fn((id: string) => `direct-${id}`),
         getThumbnailUrl: vi.fn((id: string) => `thumb-${id}`),
         getDownloadUrl: vi.fn((id: string) => `download-${id}`),
@@ -27,17 +27,49 @@ vi.mock('@/lib/security/file-access', () => {
 
 vi.mock('@/lib/security/file-validation', () => {
     return {
+        RAW_IMAGE_EXTENSIONS: new Set(),
+        sanitizeFilename: vi.fn((filename: string) => filename),
         validateUploadedFile: vi.fn(() => ({ valid: true })),
+    };
+});
+
+vi.mock('@/lib/supabase/admin', () => {
+    const createSelectChain = (table: string) => ({
+        select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+                limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                single: vi.fn(() => Promise.resolve({
+                    data: table === 'orders' ? { id: 'order-row-1' } : null,
+                    error: null,
+                })),
+            })),
+            single: vi.fn(() => Promise.resolve({ data: { id: 'file-row-1' }, error: null })),
+        })),
+        insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+                single: vi.fn(() => Promise.resolve({ data: { id: 'file-row-1' }, error: null })),
+            })),
+        })),
+    });
+
+    return {
+        getAdminSupabase: vi.fn(() => ({
+            from: vi.fn((table: string) => {
+                if (table === 'file_links') {
+                    return { insert: vi.fn(() => Promise.resolve({ error: null })) };
+                }
+                return createSelectChain(table);
+            }),
+        })),
     };
 });
 
 import {
     isDriveConnected,
-    uploadToPath,
-    getDownloadUrl,
+    uploadWithNaming,
+    getDirectUrl,
 } from '@/lib/google-drive-oauth';
 import { isR2Configured, uploadToR2 } from '@/lib/storage/r2';
-import { trackFileUpload } from '@/lib/security/file-access';
 
 const makeBuffer = (text = 'data') => Buffer.from(text);
 
@@ -48,7 +80,7 @@ describe('UploadService', () => {
 
     it('uploads STL/OBJ/3MF to Drive and tracks drive metadata', async () => {
         (isDriveConnected as any).mockResolvedValue(true);
-        (uploadToPath as any).mockResolvedValue({
+        (uploadWithNaming as any).mockResolvedValue({
             fileId: 'drive123',
             fileName: 'model.stl',
             webViewLink: 'view',
@@ -74,16 +106,14 @@ describe('UploadService', () => {
         );
 
         expect(result.storage).toBe('drive');
-        expect(result.file.url).toBe('download-drive123');
-        expect(getDownloadUrl).toHaveBeenCalledWith('drive123');
-        expect(trackFileUpload).toHaveBeenCalledWith(
-            expect.any(String),
-            'user-1',
-            expect.objectContaining({
-                storageProvider: 'drive',
-                driveFileId: 'drive123',
-                driveUrl: 'download-drive123',
-            })
+        expect(result.file.url).toBe('direct-drive123');
+        expect(result.file.fileId).toBe('file-row-1');
+        expect(getDirectUrl).toHaveBeenCalledWith('drive123');
+        expect(uploadWithNaming).toHaveBeenCalledWith(
+            buffer,
+            'model.stl',
+            'application/sla',
+            expect.objectContaining({ type: 'printing', orderCode: 'ORD001' })
         );
         expect(uploadToR2).not.toHaveBeenCalled();
     });
@@ -92,7 +122,7 @@ describe('UploadService', () => {
         (isR2Configured as any).mockReturnValue(true);
         (uploadToR2 as any).mockRejectedValue(new Error('R2 error'));
         (isDriveConnected as any).mockResolvedValue(true);
-        (uploadToPath as any).mockResolvedValue({
+        (uploadWithNaming as any).mockResolvedValue({
             fileId: 'drive456',
             fileName: 'photo.png',
             webViewLink: 'view',
@@ -120,14 +150,8 @@ describe('UploadService', () => {
         );
 
         expect(result.storage).toBe('drive');
-        expect(uploadToPath).toHaveBeenCalled();
-        expect(trackFileUpload).toHaveBeenCalledWith(
-            expect.any(String),
-            'user-2',
-            expect.objectContaining({
-                storageProvider: 'drive',
-                driveFileId: 'drive456',
-            })
-        );
+        expect(uploadWithNaming).toHaveBeenCalled();
+        expect(result.file.id).toBe('drive456');
+        expect(result.file.fileId).toBe('file-row-1');
     });
 });

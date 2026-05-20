@@ -173,7 +173,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                             onClick={() => handleSelectSaved(addr)}
                             disabled={disabled}
                             className={`w-full p-4 rounded-xl border text-left transition-all ${selectedId === addr.id
-                                    ? 'border-cyan-500 bg-cyan-500/10'
+                                    ? 'border-white bg-white/10'
                                     : 'border-[var(--border-color)] bg-[var(--material-glass)] hover:border-[var(--border-color)]'
                                 } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
@@ -186,7 +186,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                     </p>
                                 </div>
                                 {selectedId === addr.id && (
-                                    <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center flex-shrink-0">
+                                    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-white bg-black text-white">
                                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                         </svg>
@@ -194,7 +194,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                 )}
                             </div>
                             {addr.is_default && (
-                                <span className="inline-block mt-2 px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
+                                <span className="inline-block mt-2 px-2 py-0.5 bg-white/10 text-white text-xs rounded-full">
                                     Mặc định
                                 </span>
                             )}
@@ -229,7 +229,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                 <p className="text-[var(--text-secondary)] text-sm">Nhập địa chỉ mới:</p>
                                 <button
                                     onClick={() => setShowNewForm(false)}
-                                    className="text-cyan-400 text-sm hover:text-cyan-300"
+                                    className="text-white/70 text-sm hover:text-white"
                                 >
                                     ← Chọn địa chỉ đã lưu
                                 </button>

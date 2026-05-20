@@ -2,7 +2,23 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Filter, Download } from 'lucide-react';
+import {
+    X,
+    ZoomIn,
+    ZoomOut,
+    ChevronLeft,
+    ChevronRight,
+    Filter,
+    Download,
+    Image as ImageIcon,
+    Glasses,
+    HardHat,
+    Paperclip,
+    UserRound,
+    Camera,
+    FileText,
+    type LucideIcon,
+} from 'lucide-react';
 
 // =============================================================================
 // Types
@@ -41,14 +57,14 @@ interface ImageStackProps {
 // Category Labels & Colors
 // =============================================================================
 
-const CATEGORY_CONFIG: Record<string, { label: string; icon: string; color: string; bg: string }> = {
-    main: { label: 'Ảnh gốc', icon: '🖼', color: 'text-blue-400', bg: 'bg-blue-500/20' },
-    glasses: { label: 'Kính', icon: '🕶', color: 'text-amber-400', bg: 'bg-amber-500/20' },
-    hat: { label: 'Mũ', icon: '🎩', color: 'text-purple-400', bg: 'bg-purple-500/20' },
+const CATEGORY_CONFIG: Record<string, { label: string; Icon: LucideIcon; color: string; bg: string }> = {
+    main: { label: 'Ảnh gốc', Icon: ImageIcon, color: 'text-white', bg: 'bg-white/10' },
+    glasses: { label: 'Kính', Icon: Glasses, color: 'text-white', bg: 'bg-white/10' },
+    hat: { label: 'Mũ', Icon: HardHat, color: 'text-white', bg: 'bg-white/10' },
 };
 
 const getCategoryStyle = (cat: string) =>
-    CATEGORY_CONFIG[cat] || { label: cat, icon: '📎', color: 'text-[var(--text-secondary)]', bg: 'bg-[var(--material-glass)]' };
+    CATEGORY_CONFIG[cat] || { label: cat, Icon: Paperclip, color: 'text-white', bg: 'bg-white/10' };
 
 // =============================================================================
 // ImageStack — Compact preview for table view
@@ -155,6 +171,7 @@ function Lightbox({
     }, [isZoomed, onClose, onPrev, onNext, hasPrev, hasNext]);
 
     const catStyle = getCategoryStyle(image.category);
+    const CategoryIcon = catStyle.Icon;
 
     return (
         <motion.div
@@ -171,10 +188,10 @@ function Lightbox({
             <div className="absolute top-0 left-0 right-0 px-6 py-4 flex items-center justify-between z-10">
                 <div className="flex items-center gap-3">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${catStyle.bg} ${catStyle.color}`}>
-                        {catStyle.icon} {catStyle.label}
+                        <CategoryIcon className="w-3.5 h-3.5" strokeWidth={1.75} /> {catStyle.label}
                     </span>
-                    <span className="text-[var(--text-tertiary)] text-xs">
-                        👤 Nhân vật #{image.characterIndex}
+                    <span className="inline-flex items-center gap-1 text-[var(--text-tertiary)] text-xs">
+                        <UserRound className="w-3.5 h-3.5" strokeWidth={1.75} /> Nhân vật #{image.characterIndex}
                     </span>
                     <span className="text-[var(--text-tertiary)] text-xs truncate max-w-xs">
                         {image.name}
@@ -252,12 +269,12 @@ function Lightbox({
 // =============================================================================
 
 function TextCard({ character }: { character: CharacterInfo }) {
-    const descriptions: string[] = [];
+    const descriptions: { Icon: LucideIcon; label: string; text: string }[] = [];
     if (character.glassesDescription) {
-        descriptions.push(`🕶 Kính: ${character.glassesDescription}`);
+        descriptions.push({ Icon: Glasses, label: 'Kính', text: character.glassesDescription });
     }
     if (character.hatDescription) {
-        descriptions.push(`🎩 Mũ: ${character.hatDescription}`);
+        descriptions.push({ Icon: HardHat, label: 'Mũ', text: character.hatDescription });
     }
 
     if (descriptions.length === 0) {
@@ -271,15 +288,16 @@ function TextCard({ character }: { character: CharacterInfo }) {
     return (
         <div className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]">
             <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">📝</span>
+                <FileText className="w-4 h-4 text-white" strokeWidth={1.75} />
                 <p className="text-[var(--text-secondary)] text-xs font-medium uppercase tracking-wider">
                     Mô tả khách hàng
                 </p>
             </div>
             <div className="space-y-2.5">
-                {descriptions.map((desc, i) => (
-                    <p key={i} className="text-[var(--text-primary)] text-sm leading-relaxed">
-                        {desc}
+                {descriptions.map(({ Icon, label, text }) => (
+                    <p key={label} className="flex items-start gap-2 text-white text-sm leading-relaxed">
+                        <Icon className="mt-0.5 w-4 h-4 shrink-0" strokeWidth={1.75} />
+                        <span>{label}: {text}</span>
                     </p>
                 ))}
             </div>
@@ -424,15 +442,16 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                                         loading="lazy"
                                                     />
                                                 ) : (
-                                                    <span className="text-lg">📝</span>
+                                                    <FileText className="w-4 h-4 text-white" strokeWidth={1.75} />
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className={`text-sm font-medium truncate ${isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
-                                                    👤 Nhân vật {charIdx}
+                                                <p className={`flex items-center gap-1.5 text-sm font-medium truncate ${isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                                                    <UserRound className="w-3.5 h-3.5" strokeWidth={1.75} /> Nhân vật {charIdx}
                                                 </p>
-                                                <p className="text-[var(--text-tertiary)] text-xs">
-                                                    {hasImages ? `📸 ${charImages.length} ảnh` : '📝 Mô tả'}
+                                                <p className="flex items-center gap-1.5 text-[var(--text-tertiary)] text-xs">
+                                                    {hasImages ? <Camera className="w-3.5 h-3.5" strokeWidth={1.75} /> : <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />}
+                                                    {hasImages ? `${charImages.length} ảnh` : 'Mô tả'}
                                                 </p>
                                             </div>
                                         </div>
@@ -464,7 +483,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                         <div className="px-6 pt-5 pb-4 border-b border-[var(--border-color)]">
                             <div className="flex items-center justify-between mb-3">
                                 <h2 className="text-[var(--text-primary)] text-base font-semibold">
-                                    Ảnh tham khảo — 👤 Nhân vật {activeCharIndex}
+                                    <span className="inline-flex items-center gap-2"><UserRound className="w-4 h-4" strokeWidth={1.75} /> Ảnh tham khảo — Nhân vật {activeCharIndex}</span>
                                 </h2>
                                 <button
                                     onClick={onClose}
@@ -508,6 +527,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                                         {filtered.map((img, i) => {
                                             const catStyle = getCategoryStyle(img.category);
+                                            const CategoryIcon = catStyle.Icon;
                                             return (
                                                 <div
                                                     key={img.id}
@@ -542,7 +562,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                                     {/* Category badge */}
                                                     <div className="absolute top-2 left-2">
                                                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium ${catStyle.bg} ${catStyle.color} backdrop-blur-sm`}>
-                                                            {catStyle.icon} {catStyle.label}
+                                                            <CategoryIcon className="w-3 h-3" strokeWidth={1.75} /> {catStyle.label}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -559,7 +579,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                 /* ── Text-only character ── */
                                 <div className="max-w-md mx-auto mt-8">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <span className="text-lg">⚠️</span>
+                                        <FileText className="w-4 h-4 text-white" strokeWidth={1.75} />
                                         <p className="text-[var(--text-secondary)] text-sm">Không có ảnh — hiển thị mô tả</p>
                                     </div>
                                     {activeCharacter ? (
@@ -598,7 +618,7 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                             onClick={() => setActiveCharIndex(charIdx)}
                                             className="text-[var(--text-secondary)] text-xs font-medium mb-1.5 hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
                                         >
-                                            👤 Nhân vật {charIdx}
+                                            <UserRound className="w-3.5 h-3.5" strokeWidth={1.75} /> Nhân vật {charIdx}
                                             {charImages.length > 0 && (
                                                 <span className="text-[var(--text-tertiary)]">({charImages.length})</span>
                                             )}
@@ -607,26 +627,27 @@ export function ImageGallery({ images, characters, onClose }: ImageGalleryProps)
                                             {charImages.length > 0 ? (
                                                 charImages.map((img) => {
                                                     const catStyle = getCategoryStyle(img.category);
+                                                    const CategoryIcon = catStyle.Icon;
                                                     return (
                                                         <p
                                                             key={img.id}
-                                                            className={`text-[10px] ${catStyle.color} truncate`}
+                                                            className={`flex items-center gap-1 text-[10px] ${catStyle.color} truncate`}
                                                         >
-                                                            └ {catStyle.icon} {catStyle.label}
+                                                            <span className="text-white/30">└</span><CategoryIcon className="w-3 h-3" strokeWidth={1.75} /> {catStyle.label}
                                                         </p>
                                                     );
                                                 })
                                             ) : (
-                                                <p className="text-[10px] text-[var(--text-tertiary)]">└ 📝 Mô tả</p>
+                                                <p className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]"><span className="text-white/30">└</span><FileText className="w-3 h-3" strokeWidth={1.75} /> Mô tả</p>
                                             )}
                                             {charInfo?.glassesDescription && (
-                                                <p className="text-[10px] text-amber-400/50 truncate" title={charInfo.glassesDescription}>
-                                                    └ 🕶 &quot;{charInfo.glassesDescription}&quot;
+                                                <p className="flex items-center gap-1 text-[10px] text-white/70 truncate" title={charInfo.glassesDescription}>
+                                                    <span className="text-white/30">└</span><Glasses className="w-3 h-3" strokeWidth={1.75} /> &quot;{charInfo.glassesDescription}&quot;
                                                 </p>
                                             )}
                                             {charInfo?.hatDescription && (
-                                                <p className="text-[10px] text-purple-400/50 truncate" title={charInfo.hatDescription}>
-                                                    └ 🎩 &quot;{charInfo.hatDescription}&quot;
+                                                <p className="flex items-center gap-1 text-[10px] text-white/70 truncate" title={charInfo.hatDescription}>
+                                                    <span className="text-white/30">└</span><HardHat className="w-3 h-3" strokeWidth={1.75} /> &quot;{charInfo.hatDescription}&quot;
                                                 </p>
                                             )}
                                         </div>

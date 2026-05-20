@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Edge-compatible NextAuth configuration.
  *
  * This file contains ONLY Edge Runtime-safe code (no Node.js-only modules).
@@ -32,12 +32,13 @@ export const authConfig: NextAuthConfig = {
          */
         session({ session, token }) {
             if (session.user) {
-                (session.user as Record<string, unknown>).id = token.id ?? token.sub;
-                (session.user as Record<string, unknown>).role = token.role;
-                (session.user as Record<string, unknown>).isNewUser = token.isNewUser;
-                (session.user as Record<string, unknown>).customerCode = token.customerCode;
+                (session.user as unknown as Record<string, unknown>).id = token.id ?? token.sub;
+                (session.user as unknown as Record<string, unknown>).role = token.role;
+                (session.user as unknown as Record<string, unknown>).isNewUser = token.isNewUser;
+                (session.user as unknown as Record<string, unknown>).customerCode = token.customerCode;
             }
             return session;
         },
     },
 };
+

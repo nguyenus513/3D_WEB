@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 // Production status for sub-orders
 const productionStatusTabs = [
@@ -297,13 +298,7 @@ export function AdminItemList({ itemType, title, subtitle }: AdminItemListProps)
                                         </td>
                                         <td className="px-5 py-4">
                                             <span className="text-[var(--text-secondary)] text-sm">
-                                                {new Date(item.created_at).toLocaleString('vi-VN', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                })}
+                                                {formatOrderDate(item.created_at)}
                                             </span>
                                         </td>
                                         <td className="px-5 py-4">

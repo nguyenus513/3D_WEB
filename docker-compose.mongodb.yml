@@ -1,0 +1,22 @@
+﻿services:
+  mongodb:
+    image: mongo:7
+    container_name: miniver-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: miniver
+      MONGO_INITDB_ROOT_PASSWORD: miniver_dev_password
+      MONGO_INITDB_DATABASE: intelligentroutex
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "mongodb://miniver:miniver_dev_password@localhost:27017/admin", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  mongodb_data:

@@ -10,6 +10,7 @@ import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { User, Users, UsersRound, Upload, Gift, UtensilsCrossed, Package, Camera, Palette, Glasses, ImagePlus, PenLine, X, Layers, Columns2, Ruler } from 'lucide-react';
 import { useCart } from '@/lib/store/cart';
+import { DEFAULT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForServerUpload } from '@/lib/utils/imageCompression';
 
 // ============================================================
 // TYPES
@@ -40,6 +41,7 @@ interface FileInfo {
     thumbnail: string;
     category: 'main' | 'glasses' | 'hat';
     characterIndex: number;
+    fileId?: string;
 }
 
 // ============================================================
@@ -310,8 +312,10 @@ export default function CustomPage() {
             const char = characters[i];
             if (!char.image) continue;
 
+            const { file: uploadFile } = await prepareImageForServerUpload(char.image);
+
             const formData = new FormData();
-            formData.append('file', char.image);
+            formData.append('file', uploadFile);
             formData.append('type', `custom_${orderType}`);
             formData.append('customerCode', customerCode);
             formData.append('orderCode', orderCode);
@@ -320,7 +324,7 @@ export default function CustomPage() {
             formData.append('personCount', String(characterCount));
             formData.append('photoCategory', 'main');
 
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const res = await fetch('/api/upload', { method: 'POST', body: formData }).catch(() => { throw new Error('Không thể tải ảnh lên. Ảnh có thể quá lớn, vui lòng thử ảnh nhỏ hơn hoặc JPG/PNG.'); });
             const data = await res.json();
 
             if (!res.ok || data.success === false) {
@@ -334,17 +338,20 @@ export default function CustomPage() {
 
             // Upload glasses image if exists
             if (char.hasGlasses && char.glassesMode === 'upload' && char.glassesImage) {
+                const { file: glassesFile } = await prepareImageForServerUpload(char.glassesImage, { maxBytes: DEFAULT_IMAGE_UPLOAD_MAX_BYTES }).catch(() => ({ file: null }));
+                if (!glassesFile) continue;
+
                 const gFormData = new FormData();
-                gFormData.append('file', char.glassesImage);
+                gFormData.append('file', glassesFile);
                 gFormData.append('type', `custom_${orderType}`);
                 gFormData.append('customerCode', customerCode);
                 gFormData.append('orderCode', orderCode);
                 gFormData.append('index', String(i + 1));
                 gFormData.append('photoCategory', 'glasses');
 
-                const gRes = await fetch('/api/upload', { method: 'POST', body: gFormData });
-                const gData = await gRes.json();
-                if (gRes.ok && gData.success !== false) {
+                const gRes = await fetch('/api/upload', { method: 'POST', body: gFormData }).catch(() => null);
+                const gData = gRes ? await gRes.json() : null;
+                if (gRes && gRes.ok && gData.success !== false) {
                     const gFile = gData.data?.file || gData.file;
                     if (gFile) uploaded.push({ ...gFile, category: 'glasses' as const, characterIndex: i + 1 });
                 }
@@ -352,17 +359,20 @@ export default function CustomPage() {
 
             // Upload hat image if exists
             if (char.hasHat && char.hatMode === 'upload' && char.hatImage) {
+                const { file: hatFile } = await prepareImageForServerUpload(char.hatImage, { maxBytes: DEFAULT_IMAGE_UPLOAD_MAX_BYTES }).catch(() => ({ file: null }));
+                if (!hatFile) continue;
+
                 const hFormData = new FormData();
-                hFormData.append('file', char.hatImage);
+                hFormData.append('file', hatFile);
                 hFormData.append('type', `custom_${orderType}`);
                 hFormData.append('customerCode', customerCode);
                 hFormData.append('orderCode', orderCode);
                 hFormData.append('index', String(i + 1));
                 hFormData.append('photoCategory', 'hat');
 
-                const hRes = await fetch('/api/upload', { method: 'POST', body: hFormData });
-                const hData = await hRes.json();
-                if (hRes.ok && hData.success !== false) {
+                const hRes = await fetch('/api/upload', { method: 'POST', body: hFormData }).catch(() => null);
+                const hData = hRes ? await hRes.json() : null;
+                if (hRes && hRes.ok && hData.success !== false) {
                     const hFile = hData.data?.file || hData.file;
                     if (hFile) uploaded.push({ ...hFile, category: 'hat' as const, characterIndex: i + 1 });
                 }
@@ -419,6 +429,7 @@ export default function CustomPage() {
                         thumbnail: img.thumbnail,
                         category: img.category,
                         characterIndex: img.characterIndex,
+                        fileId: (img as any).fileId,
                     })),
                 }),
             });

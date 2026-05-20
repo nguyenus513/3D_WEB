@@ -22,6 +22,7 @@ import {
     InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { getProvinces, getDistricts, getWards, Province, District, Ward } from '@/lib/vietnam-provinces';
+import { Eye, EyeOff } from 'lucide-react';
 
 type StepType = 1 | 2 | 3 | 4 | 'otp' | 'success';
 
@@ -117,6 +118,7 @@ export default function RegisterPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<StepType>(1);
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -572,10 +574,11 @@ export default function RegisterPage() {
                                                         />
                                                         <button
                                                             type="button"
-                                                            onClick={() => setShowPassword(!showPassword)}
-                                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                                                            onClick={() => setShowPassword((value) => !value)}
+                                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+                                                            aria-label={showPassword ? 'Hide password' : 'Show password'}
                                                         >
-                                                            {showPassword ? '🙈' : '👁️'}
+                                                            {showPassword ? <EyeOff size={20} strokeWidth={1.8} /> : <Eye size={20} strokeWidth={1.8} />}
                                                         </button>
                                                     </div>
                                                 </FormControl>
@@ -590,12 +593,22 @@ export default function RegisterPage() {
                                             <FormItem>
                                                 <FormLabel>Xác nhận mật khẩu</FormLabel>
                                                 <FormControl>
+                                                    <div className="relative">
                                                     <input
-                                                        type="password"
+                                                        type={showConfirmPassword ? 'text' : 'password'}
                                                         {...field}
-                                                        className={inputClassName}
+                                                        className={`${inputClassName} pr-12`}
                                                         placeholder="Nhập lại mật khẩu"
                                                     />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowConfirmPassword((value) => !value)}
+                                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+                                                            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                                                        >
+                                                            {showConfirmPassword ? <EyeOff size={20} strokeWidth={1.8} /> : <Eye size={20} strokeWidth={1.8} />}
+                                                        </button>
+                                                    </div>
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

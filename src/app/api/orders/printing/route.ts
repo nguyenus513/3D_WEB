@@ -1,4 +1,4 @@
-
+﻿
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         // Sanitize customer notes (print settings are stored in print_jobs table separately)
         const customerNote = notes ? stripHtml(notes).slice(0, 1000) : null;
 
-        // Create Order (ĐƠN TỔNG)
+        // Create parent order
         // Note: orders table has shipping_address_snapshot (not shipping_address)
         //       and no customer_note or deposit_paid columns
         const { data: orderData, error: orderError } = await supabase
@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
 
 
         // cartCode already defined above when creating order
-        // Insert order_items (ĐƠN CON - one per file) - NEW SCHEMA
-        const orderItemInserts = items.map((item, index) => {
+        // Insert child order_items, one per file - new schema
+        const orderItemInserts = items.map((item: any, index: number) => {
             const file = files[index];
             const itemCode = generateId.order(); // 8 char HEX
             const fullCode = `${orderCode}_${itemCode}`; // ORDER_ITEM format
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         // Insert print jobs (1:1 with order_items)
         // Uses actual `print_jobs` table (not the non-existent `order_item_print_configs`)
         if (insertedItems && insertedItems.length > 0) {
-            const printJobInserts = insertedItems.map((item, index) => ({
+            const printJobInserts = insertedItems.map((item: any, index: number) => ({
                 order_item_id: item.id,
                 material: type === 'resin' ? 'standard_resin' : 'petg',
                 color: color,
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
                     .maybeSingle();
 
                 if (fileRecord && linkedItem) {
-                    // Create file_link: file → order_item
+                    // Create file_link: file â†’ order_item
                     const { error: linkError } = await supabase
                         .from('file_links')
                         .insert({

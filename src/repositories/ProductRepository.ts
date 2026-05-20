@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Product Repository
  *
  * Data access layer for products table.
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { MongoSupabaseCompatClient as SupabaseClient } from '@/lib/mongodb/supabase-compat';
 
 // =============================================================================
 // Types
@@ -219,7 +219,7 @@ export class ProductRepository {
     async archive(id: string): Promise<void> {
         const { error } = await this.db
             .from('products')
-            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .update({ status: 'archived', is_active: false, updated_at: new Date().toISOString() })
             .eq('id', id);
 
         if (error) throw error;
@@ -336,3 +336,4 @@ export class ProductRepository {
         if (error) throw error;
     }
 }
+

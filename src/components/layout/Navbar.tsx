@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { ShoppingBag, User, Menu, X, Bell, CheckCircle, Pencil, Upload } from 'lucide-react';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
+import { usePathname } from 'next/navigation';
 
 /** Get icon for notification type */
 function getNotifIcon(type: string) {
@@ -29,6 +30,16 @@ export function Navbar() {
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showNotifDropdown, setShowNotifDropdown] = useState(false);
     const { data: session, status } = useSession();
+    const pathname = usePathname();
+    const [currentPath, setCurrentPath] = useState(pathname);
+
+    useEffect(() => {
+        const pathWithQuery = `${pathname}${window.location.search}`;
+        setCurrentPath(pathWithQuery);
+        if (!pathname.startsWith('/login') && !pathname.startsWith('/register')) {
+            sessionStorage.setItem('miniver.returnTo', pathWithQuery);
+        }
+    }, [pathname]);
 
     const isLoggedIn = status === 'authenticated' && !!session?.user;
     const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin';
@@ -223,7 +234,7 @@ export function Navbar() {
                                 )}
                             </div>
                         ) : (
-                            <Link href="/login" className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                            <Link href={`/login?callbackUrl=${encodeURIComponent(currentPath)}`} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                                 <User size={20} strokeWidth={1.5} />
                             </Link>
                         )}
@@ -279,7 +290,7 @@ export function Navbar() {
                                 </>
                             ) : (
                                 <Link
-                                    href="/login"
+                                    href={`/login?callbackUrl=${encodeURIComponent(currentPath)}`}
                                     className="block text-base text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >

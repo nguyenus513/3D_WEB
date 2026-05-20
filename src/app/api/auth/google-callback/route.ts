@@ -1,11 +1,18 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { NextRequest } from 'next/server';
 
-export async function GET() {
+function getSafeCallbackUrl(request: NextRequest): string {
+    const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || '/account';
+    return callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/account';
+}
+
+export async function GET(request: NextRequest) {
     const session = await auth();
+    const callbackUrl = getSafeCallbackUrl(request);
 
     if (!session?.user) {
-        redirect('/login');
+        redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     }
 
     // Check if new user (no phone number means incomplete profile)
@@ -18,8 +25,8 @@ export async function GET() {
     }
 
     if (isNewUser) {
-        redirect('/complete-profile');
+        redirect(`/complete-profile?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     }
 
-    redirect('/account');
+    redirect(callbackUrl);
 }

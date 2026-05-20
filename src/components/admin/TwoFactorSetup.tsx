@@ -122,7 +122,7 @@ export default function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorS
 
     return (
         <div>
-            {/* Header: Matches Drive Connect Style */}
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">Bảo mật</h2>
@@ -294,4 +294,5 @@ export default function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorS
         </div>
     );
 }
+
 

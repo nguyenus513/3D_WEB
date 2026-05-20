@@ -83,15 +83,21 @@ function transformOrder(order: Record<string, unknown>) {
         confirmed_at: order.confirmed_at,
         paid_at: order.paid_at,
         completed_at: order.completed_at,
-        items: items.map((item) => ({
-            id: item.id,
-            product_id: item.product_id,
-            name: item.name,
-            sku: item.sku,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            configuration: item.configuration,
-        })),
+        items: items.map((item) => {
+            const quantity = Number(item.quantity || 1);
+            const unitPrice = Number(item.unit_price || 0);
+            const itemTotal = Number(item.total_price || unitPrice * quantity || 0);
+            return {
+                id: item.id,
+                product_id: item.product_id,
+                name: item.name,
+                sku: item.sku,
+                quantity,
+                unit_price: unitPrice,
+                total_price: itemTotal,
+                configuration: item.configuration,
+            };
+        }),
     };
 }
+

@@ -1,43 +1,13 @@
-'use client';
+﻿'use client';
 
-import dynamic from 'next/dynamic';
-import { BentoGrid } from '@/components/user/BentoGrid';
-import { FeaturedProducts } from '@/components/user/FeaturedProducts';
-import { WhyUs, CTASection } from '@/components/user/Sections';
-
-// Dynamic import for 3D Hero with Jelly effect
-const HeroJelly = dynamic(
-  () => import('@/components/user/HeroJelly').then((mod) => mod.HeroJelly),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-screen bg-[var(--bg-void)] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-2 border-[#0071E3] border-t-transparent rounded-full animate-spin" />
-          <span className="text-[var(--text-secondary)] text-sm">Loading 3D Experience...</span>
-        </div>
-      </div>
-    ),
-  }
-);
+import { MiniVersionShowcase } from '@/components/user/MiniVersionShowcase';
+import { WhyUs } from '@/components/user/Sections';
 
 export default function HomePage() {
   return (
     <div className="bg-[var(--bg-void)]">
-      {/* Hero with Jelly Distortion */}
-      <HeroJelly />
-
-      {/* Bento Grid - Services */}
-      <BentoGrid />
-
-      {/* Featured Products */}
-      <FeaturedProducts />
-
-      {/* Why Us */}
+      <MiniVersionShowcase />
       <WhyUs />
-
-      {/* CTA Section */}
-      <CTASection />
     </div>
   );
 }

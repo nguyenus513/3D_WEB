@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
@@ -27,36 +26,28 @@ export default function AdminFeaturedPage() {
 
     const fetchFeaturedProducts = async () => {
         setLoading(true);
-        const supabase = getSupabase();
-
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('is_featured', true)
-            .eq('is_active', true)
-            .order('updated_at', { ascending: false });
-
-        if (error) {
+        try {
+            const response = await fetch('/api/admin/products?limit=100&status=active', { cache: 'no-store' });
+            const json = await response.json();
+            if (!response.ok) throw new Error(json?.error?.message || 'Failed to fetch featured products');
+            const products = (json?.data?.products || []) as Product[];
+            setFeaturedProducts(products.filter((product) => product.is_featured));
+        } catch (error) {
             console.error('Error fetching featured products:', error);
-        } else {
-            setFeaturedProducts((data as any[]) || []);
         }
         setLoading(false);
     };
 
     const fetchAllProducts = async () => {
-        const supabase = getSupabase();
-
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('is_active', true)
-            .order('name', { ascending: true });
-
-        if (error) {
+        try {
+            const response = await fetch('/api/admin/products?limit=100&status=active', { cache: 'no-store' });
+            const json = await response.json();
+            if (!response.ok) throw new Error(json?.error?.message || 'Failed to fetch products');
+            const products = ((json?.data?.products || []) as Product[])
+                .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+            setAllProducts(products);
+        } catch (error) {
             console.error('Error fetching all products:', error);
-        } else {
-            setAllProducts((data as any[]) || []);
         }
     };
 

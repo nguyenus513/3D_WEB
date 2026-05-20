@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/security/admin-guard';
 
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
             let pendingCount = 0;
             let orderCount = 0;
 
-            allOrders.filter(o => isInMonth(o.created_at, m, y)).forEach((o: any) => {
+            allOrders.filter((o: any) => isInMonth(o.created_at, m, y)).forEach((o: any) => {
                 orderCount++;
                 const total = Number(o.total_amount || 0);
                 if (o.status === 'delivered' || o.status === 'completed') {
@@ -117,18 +117,21 @@ export async function GET(request: Request) {
         // Orders for selected month
         const monthOrders = allOrders
             .filter((o: any) => isInMonth(o.created_at, month, year))
-            .filter(o => !['pending', 'cancelled'].includes(o.status))
+            .filter((o: any) => !['pending', 'cancelled'].includes(o.status))
             .slice(0, 20)
-            .map(o => ({
+            .map((o: any) => {
+                const shipping = o.shipping_address || o.shipping_address_snapshot || {};
+                return ({
                 id: o.id,
                 order_code: o.order_code || o.cart_code,
                 total: Number(o.total_amount || 0),
                 deposit_amount: Number(o.deposit_amount || 0),
                 status: o.status,
-                customer_name: (o.user_id && profileMap.get(o.user_id)) || o.shipping_address?.full_name || 'Khách',
+                customer_name: (o.user_id && profileMap.get(o.user_id)) || shipping.full_name || 'Chưa có tên khách hàng',
                 created_at: o.created_at,
                 order_type: o.order_type || 'ready_made',
-            }));
+            });
+            });
 
         return NextResponse.json({
             currentMonth,
@@ -146,3 +149,4 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
+

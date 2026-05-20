@@ -1,14 +1,11 @@
-/**
+﻿/**
  * Profile Repository
  *
- * Data access layer for the users table.
+ * MongoDB data access layer for profiles.
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
-
-// =============================================================================
-// Types
-// =============================================================================
+import { getMongoCollections } from '@/lib/mongodb';
+import type { ProfileDocument } from '@/lib/mongodb';
 
 export interface Profile {
     id: string;
@@ -21,108 +18,58 @@ export interface Profile {
     updated_at: string | null;
 }
 
-// Raw DB row from users table (uses 'name' not 'full_name')
-interface UserRow {
-    id: string;
-    email: string;
-    name: string | null;
-    phone: string | null;
-    customer_code: string | null;
-    role: string;
-    created_at: string;
-    updated_at: string | null;
-}
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const PROFILE_SELECT_FIELDS =
-    'id, email, name, phone, customer_code, role, created_at, updated_at';
-
-/** Map DB row (name) → Profile interface (full_name) */
-function toProfile(row: UserRow): Profile {
+function toProfile(row: ProfileDocument): Profile {
     return {
-        id: row.id,
-        email: row.email,
-        full_name: row.name,
-        phone: row.phone,
-        customer_code: row.customer_code,
-        role: row.role as 'customer' | 'admin',
-        created_at: row.created_at,
-        updated_at: row.updated_at,
+        id: row._id,
+        email: row.email || '',
+        full_name: row.full_name || null,
+        phone: row.phone || null,
+        customer_code: row.customer_code || null,
+        role: (row.role || 'customer') as 'customer' | 'admin',
+        created_at: (row.created_at || new Date()).toISOString(),
+        updated_at: row.updated_at?.toISOString() || null,
     };
 }
 
-// =============================================================================
-// Profile Repository
-// =============================================================================
-
 export class ProfileRepository {
-    constructor(private readonly db: SupabaseClient) { }
+    constructor(_legacyClient?: unknown) { }
 
-    /**
-     * Find a profile by email
-     */
     async findByEmail(email: string): Promise<Profile | null> {
-        const { data, error } = await this.db
-            .from('users')
-            .select(PROFILE_SELECT_FIELDS)
-            .eq('email', email)
-            .single();
-
-        if (error?.code === 'PGRST116') return null;
-        if (error) throw error;
-        return toProfile(data as UserRow);
+        const { profiles } = await getMongoCollections();
+        const data = await profiles.findOne({ email: email.toLowerCase() });
+        return data ? toProfile(data) : null;
     }
 
-    /**
-     * Find a profile by ID
-     */
     async findById(id: string): Promise<Profile | null> {
-        const { data, error } = await this.db
-            .from('users')
-            .select(PROFILE_SELECT_FIELDS)
-            .eq('id', id)
-            .single();
-
-        if (error?.code === 'PGRST116') return null;
-        if (error) throw error;
-        return toProfile(data as UserRow);
+        const { profiles } = await getMongoCollections();
+        const data = await profiles.findOne({ _id: id });
+        return data ? toProfile(data) : null;
     }
 
-    /**
-     * Create a new profile
-     */
     async create(input: {
         id: string;
         email: string;
         full_name?: string | null;
         phone?: string | null;
     }): Promise<Profile> {
-        const customerCode =
-            'USR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        const { profiles } = await getMongoCollections();
+        const now = new Date();
+        const customerCode = 'USR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        const document: ProfileDocument = {
+            _id: input.id,
+            email: input.email.toLowerCase(),
+            full_name: input.full_name ?? null,
+            phone: input.phone ?? null,
+            customer_code: customerCode,
+            role: 'customer',
+            created_at: now,
+            updated_at: now,
+        };
 
-        const { data, error } = await this.db
-            .from('users')
-            .insert({
-                id: input.id,
-                email: input.email,
-                name: input.full_name ?? null,
-                phone: input.phone ?? null,
-                customer_code: customerCode,
-                role: 'customer',
-            })
-            .select(PROFILE_SELECT_FIELDS)
-            .single();
-
-        if (error) throw error;
-        return toProfile(data as UserRow);
+        await profiles.insertOne(document);
+        return toProfile(document);
     }
 
-    /**
-     * Update an existing profile
-     */
     async update(
         id: string,
         input: {
@@ -130,21 +77,23 @@ export class ProfileRepository {
             phone?: string | null;
         }
     ): Promise<Profile> {
-        // Map full_name → name for the DB
-        const dbUpdate: Record<string, unknown> = {
-            updated_at: new Date().toISOString(),
-        };
-        if (input.full_name !== undefined) dbUpdate.name = input.full_name;
-        if (input.phone !== undefined) dbUpdate.phone = input.phone;
+        const { profiles } = await getMongoCollections();
+        const $set: Partial<ProfileDocument> = { updated_at: new Date() };
 
-        const { data, error } = await this.db
-            .from('users')
-            .update(dbUpdate)
-            .eq('id', id)
-            .select(PROFILE_SELECT_FIELDS)
-            .single();
+        if (input.full_name !== undefined) $set.full_name = input.full_name;
+        if (input.phone !== undefined) $set.phone = input.phone;
 
-        if (error) throw error;
-        return toProfile(data as UserRow);
+        const result = await profiles.findOneAndUpdate(
+            { _id: id },
+            { $set },
+            { returnDocument: 'after' }
+        );
+
+        if (!result) {
+            throw new Error('Profile not found');
+        }
+
+        return toProfile(result);
     }
 }
+

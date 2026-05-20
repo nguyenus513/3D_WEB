@@ -84,19 +84,19 @@ export default function AdminProductsPage() {
         if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
 
         setDeleting(id);
-        const supabase = getSupabase();
-
-        const { error } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            alert('Không thể xóa sản phẩm: ' + error.message);
-        } else {
-            setProducts(products.filter(p => p.id !== id));
+        try {
+            const response = await fetch(`/api/admin/products?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result?.success) {
+                alert('Không thể xóa sản phẩm: ' + (result?.error?.message || result?.error || `HTTP ${response.status}`));
+                return;
+            }
+            setProducts(products.filter((product) => product.id !== id));
+        } catch (error) {
+            alert('Không thể xóa sản phẩm: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        } finally {
+            setDeleting(null);
         }
-        setDeleting(null);
     };
 
     const getStatusBadge = (status: string) => {
@@ -182,7 +182,7 @@ export default function AdminProductsPage() {
                     href={`${adminRoot}/products/new`}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black rounded-xl font-medium hover:bg-[var(--material-glass)] transition-colors"
                 >
-                    ＋ Thêm sản phẩm
+                    + Thêm sản phẩm
                 </Link>
             </div>
 

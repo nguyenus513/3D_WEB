@@ -1,111 +1,63 @@
-/**
- * Cleanup Unverified Accounts API
- * 
- * DELETE /api/auth/cleanup
- * 
- * Deletes accounts where:
- * - created_at > 15 minutes ago
- * - have associated verification_tokens (indicating unverified)
- * 
- * Can be called by cron job or on login attempt
+﻿/**
+ * Cleanup Unverified Accounts API - MongoDB backed.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { auth } from '@/auth';
+import { getMongoCollection, getMongoCollections } from '@/lib/mongodb';
 
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-);
-
-// OTP expiration time in minutes
 const OTP_EXPIRATION_MINUTES = 15;
+
+async function isAuthorized(request: NextRequest): Promise<boolean> {
+    const session = await auth();
+    const cronSecret = request.headers.get('x-cron-secret');
+    return (session?.user as { role?: string } | undefined)?.role === 'admin'
+        || !!(cronSecret && cronSecret === process.env.ADMIN_SECRET_KEY);
+}
+
+function maskEmail(email: string): string {
+    return email.replace(/(.{3}).*(@.*)/, '$1***$2');
+}
 
 export async function DELETE(request: NextRequest) {
     try {
-        const session = await auth();
-        const cronSecret = request.headers.get('x-cron-secret');
-        const isAuthorized = (session?.user as any)?.role === 'admin' || 
-                             (cronSecret && cronSecret === process.env.ADMIN_SECRET_KEY);
-        if (!isAuthorized) {
+        if (!(await isAuthorized(request))) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Calculate cutoff time (accounts older than OTP expiration)
         const cutoffTime = new Date(Date.now() - OTP_EXPIRATION_MINUTES * 60 * 1000);
+        const verificationTokens = await getMongoCollection<{ _id: string; identifier: string; expires: Date }>('verification_tokens');
+        const { profiles, addresses } = await getMongoCollections();
+        const expiredTokens = await verificationTokens
+            .find({ expires: { $lt: new Date() } }, { projection: { identifier: 1 } })
+            .toArray();
 
-        // Find expired verification tokens
-        const { data: expiredTokens, error: tokenError } = await supabaseAdmin
-            .from('verification_tokens')
-            .select('identifier')
-            .lt('expires', new Date().toISOString());
-
-        if (tokenError) {
-            console.error('Error finding expired tokens:', tokenError);
-            return NextResponse.json({ error: 'Database error' }, { status: 500 });
+        if (expiredTokens.length === 0) {
+            return NextResponse.json({ message: 'No expired unverified accounts found', deleted: 0 });
         }
 
-        if (!expiredTokens || expiredTokens.length === 0) {
-            return NextResponse.json({
-                message: 'No expired unverified accounts found',
-                deleted: 0
-            });
+        const expiredEmails = [...new Set(expiredTokens.map(token => token.identifier.toLowerCase()))];
+        const expiredAccounts = await profiles
+            .find({
+                email: { $in: expiredEmails },
+                email_verified: { $ne: true },
+                created_at: { $lt: cutoffTime },
+            }, { projection: { _id: 1, email: 1 } })
+            .toArray();
+
+        if (expiredAccounts.length === 0) {
+            await verificationTokens.deleteMany({ identifier: { $in: expiredEmails } });
+            return NextResponse.json({ message: 'Cleaned up expired tokens only', deleted: 0 });
         }
 
-        const expiredEmails = expiredTokens.map(t => t.identifier);
+        const accountIds = expiredAccounts.map(account => account._id);
+        const accountEmails = expiredAccounts
+            .map(account => account.email)
+            .filter((email): email is string => !!email);
 
-        // Find profiles with these emails that are old
-        const { data: expiredAccounts, error: selectError } = await supabaseAdmin
-            .from('users')
-            .select('id, email, created_at')
-            .in('email', expiredEmails)
-            .lt('created_at', cutoffTime.toISOString());
-
-        if (selectError) {
-            console.error('Error finding expired accounts:', selectError);
-            return NextResponse.json({ error: 'Database error' }, { status: 500 });
-        }
-
-        if (!expiredAccounts || expiredAccounts.length === 0) {
-            // Just clean up tokens
-            await supabaseAdmin
-                .from('verification_tokens')
-                .delete()
-                .in('identifier', expiredEmails);
-
-            return NextResponse.json({
-                message: 'Cleaned up expired tokens only',
-                deleted: 0
-            });
-        }
-
-        const accountIds = expiredAccounts.map(acc => acc.id);
-        const accountEmails = expiredAccounts.map(acc => acc.email);
-
-        // Delete expired verification tokens first
-        await supabaseAdmin
-            .from('verification_tokens')
-            .delete()
-            .in('identifier', accountEmails);
-
-        // Delete addresses for these users
-        await supabaseAdmin
-            .from('user_addresses')
-            .delete()
-            .in('user_id', accountIds);
-
-        // Delete the unverified profiles
-        const { error: deleteError } = await supabaseAdmin
-            .from('users')
-            .delete()
-            .in('id', accountIds);
-
-        if (deleteError) {
-            console.error('Error deleting expired accounts:', deleteError);
-            return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
-        }
+        await verificationTokens.deleteMany({ identifier: { $in: accountEmails } });
+        await addresses.deleteMany({ user_id: { $in: accountIds } });
+        await profiles.deleteMany({ _id: { $in: accountIds } });
 
         const { createLogger } = await import('@/lib/logger');
         createLogger('auth-cleanup').info('Cleanup complete', { deleted: expiredAccounts.length });
@@ -113,7 +65,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({
             message: `Deleted ${expiredAccounts.length} unverified accounts`,
             deleted: expiredAccounts.length,
-            emails: accountEmails.map(e => e.replace(/(.{3}).*(@.*)/, '$1***$2')) // Mask emails
+            emails: accountEmails.map(maskEmail),
         });
     } catch (error) {
         console.error('Cleanup error:', error);
@@ -124,30 +76,21 @@ export async function DELETE(request: NextRequest) {
     }
 }
 
-// GET endpoint to check cleanup status (admin only)
 export async function GET(request: NextRequest) {
     try {
         const session = await auth();
-        if (!(session?.user as any)?.role || (session?.user as any)?.role !== 'admin') {
+        if ((session?.user as { role?: string } | undefined)?.role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const cutoffTime = new Date(Date.now() - OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-        // Count expired verification tokens
-        const { data: expiredTokens, error } = await supabaseAdmin
-            .from('verification_tokens')
-            .select('identifier')
-            .lt('expires', new Date().toISOString());
-
-        if (error) {
-            return NextResponse.json({ error: 'Database error' }, { status: 500 });
-        }
+        const verificationTokens = await getMongoCollection<{ _id: string; identifier: string; expires: Date }>('verification_tokens');
+        const expiredCount = await verificationTokens.countDocuments({ expires: { $lt: new Date() } });
 
         return NextResponse.json({
-            expiredCount: expiredTokens?.length || 0,
+            expiredCount,
             expirationMinutes: OTP_EXPIRATION_MINUTES,
-            cutoffTime: cutoffTime.toISOString()
+            cutoffTime: cutoffTime.toISOString(),
         });
     } catch (error) {
         console.error('Check error:', error);

@@ -13,14 +13,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '@/config/unifiedConfig';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 
-const supabaseAdmin = createClient(
-    config.supabase.url,
-    config.supabase.serviceRoleKey,
-    { auth: { persistSession: false } }
-);
+const supabaseAdmin = getAdminSupabase();
 
 export async function GET(request: NextRequest) {
     try {
@@ -83,7 +78,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Transform response - format as sub-orders with spec
-        const response = (items || []).map(item => {
+        const response = (items || []).map((item: any) => {
             const order = item.orders as any;
             const profile = order?.users as any;
 
