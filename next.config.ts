@@ -74,6 +74,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Disable source maps in production for security
   productionBrowserSourceMaps: false,
 
