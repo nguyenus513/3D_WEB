@@ -27,11 +27,25 @@ interface SavedAddress extends ShippingAddress {
     label?: string;
 }
 
+function getMissingAddressFields(address: Partial<ShippingAddress>) {
+    const missing: string[] = [];
+    if (!address.full_name?.trim()) missing.push('họ tên');
+    if (!address.phone?.trim()) missing.push('số điện thoại');
+    if (!address.address_line?.trim()) missing.push('địa chỉ cụ thể');
+    if (!address.province?.trim()) missing.push('tỉnh/thành');
+    return missing;
+}
+
+function isAddressComplete(address: Partial<ShippingAddress>) {
+    return getMissingAddressFields(address).length === 0;
+}
+
 export function AddressSelector({ userId, value, onChange, disabled }: AddressSelectorProps) {
     const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
     const [loading, setLoading] = useState(false);
     const [showNewForm, setShowNewForm] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(value?.id || null);
+    const [addressError, setAddressError] = useState<string | null>(null);
 
     const [provinces, setProvinces] = useState<Province[]>([]);
     const [districts, setDistricts] = useState<District[]>([]);
@@ -69,14 +83,15 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                     if (data.addresses) {
                         setSavedAddresses(data.addresses);
                         if (!value) {
-                            const defaultAddr = data.addresses.find((a: SavedAddress) => a.is_default);
+                            const completeAddresses = data.addresses.filter((a: SavedAddress) => isAddressComplete(a));
+                            const defaultAddr = completeAddresses.find((a: SavedAddress) => a.is_default) || completeAddresses[0];
                             if (defaultAddr) {
                                 setSelectedId(defaultAddr.id);
+                                setAddressError(null);
                                 onChange(defaultAddr);
-                            } else if (data.addresses.length > 0) {
-                                setSelectedId(data.addresses[0].id);
-                                onChange(data.addresses[0]);
                             } else {
+                                setSelectedId(null);
+                                setAddressError('Địa chỉ đã lưu còn thiếu thông tin. Vui lòng thêm địa chỉ mới đầy đủ.');
                                 setShowNewForm(true);
                             }
                         }
@@ -127,6 +142,14 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
     }, [newAddress.districtCode]);
 
     const handleSelectSaved = (addr: SavedAddress) => {
+        const missing = getMissingAddressFields(addr);
+        if (missing.length > 0) {
+            setSelectedId(null);
+            setAddressError(`Địa chỉ này còn thiếu ${missing.join(', ')}. Vui lòng thêm địa chỉ mới đầy đủ.`);
+            setShowNewForm(true);
+            return;
+        }
+        setAddressError(null);
         setSelectedId(addr.id);
         setShowNewForm(false);
         onChange(addr);
@@ -137,6 +160,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
             return;
         }
 
+        setAddressError(null);
         onChange({
             full_name: newAddress.full_name,
             phone: newAddress.phone,
@@ -164,6 +188,11 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
 
     return (
         <div className="space-y-4">
+            {addressError && (
+                <div className="rounded-xl border border-white/20 bg-white/10 p-3 text-sm text-[var(--text-primary)]">
+                    {addressError}
+                </div>
+            )}
             {savedAddresses.length > 0 && !showNewForm && (
                 <div className="space-y-3">
                     <p className="text-[var(--text-secondary)] text-sm">Chọn địa chỉ đã lưu:</p>
