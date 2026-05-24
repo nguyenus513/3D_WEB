@@ -803,7 +803,7 @@ export default function AdminOrderDetailPage() {
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="text-white font-medium truncate">{file.name}</p>
-                                                                <p className="text-white/40 text-xs">{file.url ? 'File 3D ? Click ?? t?i xu?ng' : 'File ?? ghi nh?n nh?ng thi?u link t?i'}</p>
+                                                                <p className="text-white/40 text-xs">{file.url ? 'File 3D • Click để tải xuống' : 'File đã ghi nhận nhưng thiếu link tải'}</p>
                                                             </div>
                                                         </>
                                                     );

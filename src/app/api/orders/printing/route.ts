@@ -1,4 +1,4 @@
-﻿
+
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
@@ -8,6 +8,7 @@ import { generateId } from '@/lib/generateId';
 // Types from client-side
 interface FileInfo {
     id: string;
+    key?: string;
     name: string;
     size?: number;
     type?: string;
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
             const file = files[index];
             const itemCode = generateId.order(); // 8 char HEX
             const fullCode = `${orderCode}_${itemCode}`; // ORDER_ITEM format
+            const fileKey = file?.key || file?.id || null;
 
             return {
                 order_id: orderData.id,
@@ -125,6 +127,14 @@ export async function POST(request: NextRequest) {
                 // total_price is a generated column (quantity * unit_price)
                 item_type: 'print_3d',
                 production_status: 'waiting',
+                configuration: {
+                    fileName: file?.name || null,
+                    fileKey,
+                    fileUrl: file?.url || (fileKey ? `/api/files/${fileKey}` : null),
+                    fileId: file?.fileId || null,
+                    fileType: file?.type || 'model/stl',
+                    fileSize: file?.size || 0,
+                },
                 created_at: now,
             };
         });
@@ -171,7 +181,7 @@ export async function POST(request: NextRequest) {
             for (const [idx, f] of files.entries()) {
                 const linkedItem = insertedItems?.[idx];
 
-                const rawKey = f.id;
+                const rawKey = f.key || f.id;
                 const proxyPath = rawKey ? `/api/files/${rawKey}` : null;
                 let fileRecord: { id: string } | null = f.fileId ? { id: f.fileId } : null;
 

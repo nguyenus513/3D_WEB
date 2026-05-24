@@ -15,9 +15,13 @@ type PrintType = 'fdm' | 'resin';
 
 interface FileInfo {
     id: string;
+    key?: string;
+    fileId?: string;
     name: string;
     url: string;
     thumbnail: string;
+    type?: string;
+    size?: number;
 }
 
 interface AnalysisResult {
@@ -372,7 +376,7 @@ export default function PrintingPage() {
                 throw new Error(`Upload R2 thất bại (HTTP ${putRes.status}).`);
             }
 
-            await fetch('/api/uploads/complete', {
+            const completeRes = await fetch('/api/uploads/complete', {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -387,13 +391,19 @@ export default function PrintingPage() {
                     isPublic: false,
                 }),
             }).catch(() => null);
+            const completeData = completeRes?.ok ? await parseApiResponse(completeRes) : null;
+            const trackedFile = completeData?.data?.file;
 
-            const secureUrl = `/api/files/${presignData.data.key}`;
+            const secureUrl = trackedFile?.url || `/api/files/${presignData.data.key}`;
             return {
                 id: presignData.data.key,
+                key: presignData.data.key,
+                fileId: trackedFile?.fileId,
                 name: item.file.name,
                 url: secureUrl,
                 thumbnail: secureUrl,
+                type: contentType,
+                size: item.file.size,
             };
         };
 
@@ -466,7 +476,15 @@ export default function PrintingPage() {
                         quantity: item.quantity,
                         analysis: item.analysis
                     })),
-                    files: files.map(f => ({ id: f.id, name: f.name })),
+                    files: files.map(f => ({
+                        id: f.id,
+                        key: f.key || f.id,
+                        fileId: f.fileId,
+                        name: f.name,
+                        url: f.url,
+                        type: f.type,
+                        size: f.size,
+                    })),
                     type: order.type,
                     color: order.color,
                     infill: order.infill,

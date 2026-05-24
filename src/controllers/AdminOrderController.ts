@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Admin Order Controller
  *
  * Request handling layer for admin order management APIs.
@@ -321,14 +321,14 @@ export class AdminOrderController extends BaseController {
                 const fallbackModelFiles = linkedModelFiles.length > 0 ? [] : items
                     .filter((item: any) => is3dModelFile({ file_name: item.name, file_type: item.configuration?.fileType }))
                     .map((item: any) => ({
-                        id: item.id,
-                        key: item.full_code || item.item_code || item.id,
-                        name: item.name || 'file-3d',
-                        url: '',
+                        id: item.configuration?.fileId || item.id,
+                        key: item.configuration?.fileKey || item.full_code || item.item_code || item.id,
+                        name: item.configuration?.fileName || item.name || 'file-3d',
+                        url: item.configuration?.fileUrl || '',
                         type: item.configuration?.fileType || 'model/stl',
                         size: item.configuration?.fileSize || 0,
                         created_at: item.created_at,
-                        missingLink: true,
+                        missingLink: !item.configuration?.fileUrl,
                     }));
                 const modelFiles = linkedModelFiles.length > 0 ? linkedModelFiles : fallbackModelFiles;
                 const estimatedGrams = printJobs.reduce((sum: number, job: any) => sum + toAmount(job.estimated_grams), 0);
