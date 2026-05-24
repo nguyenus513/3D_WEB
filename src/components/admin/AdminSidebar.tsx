@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * AdminSidebar (Visionary Spatial Edition)
@@ -117,7 +117,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                     const hasChildren = item.children && item.children.length > 0;
 
                     const activeClass = isActive
-                        ? 'bg-[var(--color-accent)] text-[var(--text-primary)] shadow-md'
+                        ? 'bg-white text-black shadow-md'
                         : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]';
 
                     return (
@@ -155,7 +155,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                                             block pl-8 pr-4 py-2.5 rounded-xl text-sm transition-all relative
                                                             font-medium
                                                         `, isChildActive
-                                                            ? 'text-[var(--color-accent)] bg-[var(--color-accent-glow)]'
+                                                            ? 'bg-white text-black'
                                                             : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                                         )}
                                                     >
@@ -173,7 +173,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
                                         flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300
                                         border border-transparent
                                     `, isActive
-                                        ? 'bg-[var(--color-accent)] text-[var(--text-primary)] shadow-[var(--shadow-2)]'
+                                        ? 'bg-white text-black shadow-[var(--shadow-2)]'
                                         : 'text-[var(--text-secondary)] hover:bg-[var(--material-glass)] hover:text-[var(--text-primary)]'
                                     )}
                                 >
