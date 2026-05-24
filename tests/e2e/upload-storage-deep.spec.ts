@@ -79,7 +79,7 @@ test.describe('deep upload persistence', () => {
     });
     expect(created.status()).toBe(200);
     const body = await created.json();
-    const orderId = body.data?.orderId || body.orderId;
+    const orderId = body.data?.orderId || body.data?.id || body.orderId;
     expect(orderId).toBeTruthy();
 
     const detail = await page.request.get(`/api/admin/orders/${orderId}`);
