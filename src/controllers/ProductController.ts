@@ -98,7 +98,7 @@ export class ProductController extends BaseController {
             const product = await this.productService.createProduct(input);
 
             // Invalidate cached product lists
-            revalidateTag('products', { expire: 0 });
+            revalidateTag('products');
 
             return this.handleSuccess({ product, success: true }, { status: 201 });
         }, 'ProductController.createProduct');
@@ -119,7 +119,7 @@ export class ProductController extends BaseController {
             await this.productService.updateProduct(input);
 
             // Invalidate cached product lists
-            revalidateTag('products', { expire: 0 });
+            revalidateTag('products');
 
             return this.handleSuccess({ success: true });
         }, 'ProductController.updateProduct');
@@ -144,7 +144,7 @@ export class ProductController extends BaseController {
             await this.productService.archiveProduct(id);
 
             // Invalidate cached product lists
-            revalidateTag('products', { expire: 0 });
+            revalidateTag('products');
 
             return this.handleSuccess({ success: true });
         }, 'ProductController.deleteProduct');

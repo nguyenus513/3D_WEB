@@ -60,7 +60,7 @@ function OrderItem({ item, onUpdateNotes }: { item: CartItem | any; onUpdateNote
     );
 }
 
-export function CheckoutContent() {
+function CheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const orderIdParam = searchParams.get('orderId');
