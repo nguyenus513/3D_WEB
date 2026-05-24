@@ -37,6 +37,19 @@ function resolveFileUrl(fileUrl: string, provider?: string): string {
     return fileUrl;
 }
 
+
+function is3dModelFile(file: { file_name?: string; file_key?: string; file_type?: string }): boolean {
+    const value = `${file.file_name || ''} ${file.file_key || ''} ${file.file_type || ''}`.toLowerCase();
+    return /\.(stl|obj|3mf|step|stp)(\?|$|\s)/.test(value)
+        || value.includes('model/stl')
+        || value.includes('model/obj')
+        || value.includes('model/3mf')
+        || value.includes('model/step')
+        || value.includes('application/sla')
+        || value.includes('application/step')
+        || value.includes('application/octet-stream');
+}
+
 // =============================================================================
 // Allowed update fields (whitelist to prevent injection of invalid columns)
 // =============================================================================
@@ -157,7 +170,7 @@ export class AdminOrderController extends BaseController {
                 _source_table: 'orders'
                 }))
                 .filter((order: any) => this.matchesOrderType(order, type))
-                .sort((a: any, b: any) => Date.parse(b.created_at) - Date.parse(a.created_at));
+                .sort((a: any, b: any) => (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0));
 
             return this.handleSuccess({
                 orders: transformedOrders,
@@ -289,8 +302,50 @@ export class AdminOrderController extends BaseController {
             let printing_config = null;
             if (orderType === 'printing' || rawOrderType === 'print_3d') {
                 const totalQuantity = items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+                const printJobs = items
+                    .map((item: any) => Array.isArray(item.print_job) ? item.print_job[0] : item.print_job)
+                    .filter(Boolean);
+                const firstJob = printJobs[0] || {};
+                const firstPrintOptions = items.find((item: any) => item?.configuration?.printOptions)?.configuration?.printOptions || {};
+                const linkedModelFiles = orderFiles
+                    .filter((file: any) => is3dModelFile(file))
+                    .map((file: any) => ({
+                        id: file.id,
+                        key: file.file_key,
+                        name: file.file_name || String(file.file_key || '').split('/').pop() || 'file-3d',
+                        url: file.file_url,
+                        type: file.file_type,
+                        size: file.size_bytes || 0,
+                        created_at: file.created_at,
+                    }));
+                const fallbackModelFiles = linkedModelFiles.length > 0 ? [] : items
+                    .filter((item: any) => is3dModelFile({ file_name: item.name, file_type: item.configuration?.fileType }))
+                    .map((item: any) => ({
+                        id: item.id,
+                        key: item.full_code || item.item_code || item.id,
+                        name: item.name || 'file-3d',
+                        url: '',
+                        type: item.configuration?.fileType || 'model/stl',
+                        size: item.configuration?.fileSize || 0,
+                        created_at: item.created_at,
+                        missingLink: true,
+                    }));
+                const modelFiles = linkedModelFiles.length > 0 ? linkedModelFiles : fallbackModelFiles;
+                const estimatedGrams = printJobs.reduce((sum: number, job: any) => sum + toAmount(job.estimated_grams), 0);
+                const estimatedHours = printJobs.reduce((sum: number, job: any) => sum + toAmount(job.estimated_hours), 0);
+                const itemTotal = items.reduce((sum: number, item: any) => sum + toAmount(item.total_price), 0);
                 printing_config = {
+                    type: firstPrintOptions.type || (firstJob.material === 'standard_resin' ? 'resin' : 'fdm'),
+                    color: firstJob.color || firstPrintOptions.color || '',
+                    infill: firstJob.infill ?? firstPrintOptions.infill ?? null,
+                    layerHeight: firstJob.layer_height ?? firstPrintOptions.layerHeight ?? null,
                     quantity: totalQuantity,
+                    files: modelFiles,
+                    analysis: printJobs.length > 0 ? {
+                        grams: estimatedGrams,
+                        hours: estimatedHours,
+                        price: itemTotal,
+                    } : null,
                     notes: order.notes || '',
                 };
             }

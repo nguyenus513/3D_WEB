@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -58,9 +58,9 @@ export default function AdminCustomersPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">KhÃ¡ch hÃ ng</h1>
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Khách hàng</h1>
                     <p className="text-[var(--text-secondary)] mt-1">
-                        {loading ? 'Äang táº£i...' : `${customers.length} khÃ¡ch hÃ ng`}
+                        {loading ? 'Đang tải...' : `${customers.length} khách hàng`}
                     </p>
                 </div>
                 <button
@@ -70,7 +70,7 @@ export default function AdminCustomersPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    LÃ m má»›i
+                    Làm mới
                 </button>
             </div>
 
@@ -81,7 +81,7 @@ export default function AdminCustomersPage() {
                 </svg>
                 <input
                     type="text"
-                    placeholder="TÃ¬m theo tÃªn, email, SÄT..."
+                    placeholder="Tìm theo tên, email, SĐT..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
@@ -97,22 +97,22 @@ export default function AdminCustomersPage() {
                 {loading ? (
                     <div className="p-12 text-center">
                         <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                        <p className="text-[var(--text-secondary)]">Äang táº£i khÃ¡ch hÃ ng...</p>
+                        <p className="text-[var(--text-secondary)]">Đang tải khách hàng...</p>
                     </div>
                 ) : filteredCustomers.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-[var(--text-secondary)]">ChÆ°a cÃ³ khÃ¡ch hÃ ng nÃ o</p>
+                        <p className="text-[var(--text-secondary)]">Chưa có khách hàng nào</p>
                     </div>
                 ) : (
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-[var(--border-color)]">
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">KhÃ¡ch hÃ ng</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Khách hàng</th>
                                 <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Instagram</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">LiÃªn há»‡</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">MÃ£ KH</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">ÄÆ¡n hÃ ng</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tá»•ng chi tiÃªu</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Liên hệ</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Mã KH</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Đơn hàng</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tổng chi tiêu</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -127,7 +127,7 @@ export default function AdminCustomersPage() {
                                             <div className="w-10 h-10 rounded-full bg-[var(--material-glass)] flex items-center justify-center text-[var(--text-primary)] font-medium">
                                                 {customer.name?.charAt(0) || '?'}
                                             </div>
-                                            <span className="text-[var(--text-primary)] font-medium">{customer.name || customer.email?.split('@')[0] || 'ChÆ°a Ä‘áº·t tÃªn'}</span>
+                                            <span className="text-[var(--text-primary)] font-medium">{customer.name || customer.email?.split('@')[0] || 'Chưa đặt tên'}</span>
                                         </div>
                                     </td>
                                     <td className="px-5 py-4">
@@ -160,11 +160,11 @@ export default function AdminCustomersPage() {
                                     </td>
                                     <td className="px-5 py-4">
                                         <span className="px-3 py-1 rounded-full bg-[var(--material-glass)] text-[var(--text-primary)] text-sm">
-                                            {customer.order_count || 0} Ä‘Æ¡n
+                                            {customer.order_count || 0} đơn
                                         </span>
                                     </td>
                                     <td className="px-5 py-4 text-[var(--text-primary)] font-medium">
-                                        {(customer.total_spent || 0).toLocaleString('vi-VN')}Ä‘
+                                        {(customer.total_spent || 0).toLocaleString('vi-VN')}đ
                                     </td>
                                 </tr>
                             ))}

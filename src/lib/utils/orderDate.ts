@@ -30,7 +30,7 @@ export function getValidDate(value?: unknown): string | null {
     return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
 
-export function resolveOrderDate(order?: DateLikeRecord | null, items: DateLikeRecord[] = []): string {
+export function resolveOrderDate(order?: DateLikeRecord | null, items: DateLikeRecord[] = []): string | null {
     const candidates: unknown[] = [];
     if (order) {
         for (const field of DATE_FIELDS) candidates.push(order[field]);
@@ -46,10 +46,13 @@ export function resolveOrderDate(order?: DateLikeRecord | null, items: DateLikeR
         if (date) return date;
     }
 
-    return new Date().toISOString();
+    return null;
 }
 
 export function compareOrderDateDesc(a: DateLikeRecord, b: DateLikeRecord): number {
-    return Date.parse(resolveOrderDate(b, Array.isArray(b.items) ? b.items as DateLikeRecord[] : []))
-        - Date.parse(resolveOrderDate(a, Array.isArray(a.items) ? a.items as DateLikeRecord[] : []));
+    const aDate = resolveOrderDate(a, Array.isArray(a.items) ? a.items as DateLikeRecord[] : []);
+    const bDate = resolveOrderDate(b, Array.isArray(b.items) ? b.items as DateLikeRecord[] : []);
+    const aTime = aDate ? Date.parse(aDate) : 0;
+    const bTime = bDate ? Date.parse(bDate) : 0;
+    return bTime - aTime;
 }

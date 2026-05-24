@@ -89,7 +89,7 @@ interface Order {
         color: string;
         quantity: number;
         analysis?: { grams: number; hours: number; price: number };
-        files?: { url: string; name: string }[];
+        files?: { url?: string; name: string; missingLink?: boolean }[];
         notes?: string;
     };
     // Demo image for review
@@ -458,8 +458,10 @@ export default function AdminOrderDetailPage() {
     };
 
     const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return '';
-        return new Date(dateStr).toLocaleString('vi-VN');
+        if (!dateStr) return 'Chưa có thời gian';
+        const date = new Date(dateStr);
+        if (Number.isNaN(date.getTime())) return 'Chưa có thời gian';
+        return date.toLocaleString('vi-VN');
     };
 
     const getNextStatuses = () => {
@@ -791,28 +793,39 @@ export default function AdminOrderDetailPage() {
                                         </h3>
                                         {order.printing_config.files && order.printing_config.files.length > 0 ? (
                                             <div className="space-y-2">
-                                                {order.printing_config.files.map((file, idx) => (
-                                                    <a
-                                                        key={idx}
-                                                        href={file.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors group"
-                                                    >
-                                                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center">
-                                                            <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                {order.printing_config.files.map((file, idx) => {
+                                                    const content = (
+                                                        <>
+                                                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center">
+                                                                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                </svg>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-white font-medium truncate">{file.name}</p>
+                                                                <p className="text-white/40 text-xs">{file.url ? 'File 3D ? Click ?? t?i xu?ng' : 'File ?? ghi nh?n nh?ng thi?u link t?i'}</p>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                    return file.url ? (
+                                                        <a
+                                                            key={idx}
+                                                            href={file.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors group"
+                                                        >
+                                                            {content}
+                                                            <svg className="w-5 h-5 text-white/40 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                             </svg>
+                                                        </a>
+                                                    ) : (
+                                                        <div key={idx} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-amber-500/20">
+                                                            {content}
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-white font-medium truncate">{file.name}</p>
-                                                            <p className="text-white/40 text-xs">File 3D • Click để tải xuống</p>
-                                                        </div>
-                                                        <svg className="w-5 h-5 text-white/40 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                        </svg>
-                                                    </a>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         ) : (
                                             <p className="text-white/40 italic">Chưa có file</p>

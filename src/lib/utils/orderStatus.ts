@@ -112,9 +112,9 @@ export function getItemStatusLabel(status: string): string {
  * Format date: DD/MM/YYYY HH:MM:SS
  */
 export function formatOrderDate(dateInput?: string | Date | null): string {
-    if (!dateInput) return 'Đang cập nhật thời gian';
+    if (!dateInput) return 'Chưa có thời gian';
     const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-    if (Number.isNaN(date.getTime())) return 'Đang cập nhật thời gian';
+    if (Number.isNaN(date.getTime())) return 'Chưa có thời gian';
 
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');

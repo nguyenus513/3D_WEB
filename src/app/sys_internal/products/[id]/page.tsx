@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -71,7 +71,7 @@ export default function AdminProductEditPage() {
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                setError('KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m');
+                setError('Không tìm thấy sản phẩm');
                 setLoading(false);
                 return;
             }
@@ -109,7 +109,7 @@ export default function AdminProductEditPage() {
             });
         } catch (err) {
             console.error('Error fetching product:', err);
-            setError('KhÃ´ng thá»ƒ táº£i sáº£n pháº©m');
+            setError('Không thể tải sản phẩm');
         } finally {
             setLoading(false);
         }
@@ -167,31 +167,31 @@ export default function AdminProductEditPage() {
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                setError('KhÃ´ng thá»ƒ cáº­p nháº­t sáº£n pháº©m: ' + (result.error?.message || 'Unknown error'));
+                setError('Không thể cập nhật sản phẩm: ' + (result.error?.message || 'Unknown error'));
                 return;
             }
 
             router.push(`${adminRoot}/products`);
         } catch (err) {
-            setError('ÄÃ£ cÃ³ lá»—i xáº£y ra: ' + (err as Error).message);
+            setError('Đã có lỗi xảy ra: ' + (err as Error).message);
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDelete = async () => {
-        if (!confirm('Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a sáº£n pháº©m nÃ y?')) return;
+        if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
 
         try {
             const response = await fetch(`/api/admin/products?id=${encodeURIComponent(String(params.id))}`, { method: 'DELETE' });
             const result = await response.json().catch(() => null);
             if (!response.ok || !result?.success) {
-                setError('KhÃ´ng thá»ƒ xÃ³a sáº£n pháº©m: ' + (result?.error?.message || result?.error || `HTTP ${response.status}`));
+                setError('Không thể xóa sản phẩm: ' + (result?.error?.message || result?.error || `HTTP ${response.status}`));
                 return;
             }
             router.push(`${adminRoot}/products`);
         } catch (error) {
-            setError('KhÃ´ng thá»ƒ xÃ³a sáº£n pháº©m: ' + (error instanceof Error ? error.message : 'Unknown error'));
+            setError('Không thể xóa sản phẩm: ' + (error instanceof Error ? error.message : 'Unknown error'));
         }
     };
 
@@ -225,10 +225,10 @@ export default function AdminProductEditPage() {
                         images: [...prev.images, { url: fileUrl }]
                     }));
                 } else {
-                    setError('Upload tháº¥t báº¡i: ' + (result.error?.message || 'Unknown error'));
+                    setError('Upload thất bại: ' + (result.error?.message || 'Unknown error'));
                 }
             } catch (err) {
-                setError('Lá»—i upload: ' + (err as Error).message);
+                setError('Lỗi upload: ' + (err as Error).message);
             }
         }
 
@@ -310,7 +310,7 @@ export default function AdminProductEditPage() {
                     return { ...prev, sizes: updatedSizes };
                 });
             } else {
-                setError('Upload áº£nh size tháº¥t báº¡i');
+                setError('Upload ảnh size thất bại');
                 setFormData(prev => {
                     const updatedSizes = [...prev.sizes];
                     updatedSizes[index] = { ...updatedSizes[index], uploading: false };
@@ -318,7 +318,7 @@ export default function AdminProductEditPage() {
                 });
             }
         } catch (err) {
-            setError('Lá»—i upload áº£nh size');
+            setError('Lỗi upload ảnh size');
             setFormData(prev => {
                 const updatedSizes = [...prev.sizes];
                 updatedSizes[index] = { ...updatedSizes[index], uploading: false };
@@ -353,7 +353,7 @@ export default function AdminProductEditPage() {
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Chá»‰nh sá»­a sáº£n pháº©m</h1>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Chỉnh sửa sản phẩm</h1>
                         <p className="text-[var(--text-secondary)] mt-1">SKU: {formData.sku}</p>
                     </div>
                 </div>
@@ -365,7 +365,7 @@ export default function AdminProductEditPage() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        XÃ³a
+                        Xóa
                     </button>
                 </div>
             </div>
@@ -385,10 +385,10 @@ export default function AdminProductEditPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-5"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">ThÃ´ng tin cÆ¡ báº£n</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thông tin cơ bản</h2>
 
                         <div>
-                            <label className="text-[var(--text-secondary)] text-sm mb-2 block">TÃªn sáº£n pháº©m *</label>
+                            <label className="text-[var(--text-secondary)] text-sm mb-2 block">Tên sản phẩm *</label>
                             <input
                                 type="text"
                                 value={formData.name}
@@ -407,7 +407,7 @@ export default function AdminProductEditPage() {
                         transition={{ delay: 0.05 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-5"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">CÃ¡ch tÃ­nh giÃ¡</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Cách tính giá</h2>
 
                         <div className="grid grid-cols-2 gap-4">
                             <button
@@ -425,9 +425,9 @@ export default function AdminProductEditPage() {
                                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                                         )}
                                     </div>
-                                    <span className="text-[var(--text-primary)] font-medium">GiÃ¡ gá»‘c</span>
+                                    <span className="text-[var(--text-primary)] font-medium">Giá gốc</span>
                                 </div>
-                                <p className="text-[var(--text-secondary)] text-sm pl-8">Má»™t giÃ¡ duy nháº¥t cho sáº£n pháº©m</p>
+                                <p className="text-[var(--text-secondary)] text-sm pl-8">Một giá duy nhất cho sản phẩm</p>
                             </button>
 
                             <button
@@ -445,9 +445,9 @@ export default function AdminProductEditPage() {
                                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                                         )}
                                     </div>
-                                    <span className="text-[var(--text-primary)] font-medium">Nhiá»u size</span>
+                                    <span className="text-[var(--text-primary)] font-medium">Nhiều size</span>
                                 </div>
-                                <p className="text-[var(--text-secondary)] text-sm pl-8">GiÃ¡ theo tá»«ng size</p>
+                                <p className="text-[var(--text-secondary)] text-sm pl-8">Giá theo từng size</p>
                             </button>
                         </div>
 
@@ -455,7 +455,7 @@ export default function AdminProductEditPage() {
                         {pricingMode === 'original' && (
                             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[var(--border-color)]">
                                 <div>
-                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">GiÃ¡ *</label>
+                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Giá *</label>
                                     <input
                                         type="number"
                                         value={formData.basePrice}
@@ -466,7 +466,7 @@ export default function AdminProductEditPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Sá»‘ lÆ°á»£ng tá»“n kho *</label>
+                                    <label className="text-[var(--text-secondary)] text-sm mb-2 block">Số lượng tồn kho *</label>
                                     <input
                                         type="number"
                                         value={formData.stock}
@@ -483,13 +483,13 @@ export default function AdminProductEditPage() {
                         {pricingMode === 'multi_size' && (
                             <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[var(--text-secondary)] text-sm">Danh sÃ¡ch size</span>
+                                    <span className="text-[var(--text-secondary)] text-sm">Danh sách size</span>
                                     <button
                                         type="button"
                                         onClick={addSize}
                                         className="px-3 py-1.5 bg-[var(--material-glass)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm"
                                     >
-                                        + ThÃªm size
+                                        + Thêm size
                                     </button>
                                 </div>
 
@@ -511,7 +511,7 @@ export default function AdminProductEditPage() {
                                                                     type="button"
                                                                     onClick={() => updateSize(index, 'image_url', undefined)}
                                                                     className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full text-[var(--text-primary)] transition-colors"
-                                                                    title="XÃ³a áº£nh"
+                                                                    title="Xóa ảnh"
                                                                 >
                                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -528,7 +528,7 @@ export default function AdminProductEditPage() {
                                                                     <svg className="w-6 h-6 text-[var(--text-tertiary)] group-hover:text-[var(--color-accent)] transition-colors mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                     </svg>
-                                                                    <span className="text-[10px] text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)] text-center px-1">Upload áº£nh</span>
+                                                                    <span className="text-[10px] text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)] text-center px-1">Upload ảnh</span>
                                                                 </>
                                                             )}
                                                             <input
@@ -549,7 +549,7 @@ export default function AdminProductEditPage() {
                                             <div className="flex-1 space-y-3">
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
-                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">TÃªn size</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tên size</label>
                                                         <input
                                                             type="text"
                                                             value={size.name}
@@ -559,7 +559,7 @@ export default function AdminProductEditPage() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">GiÃ¡ (VNÄ)</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Giá (VNĐ)</label>
                                                         <input
                                                             type="number"
                                                             value={size.price}
@@ -571,7 +571,7 @@ export default function AdminProductEditPage() {
                                                 </div>
                                                 <div className="flex items-end gap-3">
                                                     <div className="flex-1">
-                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tá»“n kho</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tồn kho</label>
                                                         <input
                                                             type="number"
                                                             value={size.stock}
@@ -588,7 +588,7 @@ export default function AdminProductEditPage() {
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
-                                                        XÃ³a
+                                                        Xóa
                                                     </button>
                                                 </div>
                                                 <div>
@@ -614,7 +614,7 @@ export default function AdminProductEditPage() {
                                                                 }
                                                             }}
                                                             className="p-2 bg-[var(--material-glass)] hover:bg-[var(--material-glass)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                                                            title="Táº¡o láº¡i SKU"
+                                                            title="Tạo lại SKU"
                                                         >
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -628,13 +628,13 @@ export default function AdminProductEditPage() {
 
                                     {formData.sizes.length === 0 && (
                                         <div className="text-center py-8 bg-[var(--material-glass)] rounded-xl border border-dashed border-[var(--border-color)]">
-                                            <p className="text-[var(--text-tertiary)] mb-3 block">ChÆ°a cÃ³ size nÃ o</p>
+                                            <p className="text-[var(--text-tertiary)] mb-3 block">Chưa có size nào</p>
                                             <button
                                                 type="button"
                                                 onClick={addSize}
                                                 className="px-4 py-2 bg-[var(--material-glass)] hover:bg-[var(--material-glass)] rounded-lg text-[var(--text-primary)] text-sm font-medium transition-colors"
                                             >
-                                                + ThÃªm size Ä‘áº§u tiÃªn
+                                                + Thêm size đầu tiên
                                             </button>
                                         </div>
                                     )}
@@ -650,7 +650,7 @@ export default function AdminProductEditPage() {
                         transition={{ delay: 0.1 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-5"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">HÃ¬nh áº£nh chung</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Hình ảnh chung</h2>
                         {/* Existing Image Grid Code - Implicitly retained or updated if I want to match New Product exactly. I will reuse the existing block for now to minimize diff risk, but the content replacement should cover it. */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {formData.images.filter(img => img?.url).map((img, index) => (
@@ -665,7 +665,7 @@ export default function AdminProductEditPage() {
                                         }}
                                     />
                                     {index === 0 && (
-                                        <span className="absolute bottom-2 left-2 text-xs bg-white text-black px-2 py-0.5 rounded">ChÃ­nh</span>
+                                        <span className="absolute bottom-2 left-2 text-xs bg-white text-black px-2 py-0.5 rounded">Chính</span>
                                     )}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {index !== 0 && (
@@ -673,7 +673,7 @@ export default function AdminProductEditPage() {
                                                 type="button"
                                                 onClick={() => setMainImage(index)}
                                                 className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center"
-                                                title="Äáº·t lÃ m áº£nh chÃ­nh"
+                                                title="Đặt làm ảnh chính"
                                             >
                                                 <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -709,7 +709,7 @@ export default function AdminProductEditPage() {
                                         <svg className="w-8 h-8 text-[var(--text-tertiary)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                                         </svg>
-                                        <span className="text-[var(--text-secondary)] text-sm">ThÃªm áº£nh</span>
+                                        <span className="text-[var(--text-secondary)] text-sm">Thêm ảnh</span>
                                     </>
                                 )}
                             </label>
@@ -731,14 +731,14 @@ export default function AdminProductEditPage() {
                             disabled={isSaving}
                             className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-[var(--material-glass)] disabled:opacity-50 shadow-lg shadow-white/10"
                         >
-                            {isSaving ? 'Äang lÆ°u...' : 'LÆ°u thay Ä‘á»•i'}
+                            {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
                         </button>
                         <button
                             type="button"
                             onClick={() => router.push(`${adminRoot}/products`)}
                             className="w-full py-3 rounded-xl border border-[var(--border-color)] bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--material-glass)] transition-colors"
                         >
-                            Há»§y
+                            Hủy
                         </button>
                     </motion.div>
 
@@ -749,13 +749,13 @@ export default function AdminProductEditPage() {
                         transition={{ delay: 0.2 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">TÃ³m táº¯t</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Tóm tắt</h2>
 
                         {/* Status Toggle */}
                         <div className="mb-6 p-4 rounded-xl bg-[var(--material-glass)] border border-[var(--border-color)]">
                             <div className="flex items-center justify-between">
                                 <span className={formData.status === 'active' ? "text-green-400 font-medium" : "text-[var(--text-secondary)]"}>
-                                    {formData.status === 'active' ? 'Äang bÃ¡n' : 'áº¨n'}
+                                    {formData.status === 'active' ? 'Đang bán' : 'Ẩn'}
                                 </span>
                                 <Switch
                                     checked={formData.status === 'active'}
@@ -766,43 +766,43 @@ export default function AdminProductEditPage() {
 
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                <span className="text-[var(--text-secondary)]">áº¢nh:</span>
+                                <span className="text-[var(--text-secondary)]">Ảnh:</span>
                                 <span className="text-[var(--text-primary)] font-medium">{formData.images.length}</span>
                             </div>
                             <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                <span className="text-[var(--text-secondary)]">Loáº¡i giÃ¡:</span>
-                                <span className="text-[var(--text-primary)] font-medium">{pricingMode === 'original' ? 'GiÃ¡ Ä‘Æ¡n' : 'Äa dáº¡ng size'}</span>
+                                <span className="text-[var(--text-secondary)]">Loại giá:</span>
+                                <span className="text-[var(--text-primary)] font-medium">{pricingMode === 'original' ? 'Giá đơn' : 'Đa dạng size'}</span>
                             </div>
                             {pricingMode === 'original' ? (
                                 <>
                                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">GiÃ¡ bÃ¡n:</span>
+                                        <span className="text-[var(--text-secondary)]">Giá bán:</span>
                                         <span className="text-[var(--text-primary)] font-medium">
-                                            {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + 'Ä‘' : '-'}
+                                            {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + 'đ' : '-'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-2">
-                                        <span className="text-[var(--text-secondary)]">Tá»“n kho:</span>
+                                        <span className="text-[var(--text-secondary)]">Tồn kho:</span>
                                         <span className="text-[var(--text-primary)] font-medium">{formData.stock || 0}</span>
                                     </div>
                                 </>
                             ) : (
                                 <>
                                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">Sá»‘ lÆ°á»£ng size:</span>
+                                        <span className="text-[var(--text-secondary)]">Số lượng size:</span>
                                         <span className="text-[var(--text-primary)] font-medium">{formData.sizes.length}</span>
                                     </div>
                                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                                        <span className="text-[var(--text-secondary)]">Tá»•ng tá»“n kho:</span>
+                                        <span className="text-[var(--text-secondary)]">Tổng tồn kho:</span>
                                         <span className="text-[var(--text-primary)] font-medium">
                                             {formData.sizes.reduce((acc, curr) => acc + (parseInt(curr.stock) || 0), 0)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-2">
-                                        <span className="text-[var(--text-secondary)]">Khoáº£ng giÃ¡:</span>
+                                        <span className="text-[var(--text-secondary)]">Khoảng giá:</span>
                                         <span className="text-[var(--text-primary)] font-medium">
                                             {formData.sizes.length > 0
-                                                ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}Ä‘ - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}Ä‘`
+                                                ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ`
                                                 : '-'
                                             }
                                         </span>
@@ -824,7 +824,7 @@ export default function AdminProductEditPage() {
                                 <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <h2 className="text-lg font-semibold text-[var(--text-primary)]">KhÃ¡ch Ä‘Ã£ mua ({buyers.length})</h2>
+                                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Khách đã mua ({buyers.length})</h2>
                             </div>
                             <div className="space-y-3">
                                 {buyers.map((buyer, idx) => (
@@ -839,7 +839,7 @@ export default function AdminProductEditPage() {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[var(--text-primary)] text-sm">Ã—{buyer.quantity}</p>
+                                            <p className="text-[var(--text-primary)] text-sm">×{buyer.quantity}</p>
                                             <p className="text-[var(--text-secondary)] text-xs">
                                                 {new Date(buyer.purchased_at).toLocaleDateString('vi-VN')}
                                             </p>

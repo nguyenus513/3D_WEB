@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -8,27 +8,27 @@ import type { Order, OrderType } from '@/types/database';
 import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 const statusTabs = [
-    { key: 'all', label: 'Táº¥t cáº£' },
-    { key: 'pending', label: 'Chá» thanh toÃ¡n' },
-    { key: 'paid', label: 'ÄÃ£ thanh toÃ¡n' },
-    { key: 'preparing', label: 'Äang chuáº©n bá»‹' },
-    { key: 'shipped', label: 'ÄÃ£ gá»­i hÃ ng' },
-    { key: 'delivered', label: 'ÄÃ£ giao' },
+    { key: 'all', label: 'Tất cả' },
+    { key: 'pending', label: 'Chờ thanh toán' },
+    { key: 'paid', label: 'Đã thanh toán' },
+    { key: 'preparing', label: 'Đang chuẩn bị' },
+    { key: 'shipped', label: 'Đã gửi hàng' },
+    { key: 'delivered', label: 'Đã giao' },
 ];
 
 const statusLabels: Record<string, string> = {
-    pending: 'Chá» thanh toÃ¡n',
-    paid: 'ÄÃ£ thanh toÃ¡n',
-    confirmed: 'ÄÃ£ xÃ¡c nháº­n',
-    processing: 'Äang xá»­ lÃ½',
-    producing: 'Äang sáº£n xuáº¥t',
-    shipped: 'ÄÃ£ gá»­i hÃ ng',
-    delivered: 'ÄÃ£ giao',
-    cancelled: 'ÄÃ£ há»§y',
-    refunded: 'ÄÃ£ hoÃ n tiá»n',
-    designing: 'Äang thiáº¿t káº¿',
-    completed: 'HoÃ n thÃ nh',
-    shipping: 'Äang giao hÃ ng'
+    pending: 'Chờ thanh toán',
+    paid: 'Đã thanh toán',
+    confirmed: 'Đã xác nhận',
+    processing: 'Đang xử lý',
+    producing: 'Đang sản xuất',
+    shipped: 'Đã gửi hàng',
+    delivered: 'Đã giao',
+    cancelled: 'Đã hủy',
+    refunded: 'Đã hoàn tiền',
+    designing: 'Đang thiết kế',
+    completed: 'Hoàn thành',
+    shipping: 'Đang giao hàng'
 };
 
 const statusColors: Record<string, string> = {
@@ -75,7 +75,7 @@ function getOrderCustomerName(order: OrderWithProfile) {
         || (order.profiles as any)?.name
         || shippingInfo.full_name
         || order.profiles?.email?.split('@')[0]
-        || 'ChÆ°a cÃ³ tÃªn khÃ¡ch hÃ ng';
+        || 'Chưa có tên khách hàng';
 }
 
 function getOrderCustomerPhone(order: OrderWithProfile) {
@@ -218,7 +218,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                 <div>
                     <h1 className="text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
                     <p className="text-[var(--text-secondary)] mt-1">
-                        {loading ? 'Äang táº£i...' : subtitle || `${filteredOrders.length} Ä‘Æ¡n hÃ ng`}
+                        {loading ? 'Đang tải...' : subtitle || `${filteredOrders.length} đơn hàng`}
                     </p>
                 </div>
                 <button
@@ -229,7 +229,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    LÃ m má»›i
+                    Làm mới
                 </button>
             </div>
 
@@ -265,7 +265,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                     </svg>
                     <input
                         type="text"
-                        placeholder="TÃ¬m theo mÃ£ Ä‘Æ¡n hoáº·c khÃ¡ch hÃ ng..."
+                        placeholder="Tìm theo mã đơn hoặc khách hàng..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-12 pr-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] text-sm"
@@ -274,10 +274,10 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
 
                 {/* Date Filter */}
                 <div className="flex gap-2 items-center flex-wrap">
-                    <span className="text-[var(--text-secondary)] text-sm">Lá»c:</span>
+                    <span className="text-[var(--text-secondary)] text-sm">Lọc:</span>
                     <input
                         type="number"
-                        placeholder="NgÃ y"
+                        placeholder="Ngày"
                         min="1"
                         max="31"
                         value={dateFilter.day}
@@ -289,14 +289,14 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                         onChange={(e) => setDateFilter({ ...dateFilter, month: e.target.value })}
                         className="w-24 px-2 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] text-sm"
                     >
-                        <option value="">ThÃ¡ng</option>
+                        <option value="">Tháng</option>
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
                             <option key={m} value={m}>T{m}</option>
                         ))}
                     </select>
                     <input
                         type="number"
-                        placeholder="NÄƒm"
+                        placeholder="Năm"
                         min="2020"
                         max="2030"
                         value={dateFilter.year}
@@ -308,7 +308,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                             onClick={() => setDateFilter({ day: '', month: '', year: '' })}
                             className="px-2 py-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm"
                         >
-                            âœ•
+                            ✕
                         </button>
                     )}
                 </div>
@@ -326,22 +326,22 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                     </div>
                 ) : filteredOrders.length === 0 ? (
                     <div className="text-center py-20">
-                        <p className="text-[var(--text-secondary)]">KhÃ´ng cÃ³ Ä‘Æ¡n hÃ ng nÃ o</p>
+                        <p className="text-[var(--text-secondary)]">Không có đơn hàng nào</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-[var(--material-glass)]">
                                 <tr>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">MÃ£ Ä‘Æ¡n</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">KhÃ¡ch hÃ ng</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Mã đơn</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Khách hàng</th>
                                     <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">IG</th>
                                     {/* Order Type Removed */}
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tá»•ng tiá»n</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tráº¡ng thÃ¡i</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">NgÃ y táº¡o</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tổng tiền</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Trạng thái</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Ngày tạo</th>
                                     <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Note KH</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Ghi chÃº ná»™i bá»™</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Ghi chú nội bộ</th>
                                     <th className="px-5 py-4"></th>
                                 </tr>
                             </thead>
@@ -384,7 +384,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
 
                                             <td className="px-5 py-4">
                                                 <span className="text-[var(--text-primary)] font-medium">
-                                                    {Number(order.total_amount).toLocaleString('vi-VN')}Ä‘
+                                                    {Number(order.total_amount).toLocaleString('vi-VN')}đ
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4">
@@ -429,7 +429,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                             disabled={confirming === order.id}
                                                             className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-sm hover:bg-green-500/30 disabled:opacity-50"
                                                         >
-                                                            {confirming === order.id ? '...' : 'XÃ¡c nháº­n TT'}
+                                                            {confirming === order.id ? '...' : 'Xác nhận TT'}
                                                         </button>
                                                     )}
                                                     {order.status === 'paid' && (
@@ -437,7 +437,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                             onClick={() => handleUpdateStatus(order.id, 'processing')}
                                                             className="px-3 py-1.5 bg-purple-500/20 text-purple-400 rounded-lg text-sm hover:bg-purple-500/30"
                                                         >
-                                                            Xá»­ lÃ½
+                                                            Xử lý
                                                         </button>
                                                     )}
                                                     {order.status === 'processing' && (
@@ -445,7 +445,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                             onClick={() => handleUpdateStatus(order.id, 'shipping')}
                                                             className="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30"
                                                         >
-                                                            Gá»­i hÃ ng
+                                                            Gửi hàng
                                                         </button>
                                                     )}
                                                 </div>

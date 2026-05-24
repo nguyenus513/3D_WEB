@@ -115,5 +115,7 @@ test.describe('deep upload persistence', () => {
     const detailBody = await detail.json();
     const files = detailBody.data.order.order_files || [];
     expect(files.some((file: any) => file.file_type === 'model/stl' && (file.file_key === uploaded.url || file.file_key === uploaded.key || file.file_url?.includes(uploaded.key)))).toBeTruthy();
+    const printingFiles = detailBody.data.order.printing_config?.files || [];
+    expect(printingFiles.some((file: any) => file.type === 'model/stl' && (file.key === uploaded.url || file.key === uploaded.key || file.url?.includes(uploaded.key)))).toBeTruthy();
   });
 });
