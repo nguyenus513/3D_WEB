@@ -8,6 +8,7 @@ import type { UploadRequestInput } from '@/validators/upload.schema';
 
 export function resolveUploadKey(params: UploadRequestInput, fileName: string): string {
     const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+    const uploadCode = params.orderCode || `TMP${Date.now().toString(16).toUpperCase()}${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
 
     if ((params.type === 'product' || params.type === 'product-size') && params.sku) {
         return generateProductKey({
@@ -18,13 +19,13 @@ export function resolveUploadKey(params: UploadRequestInput, fileName: string): 
         });
     }
 
-    if (!params.customerCode || !params.orderCode) {
-        throw new Error('Missing customerCode or orderCode for order uploads');
+    if (!params.customerCode) {
+        throw new Error('Missing customerCode for order uploads');
     }
 
     if (params.isReview) {
         return generateReviewR2Key(
-            params.orderCode,
+            uploadCode,
             params.index ?? 1,
             ext
         );
@@ -32,7 +33,7 @@ export function resolveUploadKey(params: UploadRequestInput, fileName: string): 
 
     if (params.type === 'printing') {
         return generatePrintingR2Key(
-            params.orderCode,
+            uploadCode,
             params.tech || 'fdm',
             params.index ?? 1,
             params.infill ?? undefined,
@@ -45,7 +46,7 @@ export function resolveUploadKey(params: UploadRequestInput, fileName: string): 
     // Custom uploads (single/couple/group or legacy custom)
     const customType = (params.customType || (params.type === 'custom_couple' ? 'couple' : params.type === 'custom_group' ? 'group' : 'single')) as 'single' | 'couple' | 'group';
     return generateCustomR2Key(
-        params.orderCode,
+        uploadCode,
         customType,
         params.personCount || (customType === 'couple' ? 2 : customType === 'group' ? 3 : 1),
         params.photoCategory || 'main',
@@ -53,4 +54,3 @@ export function resolveUploadKey(params: UploadRequestInput, fileName: string): 
         ext
     );
 }
-
