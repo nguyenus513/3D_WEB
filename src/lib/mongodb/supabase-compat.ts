@@ -37,6 +37,29 @@ function normalizeField(field: string): string {
     return field;
 }
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseOrExpression(expression: string): Filter<Document>[] {
+    return expression
+        .split(',')
+        .map((clause) => clause.trim())
+        .map((clause) => {
+            const [field, op, ...rawParts] = clause.split('.');
+            const value = rawParts.join('.');
+            if (!field || !op || !value) return null;
+            const key = normalizeField(field);
+            if (op === 'eq') return { [key]: value } as Filter<Document>;
+            if (op === 'ilike') {
+                const pattern = escapeRegExp(value).replace(/%/g, '.*');
+                return { [key]: { $regex: `^${pattern}$`, $options: 'i' } } as Filter<Document>;
+            }
+            return null;
+        })
+        .filter(Boolean) as Filter<Document>[];
+}
+
 function toMongoDocument<T extends Record<string, unknown>>(input: T): Document {
     const doc: Document = { ...input };
     if ('id' in doc) {
@@ -147,7 +170,12 @@ class MongoSupabaseQuery<T = any> implements PromiseLike<QueryResult<T>> {
         return this;
     }
 
-    or(_expression: string): this {
+    or(expression: string): this {
+        const clauses = parseOrExpression(expression);
+        if (clauses.length > 0) {
+            const currentOr = Array.isArray((this.filters as any).$or) ? (this.filters as any).$or : [];
+            (this.filters as any).$or = [...currentOr, ...clauses];
+        }
         return this;
     }
 

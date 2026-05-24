@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { useAdminPath } from '@/hooks/useAdminPath';
 import { OrderStatusStepper } from '@/components/admin/OrderStatusStepper';
 import { addCsrfToRequest } from '@/lib/security/csrf-client';
+import { normalizeOrderFlowType } from '@/lib/utils/orderFlows';
 
 // Force dynamic rendering and disable caching for this page
 // Note: 'dynamic' and 'revalidate' exports don't work in Client Components
@@ -225,12 +226,14 @@ export default function AdminOrderDetailPage() {
 
             // Get shipping address for fallback
             const shippingAddr = (orderData.shipping_address || orderData.shipping_address_snapshot) as { full_name?: string; phone?: string } | null;
+            const normalizedOrderType = normalizeOrderFlowType(orderData.order_type);
             const fallbackCustomerName = shippingAddr?.full_name || profileData?.email?.split('@')[0] || 'Chưa có tên khách hàng';
 
             // Safely set order only if not locked (double check)
             if (!isOptimisticUpdate.current) {
                 setOrder({
                     ...orderData,
+                    order_type: normalizedOrderType,
                     profiles: profileData ? {
                         full_name: profileData.full_name || fallbackCustomerName,
                         email: profileData.email || '',
@@ -277,6 +280,7 @@ export default function AdminOrderDetailPage() {
 
             if (res.ok) {
                 const freshOrder = await fetchOrderData(true);
+                setOptimisticStatus(null);
                 setOrder({ ...(freshOrder || order), deposit_paid: true, payment_status: (freshOrder?.payment_status || paymentStatus) as any, status: freshOrder?.status || 'confirmed' } as Order);
 
                 // Auto-send confirmation email
@@ -345,6 +349,7 @@ export default function AdminOrderDetailPage() {
 
             if (res.ok) {
                 const freshOrder = await fetchOrderData(true);
+                setOptimisticStatus(null);
                 setOrder({ ...(freshOrder || order), status: freshOrder?.status || newStatus, ...(!freshOrder ? updates : {}) } as Order);
                 setShowTrackingModal(false);
 
@@ -359,6 +364,8 @@ export default function AdminOrderDetailPage() {
                     // Add specific data based on status
                     if (newStatus === 'shipping') {
                         emailData.shippingCode = trackingCode;
+                        emailData.carrier = 'Viettel Post';
+                        emailData.shippingAddress = order.shipping_address;
                     }
                     if (newStatus === 'approved') {
                         emailData.estimatedDays = 5;

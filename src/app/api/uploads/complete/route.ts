@@ -40,13 +40,12 @@ export async function POST(request: NextRequest) {
                 .select('id, user_id')
                 .eq('order_code', orderCode)
                 .maybeSingle();
-            if (!order) {
-                return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+            if (order) {
+                if (!isAdmin && order.user_id !== profileId) {
+                    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+                }
+                resolvedOrderId = order.id;
             }
-            if (!isAdmin && order.user_id !== profileId) {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-            }
-            resolvedOrderId = order.id;
         }
 
         if (orderId && !orderCode) {
@@ -64,13 +63,27 @@ export async function POST(request: NextRequest) {
             resolvedOrderCode = order.order_code;
         }
 
-        await trackFileUpload(key, profileId, resolvedOrderId, {
+        const fileId = await trackFileUpload(key, profileId, resolvedOrderId, {
             isPublic: isPublic,
             fileName,
             fileType: contentType,
         });
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            data: {
+                file: {
+                    id: key,
+                    key,
+                    fileId,
+                    name: fileName,
+                    url: `/api/files/${key}`,
+                    type: contentType,
+                },
+                orderId: resolvedOrderId,
+                orderCode: resolvedOrderCode,
+            },
+        });
     } catch (error) {
         console.error('[Upload Complete] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

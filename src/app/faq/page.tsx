@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import Link from 'next/link';
-import { getSupabase } from '@/lib/supabase/client';
 import type { FAQ } from '@/types/database';
 
 export default function FAQPage() {
@@ -17,17 +16,17 @@ export default function FAQPage() {
     }, []);
 
     const fetchFaqs = async () => {
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-            .from('faqs')
-            .select('*')
-            .eq('is_active', true)
-            .order('sort_order', { ascending: true });
-
-        if (!error && data) {
-            setFaqs(data);
+        try {
+            const res = await fetch('/api/faqs', { cache: 'no-store' });
+            const json = await res.json();
+            if (res.ok && Array.isArray(json.faqs)) {
+                setFaqs(json.faqs);
+            }
+        } catch (error) {
+            console.error('[FAQ] Fetch error:', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     // Fallback FAQs if none in database

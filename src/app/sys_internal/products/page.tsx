@@ -1,9 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, Fragment } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import type { Product } from '@/types/database';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
@@ -81,19 +80,19 @@ export default function AdminProductsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
+        if (!confirm('Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a sáº£n pháº©m nÃ y?')) return;
 
         setDeleting(id);
         try {
             const response = await fetch(`/api/admin/products?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
             const result = await response.json().catch(() => null);
             if (!response.ok || !result?.success) {
-                alert('Không thể xóa sản phẩm: ' + (result?.error?.message || result?.error || `HTTP ${response.status}`));
+                alert('KhÃ´ng thá»ƒ xÃ³a sáº£n pháº©m: ' + (result?.error?.message || result?.error || `HTTP ${response.status}`));
                 return;
             }
             setProducts(products.filter((product) => product.id !== id));
         } catch (error) {
-            alert('Không thể xóa sản phẩm: ' + (error instanceof Error ? error.message : 'Unknown error'));
+            alert('KhÃ´ng thá»ƒ xÃ³a sáº£n pháº©m: ' + (error instanceof Error ? error.message : 'Unknown error'));
         } finally {
             setDeleting(null);
         }
@@ -105,12 +104,12 @@ export default function AdminProductsPage() {
             draft: 'bg-[var(--material-glass)] text-[var(--text-secondary)]',
         };
         const labels: Record<string, string> = {
-            active: 'Đang bán',
-            draft: 'Ẩn',
+            active: 'Äang bÃ¡n',
+            draft: 'áº¨n',
         };
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
-                {labels[status] || 'Ẩn'}
+                {labels[status] || 'áº¨n'}
             </span>
         );
     };
@@ -123,19 +122,19 @@ export default function AdminProductsPage() {
             const max = Math.max(...prices);
 
             if (min === max) {
-                return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}đ</span>;
+                return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}Ä‘</span>;
             }
-            return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}đ - {max.toLocaleString('vi-VN')}đ</span>;
+            return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}Ä‘ - {max.toLocaleString('vi-VN')}Ä‘</span>;
         }
 
         return (
             <>
                 <span className="text-[var(--text-primary)]">
-                    {Number(product.base_price).toLocaleString('vi-VN')}đ
+                    {Number(product.base_price).toLocaleString('vi-VN')}Ä‘
                 </span>
                 {product.sale_price && (
                     <span className="text-green-400 text-sm ml-2">
-                        Sale: {Number(product.sale_price).toLocaleString('vi-VN')}đ
+                        Sale: {Number(product.sale_price).toLocaleString('vi-VN')}Ä‘
                     </span>
                 )}
             </>
@@ -151,7 +150,7 @@ export default function AdminProductsPage() {
 
         return (
             <span className={`font-medium ${totalStock > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {totalStock > 0 ? totalStock : 'Hết hàng'}
+                {totalStock > 0 ? totalStock : 'Háº¿t hÃ ng'}
             </span>
         );
     };
@@ -177,12 +176,12 @@ export default function AdminProductsPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Sản phẩm</h1>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Sáº£n pháº©m</h1>
                 <Link
                     href={`${adminRoot}/products/new`}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black rounded-xl font-medium hover:bg-[var(--material-glass)] transition-colors"
                 >
-                    + Thêm sản phẩm
+                    + ThÃªm sáº£n pháº©m
                 </Link>
             </div>
 
@@ -195,7 +194,7 @@ export default function AdminProductsPage() {
                     </svg>
                     <input
                         type="text"
-                        placeholder="Tìm theo tên, SKU..."
+                        placeholder="TÃ¬m theo tÃªn, SKU..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-white/20"
@@ -209,7 +208,7 @@ export default function AdminProductsPage() {
                         className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'all' ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                             }`}
                     >
-                        Tất cả
+                        Táº¥t cáº£
                         {activeTab === 'all' && (
                             <motion.div
                                 layoutId="activeTab"
@@ -241,7 +240,7 @@ export default function AdminProductsPage() {
                             className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'other' ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                 }`}
                         >
-                            Khác
+                            KhÃ¡c
                             {activeTab === 'other' && (
                                 <motion.div
                                     layoutId="activeTab"
@@ -262,19 +261,19 @@ export default function AdminProductsPage() {
                 {loading ? (
                     <div className="p-12 text-center">
                         <div className="inline-block w-8 h-8 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin mb-4" />
-                        <p className="text-[var(--text-secondary)]">Đang tải sản phẩm...</p>
+                        <p className="text-[var(--text-secondary)]">Äang táº£i sáº£n pháº©m...</p>
                     </div>
                 ) : filteredProducts.length === 0 ? (
                     <div className="p-12 text-center">
                         <p className="text-[var(--text-secondary)] mb-4">
-                            {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm'}
+                            {products.length === 0 ? 'ChÆ°a cÃ³ sáº£n pháº©m nÃ o' : 'KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m'}
                         </p>
                         {products.length === 0 && (
                             <Link
                                 href={`${adminRoot}/products/new`}
                                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black rounded-xl font-medium"
                             >
-                                Thêm sản phẩm đầu tiên
+                                ThÃªm sáº£n pháº©m Ä‘áº§u tiÃªn
                             </Link>
                         )}
                     </div>
@@ -282,13 +281,13 @@ export default function AdminProductsPage() {
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-[var(--border-color)]">
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Sản phẩm</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Sáº£n pháº©m</th>
                                 <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">SKU</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Giá</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tồn kho</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Đã bán</th>
-                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Trạng thái</th>
-                                <th className="text-right text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Thao tác</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">GiÃ¡</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tá»“n kho</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">ÄÃ£ bÃ¡n</th>
+                                <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tráº¡ng thÃ¡i</th>
+                                <th className="text-right text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Thao tÃ¡c</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -319,9 +318,9 @@ export default function AdminProductsPage() {
                                     .filter(name => groups[name] && groups[name].length > 0)
                                     .map(name => ({ name, products: groups[name] }));
 
-                                // 3. Add 'Khác' group if exists
+                                // 3. Add 'KhÃ¡c' group if exists
                                 if (otherProducts.length > 0) {
-                                    orderedGroups.push({ name: 'Khác', products: otherProducts });
+                                    orderedGroups.push({ name: 'KhÃ¡c', products: otherProducts });
                                 }
 
                                 // 4. Render groups
@@ -355,14 +354,14 @@ export default function AdminProductsPage() {
                                                                         }}
                                                                     />
                                                                 ) : (
-                                                                    <span className="text-2xl">📦</span>
+                                                                    <span className="text-2xl">ðŸ“¦</span>
                                                                 );
                                                             })()}
                                                         </div>
                                                         <div>
                                                             <span className="text-[var(--text-primary)] font-medium block">{product.name}</span>
                                                             {product.is_featured && (
-                                                                <span className="text-xs text-yellow-400">⭐ Nổi bật</span>
+                                                                <span className="text-xs text-yellow-400">â­ Ná»•i báº­t</span>
                                                             )}
                                                         </div>
                                                     </div>
@@ -425,13 +424,13 @@ export default function AdminProductsPage() {
                 {!loading && products.length > 0 && (
                     <div className="p-4 border-t border-[var(--border-color)] flex items-center justify-between">
                         <span className="text-[var(--text-secondary)] text-sm">
-                            Hiển thị {filteredProducts.length} / {products.length} sản phẩm
+                            Hiá»ƒn thá»‹ {filteredProducts.length} / {products.length} sáº£n pháº©m
                         </span>
                         <button
                             onClick={fetchProducts}
                             className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                         >
-                            ↻ Làm mới
+                            â†» LÃ m má»›i
                         </button>
                     </div>
                 )}
@@ -439,3 +438,4 @@ export default function AdminProductsPage() {
         </div>
     );
 }
+

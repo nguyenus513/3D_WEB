@@ -14,6 +14,29 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('order-lookup');
 
+function getObjectIdTimestamp(value: unknown): string | null {
+    const text = typeof value === 'string' ? value : '';
+    if (!/^[a-fA-F0-9]{24}$/.test(text)) return null;
+    const seconds = parseInt(text.slice(0, 8), 16);
+    if (!Number.isFinite(seconds) || seconds <= 0) return null;
+    return new Date(seconds * 1000).toISOString();
+}
+
+function resolveOrderDate(order: any, items: any[] = []): string {
+    const itemDates = items
+        .map((item: any) => item.created_at || item.updated_at)
+        .filter(Boolean)
+        .sort();
+
+    return order.created_at
+        || order.updated_at
+        || order.paid_at
+        || order.confirmed_at
+        || itemDates[0]
+        || getObjectIdTimestamp(order.id)
+        || new Date().toISOString();
+}
+
 const supabaseAdmin = getAdminSupabase();
 
 export async function GET(request: NextRequest) {
@@ -218,7 +241,7 @@ export async function GET(request: NextRequest) {
                 fulfillment_status: order.fulfillment_status || 'pending',
                 shipping_address: order.shipping_address || order.shipping_address_snapshot || null,
                 shipping_code: order.shipping_code || null,
-                created_at: order.created_at || order.updated_at || order.paid_at || order.confirmed_at || null,
+                created_at: resolveOrderDate(order, items),
                 approved_at: order.approved_at || null,
                 // Demo / review fields
                 demo_images: order.demo_images || [],

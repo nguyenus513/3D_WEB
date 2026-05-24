@@ -1,10 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
 interface Order {
@@ -60,12 +59,12 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-    pending: 'Chờ thanh toán',
-    paid: 'Đã thanh toán',
-    printing: 'Đang in',
-    shipping: 'Đang giao hàng',
-    delivered: 'Đã giao hàng',
-    cancelled: 'Đã hủy',
+    pending: 'Chá» thanh toÃ¡n',
+    paid: 'ÄÃ£ thanh toÃ¡n',
+    printing: 'Äang in',
+    shipping: 'Äang giao hÃ ng',
+    delivered: 'ÄÃ£ giao hÃ ng',
+    cancelled: 'ÄÃ£ há»§y',
 };
 
 const statusFlow = ['paid', 'printing', 'shipping', 'delivered'];
@@ -92,7 +91,7 @@ export default function AdminPrintingDetailPage() {
             const data = await res.json();
 
             if (!res.ok || data.error) {
-                setError('Không tìm thấy đơn hàng');
+                setError('KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng');
                 setLoading(false);
                 return;
             }
@@ -102,14 +101,14 @@ export default function AdminPrintingDetailPage() {
 
             // Verify this is a printing order
             if (orderData.order_type !== 'printing') {
-                setError('Đơn hàng này không phải đơn In 3D');
+                setError('ÄÆ¡n hÃ ng nÃ y khÃ´ng pháº£i Ä‘Æ¡n In 3D');
                 setLoading(false);
                 return;
             }
 
             setOrder({
                 ...orderData,
-                // deposit_paid column removed from DB — derive from payment_status
+                // deposit_paid column removed from DB â€” derive from payment_status
                 deposit_paid: orderData.payment_status === 'paid' || orderData.payment_status === 'deposit_paid',
                 profiles: profileData,
                 printing_config: orderData.printing_config
@@ -119,7 +118,7 @@ export default function AdminPrintingDetailPage() {
             setLoading(false);
         } catch (err) {
             console.error('Fetch error:', err);
-            setError('Không thể tải đơn hàng');
+            setError('KhÃ´ng thá»ƒ táº£i Ä‘Æ¡n hÃ ng');
             setLoading(false);
         }
     };
@@ -202,8 +201,8 @@ export default function AdminPrintingDetailPage() {
     if (error || !order) {
         return (
             <div className="text-center py-20">
-                <p className="text-red-400 mb-4">{error || 'Không tìm thấy đơn hàng'}</p>
-                <Link href={`${adminRoot}/orders/printing`} className="text-blue-400 hover:underline">← Quay lại danh sách</Link>
+                <p className="text-red-400 mb-4">{error || 'KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng'}</p>
+                <Link href={`${adminRoot}/orders/printing`} className="text-blue-400 hover:underline">â† Quay láº¡i danh sÃ¡ch</Link>
             </div>
         );
     }
@@ -222,7 +221,7 @@ export default function AdminPrintingDetailPage() {
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Đơn In 3D</h1>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">ÄÆ¡n In 3D</h1>
                         <p className="text-[var(--text-secondary)] mt-1">{order.order_code}</p>
                     </div>
                 </div>
@@ -242,14 +241,14 @@ export default function AdminPrintingDetailPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thông tin khách hàng</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">ThÃ´ng tin khÃ¡ch hÃ ng</h2>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-[var(--text-secondary)] text-sm">Tên</p>
+                                <p className="text-[var(--text-secondary)] text-sm">TÃªn</p>
                                 <p className="text-[var(--text-primary)] font-medium">{order.profiles?.full_name || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-[var(--text-secondary)] text-sm">Mã KH</p>
+                                <p className="text-[var(--text-secondary)] text-sm">MÃ£ KH</p>
                                 <p className="text-[var(--text-primary)] font-mono">{order.profiles?.customer_code || 'N/A'}</p>
                             </div>
                             <div>
@@ -257,7 +256,7 @@ export default function AdminPrintingDetailPage() {
                                 <p className="text-[var(--text-primary)]">{order.profiles?.email || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-[var(--text-secondary)] text-sm">SĐT</p>
+                                <p className="text-[var(--text-secondary)] text-sm">SÄT</p>
                                 <p className="text-[var(--text-primary)]">{order.profiles?.phone || 'N/A'}</p>
                             </div>
                         </div>
@@ -270,22 +269,22 @@ export default function AdminPrintingDetailPage() {
                         transition={{ delay: 0.1 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiết In 3D</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiáº¿t In 3D</h2>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                             <div className="p-4 bg-[var(--material-glass)] rounded-xl">
-                                <p className="text-[var(--text-secondary)] text-sm">Loại in</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Loáº¡i in</p>
                                 <p className="text-[var(--text-primary)] font-bold uppercase">{config?.type || 'N/A'}</p>
                             </div>
                             <div className="p-4 bg-[var(--material-glass)] rounded-xl">
-                                <p className="text-[var(--text-secondary)] text-sm">Màu</p>
+                                <p className="text-[var(--text-secondary)] text-sm">MÃ u</p>
                                 <p className="text-[var(--text-primary)] font-medium capitalize">{config?.color || 'N/A'}</p>
                             </div>
                             <div className="p-4 bg-[var(--material-glass)] rounded-xl">
-                                <p className="text-[var(--text-secondary)] text-sm">Số lượng</p>
-                                <p className="text-[var(--text-primary)] font-medium">×{config?.quantity || 1}</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Sá»‘ lÆ°á»£ng</p>
+                                <p className="text-[var(--text-primary)] font-medium">Ã—{config?.quantity || 1}</p>
                             </div>
                             <div className="p-4 bg-[var(--material-glass)] rounded-xl">
-                                <p className="text-[var(--text-secondary)] text-sm">Khối lượng</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Khá»‘i lÆ°á»£ng</p>
                                 <p className="text-[var(--text-primary)] font-bold">{config?.analysis?.grams || 0}g</p>
                             </div>
                         </div>
@@ -294,17 +293,17 @@ export default function AdminPrintingDetailPage() {
                         {config?.analysis && (
                             <div className="grid grid-cols-3 gap-4 p-4 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl mb-4">
                                 <div className="text-center">
-                                    <p className="text-[var(--text-secondary)] text-xs">Thể tích</p>
-                                    <p className="text-[var(--text-primary)] font-medium">{config.analysis.volume} cm³</p>
+                                    <p className="text-[var(--text-secondary)] text-xs">Thá»ƒ tÃ­ch</p>
+                                    <p className="text-[var(--text-primary)] font-medium">{config.analysis.volume} cmÂ³</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-[var(--text-secondary)] text-xs">Thời gian in</p>
-                                    <p className="text-[var(--text-primary)] font-medium">{config.analysis.hours} giờ</p>
+                                    <p className="text-[var(--text-secondary)] text-xs">Thá»i gian in</p>
+                                    <p className="text-[var(--text-primary)] font-medium">{config.analysis.hours} giá»</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-[var(--text-secondary)] text-xs">Kích thước</p>
+                                    <p className="text-[var(--text-secondary)] text-xs">KÃ­ch thÆ°á»›c</p>
                                     <p className="text-[var(--text-primary)] font-medium text-sm">
-                                        {config.analysis.boundingBox?.x} × {config.analysis.boundingBox?.y} × {config.analysis.boundingBox?.z} mm
+                                        {config.analysis.boundingBox?.x} Ã— {config.analysis.boundingBox?.y} Ã— {config.analysis.boundingBox?.z} mm
                                     </p>
                                 </div>
                             </div>
@@ -323,9 +322,9 @@ export default function AdminPrintingDetailPage() {
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-3 p-3 bg-[var(--material-glass)] rounded-xl hover:bg-[var(--material-glass)] transition-colors"
                                         >
-                                            <span className="text-2xl">📄</span>
+                                            <span className="text-2xl">ðŸ“„</span>
                                             <span className="text-[var(--text-primary)]">{file.name}</span>
-                                            <span className="ml-auto text-blue-400 text-sm">Tải xuống →</span>
+                                            <span className="ml-auto text-blue-400 text-sm">Táº£i xuá»‘ng â†’</span>
                                         </a>
                                     ))}
                                 </div>
@@ -335,7 +334,7 @@ export default function AdminPrintingDetailPage() {
                         {/* Notes */}
                         {config?.notes && (
                             <div className="mt-4 p-4 bg-[var(--material-glass)] rounded-xl">
-                                <p className="text-[var(--text-secondary)] text-sm mb-1">Ghi chú từ khách</p>
+                                <p className="text-[var(--text-secondary)] text-sm mb-1">Ghi chÃº tá»« khÃ¡ch</p>
                                 <p className="text-[var(--text-primary)]">{config.notes}</p>
                             </div>
                         )}
@@ -348,11 +347,11 @@ export default function AdminPrintingDetailPage() {
                         transition={{ delay: 0.2 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú Admin</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chÃº Admin</h2>
                         <textarea
                             value={adminNote}
                             onChange={(e) => setAdminNote(e.target.value)}
-                            placeholder="Ghi chú nội bộ..."
+                            placeholder="Ghi chÃº ná»™i bá»™..."
                             className="w-full p-4 bg-[var(--material-glass)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/20"
                             rows={3}
                         />
@@ -361,7 +360,7 @@ export default function AdminPrintingDetailPage() {
                             disabled={saving}
                             className="mt-3 px-4 py-2 bg-[var(--material-glass)] rounded-xl text-[var(--text-primary)] text-sm hover:bg-[var(--material-glass)] disabled:opacity-50"
                         >
-                            {saving ? 'Đang lưu...' : 'Lưu ghi chú'}
+                            {saving ? 'Äang lÆ°u...' : 'LÆ°u ghi chÃº'}
                         </button>
                     </motion.div>
                 </div>
@@ -375,25 +374,25 @@ export default function AdminPrintingDetailPage() {
                         transition={{ delay: 0.1 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toán</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toÃ¡n</h3>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Táº¡m tÃ­nh</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}Ä‘</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Táº¡m tÃ­nh</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}Ä‘</span>
                             </div>
                             <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
-                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
-                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-primary)] font-medium">Tá»•ng cá»™ng</span>
+                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}Ä‘</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Thanh toán 100%</span>
+                                <span className="text-[var(--text-secondary)]">Thanh toÃ¡n 100%</span>
                                 <span className={order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}>
-                                    {order.deposit_amount.toLocaleString('vi-VN')}đ
-                                    {!order.deposit_paid && ' (chưa TT)'}
+                                    {order.deposit_amount.toLocaleString('vi-VN')}Ä‘
+                                    {!order.deposit_paid && ' (chÆ°a TT)'}
                                 </span>
                             </div>
                         </div>
@@ -405,7 +404,7 @@ export default function AdminPrintingDetailPage() {
                                 disabled={saving}
                                 className="w-full mt-4 py-3 bg-green-500 text-[var(--text-primary)] font-medium rounded-xl hover:bg-green-600 disabled:opacity-50"
                             >
-                                {saving ? 'Đang xử lý...' : '✓ Xác nhận đã thanh toán'}
+                                {saving ? 'Äang xá»­ lÃ½...' : 'âœ“ XÃ¡c nháº­n Ä‘Ã£ thanh toÃ¡n'}
                             </button>
                         )}
                     </motion.div>
@@ -418,7 +417,7 @@ export default function AdminPrintingDetailPage() {
                             transition={{ delay: 0.15 }}
                             className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Mã vận đơn</h3>
+                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">MÃ£ váº­n Ä‘Æ¡n</h3>
                             <input
                                 type="text"
                                 value={shippingCode}
@@ -426,7 +425,7 @@ export default function AdminPrintingDetailPage() {
                                 placeholder="VTP123456789"
                                 className="w-full p-3 bg-[var(--material-glass)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-white/20"
                             />
-                            <p className="text-[var(--text-tertiary)] text-xs mt-2">Nhập mã trước khi chuyển sang giao hàng</p>
+                            <p className="text-[var(--text-tertiary)] text-xs mt-2">Nháº­p mÃ£ trÆ°á»›c khi chuyá»ƒn sang giao hÃ ng</p>
                         </motion.div>
                     )}
 
@@ -440,18 +439,18 @@ export default function AdminPrintingDetailPage() {
                         <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Timeline</h3>
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tạo đơn</span>
+                                <span className="text-[var(--text-secondary)]">Táº¡o Ä‘Æ¡n</span>
                                 <span className="text-[var(--text-primary)]">{formatDate(order.created_at)}</span>
                             </div>
                             {order.paid_at && (
                                 <div className="flex justify-between">
-                                    <span className="text-[var(--text-secondary)]">Thanh toán</span>
+                                    <span className="text-[var(--text-secondary)]">Thanh toÃ¡n</span>
                                     <span className="text-[var(--text-primary)]">{formatDate(order.paid_at)}</span>
                                 </div>
                             )}
                             {order.shipping_code && (
                                 <div className="flex justify-between">
-                                    <span className="text-[var(--text-secondary)]">Mã vận đơn</span>
+                                    <span className="text-[var(--text-secondary)]">MÃ£ váº­n Ä‘Æ¡n</span>
                                     <span className="text-[var(--text-primary)] font-mono">{order.shipping_code}</span>
                                 </div>
                             )}
@@ -465,7 +464,7 @@ export default function AdminPrintingDetailPage() {
                         transition={{ delay: 0.3 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-3"
                     >
-                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thao tác</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thao tÃ¡c</h3>
 
                         {nextStatus && (
                             <button
@@ -473,7 +472,7 @@ export default function AdminPrintingDetailPage() {
                                 disabled={saving || (nextStatus === 'shipping' && !shippingCode)}
                                 className="w-full py-3 bg-white text-black font-medium rounded-xl hover:bg-[var(--material-glass)] disabled:opacity-50"
                             >
-                                {saving ? 'Đang xử lý...' : `→ ${statusLabels[nextStatus]}`}
+                                {saving ? 'Äang xá»­ lÃ½...' : `â†’ ${statusLabels[nextStatus]}`}
                             </button>
                         )}
 
@@ -483,7 +482,7 @@ export default function AdminPrintingDetailPage() {
                                 disabled={saving}
                                 className="w-full py-3 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500/10"
                             >
-                                Hủy đơn hàng
+                                Há»§y Ä‘Æ¡n hÃ ng
                             </button>
                         )}
                     </motion.div>
@@ -492,3 +491,4 @@ export default function AdminPrintingDetailPage() {
         </div>
     );
 }
+

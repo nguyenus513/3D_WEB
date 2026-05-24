@@ -178,7 +178,7 @@ export async function getStoredTokens() {
  * Only OAuth (user's own account) works for file uploads.
  */
 export async function getDriveClient(options: { useServiceAccount?: boolean } = {}) {
-    // 1. Try OAuth (User Account) FIRST â€” required for file uploads
+    // 1. Try OAuth (User Account) FIRST — required for file uploads
     if (!options.useServiceAccount) {
         try {
             const tokens = await getStoredTokens();
@@ -216,7 +216,7 @@ export async function getDriveClient(options: { useServiceAccount?: boolean } = 
         console.warn('[DRIVE] âš  No OAuth tokens in DB. Admin needs to re-login with Google.');
     }
 
-    // 2. Service Account â€” ONLY if explicitly requested
+    // 2. Service Account — ONLY if explicitly requested
     // WARNING: Service Accounts have 0 quota on personal Gmail. Cannot upload files.
     if (options.useServiceAccount) {
         const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -424,7 +424,7 @@ export async function buildFolderPath(pathSegments: string[]): Promise<string> {
  * - ORD-{orderCode}/06_FINAL/
  */
 export const FolderPaths = {
-    // Products: products/ (flat folder â€” not order-based)
+    // Products: products/ (flat folder — not order-based)
     product: () => ['products'],
 
     // LEGACY: Printing: customers/{cusCode}/printing/{orderCode}/
@@ -548,4 +548,5 @@ export async function uploadWithNaming(
 // Aliases for backward compatibility
 export const uploadFile = uploadFileOAuth;
 export const ensureFolder = createOrGetSubfolder;
+
 

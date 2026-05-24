@@ -10,3 +10,9 @@ test-results
 .tmp-vercel-env
 .tmp-payos-env-check
 .tmp-supabase-inventory.txt
+.local
+.omnara
+*.rar
+*.zip
+.vercel.bak-*
+.tmp-*

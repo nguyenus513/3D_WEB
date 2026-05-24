@@ -1,9 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import { formatOrderDate } from '@/lib/utils/orderStatus';
 // import type { Order } from '@/types/database'; // Don't use legacy type if it conflicts
 
@@ -19,14 +18,14 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-    pending: 'Chờ thanh toán',
-    paid: 'Đã thanh toán',
-    processing: 'Đang xử lý',
-    producing: 'Đang sản xuất', // printing -> producing
-    shipping: 'Đang giao hàng',
-    delivered: 'Đã giao',
-    completed: 'Hoàn thành',
-    cancelled: 'Đã hủy',
+    pending: 'Chá» thanh toÃ¡n',
+    paid: 'ÄÃ£ thanh toÃ¡n',
+    processing: 'Äang xá»­ lÃ½',
+    producing: 'Äang sáº£n xuáº¥t', // printing -> producing
+    shipping: 'Äang giao hÃ ng',
+    delivered: 'ÄÃ£ giao',
+    completed: 'HoÃ n thÃ nh',
+    cancelled: 'ÄÃ£ há»§y',
 };
 
 // Production status for order items (sub-orders)
@@ -38,10 +37,10 @@ const productionStatusColors: Record<string, string> = {
 };
 
 const productionStatusLabels: Record<string, string> = {
-    waiting: 'Chờ in',
-    printing: 'Đang in',
-    done: 'Hoàn thành',
-    error: 'Lỗi',
+    waiting: 'Chá» in',
+    printing: 'Äang in',
+    done: 'HoÃ n thÃ nh',
+    error: 'Lá»—i',
 };
 
 export default function AdminPrintingPage() {
@@ -55,30 +54,22 @@ export default function AdminPrintingPage() {
     }, []);
 
     const fetchOrders = async () => {
-        const supabase = getSupabase();
-
-        // Fetch orders with their order_items (only columns that exist)
-        const { data, error } = await supabase
-            .from('orders')
-            .select(`
-                id, order_code, cart_code, user_id, order_type,
-                total_amount, status, payment_status, shipping_address, shipping_address_snapshot,
-                created_at, updated_at,
-                order_items(id, order_id, name, quantity, unit_price, total_price)
-            `)
-            .order('created_at', { ascending: false });
-
-        if (!error && data) {
-            setOrders(data);
-
-            // Calculate stats
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/orders?type=printing', { cache: 'no-store' });
+            const json = await res.json();
+            const rows = (json.data?.orders || json.orders || []).filter((o: any) => ['printing', 'print_3d'].includes(o.order_type));
+            setOrders(rows);
             setStats({
-                pending: data.filter((o: any) => o.status === 'pending').length,
-                producing: data.filter((o: any) => o.status === 'producing' || o.status === 'processing').length,
-                completed: data.filter((o: any) => o.status === 'delivered' || o.status === 'completed').length,
+                pending: rows.filter((o: any) => o.status === 'pending').length,
+                producing: rows.filter((o: any) => o.status === 'producing' || o.status === 'processing' || o.status === 'printing').length,
+                completed: rows.filter((o: any) => o.status === 'delivered' || o.status === 'completed').length,
             });
+        } catch (error) {
+            console.error('[AdminPrinting] Fetch error:', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
@@ -99,7 +90,6 @@ export default function AdminPrintingPage() {
     const handleUpdateProductionStatus = async (itemId: string, newStatus: string) => {
         console.warn('production_status column not available in current schema');
         // try {
-        //     const supabase = getSupabase();
         //     await supabase
         //         .from('order_items')
         //         .update({ production_status: newStatus })
@@ -115,28 +105,28 @@ export default function AdminPrintingPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý Đơn hàng (Printing)</h1>
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quáº£n lÃ½ ÄÆ¡n hÃ ng (Printing)</h1>
                     <p className="text-[var(--text-secondary)] mt-1">
-                        {loading ? 'Đang tải...' : `${orders.length} đơn hàng`}
+                        {loading ? 'Äang táº£i...' : `${orders.length} Ä‘Æ¡n hÃ ng`}
                     </p>
                 </div>
                 <button onClick={fetchOrders} className="px-4 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                    Làm mới
+                    LÃ m má»›i
                 </button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]">
-                    <p className="text-[var(--text-secondary)] text-sm">Chờ thanh toán</p>
+                    <p className="text-[var(--text-secondary)] text-sm">Chá» thanh toÃ¡n</p>
                     <p className="text-2xl font-bold text-yellow-400 mt-1">{stats.pending}</p>
                 </div>
                 <div className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]">
-                    <p className="text-[var(--text-secondary)] text-sm">Đang sản xuất</p>
+                    <p className="text-[var(--text-secondary)] text-sm">Äang sáº£n xuáº¥t</p>
                     <p className="text-2xl font-bold text-purple-400 mt-1">{stats.producing}</p>
                 </div>
                 <div className="bg-[var(--material-panel)] rounded-2xl p-5 border border-[var(--border-color)]">
-                    <p className="text-[var(--text-secondary)] text-sm">Hoàn thành</p>
+                    <p className="text-[var(--text-secondary)] text-sm">HoÃ n thÃ nh</p>
                     <p className="text-2xl font-bold text-green-400 mt-1">{stats.completed}</p>
                 </div>
             </div>
@@ -150,23 +140,23 @@ export default function AdminPrintingPage() {
                 {loading ? (
                     <div className="p-12 text-center">
                         <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                        <p className="text-[var(--text-secondary)]">Đang tải...</p>
+                        <p className="text-[var(--text-secondary)]">Äang táº£i...</p>
                     </div>
                 ) : orders.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-[var(--text-secondary)]">Chưa có đơn hàng nào</p>
+                        <p className="text-[var(--text-secondary)]">ChÆ°a cÃ³ Ä‘Æ¡n hÃ ng nÃ o</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-[var(--border-color)]">
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Mã đơn</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Khách hàng</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Ngày tạo</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Giá</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Trạng thái</th>
-                                    <th className="text-right text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Thao tác</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">MÃ£ Ä‘Æ¡n</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">KhÃ¡ch hÃ ng</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">NgÃ y táº¡o</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">GiÃ¡</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Tráº¡ng thÃ¡i</th>
+                                    <th className="text-right text-[var(--text-secondary)] text-sm font-medium px-5 py-4">Thao tÃ¡c</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -187,13 +177,13 @@ export default function AdminPrintingPage() {
                                                 )}
                                             </td>
                                             <td className="px-5 py-4 text-[var(--text-secondary)]">
-                                                {shippingInfo?.full_name || 'Chưa có tên khách hàng'}
+                                                {shippingInfo?.full_name || 'ChÆ°a cÃ³ tÃªn khÃ¡ch hÃ ng'}
                                             </td>
                                             <td className="px-5 py-4 text-[var(--text-secondary)]">
                                                 {formatOrderDate(order.created_at)}
                                             </td>
                                             <td className="px-5 py-4 text-[var(--text-primary)]">
-                                                {Number(order.total_amount).toLocaleString('vi-VN')}đ
+                                                {Number(order.total_amount).toLocaleString('vi-VN')}Ä‘
                                             </td>
                                             <td className="px-5 py-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-[var(--material-glass)] text-[var(--text-secondary)]'}`}>
@@ -207,7 +197,7 @@ export default function AdminPrintingPage() {
                                                             onClick={() => handleUpdateStatus(order.id, 'producing')}
                                                             className="px-3 py-1.5 bg-purple-500 text-[var(--text-primary)] text-xs rounded-lg hover:bg-purple-600"
                                                         >
-                                                            Bắt đầu SX
+                                                            Báº¯t Ä‘áº§u SX
                                                         </button>
                                                     )}
                                                     {order.status === 'producing' && (
@@ -215,14 +205,14 @@ export default function AdminPrintingPage() {
                                                             onClick={() => handleUpdateStatus(order.id, 'shipping')}
                                                             className="px-3 py-1.5 bg-cyan-500 text-[var(--text-primary)] text-xs rounded-lg hover:bg-cyan-600"
                                                         >
-                                                            Gửi hàng
+                                                            Gá»­i hÃ ng
                                                         </button>
                                                     )}
                                                     <Link
                                                         href={`/sys_internal/printing/${order.id}`}
                                                         className="px-3 py-1.5 rounded-lg bg-[var(--material-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm"
                                                     >
-                                                        Chi tiết
+                                                        Chi tiáº¿t
                                                     </Link>
                                                 </div>
                                             </td>
@@ -237,3 +227,4 @@ export default function AdminPrintingPage() {
         </div>
     );
 }
+

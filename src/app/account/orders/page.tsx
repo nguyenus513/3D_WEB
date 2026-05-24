@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { Box } from 'lucide-react';
+import { Box, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatOrderDate } from '@/lib/utils/orderStatus';
 
@@ -78,6 +78,7 @@ export default function AccountOrdersPage() {
     const [orders, setOrders] = useState<CartOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
+    const [showAllOrders, setShowAllOrders] = useState(false);
 
     useEffect(() => {
         if (status === 'authenticated' && session?.user?.email) {
@@ -87,6 +88,10 @@ export default function AccountOrdersPage() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [status, session]);
+
+    useEffect(() => {
+        setShowAllOrders(false);
+    }, [activeTab]);
 
     const fetchOrders = async () => {
         if (!session?.user?.email) return;
@@ -106,13 +111,20 @@ export default function AccountOrdersPage() {
         setLoading(false);
     };
 
-    const filteredOrders = activeTab === 'all'
+    const filteredOrders = (activeTab === 'all'
         ? orders
         : activeTab === 'processing'
             ? orders.filter(o => ['confirmed', 'processing', 'designing', 'review', 'revising', 'approved', 'producing', 'printing', 'shipping'].includes(o.status))
             : activeTab === 'completed'
                 ? orders.filter(o => o.status === 'delivered')
-                : orders.filter(o => o.status === activeTab);
+                : orders.filter(o => o.status === activeTab)
+    ).slice().sort((a, b) => {
+        const bTime = new Date(b.created_at || 0).getTime() || 0;
+        const aTime = new Date(a.created_at || 0).getTime() || 0;
+        return bTime - aTime;
+    });
+    const visibleOrders = showAllOrders ? filteredOrders : filteredOrders.slice(0, 5);
+    const hiddenOrderCount = Math.max(filteredOrders.length - visibleOrders.length, 0);
 
     if (status === 'loading' || loading) {
         return (
@@ -156,7 +168,7 @@ export default function AccountOrdersPage() {
 
             {/* Orders list */}
             <div className="space-y-4">
-                {filteredOrders.map((order, index) => (
+                {visibleOrders.map((order, index) => (
                     <motion.div
                         key={order.id}
                         initial={{ opacity: 0, y: 20 }}
@@ -226,6 +238,28 @@ export default function AccountOrdersPage() {
                         </div>
                     </motion.div>
                 ))}
+
+                {filteredOrders.length > 5 && (
+                    <div className="flex justify-center">
+                        <button
+                            type="button"
+                            onClick={() => setShowAllOrders(prev => !prev)}
+                            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[var(--material-glass)] border border-[var(--border-color)] text-[var(--text-primary)] text-sm font-medium hover:bg-white/10 transition-colors"
+                        >
+                            {showAllOrders ? (
+                                <>
+                                    Thu gọn
+                                    <ChevronUp size={16} strokeWidth={1.75} />
+                                </>
+                            ) : (
+                                <>
+                                    Xem thêm {hiddenOrderCount} đơn
+                                    <ChevronDown size={16} strokeWidth={1.75} />
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
 
                 {filteredOrders.length === 0 && (
                     <div className="text-center py-12 bg-[var(--material-glass)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)]">

@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
                     orderCode: data.orderCode,
                     shippingCode: data.shippingCode,
                     carrier: data.carrier,
+                    shippingAddress: data.shippingAddress,
                 });
                 break;
 

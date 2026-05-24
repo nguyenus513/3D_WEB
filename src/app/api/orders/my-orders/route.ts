@@ -11,6 +11,29 @@ import { getProfileId } from '@/lib/utils/getProfileId';
 
 const supabaseAdmin = getAdminSupabase();
 
+function getObjectIdTimestamp(value: unknown): string | null {
+    const text = typeof value === 'string' ? value : '';
+    if (!/^[a-fA-F0-9]{24}$/.test(text)) return null;
+    const seconds = parseInt(text.slice(0, 8), 16);
+    if (!Number.isFinite(seconds) || seconds <= 0) return null;
+    return new Date(seconds * 1000).toISOString();
+}
+
+function resolveOrderDate(order: any): string {
+    const itemDates = (order.order_items || [])
+        .map((item: any) => item.created_at || item.updated_at)
+        .filter(Boolean)
+        .sort();
+
+    return order.created_at
+        || order.updated_at
+        || order.paid_at
+        || order.confirmed_at
+        || itemDates[0]
+        || getObjectIdTimestamp(order.id)
+        || new Date().toISOString();
+}
+
 export async function GET(request: NextRequest) {
     try {
         const session = await auth();
@@ -34,11 +57,11 @@ export async function GET(request: NextRequest) {
         const { data: orders, error } = await supabaseAdmin
             .from('orders')
             .select(`
-                id, user_id, total_amount, created_at, 
+                id, user_id, total_amount, created_at, updated_at, paid_at, confirmed_at,
                 order_code, status, payment_status, order_type,
                 order_items (
                     id, name, quantity, unit_price, total_price, 
-                    item_type, production_status, item_code, full_code
+                    item_type, production_status, item_code, full_code, created_at, updated_at
                 )
             `)
             .eq('user_id', userId)
@@ -61,7 +84,7 @@ export async function GET(request: NextRequest) {
                 total_amount: order.total_amount || 0,
                 status: order.status || 'pending',
                 payment_status: order.payment_status || 'pending',
-                created_at: order.created_at || order.updated_at || order.paid_at || order.confirmed_at || null,
+                created_at: resolveOrderDate(order),
                 // ALWAYS return items as array (never null/undefined)
                 items: (order.order_items || []).map((item: any) => {
                     const quantity = Number(item.quantity || 1);

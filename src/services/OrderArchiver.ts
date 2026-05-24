@@ -93,7 +93,7 @@ export async function archiveOrderFiles(orderId: string) {
             }
         }
 
-        // Printing Order Files â€” use order_files table
+        // Printing Order Files — use order_files table
         if (order_type === 'printing' || order_type === 'print_3d') {
             // Find files for this item from order_files table
             const itemFiles = orderFiles.filter((f: any) => f.order_item_id === item.id);
@@ -128,4 +128,5 @@ export async function archiveOrderFiles(orderId: string) {
     console.log(`[Archiver] Completed archive for ${orderId}`);
     return { success: true };
 }
+
 

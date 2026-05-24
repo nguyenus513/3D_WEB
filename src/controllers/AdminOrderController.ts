@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { BaseController, UnauthorizedError, NotFoundError } from '@/lib/core/BaseController';
 import { requireAdmin } from '@/lib/security/admin-guard';
+import { resolveOrderDate } from '@/lib/utils/orderDate';
 
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
@@ -28,7 +29,7 @@ function resolveFileUrl(fileUrl: string, provider?: string): string {
     if (fileUrl.startsWith('/api/files/')) {
         return fileUrl;
     }
-    // Raw R2 key â€” serve via proxy (e.g. "KH-xxx/2026-02-19/xxx/xxx.jpg")
+    // Raw R2 key — serve via proxy (e.g. "KH-xxx/2026-02-19/xxx/xxx.jpg")
     if (provider === 'r2' || !fileUrl.startsWith('/')) {
         return `/api/files/${fileUrl}`;
     }
@@ -114,7 +115,7 @@ export class AdminOrderController extends BaseController {
             const start = (page - 1) * limit;
             const end = start + limit - 1;
 
-            // Query unified orders table â€” join users AND user_profiles for full_name
+            // Query unified orders table — join users AND user_profiles for full_name
             let query = this.supabase
                 .from('orders')
                 .select('*, user:users(id, name, email, phone, customer_code, profile:user_profiles(full_name, phone)), items:order_items(*)', { count: 'exact' })
@@ -148,13 +149,15 @@ export class AdminOrderController extends BaseController {
             const transformedOrders = (orders || [])
                 .map((o: any) => ({
                 ...o,
+                created_at: resolveOrderDate(o, Array.isArray(o.items) ? o.items : []),
                 profiles: this.resolveProfile(o, profileMap),
                 total: o.total_amount,
                 order_items: o.items,
                 order_type: o.order_type || this.inferOrderType(o.items),
                 _source_table: 'orders'
                 }))
-                .filter((order: any) => this.matchesOrderType(order, type));
+                .filter((order: any) => this.matchesOrderType(order, type))
+                .sort((a: any, b: any) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
             return this.handleSuccess({
                 orders: transformedOrders,
@@ -299,6 +302,7 @@ export class AdminOrderController extends BaseController {
             return this.handleSuccess({
                 order: {
                     ...order,
+                    created_at: resolveOrderDate(order, items),
                     profiles: resolvedProfile,
                     order_items: items,
                     order_files: orderFiles,
@@ -340,7 +344,7 @@ export class AdminOrderController extends BaseController {
 
             update.updated_at = new Date().toISOString();
 
-            // Payment fields (deposit_paid column removed â€” derive payment_status instead)
+            // Payment fields (deposit_paid column removed — derive payment_status instead)
             if (body.paid_at !== undefined) update.paid_at = body.paid_at;
             if (body.payment_status !== undefined) update.payment_status = body.payment_status;
 
@@ -446,7 +450,7 @@ export class AdminOrderController extends BaseController {
 
             for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
                 if (Object.keys(attemptUpdate).length === 0) {
-                    // All fields were removed due to missing columns â€” only status matters
+                    // All fields were removed due to missing columns — only status matters
                     console.warn('[AdminOrder] All update fields removed due to missing DB columns:', removedFields);
                     break;
                 }
@@ -656,5 +660,6 @@ export class AdminOrderController extends BaseController {
 // =============================================================================
 
 export const adminOrderController = new AdminOrderController();
+
 
 

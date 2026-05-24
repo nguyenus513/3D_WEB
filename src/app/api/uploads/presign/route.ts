@@ -33,6 +33,11 @@ const ALLOWED_CONTENT_TYPES = new Set([
     'model/stl',
     'application/sla',
     'model/obj',
+    'model/3mf',
+    'model/step',
+    'application/step',
+    'application/x-step',
+    'text/plain',
     'application/octet-stream',
 ]);
 
@@ -89,14 +94,14 @@ export async function POST(request: NextRequest) {
 
         const safeParams = { ...params, customerCode };
 
-        // If orderCode provided, ensure ownership (non-admin)
+        // If orderCode already exists, ensure ownership. New printing/custom orders may upload before DB insert.
         if (safeParams.orderCode && !isAdmin) {
             const { data: order } = await supabase
                 .from('orders')
                 .select('id, user_id')
                 .eq('order_code', safeParams.orderCode)
                 .maybeSingle();
-            if (!order || order.user_id !== profileId) {
+            if (order && order.user_id !== profileId) {
                 return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
             }
         }

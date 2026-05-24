@@ -19,11 +19,6 @@ const envSchema = z.object({
     db_MONGODB_URI: z.string().optional(),
     MONGODB_DB_NAME: z.string().optional().default('intelligentroutex'),
 
-    // Supabase (Legacy/optional during MongoDB migration)
-    NEXT_PUBLIC_SUPABASE_URL: z.string().url('NEXT_PUBLIC_SUPABASE_URL must be a valid URL').optional(),
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
-    SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-
     // NextAuth (Optional - uses defaults if not set)
     NEXTAUTH_URL: z.string().url().optional().default('http://localhost:3000'),
     AUTH_SECRET: z.string().optional(),
@@ -159,15 +154,6 @@ export const config = {
     mongodb: {
         uri: env.MONGODB_URI || env.db_MONGODB_URI || '',
         dbName: env.MONGODB_DB_NAME,
-    },
-
-    /**
-     * Supabase Configuration (legacy/optional)
-     */
-    supabase: {
-        url: env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-        anonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
-        serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder',
     },
 
     /**

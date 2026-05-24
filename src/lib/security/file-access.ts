@@ -278,7 +278,7 @@ export async function trackFileUpload(
         fileName?: string;
         fileType?: string;
     }
-): Promise<void> {
+): Promise<string | null> {
     try {
         const supabase = getAdminSupabase();
 
@@ -298,7 +298,12 @@ export async function trackFileUpload(
 
         if (error || !inserted) {
             console.warn('[FileAccess] Failed to track file upload (files insert):', error);
-            return;
+            const { data: existing } = await supabase
+                .from('files')
+                .select('id')
+                .eq('file_url', fileUrl)
+                .maybeSingle();
+            return existing?.id || null;
         }
 
         // Create file_link if we have an order
@@ -316,8 +321,10 @@ export async function trackFileUpload(
                 console.warn('[FileAccess] Failed to create file_link:', linkError);
             }
         }
+        return inserted.id;
     } catch (error) {
         // Don't fail upload if tracking fails
         console.warn('[FileAccess] Failed to track file upload:', error);
+        return null;
     }
 }

@@ -28,6 +28,12 @@ import {
 
 export type OrderFlowType = 'ready_made' | 'custom' | 'printing';
 
+export function normalizeOrderFlowType(orderType?: string | null): OrderFlowType {
+    if (orderType === 'custom') return 'custom';
+    if (orderType === 'printing' || orderType === 'print_3d') return 'printing';
+    return 'ready_made';
+}
+
 export interface FlowStep {
     /** DB status value (e.g. 'confirmed', 'designing') */
     status: string;
@@ -195,7 +201,7 @@ export const PRINTING_FLOW: FlowStep[] = [
  * Get flow configuration by order type
  */
 export function getFlowByType(orderType: string): FlowStep[] {
-    switch (orderType) {
+    switch (normalizeOrderFlowType(orderType)) {
         case 'custom':
             return CUSTOM_FLOW;
         case 'printing':

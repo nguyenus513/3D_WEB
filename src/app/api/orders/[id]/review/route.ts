@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Customer Review API
  * POST /api/orders/[id]/review - Customer approves or rejects design
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getSupabase } from '@/lib/supabase/client';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 
 export async function POST(
     request: NextRequest,
@@ -28,7 +28,7 @@ export async function POST(
             return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
         }
 
-        const supabase = getSupabase();
+        const supabase = getAdminSupabase();
 
         // Get user ID
         const { data: user } = await supabase
@@ -90,3 +90,4 @@ export async function POST(
         return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
 }
+

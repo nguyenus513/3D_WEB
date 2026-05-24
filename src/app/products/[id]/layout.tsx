@@ -5,13 +5,7 @@
  */
 
 import type { Metadata } from 'next';
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase client for server-side data fetching
-const supabase = createClient(
-    (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'),
-    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder')
-);
+import { getMongoCollection } from '@/lib/mongodb';
 
 interface Product {
     id: string;
@@ -31,16 +25,12 @@ type Props = {
 };
 
 async function getProduct(id: string): Promise<Product | null> {
-    // Check if it's a UUID or slug
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
-    const { data } = await supabase
-        .from('products')
-        .select('id, name, description, short_description, base_price, sale_price, images, sku, stock')
-        .eq(isUUID ? 'id' : 'slug', id)
-        .single();
-
-    return data;
+    const products = await getMongoCollection<Product & { _id?: string }>('products');
+    const doc = await products.findOne(isUUID ? { _id: id } : { slug: id });
+    if (!doc) return null;
+    const { _id, ...product } = doc;
+    return { ...product, id: String(_id || product.id) } as Product;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -87,4 +77,5 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ProductLayout({ children }: Props) {
     return <>{children}</>;
 }
+
 

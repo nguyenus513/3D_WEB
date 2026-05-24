@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { Button } from '@/components/ui/button';
-import { getSupabase } from '@/lib/supabase/client';
 import { generateId } from '@/lib/generateId';
 import { AddressSelector, ShippingAddress } from '@/components/checkout/AddressSelector';
 import { useCart } from '@/lib/store/cart';
+import { MapPin } from 'lucide-react';
 
 type PrintType = 'fdm' | 'resin';
 
@@ -96,6 +96,44 @@ const LAYER_TIME_MULT: Record<string, number> = {
     '0.12': 2,
     '0.08': 4,
 };
+
+const SERVER_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
+
+async function parseApiResponse(response: Response) {
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+
+    if (contentType.includes('application/json')) {
+        try {
+            return text ? JSON.parse(text) : {};
+        } catch {
+            return { error: 'Phản hồi máy chủ không hợp lệ.' };
+        }
+    }
+
+    if (response.status === 413 || text.toLowerCase().includes('request entity too large')) {
+        return { error: 'File 3D quá lớn để upload qua server. Hệ thống sẽ dùng upload trực tiếp R2 hoặc bạn hãy thử file nhỏ hơn.' };
+    }
+
+    return { error: text?.slice(0, 200) || `Upload thất bại (HTTP ${response.status})` };
+}
+
+async function getCsrfToken() {
+    const response = await fetch('/api/security/csrf', { credentials: 'include' });
+    const data = await parseApiResponse(response);
+    if (!response.ok || !data?.token) throw new Error(data?.error || 'Không lấy được mã bảo mật upload.');
+    return data.token as string;
+}
+
+function getModelContentType(file: File) {
+    const ext = file.name.toLowerCase().split('.').pop();
+    if (file.type) return file.type;
+    if (ext === 'stl') return 'model/stl';
+    if (ext === 'obj') return 'model/obj';
+    if (ext === '3mf') return 'application/octet-stream';
+    if (ext === 'step' || ext === 'stp') return 'model/step';
+    return 'application/octet-stream';
+}
 
 export default function PrintingPage() {
     const router = useRouter();
@@ -286,42 +324,112 @@ export default function PrintingPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [order.type, order.infill, order.layerHeight, calculateMetrics]);
 
-    // Upload files to Google Drive
+    // Upload files to Cloudflare R2. Large 3D files use direct presigned upload to avoid Vercel body limits.
     const uploadFiles = async (orderCode: string): Promise<FileInfo[]> => {
         const uploadedFiles: FileInfo[] = [];
 
+        const uploadParams = (index: number) => ({
+            type: 'printing',
+            customerCode,
+            orderCode,
+            index,
+            tech: order.type,
+            ...(order.type === 'fdm' ? {
+                infill: Number(order.infill.replace('%', '')),
+                layerHeight: order.layerHeight,
+                color: order.color,
+            } : {}),
+        });
+
+        const uploadDirectToR2 = async (item: FileItem, index: number): Promise<FileInfo> => {
+            const csrfToken = await getCsrfToken();
+            const contentType = getModelContentType(item.file);
+            const presignRes = await fetch('/api/uploads/presign', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-csrf-token': csrfToken,
+                },
+                body: JSON.stringify({
+                    fileName: item.file.name,
+                    contentType,
+                    size: item.file.size,
+                    params: uploadParams(index),
+                }),
+            });
+            const presignData = await parseApiResponse(presignRes);
+            if (!presignRes.ok || !presignData?.data?.url) {
+                throw new Error(presignData?.error || 'Không tạo được link upload R2.');
+            }
+
+            const putRes = await fetch(presignData.data.url, {
+                method: 'PUT',
+                headers: { 'Content-Type': contentType },
+                body: item.file,
+            });
+            if (!putRes.ok) {
+                throw new Error(`Upload R2 thất bại (HTTP ${putRes.status}).`);
+            }
+
+            await fetch('/api/uploads/complete', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-csrf-token': csrfToken,
+                },
+                body: JSON.stringify({
+                    key: presignData.data.key,
+                    fileName: item.file.name,
+                    contentType,
+                    size: item.file.size,
+                    isPublic: false,
+                }),
+            }).catch(() => null);
+
+            const secureUrl = `/api/files/${presignData.data.key}`;
+            return {
+                id: presignData.data.key,
+                name: item.file.name,
+                url: secureUrl,
+                thumbnail: secureUrl,
+            };
+        };
+
         for (let i = 0; i < order.items.length; i++) {
             const item = order.items[i];
+            const index = i + 1;
+
+            if (item.file.size > SERVER_UPLOAD_LIMIT_BYTES) {
+                uploadedFiles.push(await uploadDirectToR2(item, index));
+                continue;
+            }
+
             const formData = new FormData();
             formData.append('file', item.file);
-            formData.append('type', 'printing');
-            formData.append('customerCode', customerCode);
-            formData.append('orderCode', orderCode);
-            formData.append('index', String(i + 1));
-            // New naming convention parameters for printing
-            formData.append('tech', order.type); // 'fdm' or 'resin'
-            if (order.type === 'fdm') {
-                formData.append('infill', order.infill.replace('%', '')); // '20%' -> '20'
-                formData.append('layerHeight', order.layerHeight); // '0.2', '0.12', '0.08'
-                formData.append('color', order.color); // 'white', 'black', 'transparent'
-            }
+            Object.entries(uploadParams(index)).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) formData.append(key, String(value));
+            });
 
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
-            const data = await res.json();
+            const data = await parseApiResponse(res);
 
             if (!res.ok) {
-                throw new Error(data.error || 'Upload failed');
+                if (res.status === 413) {
+                    uploadedFiles.push(await uploadDirectToR2(item, index));
+                    continue;
+                }
+                throw new Error(data.error?.message || data.error || 'Upload thất bại');
             }
 
-            // BaseController returns { success: true, data: { file: ... } }
-            // So we need to access data.data.file
             const uploadedFile = data.data?.file || data.file;
 
             if (uploadedFile) {
                 uploadedFiles.push(uploadedFile);
             } else {
                 console.error('Upload response missing file object:', data);
-                throw new Error('Upload failed: Invalid response');
+                throw new Error('Upload thất bại: phản hồi không hợp lệ');
             }
         }
 
@@ -344,7 +452,6 @@ export default function PrintingPage() {
         setError('');
 
         try {
-            const supabase = getSupabase();
             const orderCode = generateId.printing();
 
             // Upload files to Drive
@@ -377,10 +484,10 @@ export default function PrintingPage() {
                 })
             });
 
-            const data = await res.json();
+            const data = await parseApiResponse(res);
 
             if (!res.ok) {
-                throw new Error(data.error || 'Failed to create order');
+                throw new Error(data.error?.message || data.error || 'Không tạo được đơn in 3D');
             }
 
             const orderId = data.orderId;
@@ -688,7 +795,7 @@ export default function PrintingPage() {
                                             className={`
                         p-6 rounded-2xl text-left transition-all
                         ${order.type === type.id
-                                                    ? 'bg-[var(--color-accent)] text-[var(--text-primary)] ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
+                                                    ? 'bg-white text-black ring-2 ring-white/30 ring-offset-2 ring-offset-[#1D1D1F]'
                                                     : 'bg-[#2D2D2F] text-[var(--text-primary)] hover:bg-[#3D3D3F]'
                                                 }
                       `}
@@ -893,7 +1000,7 @@ export default function PrintingPage() {
 
                                 {/* Shipping Address */}
                                 <div className="border-t border-[var(--border-color)] pt-4 mb-4">
-                                    <h3 className="text-[var(--text-primary)] font-medium mb-3">📍 Địa chỉ giao hàng</h3>
+                                    <h3 className="text-[var(--text-primary)] font-medium mb-3 flex items-center gap-2"><MapPin size={18} strokeWidth={1.75} className="text-current" /> Địa chỉ giao hàng</h3>
                                     <AddressSelector
                                         userId={user?.id}
                                         value={shippingAddress}
@@ -966,3 +1073,4 @@ export default function PrintingPage() {
         </div >
     );
 }
+

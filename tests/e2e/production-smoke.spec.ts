@@ -45,8 +45,9 @@ test.describe('production smoke: infra, auth, db, r2, admin, security', () => {
   test('health, core public APIs, domain, DB are healthy', async ({ request }) => {
     const health = await expectOkApi(request, '/api/health');
     expect(health.status).toBe('healthy');
-    expect(health.services.database.status).toBe('up');
-    expect(health.services.database.db).toBe('intelligentroutex');
+    const database = health.services.mongodb || health.services.database;
+    expect(database.status).toBe('up');
+    expect(database.db).toBe('intelligentroutex');
 
     const products = await expectOkApi(request, '/api/public/products');
     expect(products.success).toBe(true);

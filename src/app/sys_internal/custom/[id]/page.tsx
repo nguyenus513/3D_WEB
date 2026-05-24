@@ -1,10 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
 interface Order {
@@ -55,15 +54,15 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-    pending: 'Chờ thanh toán',
-    paid: 'Đã thanh toán',
-    designing: 'Đang thiết kế',
-    review: 'Chờ duyệt mẫu',
-    approved: 'Khách đã duyệt',
-    processing: 'Đang sản xuất',
-    shipping: 'Đang giao hàng',
-    delivered: 'Đã giao hàng',
-    cancelled: 'Đã hủy',
+    pending: 'Chá» thanh toÃ¡n',
+    paid: 'ÄÃ£ thanh toÃ¡n',
+    designing: 'Äang thiáº¿t káº¿',
+    review: 'Chá» duyá»‡t máº«u',
+    approved: 'KhÃ¡ch Ä‘Ã£ duyá»‡t',
+    processing: 'Äang sáº£n xuáº¥t',
+    shipping: 'Äang giao hÃ ng',
+    delivered: 'ÄÃ£ giao hÃ ng',
+    cancelled: 'ÄÃ£ há»§y',
 };
 
 const statusFlow = ['paid', 'designing', 'review', 'approved', 'processing', 'shipping', 'delivered'];
@@ -89,7 +88,7 @@ export default function AdminCustomDetailPage() {
             const data = await res.json();
 
             if (!res.ok || data.error) {
-                setError('Không tìm thấy đơn hàng');
+                setError('KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng');
                 setLoading(false);
                 return;
             }
@@ -99,14 +98,14 @@ export default function AdminCustomDetailPage() {
 
             // Verify this is a custom order
             if (orderData.order_type !== 'custom') {
-                setError('Đơn hàng này không phải đơn Custom');
+                setError('ÄÆ¡n hÃ ng nÃ y khÃ´ng pháº£i Ä‘Æ¡n Custom');
                 setLoading(false);
                 return;
             }
 
             setOrder({
                 ...orderData,
-                // deposit_paid column removed from DB — derive from payment_status
+                // deposit_paid column removed from DB â€” derive from payment_status
                 deposit_paid: orderData.payment_status === 'paid' || orderData.payment_status === 'deposit_paid',
                 profiles: profileData,
                 custom_config: orderData.custom_config
@@ -115,7 +114,7 @@ export default function AdminCustomDetailPage() {
             setLoading(false);
         } catch (err) {
             console.error('Fetch error:', err);
-            setError('Không thể tải đơn hàng');
+            setError('KhÃ´ng thá»ƒ táº£i Ä‘Æ¡n hÃ ng');
             setLoading(false);
         }
     };
@@ -193,8 +192,8 @@ export default function AdminCustomDetailPage() {
     if (error || !order) {
         return (
             <div className="text-center py-20">
-                <p className="text-red-400 mb-4">{error || 'Không tìm thấy đơn hàng'}</p>
-                <Link href={`${adminRoot}/orders/custom`} className="text-blue-400 hover:underline">← Quay lại danh sách</Link>
+                <p className="text-red-400 mb-4">{error || 'KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng'}</p>
+                <Link href={`${adminRoot}/orders/custom`} className="text-blue-400 hover:underline">â† Quay láº¡i danh sÃ¡ch</Link>
             </div>
         );
     }
@@ -213,7 +212,7 @@ export default function AdminCustomDetailPage() {
                         </svg>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Đơn Custom</h1>
+                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">ÄÆ¡n Custom</h1>
                         <p className="text-[var(--text-secondary)] mt-1">{order.order_code}</p>
                     </div>
                 </div>
@@ -233,14 +232,14 @@ export default function AdminCustomDetailPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thông tin khách hàng</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">ThÃ´ng tin khÃ¡ch hÃ ng</h2>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-[var(--text-secondary)] text-sm">Tên</p>
+                                <p className="text-[var(--text-secondary)] text-sm">TÃªn</p>
                                 <p className="text-[var(--text-primary)] font-medium">{order.profiles?.full_name || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-[var(--text-secondary)] text-sm">Mã KH</p>
+                                <p className="text-[var(--text-secondary)] text-sm">MÃ£ KH</p>
                                 <p className="text-[var(--text-primary)] font-mono">{order.profiles?.customer_code || 'N/A'}</p>
                             </div>
                             <div>
@@ -248,7 +247,7 @@ export default function AdminCustomDetailPage() {
                                 <p className="text-[var(--text-primary)]">{order.profiles?.email || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-[var(--text-secondary)] text-sm">SĐT</p>
+                                <p className="text-[var(--text-secondary)] text-sm">SÄT</p>
                                 <p className="text-[var(--text-primary)]">{order.profiles?.phone || 'N/A'}</p>
                             </div>
                         </div>
@@ -261,21 +260,21 @@ export default function AdminCustomDetailPage() {
                         transition={{ delay: 0.1 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiết đơn Custom</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Chi tiáº¿t Ä‘Æ¡n Custom</h2>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="p-4 bg-[var(--material-glass)] rounded-xl">
-                                <p className="text-[var(--text-secondary)] text-sm">Loại</p>
+                                <p className="text-[var(--text-secondary)] text-sm">Loáº¡i</p>
                                 <p className="text-[var(--text-primary)] font-medium capitalize">{order.custom_config?.type || 'N/A'}</p>
                             </div>
                             <div className="p-4 bg-[var(--material-glass)] rounded-xl">
-                                <p className="text-[var(--text-secondary)] text-sm">Kích thước</p>
+                                <p className="text-[var(--text-secondary)] text-sm">KÃ­ch thÆ°á»›c</p>
                                 <p className="text-[var(--text-primary)] font-medium">{order.custom_config?.size || 'N/A'}</p>
                             </div>
                         </div>
 
                         {order.custom_config?.notes && (
                             <div className="p-4 bg-[var(--material-glass)] rounded-xl mb-4">
-                                <p className="text-[var(--text-secondary)] text-sm mb-1">Ghi chú từ khách</p>
+                                <p className="text-[var(--text-secondary)] text-sm mb-1">Ghi chÃº tá»« khÃ¡ch</p>
                                 <p className="text-[var(--text-primary)]">{order.custom_config.notes}</p>
                             </div>
                         )}
@@ -283,7 +282,7 @@ export default function AdminCustomDetailPage() {
                         {/* Customer Images */}
                         {order.custom_config?.images?.length > 0 && (
                             <div>
-                                <p className="text-[var(--text-secondary)] text-sm mb-2">Ảnh tham khảo từ khách ({order.custom_config.images.length} ảnh)</p>
+                                <p className="text-[var(--text-secondary)] text-sm mb-2">áº¢nh tham kháº£o tá»« khÃ¡ch ({order.custom_config.images.length} áº£nh)</p>
                                 <div className="grid grid-cols-3 gap-3">
                                     {order.custom_config.images.map((img, i) => (
                                         <a
@@ -295,7 +294,7 @@ export default function AdminCustomDetailPage() {
                                         >
                                             <img
                                                 src={img.thumbnail || img.url}
-                                                alt={`Ảnh ${i + 1}`}
+                                                alt={`áº¢nh ${i + 1}`}
                                                 className="w-full h-full object-cover"
                                             />
                                         </a>
@@ -313,7 +312,7 @@ export default function AdminCustomDetailPage() {
                             transition={{ delay: 0.2 }}
                             className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                         >
-                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Địa chỉ giao hàng</h2>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Äá»‹a chá»‰ giao hÃ ng</h2>
                             <div className="space-y-1">
                                 <p className="text-[var(--text-primary)] font-medium">{order.shipping_address.name}</p>
                                 <p className="text-[var(--text-secondary)]">{order.shipping_address.phone}</p>
@@ -331,11 +330,11 @@ export default function AdminCustomDetailPage() {
                         transition={{ delay: 0.3 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chú Admin</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Ghi chÃº Admin</h2>
                         <textarea
                             value={adminNote}
                             onChange={(e) => setAdminNote(e.target.value)}
-                            placeholder="Ghi chú nội bộ..."
+                            placeholder="Ghi chÃº ná»™i bá»™..."
                             className="w-full p-4 bg-[var(--material-glass)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-2 focus:ring-white/20"
                             rows={3}
                         />
@@ -344,7 +343,7 @@ export default function AdminCustomDetailPage() {
                             disabled={saving}
                             className="mt-3 px-4 py-2 bg-[var(--material-glass)] rounded-xl text-[var(--text-primary)] text-sm hover:bg-[var(--material-glass)] disabled:opacity-50"
                         >
-                            {saving ? 'Đang lưu...' : 'Lưu ghi chú'}
+                            {saving ? 'Äang lÆ°u...' : 'LÆ°u ghi chÃº'}
                         </button>
                     </motion.div>
                 </div>
@@ -358,31 +357,31 @@ export default function AdminCustomDetailPage() {
                         transition={{ delay: 0.1 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6"
                     >
-                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toán</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thanh toÃ¡n</h3>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Táº¡m tÃ­nh</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}Ä‘</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-secondary)]">Táº¡m tÃ­nh</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}Ä‘</span>
                             </div>
                             <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
-                                <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
-                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-primary)] font-medium">Tá»•ng cá»™ng</span>
+                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}Ä‘</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Đã cọc (50%)</span>
+                                <span className="text-[var(--text-secondary)]">ÄÃ£ cá»c (50%)</span>
                                 <span className={order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}>
-                                    {order.deposit_amount.toLocaleString('vi-VN')}đ
-                                    {!order.deposit_paid && ' (chưa TT)'}
+                                    {order.deposit_amount.toLocaleString('vi-VN')}Ä‘
+                                    {!order.deposit_paid && ' (chÆ°a TT)'}
                                 </span>
                             </div>
                             {remaining > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-[var(--text-secondary)]">Còn lại</span>
-                                    <span className="text-[var(--text-primary)]">{remaining.toLocaleString('vi-VN')}đ</span>
+                                    <span className="text-[var(--text-secondary)]">CÃ²n láº¡i</span>
+                                    <span className="text-[var(--text-primary)]">{remaining.toLocaleString('vi-VN')}Ä‘</span>
                                 </div>
                             )}
                         </div>
@@ -394,7 +393,7 @@ export default function AdminCustomDetailPage() {
                                 disabled={saving}
                                 className="w-full mt-4 py-3 bg-green-500 text-[var(--text-primary)] font-medium rounded-xl hover:bg-green-600 disabled:opacity-50"
                             >
-                                {saving ? 'Đang xử lý...' : '✓ Xác nhận đã nhận cọc'}
+                                {saving ? 'Äang xá»­ lÃ½...' : 'âœ“ XÃ¡c nháº­n Ä‘Ã£ nháº­n cá»c'}
                             </button>
                         )}
                     </motion.div>
@@ -409,18 +408,18 @@ export default function AdminCustomDetailPage() {
                         <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Timeline</h3>
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Tạo đơn</span>
+                                <span className="text-[var(--text-secondary)]">Táº¡o Ä‘Æ¡n</span>
                                 <span className="text-[var(--text-primary)]">{formatDate(order.created_at)}</span>
                             </div>
                             {order.paid_at && (
                                 <div className="flex justify-between">
-                                    <span className="text-[var(--text-secondary)]">Thanh toán</span>
+                                    <span className="text-[var(--text-secondary)]">Thanh toÃ¡n</span>
                                     <span className="text-[var(--text-primary)]">{formatDate(order.paid_at)}</span>
                                 </div>
                             )}
                             {order.shipping_code && (
                                 <div className="flex justify-between">
-                                    <span className="text-[var(--text-secondary)]">Mã vận đơn</span>
+                                    <span className="text-[var(--text-secondary)]">MÃ£ váº­n Ä‘Æ¡n</span>
                                     <span className="text-[var(--text-primary)] font-mono">{order.shipping_code}</span>
                                 </div>
                             )}
@@ -434,7 +433,7 @@ export default function AdminCustomDetailPage() {
                         transition={{ delay: 0.3 }}
                         className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] p-6 space-y-3"
                     >
-                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thao tác</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Thao tÃ¡c</h3>
 
                         {nextStatus && (
                             <button
@@ -442,7 +441,7 @@ export default function AdminCustomDetailPage() {
                                 disabled={saving}
                                 className="w-full py-3 bg-white text-black font-medium rounded-xl hover:bg-[var(--material-glass)] disabled:opacity-50"
                             >
-                                {saving ? 'Đang xử lý...' : `→ ${statusLabels[nextStatus]}`}
+                                {saving ? 'Äang xá»­ lÃ½...' : `â†’ ${statusLabels[nextStatus]}`}
                             </button>
                         )}
 
@@ -452,7 +451,7 @@ export default function AdminCustomDetailPage() {
                                 disabled={saving}
                                 className="w-full py-3 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500/10"
                             >
-                                Hủy đơn hàng
+                                Há»§y Ä‘Æ¡n hÃ ng
                             </button>
                         )}
                     </motion.div>
@@ -461,3 +460,4 @@ export default function AdminCustomDetailPage() {
         </div>
     );
 }
+

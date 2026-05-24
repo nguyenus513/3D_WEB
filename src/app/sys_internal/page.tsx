@@ -1,9 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
 interface DashboardStats {
@@ -44,25 +43,25 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-    pending: 'Chờ thanh toán',
-    confirmed: 'Đã xác nhận TT',
-    paid: 'Đã thanh toán',
-    preparing: 'Đang chuẩn bị',
-    processing: 'Đang xử lý',
-    designing: 'Đang thiết kế',
-    review: 'Chờ duyệt',
-    approved: 'Đã duyệt',
-    production_pending: 'Chờ sản xuất',
-    producing: 'Đang sản xuất',
-    printing: 'Đang in',
-    shipped: 'Đã gửi',
-    shipping: 'Đang giao',
-    delivered: 'Hoàn thành',
-    cancelled: 'Đã hủy',
+    pending: 'Chá» thanh toÃ¡n',
+    confirmed: 'ÄÃ£ xÃ¡c nháº­n TT',
+    paid: 'ÄÃ£ thanh toÃ¡n',
+    preparing: 'Äang chuáº©n bá»‹',
+    processing: 'Äang xá»­ lÃ½',
+    designing: 'Äang thiáº¿t káº¿',
+    review: 'Chá» duyá»‡t',
+    approved: 'ÄÃ£ duyá»‡t',
+    production_pending: 'Chá» sáº£n xuáº¥t',
+    producing: 'Äang sáº£n xuáº¥t',
+    printing: 'Äang in',
+    shipped: 'ÄÃ£ gá»­i',
+    shipping: 'Äang giao',
+    delivered: 'HoÃ n thÃ nh',
+    cancelled: 'ÄÃ£ há»§y',
 };
 
 const typeLabels: Record<string, string> = {
-    ready_made: 'Sản phẩm',
+    ready_made: 'Sáº£n pháº©m',
     custom: 'Custom',
     printing: 'In 3D',
     master: 'Master',
@@ -114,9 +113,9 @@ export default function AdminDashboard() {
 
     const statCards = [
         {
-            name: `Thu nhập T${stats.currentMonth || new Date().getMonth() + 1}`,
+            name: `Thu nháº­p T${stats.currentMonth || new Date().getMonth() + 1}`,
             value: stats.revenue.toLocaleString('vi-VN'),
-            suffix: 'đ',
+            suffix: 'Ä‘',
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -126,7 +125,7 @@ export default function AdminDashboard() {
             href: `${adminRoot}/revenue`,
         },
         {
-            name: 'Đơn hàng',
+            name: 'ÄÆ¡n hÃ ng',
             value: stats.orders.toString(),
             pending: stats.pendingOrders,
             icon: (
@@ -138,7 +137,7 @@ export default function AdminDashboard() {
             href: `${adminRoot}/orders`,
         },
         {
-            name: 'Khách hàng',
+            name: 'KhÃ¡ch hÃ ng',
             value: stats.customers.toString(),
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,7 +148,7 @@ export default function AdminDashboard() {
             href: `${adminRoot}/customers`,
         },
         {
-            name: 'Sản phẩm',
+            name: 'Sáº£n pháº©m',
             value: stats.products.toString(),
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +167,7 @@ export default function AdminDashboard() {
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Dashboard</h1>
                     <p className="text-[var(--text-secondary)] text-sm mt-1">
-                        {loading ? 'Đang tải...' : 'Tổng quan hoạt động kinh doanh'}
+                        {loading ? 'Äang táº£i...' : 'Tá»•ng quan hoáº¡t Ä‘á»™ng kinh doanh'}
                     </p>
                 </div>
                 <div className="flex gap-2 sm:gap-3">
@@ -176,13 +175,13 @@ export default function AdminDashboard() {
                         onClick={fetchDashboardData}
                         className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[var(--material-panel)] border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm sm:text-base"
                     >
-                        Làm mới
+                        LÃ m má»›i
                     </button>
                     <Link
                         href={`${adminRoot}/orders`}
                         className="flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 bg-white text-black rounded-xl font-medium hover:bg-white/90 text-sm sm:text-base text-center"
                     >
-                        Xem đơn hàng
+                        Xem Ä‘Æ¡n hÃ ng
                     </Link>
                 </div>
             </div>
@@ -206,7 +205,7 @@ export default function AdminDashboard() {
                                 </div>
                                 {stat.pending !== undefined && stat.pending > 0 && (
                                     <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
-                                        {stat.pending} chờ xử lý
+                                        {stat.pending} chá» xá»­ lÃ½
                                     </span>
                                 )}
                             </div>
@@ -227,9 +226,9 @@ export default function AdminDashboard() {
                 className="bg-[var(--material-panel)] rounded-2xl border border-[var(--border-color)] overflow-hidden"
             >
                 <div className="p-5 border-b border-[var(--border-color)] flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Đơn hàng gần đây</h2>
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">ÄÆ¡n hÃ ng gáº§n Ä‘Ã¢y</h2>
                     <Link href={`${adminRoot}/orders`} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                        Xem tất cả →
+                        Xem táº¥t cáº£ â†’
                     </Link>
                 </div>
 
@@ -239,18 +238,18 @@ export default function AdminDashboard() {
                     </div>
                 ) : recentOrders.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-[var(--text-secondary)]">Chưa có đơn hàng nào</p>
+                        <p className="text-[var(--text-secondary)]">ChÆ°a cÃ³ Ä‘Æ¡n hÃ ng nÃ o</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[600px]">
                             <thead>
                                 <tr className="border-b border-[var(--border-color)]">
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Mã đơn</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Khách</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Loại</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Tổng</th>
-                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Trạng thái</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">MÃ£ Ä‘Æ¡n</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">KhÃ¡ch</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Loáº¡i</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Tá»•ng</th>
+                                    <th className="text-left text-[var(--text-secondary)] text-sm font-medium px-4 lg:px-5 py-3">Tráº¡ng thÃ¡i</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -265,9 +264,9 @@ export default function AdminDashboard() {
                                                 {order.order_code}
                                             </span>
                                         </td>
-                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{order.customer_name || 'Chưa có tên khách hàng'}</td>
+                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{order.customer_name || 'ChÆ°a cÃ³ tÃªn khÃ¡ch hÃ ng'}</td>
                                         <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{typeLabels[order.order_type] || order.order_type}</td>
-                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-primary)] text-sm whitespace-nowrap">{order.total.toLocaleString('vi-VN')}đ</td>
+                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-primary)] text-sm whitespace-nowrap">{order.total.toLocaleString('vi-VN')}Ä‘</td>
                                         <td className="px-4 lg:px-5 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[order.status]}`}>
                                                 {statusLabels[order.status] || order.status}
@@ -285,4 +284,5 @@ export default function AdminDashboard() {
         </div>
     );
 }
+
 

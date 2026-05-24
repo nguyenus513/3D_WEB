@@ -33,6 +33,37 @@ interface ShippingEmailData {
     orderCode: string;
     shippingCode: string;
     carrier?: string;
+    shippingAddress?: {
+        full_name?: string;
+        phone?: string;
+        address_line?: string;
+        ward?: string;
+        district?: string;
+        province?: string;
+    } | null;
+}
+
+function escapeHtml(value?: string | null): string {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatShippingAddress(address?: ShippingEmailData['shippingAddress']): string {
+    if (!address) return '';
+    const location = [address.address_line, address.ward, address.district, address.province]
+        .filter(Boolean)
+        .map((part) => escapeHtml(part))
+        .join(', ');
+    const rows = [
+        address.full_name ? `<li><strong>Người nhận:</strong> ${escapeHtml(address.full_name)}</li>` : '',
+        address.phone ? `<li><strong>Số điện thoại:</strong> ${escapeHtml(address.phone)}</li>` : '',
+        location ? `<li><strong>Địa chỉ:</strong> ${location}</li>` : '',
+    ].filter(Boolean).join('');
+    return rows ? `<ul style="margin:12px 0 0;padding-left:20px;color:#1d1d1f;text-align:left">${rows}</ul>` : '';
 }
 
 interface CompletionEmailData {
@@ -352,6 +383,7 @@ p{margin:0 0 32px;color:#424245;font-size:17px;text-align:center;line-height:1.6
 export async function sendShippingEmail(data: ShippingEmailData): Promise<boolean> {
     const carrier = data.carrier || 'Viettel Post';
     const trackingUrl = `https://viettelpost.vn/tra-cuu-hanh-trinh-don?code=${data.shippingCode}`;
+    const addressHtml = formatShippingAddress(data.shippingAddress);
 
     const html = `
 <!DOCTYPE html>
@@ -406,6 +438,7 @@ p{margin:0 0 32px;color:#424245;font-size:16px;text-align:center}
                 <span class="detail-label">Lưu ý</span>
                 <span class="detail-value">Vui lòng để ý điện thoại</span>
             </div>
+            ${addressHtml ? `<div style="height:1px;background:#d2d2d7;margin:16px 0"></div><div style="font-weight:600;color:#1d1d1f;margin-bottom:6px">Địa chỉ giao hàng</div>${addressHtml}` : ''}
         </div>
     </div>
     <div class="footer">

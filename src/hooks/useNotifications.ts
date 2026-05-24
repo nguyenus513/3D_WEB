@@ -1,4 +1,4 @@
-/**
+﻿/**
  * useNotifications Hook
  *
  * Provides notifications state, realtime subscription, and actions.
@@ -103,18 +103,17 @@ export function useNotifications(options: UseNotificationsOptions & { enabled?: 
         return () => clearInterval(interval);
     }, [fetchNotifications, refreshInterval, enabled]);
 
-    // Supabase Realtime subscription
+    // MongoDB mode: realtime is disabled; polling handles updates
     useEffect(() => {
         if (!enabled) return;
-        const supabase = getSupabase();
+        const realtimeClient = getSupabase();
 
-        const channel = supabase
+        const channel = realtimeClient
             .channel('notifications-realtime')
             .on(
-                'postgres_changes',
+                'mongo_changes',
                 {
                     event: 'INSERT',
-                    schema: 'public',
                     table: 'notifications',
                 },
                 (payload: { new: Record<string, unknown> }) => {
@@ -143,7 +142,7 @@ export function useNotifications(options: UseNotificationsOptions & { enabled?: 
         isFirstLoad.current = false;
 
         return () => {
-            supabase.removeChannel(channel);
+            realtimeClient.removeChannel(channel);
         };
     }, []);
 
@@ -193,3 +192,4 @@ export function useNotifications(options: UseNotificationsOptions & { enabled?: 
         clearLatest,
     };
 }
+

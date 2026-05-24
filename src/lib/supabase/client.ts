@@ -1,21 +1,28 @@
-import { createBrowserClient } from '@supabase/ssr';
+﻿type RealtimeCallback = (payload: { new: Record<string, unknown> }) => void;
+
+interface NoopChannel {
+    on: (_event: string, _filter: Record<string, unknown>, _callback: RealtimeCallback) => NoopChannel;
+    subscribe: () => NoopChannel;
+}
+
+const noopChannel: NoopChannel = {
+    on: () => noopChannel,
+    subscribe: () => noopChannel,
+};
+
+const mongoBrowserClient = {
+    channel: (_name?: string) => noopChannel,
+    removeChannel: (_channel: NoopChannel) => undefined,
+};
 
 export function createClient() {
-    return createBrowserClient(
-        (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'),
-        (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder')
-    );
+    return mongoBrowserClient;
 }
-
-// Singleton instance for client-side
-let supabaseInstance: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getSupabase() {
-    if (!supabaseInstance) {
-        supabaseInstance = createClient();
-    }
-    return supabaseInstance;
+    return mongoBrowserClient;
 }
 
-// Export types
-export type { User, Session } from '@supabase/supabase-js';
+export type User = { id: string; email?: string | null };
+export type Session = { user: User };
+

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { getSupabase } from '@/lib/supabase/client';
 import type { Order } from '@/types/database';
 import { formatOrderDate } from '@/lib/utils/orderStatus';
 
@@ -37,57 +36,28 @@ export default function AdminCustomPage() {
     }, []);
 
     const fetchOrders = async () => {
-        const supabase = getSupabase();
-
-        // Note: 'order_type' column might not exist or be needed if we filter by items/metadata in V3. 
-        // But Controller inferred it. Direct DB query might fail if 'order_type' column is gone.
-        // Assuming V3 'orders' table still has 'order_type' for legacy compat or we should filter differently?
-        // AdminOrderController infers it.
-        // If 'order_type' column is removed, this query fails.
-        // Based on AdminOrderController code, it seems 'order_type' IS removed and inferred.
-        // So this page's direct query `.eq('order_type', 'custom')` IS BROKEN if column missing.
-        // I should fetch all and filter client side OR use 'metadata->order_type'?
-        // Or fetch via API `/api/admin/orders?type=custom` which uses Controller.
-
-        // Refactoring to use API is cleaner but slower refactor.
-        // For now, I'll assume usage of API if possible.
-        // But code imports getSupabase().
-        // If I keep getSupabase(), I must check if 'order_type' exists.
-        // database.ts Order interface does NOT show order_type.
-        // So I must fetch ALL and filter in JS (or fetch via API).
-        // Fetching via API is safer.
-        const res = await fetch('/api/admin/orders?type=custom'); // controller handles type=custom logic?
-        // AdminOrderController.listOrders takes query params?
-        // Let's assume fetching all and filtering in client for now if API isn't ready for filtering. 
-        // Actually AdminOrderController.listOrders does NOT seem to filter by type in code I viewed?
-        // I will use `fetch('/api/admin/orders')` and filter `custom` type here.
-
-        let data: Order[] = [];
+        setLoading(true);
         try {
-            const res = await fetch('/api/admin/orders');
+            const res = await fetch('/api/admin/orders?type=custom', { cache: 'no-store' });
             const json = await res.json();
-            if (json.orders) {
-                data = json.orders.filter((o: any) => o.order_type === 'custom'); // Controller adds order_type
-            }
-        } catch (e) {
-            console.error(e);
-        }
-
-        if (data) {
-            setOrders(data);
+            const rows = (json.data?.orders || json.orders || []).filter((o: any) => o.order_type === 'custom');
+            setOrders(rows);
             setStats({
-                pending: data.filter((o: Order) => o.status === 'pending').length,
-                designing: data.filter((o: Order) => o.status === 'designing' || o.status === 'paid').length,
-                processing: data.filter((o: Order) => o.status === 'processing').length,
-                completed: data.filter((o: Order) => o.status === 'delivered').length,
+                pending: rows.filter((o: Order) => o.status === 'pending').length,
+                designing: rows.filter((o: Order) => o.status === 'designing' || o.status === 'paid').length,
+                processing: rows.filter((o: Order) => o.status === 'processing').length,
+                completed: rows.filter((o: Order) => o.status === 'delivered' || o.status === 'completed').length,
             });
+        } catch (error) {
+            console.error('[AdminCustom] Fetch error:', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
         try {
-            await fetch(`/api/admin/orders/${orderId}`, { // Adjusted path if needed
+            await fetch(`/api/admin/orders/${orderId}/update`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),

@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+﻿import type { NextConfig } from "next";
 
 /**
  * Security Headers Configuration
@@ -64,7 +64,7 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com",
       "img-src 'self' data: blob: https: http:",
       "media-src 'self' blob:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://img.vietqr.io https://www.googleapis.com https://oauth2.googleapis.com https://provinces.open-api.vn https://accounts.google.com",
+      "connect-src 'self' https://img.vietqr.io https://www.googleapis.com https://oauth2.googleapis.com https://provinces.open-api.vn https://accounts.google.com",
       "frame-src 'self' https://accounts.google.com",
       "frame-ancestors 'self'",
       "base-uri 'self'",
@@ -125,13 +125,9 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'img.vietqr.io',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-      },
-    ],
+      },    ],
   },
 };
 
 export default nextConfig;
+

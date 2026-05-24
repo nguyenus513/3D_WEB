@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
 
         // Generate codes
         const orderCode = generateId.order(); // 8 HEX
+        const now = new Date().toISOString();
 
         log.info('Creating custom order', { orderCode, type, size, totalPrice });
 
@@ -128,6 +129,8 @@ export async function POST(request: NextRequest) {
                     province: shippingAddress.province,
                 },
                 notes: notes || null, // customer_note -> notes
+                created_at: now,
+                updated_at: now,
             })
             .select()
             .single();
@@ -158,6 +161,7 @@ export async function POST(request: NextRequest) {
                 // total_price is GENERATED ALWAYS AS (quantity * unit_price) — do NOT insert
                 item_type: 'custom',
                 production_status: 'waiting',
+                created_at: now,
                 configuration: { // New JSONB column for custom specs
                     type: type,
                     size: size,
@@ -195,6 +199,15 @@ export async function POST(request: NextRequest) {
                 const proxyPath = r2Key ? `/api/files/${r2Key}` : null;
                 let existingFile = img.fileId ? { id: img.fileId } : null;
 
+                if (!existingFile && img.url) {
+                    const { data: byUrl } = await supabase
+                        .from('files')
+                        .select('id')
+                        .eq('file_url', img.url)
+                        .maybeSingle();
+                    existingFile = byUrl || null;
+                }
+
                 if (!existingFile && proxyPath) {
                     const { data: byProxy } = await supabase
                         .from('files')
@@ -211,6 +224,28 @@ export async function POST(request: NextRequest) {
                         .eq('file_url', r2Key)
                         .maybeSingle();
                     existingFile = byRawKey || null;
+                }
+
+                if (!existingFile) {
+                    const { data: createdFile, error: createFileError } = await supabase
+                        .from('files')
+                        .insert({
+                            file_url: proxyPath || img.url || r2Key,
+                            mime_type: img.type || 'image/jpeg',
+                            size_bytes: img.size || 0,
+                            provider: 'r2',
+                            original_filename: img.name,
+                            object_key: r2Key,
+                            created_at: now,
+                        })
+                        .select('id')
+                        .single();
+
+                    if (createFileError || !createdFile) {
+                        log.warn('Failed to create fallback file record', { error: createFileError, r2Key });
+                    } else {
+                        existingFile = createdFile;
+                    }
                 }
 
                 if (existingFile) {

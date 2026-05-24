@@ -10,6 +10,9 @@ interface FileInfo {
     id: string;
     name: string;
     size?: number;
+    type?: string;
+    url?: string;
+    fileId?: string;
 }
 
 interface PrintItemAnalysis {
@@ -69,6 +72,7 @@ export async function POST(request: NextRequest) {
 
         // Generate ID
         const orderCode = generateId.printing();
+        const now = new Date().toISOString();
 
         // Sanitize customer notes (print settings are stored in print_jobs table separately)
         const customerNote = notes ? stripHtml(notes).slice(0, 1000) : null;
@@ -90,6 +94,8 @@ export async function POST(request: NextRequest) {
                 deposit_amount: totalPrice,
                 shipping_address_snapshot: shippingAddress,
                 notes: customerNote,
+                created_at: now,
+                updated_at: now,
             })
             .select()
             .single();
@@ -119,6 +125,7 @@ export async function POST(request: NextRequest) {
                 // total_price is a generated column (quantity * unit_price)
                 item_type: 'print_3d',
                 production_status: 'waiting',
+                created_at: now,
             };
         });
 
@@ -144,6 +151,8 @@ export async function POST(request: NextRequest) {
                 estimated_grams: items[index].analysis.grams,
                 estimated_hours: items[index].analysis.hours,
                 status: 'waiting',
+                created_at: now,
+                updated_at: now,
             }));
 
             const { error: jobError } = await supabase
@@ -162,12 +171,36 @@ export async function POST(request: NextRequest) {
             for (const [idx, f] of files.entries()) {
                 const linkedItem = insertedItems?.[idx];
 
-                // Find the file record by URL patterns (Drive ID or R2 key)
-                const { data: fileRecord } = await supabase
-                    .from('files')
-                    .select('id')
-                    .or(`file_url.eq.${f.id},file_url.ilike.%${f.id}%`)
-                    .maybeSingle();
+                const rawKey = f.id;
+                const proxyPath = rawKey ? `/api/files/${rawKey}` : null;
+                let fileRecord: { id: string } | null = f.fileId ? { id: f.fileId } : null;
+
+                if (!fileRecord && f.url) {
+                    const { data } = await supabase
+                        .from('files')
+                        .select('id')
+                        .eq('file_url', f.url)
+                        .maybeSingle();
+                    fileRecord = data || null;
+                }
+
+                if (!fileRecord && proxyPath) {
+                    const { data } = await supabase
+                        .from('files')
+                        .select('id')
+                        .eq('file_url', proxyPath)
+                        .maybeSingle();
+                    fileRecord = data || null;
+                }
+
+                if (!fileRecord && rawKey) {
+                    const { data } = await supabase
+                        .from('files')
+                        .select('id')
+                        .eq('file_url', rawKey)
+                        .maybeSingle();
+                    fileRecord = data || null;
+                }
 
                 if (fileRecord && linkedItem) {
                     // Create file_link: file â†’ order_item
@@ -178,6 +211,7 @@ export async function POST(request: NextRequest) {
                             ref_type: 'order_item',
                             ref_id: linkedItem.id,
                             tag: 'models',
+                            metadata: { original_name: f.name },
                         });
 
                     if (linkError) {
@@ -189,10 +223,13 @@ export async function POST(request: NextRequest) {
                     const { data: newFile, error: insertError } = await supabase
                         .from('files')
                         .insert({
-                            file_url: f.id, // Drive file ID or R2 key
-                            mime_type: 'application/octet-stream',
+                            file_url: proxyPath || f.url || f.id,
+                            mime_type: f.type || 'application/octet-stream',
                             size_bytes: f.size || 0,
-                            provider: 'drive',
+                            provider: 'r2',
+                            original_filename: f.name,
+                            object_key: rawKey,
+                            created_at: now,
                         })
                         .select('id')
                         .single();
@@ -207,6 +244,7 @@ export async function POST(request: NextRequest) {
                                 ref_type: 'order_item',
                                 ref_id: linkedItem.id,
                                 tag: 'models',
+                                metadata: { original_name: f.name },
                             });
                     }
                 }

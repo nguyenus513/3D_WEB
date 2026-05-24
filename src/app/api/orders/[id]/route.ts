@@ -9,6 +9,23 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 
+function getObjectIdTimestamp(value: unknown): string | null {
+    const text = typeof value === 'string' ? value : '';
+    if (!/^[a-fA-F0-9]{24}$/.test(text)) return null;
+    const seconds = parseInt(text.slice(0, 8), 16);
+    if (!Number.isFinite(seconds) || seconds <= 0) return null;
+    return new Date(seconds * 1000).toISOString();
+}
+
+function resolveOrderDate(order: Record<string, unknown>, items: Record<string, unknown>[]): string {
+    const itemDates = items
+        .map((item) => item.created_at || item.updated_at)
+        .filter(Boolean)
+        .sort();
+
+    return String(order.created_at || order.updated_at || order.paid_at || order.confirmed_at || itemDates[0] || getObjectIdTimestamp(order.id) || new Date().toISOString());
+}
+
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -78,7 +95,7 @@ function transformOrder(order: Record<string, unknown>) {
         shipping_address: order.shipping_address,
         customer_note: order.customer_note,
         admin_note: order.admin_notes,
-        created_at: order.created_at,
+        created_at: resolveOrderDate(order, items),
         updated_at: order.updated_at,
         confirmed_at: order.confirmed_at,
         paid_at: order.paid_at,

@@ -2,12 +2,12 @@
 
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getFlowByType, getStepIndex, type FlowStep } from '@/lib/utils/orderFlows';
+import { getFlowByType, getStepIndex, normalizeOrderFlowType, type FlowStep } from '@/lib/utils/orderFlows';
 
 interface OrderStatusStepperProps {
     currentStatus: string;
     className?: string;
-    orderType?: 'custom' | 'printing' | 'ready_made';
+    orderType?: string;
     onStatusChange?: (newStatus: string) => void;
     onShippingClick?: () => void;
     updating?: boolean;
@@ -22,7 +22,8 @@ export function OrderStatusStepper({
     updating = false
 }: OrderStatusStepperProps) {
     // Get flow steps from centralized config
-    const flowSteps: FlowStep[] = getFlowByType(orderType);
+    const normalizedOrderType = normalizeOrderFlowType(orderType);
+    const flowSteps: FlowStep[] = getFlowByType(normalizedOrderType);
 
     // Find current step index
     const currentStepIndex = getStepIndex(flowSteps, currentStatus);
