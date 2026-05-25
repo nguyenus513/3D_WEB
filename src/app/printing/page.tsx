@@ -693,7 +693,7 @@ export default function PrintingPage() {
                         Dịch Vụ In 3D
                     </h1>
                     <p className="text-[var(--text-secondary)] max-w-lg mx-auto">
-                        Upload file STL/OBJ của bạn, hệ thống sẽ tự động tính giá
+                        Upload file STL/OBJ/3MF c?a b?n, h? th?ng s? t? ??ng t?nh gi?
                     </p>
                 </AnimatedSection>
 
@@ -732,7 +732,7 @@ export default function PrintingPage() {
                                             </svg>
                                         </div>
                                         <p className="text-[var(--text-primary)] font-medium">Kéo thả file 3D vào đây</p>
-                                        <p className="text-[var(--text-secondary)] text-sm mt-2">Hỗ trợ: STL, OBJ</p>
+                                        <p className="text-[var(--text-secondary)] text-sm mt-2">H? tr?: STL, OBJ, 3MF</p>
                                     </label>
                                 </div>
 
