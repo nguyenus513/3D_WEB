@@ -129,14 +129,32 @@ async function getCsrfToken() {
     return data.token as string;
 }
 
+function getModelExtension(file: File) {
+    return file.name.toLowerCase().split('.').pop() || '';
+}
+
 function getModelContentType(file: File) {
-    const ext = file.name.toLowerCase().split('.').pop();
-    if (file.type) return file.type;
-    if (ext === 'stl') return 'model/stl';
-    if (ext === 'obj') return 'model/obj';
-    if (ext === '3mf') return 'application/octet-stream';
-    if (ext === 'step' || ext === 'stp') return 'model/step';
-    return 'application/octet-stream';
+    const ext = getModelExtension(file);
+    if (ext === 'stl') return file.type || 'model/stl';
+    if (ext === 'obj') return file.type || 'model/obj';
+    if (ext === '3mf') return 'model/3mf';
+    if (ext === 'step' || ext === 'stp') return file.type || 'model/step';
+    return file.type || 'application/octet-stream';
+}
+
+function canAutoAnalyzeModel(file: File) {
+    const ext = getModelExtension(file);
+    return ext === 'stl' || ext === 'obj';
+}
+
+function createManualQuoteAnalysis(): AnalysisResult {
+    return {
+        volume: 0,
+        grams: 0,
+        hours: 0,
+        price: 10000,
+        boundingBox: { x: 0, y: 0, z: 0 },
+    };
 }
 
 export default function PrintingPage() {
@@ -202,6 +220,19 @@ export default function PrintingPage() {
 
     // Analyze a single file item
     const analyzeItem = async (itemId: string, file: File) => {
+        if (!canAutoAnalyzeModel(file)) {
+            setError('');
+            setOrder(prev => ({
+                ...prev,
+                items: prev.items.map(item =>
+                    item.id === itemId
+                        ? { ...item, analyzing: false, analysis: createManualQuoteAnalysis() }
+                        : item
+                )
+            }));
+            return;
+        }
+
         // Set analyzing state for this item
         setOrder(prev => ({
             ...prev,
@@ -449,7 +480,7 @@ export default function PrintingPage() {
     // Submit order
     const handleSubmit = async () => {
         // Must have at least one item with analysis
-        const hasValidItem = order.items.some(item => item.analysis !== null);
+        const hasValidItem = order.items.length > 0 && order.items.every(item => item.analysis !== null && !item.analyzing);
         if (!user || !hasValidItem) return;
 
         // Validate shipping address
@@ -535,7 +566,7 @@ export default function PrintingPage() {
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const validFiles = Array.from(e.dataTransfer.files).filter(
-                f => f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf')
+                f => ['stl', 'obj', '3mf'].includes(getModelExtension(f))
             );
 
             // Create new FileItems for each file
@@ -560,7 +591,7 @@ export default function PrintingPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const validFiles = Array.from(e.target.files).filter(
-                f => f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf')
+                f => ['stl', 'obj', '3mf'].includes(getModelExtension(f))
             );
 
             // Create new FileItems for each file
@@ -605,7 +636,7 @@ export default function PrintingPage() {
 
     // Add to cart instead of direct order
     const handleAddToCart = () => {
-        const hasValidItem = order.items.some(item => item.analysis !== null);
+        const hasValidItem = order.items.length > 0 && order.items.every(item => item.analysis !== null && !item.analyzing);
         if (!hasValidItem) return;
 
         // Add each item with analysis to cart
@@ -689,7 +720,7 @@ export default function PrintingPage() {
                                 >
                                     <input
                                         type="file"
-                                        accept=".stl,.obj"
+                                        accept=".stl,.obj,.3mf"
                                         onChange={handleFileChange}
                                         className="hidden"
                                         id="file-upload"

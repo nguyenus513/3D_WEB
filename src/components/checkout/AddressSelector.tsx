@@ -50,7 +50,9 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
     const [provinces, setProvinces] = useState<Province[]>([]);
     const [districts, setDistricts] = useState<District[]>([]);
     const [wards, setWards] = useState<Ward[]>([]);
-    const [loadingAddress, setLoadingAddress] = useState(false);
+    const [loadingDistricts, setLoadingDistricts] = useState(false);
+    const [loadingWards, setLoadingWards] = useState(false);
+    const [addressLookupError, setAddressLookupError] = useState('');
 
     const [newAddress, setNewAddress] = useState<{
         full_name: string;
@@ -109,39 +111,58 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
     }, []);
 
     useEffect(() => {
-        if (newAddress.provinceCode) {
-            setLoadingAddress(true);
-            getDistricts(newAddress.provinceCode).then(data => {
-                setDistricts(data);
-                setLoadingAddress(false);
-            });
-            setNewAddress(prev => ({
-                ...prev,
-                districtCode: null,
-                districtName: '',
-                wardCode: null,
-                wardName: '',
-            }));
+        if (!newAddress.provinceCode) {
+            setDistricts([]);
             setWards([]);
+            return;
         }
+
+        setLoadingDistricts(true);
+        setAddressLookupError('');
+        setDistricts([]);
+        setWards([]);
+        setNewAddress(prev => ({
+            ...prev,
+            districtCode: null,
+            districtName: '',
+            wardCode: null,
+            wardName: '',
+        }));
+
+        getDistricts(newAddress.provinceCode)
+            .then(data => {
+                setDistricts(data);
+                if (data.length === 0) setAddressLookupError('Không tải được danh sách quận/huyện. Bạn có thể nhập tay bên dưới.');
+            })
+            .catch(() => setAddressLookupError('Không tải được danh sách quận/huyện. Bạn có thể nhập tay bên dưới.'))
+            .finally(() => setLoadingDistricts(false));
     }, [newAddress.provinceCode]);
 
     useEffect(() => {
-        if (newAddress.districtCode) {
-            setLoadingAddress(true);
-            getWards(newAddress.districtCode).then(data => {
-                setWards(data);
-                setLoadingAddress(false);
-            });
-            setNewAddress(prev => ({
-                ...prev,
-                wardCode: null,
-                wardName: '',
-            }));
+        if (!newAddress.districtCode) {
+            setWards([]);
+            return;
         }
+
+        setLoadingWards(true);
+        setAddressLookupError('');
+        setWards([]);
+        setNewAddress(prev => ({
+            ...prev,
+            wardCode: null,
+            wardName: '',
+        }));
+
+        getWards(newAddress.districtCode)
+            .then(data => {
+                setWards(data);
+                if (data.length === 0) setAddressLookupError('Không tải được danh sách phường/xã. Bạn có thể nhập tay bên dưới.');
+            })
+            .catch(() => setAddressLookupError('Không tải được danh sách phường/xã. Bạn có thể nhập tay bên dưới.'))
+            .finally(() => setLoadingWards(false));
     }, [newAddress.districtCode]);
 
-    const handleSelectSaved = (addr: SavedAddress) => {
+const handleSelectSaved = (addr: SavedAddress) => {
         const missing = getMissingAddressFields(addr);
         if (missing.length > 0) {
             setSelectedId(null);
@@ -295,7 +316,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                         provinceName: p?.name || '',
                                     }));
                                 }}
-                                disabled={disabled || loadingAddress}
+                                disabled={disabled}
                                 className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none"
                             >
                                 <option value="">Tỉnh/Thành *</option>
@@ -316,7 +337,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                         districtName: d?.name || '',
                                     }));
                                 }}
-                                disabled={disabled || !newAddress.provinceCode || loadingAddress}
+                                disabled={disabled || !newAddress.provinceCode || loadingDistricts}
                                 className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none disabled:opacity-50"
                             >
                                 <option value="">Quận/Huyện</option>
@@ -337,7 +358,7 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                         wardName: w?.name || '',
                                     }));
                                 }}
-                                disabled={disabled || !newAddress.districtCode || loadingAddress}
+                                disabled={disabled || !newAddress.districtCode || loadingWards}
                                 className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none disabled:opacity-50"
                             >
                                 <option value="">Phường/Xã</option>
@@ -348,6 +369,30 @@ export function AddressSelector({ userId, value, onChange, disabled }: AddressSe
                                 ))}
                             </select>
                         </div>
+
+                        {addressLookupError && (
+                            <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-3">
+                                <p className="text-xs text-[var(--text-secondary)]">{addressLookupError}</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Nhập quận/huyện"
+                                        value={newAddress.districtName}
+                                        onChange={e => setNewAddress(prev => ({ ...prev, districtCode: null, districtName: e.target.value }))}
+                                        disabled={disabled}
+                                        className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-cyan-500 focus:outline-none"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Nhập phường/xã"
+                                        value={newAddress.wardName}
+                                        onChange={e => setNewAddress(prev => ({ ...prev, wardCode: null, wardName: e.target.value }))}
+                                        disabled={disabled}
+                                        className="p-3 bg-[var(--material-glass)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-cyan-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <input
                             type="text"

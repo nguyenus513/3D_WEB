@@ -43,7 +43,7 @@ export async function getProvinces(): Promise<Province[]> {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/p/`);
+        const res = await fetch(`${API_BASE}/p`);
         if (!res.ok) throw new Error('Failed to fetch provinces');
 
         const data = await res.json();

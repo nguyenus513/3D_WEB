@@ -4,7 +4,7 @@ import { useState, Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signIn, getCsrfToken, getProviders } from 'next-auth/react';
+import { signIn, getCsrfToken, getProviders, useSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -46,6 +46,7 @@ function LoginForm() {
     const [error, setError] = useState('');
     const [isMounted, setIsMounted] = useState(false);
     const [googleEnabled, setGoogleEnabled] = useState(false);
+    const { data: activeSession, status: sessionStatus } = useSession();
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -85,6 +86,13 @@ function LoginForm() {
         };
         loadProviders().catch(() => setGoogleEnabled(false));
     }, []);
+
+    useEffect(() => {
+        if (!isMounted || sessionStatus !== 'authenticated') return;
+        sessionStorage.removeItem('miniver.returnTo');
+        const role = (activeSession?.user as { role?: string } | undefined)?.role;
+        window.location.replace(role === 'admin' ? '/sys_internal' : callbackUrl);
+    }, [isMounted, sessionStatus, activeSession, callbackUrl]);
 
     if (!isMounted) return null;
 
@@ -292,6 +300,7 @@ function LoginForm() {
                             setError('Google login chưa được cấu hình trên server.');
                             return;
                         }
+                        sessionStorage.setItem('miniver.returnTo', callbackUrl);
                         signIn('google', { callbackUrl: `/api/auth/google-callback?callbackUrl=${encodeURIComponent(callbackUrl)}` });
                     }}
                     disabled={loading || !googleEnabled}
