@@ -32,17 +32,17 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-500/20 text-yellow-400',
-    paid: 'bg-blue-500/20 text-blue-400',
-    confirmed: 'bg-blue-500/20 text-blue-400',
-    processing: 'bg-indigo-500/20 text-indigo-400',
-    producing: 'bg-purple-500/20 text-purple-400',
-    shipping: 'bg-cyan-500/20 text-cyan-400',
-    delivered: 'bg-green-500/20 text-green-400',
-    completed: 'bg-green-500/20 text-green-400',
-    cancelled: 'bg-red-500/20 text-red-400',
-    refunded: 'bg-red-500/20 text-red-400',
-    designing: 'bg-pink-500/20 text-pink-400',
+    pending: 'bg-white/10 text-white/70',
+    paid: 'bg-white/10 text-white',
+    confirmed: 'bg-white/10 text-white',
+    processing: 'bg-white/10 text-white',
+    producing: 'bg-white/10 text-white',
+    shipping: 'bg-white/10 text-white',
+    delivered: 'bg-white/15 text-white',
+    completed: 'bg-white/15 text-white',
+    cancelled: 'bg-white/5 text-white/50',
+    refunded: 'bg-white/5 text-white/50',
+    designing: 'bg-white/10 text-white',
 };
 
 // Removed typeLabels/typeColors as order_type is gone in V3
@@ -384,7 +384,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
 
                                             <td className="px-5 py-4">
                                                 <span className="text-[var(--text-primary)] font-medium">
-                                                    {Number(order.total_amount).toLocaleString('vi-VN')}đ
+                                                    {Number(order.total_amount).toLocaleString('vi-VN')} VND
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4">
@@ -399,7 +399,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                             </td>
                                             <td className="px-5 py-4">
                                                 {order.notes ? (
-                                                    <span className="text-blue-400/80 text-sm truncate max-w-[150px] block" title={order.notes}>
+                                                    <span className="text-white/60 text-sm truncate max-w-[150px] block" title={order.notes}>
                                                         {order.notes.length > 25 ? order.notes.substring(0, 25) + '...' : order.notes}
                                                     </span>
                                                 ) : (
@@ -408,7 +408,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                             </td>
                                             <td className="px-5 py-4">
                                                 {order.admin_notes ? (
-                                                    <span className="text-yellow-400/80 text-sm truncate max-w-[150px] block" title={order.admin_notes}>
+                                                    <span className="text-white/60 text-sm truncate max-w-[150px] block" title={order.admin_notes}>
                                                         {order.admin_notes.length > 25 ? order.admin_notes.substring(0, 25) + '...' : order.admin_notes}
                                                     </span>
                                                 ) : (
@@ -427,7 +427,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                         <button
                                                             onClick={() => handleConfirmPayment(order.id)}
                                                             disabled={confirming === order.id}
-                                                            className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-sm hover:bg-green-500/30 disabled:opacity-50"
+                                                            className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm hover:bg-white/15 disabled:opacity-50"
                                                         >
                                                             {confirming === order.id ? '...' : 'Xác nhận TT'}
                                                         </button>
@@ -435,7 +435,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                     {order.status === 'paid' && (
                                                         <button
                                                             onClick={() => handleUpdateStatus(order.id, 'processing')}
-                                                            className="px-3 py-1.5 bg-purple-500/20 text-purple-400 rounded-lg text-sm hover:bg-purple-500/30"
+                                                            className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm hover:bg-white/15"
                                                         >
                                                             Xử lý
                                                         </button>
@@ -443,7 +443,7 @@ export function OrderList({ orderType = 'all', title, subtitle }: OrderListProps
                                                     {order.status === 'processing' && (
                                                         <button
                                                             onClick={() => handleUpdateStatus(order.id, 'shipping')}
-                                                            className="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30"
+                                                            className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm hover:bg-white/15"
                                                         >
                                                             Gửi hàng
                                                         </button>

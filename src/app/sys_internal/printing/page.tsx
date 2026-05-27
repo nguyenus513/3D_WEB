@@ -8,9 +8,11 @@ import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    confirmed: 'bg-blue-500/20 text-blue-400',
     paid: 'bg-blue-500/20 text-blue-400',
     processing: 'bg-indigo-500/20 text-indigo-400',
-    producing: 'bg-purple-500/20 text-purple-400', // printing -> producing
+    printing: 'bg-purple-500/20 text-purple-400',
+    finished: 'bg-emerald-500/20 text-emerald-400',
     shipping: 'bg-cyan-500/20 text-cyan-400',
     delivered: 'bg-green-500/20 text-green-400',
     completed: 'bg-green-500/20 text-green-400',
@@ -62,7 +64,7 @@ export default function AdminPrintingPage() {
             setOrders(rows);
             setStats({
                 pending: rows.filter((o: any) => o.status === 'pending').length,
-                producing: rows.filter((o: any) => o.status === 'producing' || o.status === 'processing' || o.status === 'printing').length,
+                producing: rows.filter((o: any) => o.status === 'printing' || o.status === 'finished').length,
                 completed: rows.filter((o: any) => o.status === 'delivered' || o.status === 'completed').length,
             });
         } catch (error) {
@@ -183,7 +185,7 @@ export default function AdminPrintingPage() {
                                                 {formatOrderDate(order.created_at)}
                                             </td>
                                             <td className="px-5 py-4 text-[var(--text-primary)]">
-                                                {Number(order.total_amount).toLocaleString('vi-VN')}đ
+                                                {Number(order.total_amount).toLocaleString('vi-VN')} VND
                                             </td>
                                             <td className="px-5 py-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-[var(--material-glass)] text-[var(--text-secondary)]'}`}>
@@ -192,17 +194,17 @@ export default function AdminPrintingPage() {
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {order.status === 'paid' && (
+                                                    {(order.status === 'confirmed' || order.status === 'paid') && (
                                                         <button
-                                                            onClick={() => handleUpdateStatus(order.id, 'producing')}
+                                                            onClick={() => handleUpdateStatus(order.id, 'printing')}
                                                             className="px-3 py-1.5 bg-purple-500 text-[var(--text-primary)] text-xs rounded-lg hover:bg-purple-600"
                                                         >
                                                             Bắt đầu SX
                                                         </button>
                                                     )}
-                                                    {order.status === 'producing' && (
+                                                    {order.status === 'printing' && (
                                                         <button
-                                                            onClick={() => handleUpdateStatus(order.id, 'shipping')}
+                                                            onClick={() => handleUpdateStatus(order.id, 'finished')}
                                                             className="px-3 py-1.5 bg-cyan-500 text-[var(--text-primary)] text-xs rounded-lg hover:bg-cyan-600"
                                                         >
                                                             Gửi hàng

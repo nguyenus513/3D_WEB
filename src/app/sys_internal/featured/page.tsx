@@ -71,7 +71,7 @@ export default function AdminFeaturedPage() {
     };
 
     const removeFromFeatured = async (productId: string) => {
-        if (!confirm('Bạn có chắc muốn bỏ sản phẩm này khỏi danh sách nổi bật?')) return;
+        if (!confirm('Bạn có chắc muốn bỏ sản phẩm này khỏi danh sách nổi bật VND')) return;
 
         setUpdating(productId);
         try {
@@ -185,11 +185,11 @@ export default function AdminFeaturedPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className="text-[var(--text-primary)]">
-                                            {(product.sale_price || product.base_price).toLocaleString('vi-VN')}đ
+                                            {(product.sale_price || product.base_price).toLocaleString('vi-VN')} VND
                                         </span>
                                         {product.sale_price && (
                                             <span className="text-[var(--text-tertiary)] line-through ml-2 text-sm">
-                                                {product.base_price.toLocaleString('vi-VN')}đ
+                                                {product.base_price.toLocaleString('vi-VN')} VND
                                             </span>
                                         )}
                                     </td>
@@ -284,7 +284,7 @@ export default function AdminFeaturedPage() {
                                                     <div>
                                                         <p className="text-[var(--text-primary)] font-medium">{product.name}</p>
                                                         <p className="text-[var(--text-tertiary)] text-sm">
-                                                            {(product.sale_price || product.base_price).toLocaleString('vi-VN')}đ
+                                                            {(product.sale_price || product.base_price).toLocaleString('vi-VN')} VND
                                                         </p>
                                                     </div>
                                                 </div>

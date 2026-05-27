@@ -90,6 +90,7 @@ export const UpdateProductSchema = z.object({
     name: z.string().min(1).max(150).optional(),
     sku: z.string().min(1).max(50).optional(),
     slug: z.string().max(150).optional(),
+    category_id: optionalCategoryId,
     status: ProductStatus.optional(),
     is_active: z.boolean().optional(),
     base_price: z.coerce.number().int().min(0).optional(),

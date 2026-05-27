@@ -283,24 +283,7 @@ export default function AdminOrderDetailPage() {
                 setOptimisticStatus(null);
                 setOrder({ ...(freshOrder || order), deposit_paid: true, payment_status: (freshOrder?.payment_status || paymentStatus) as any, status: freshOrder?.status || 'confirmed' } as Order);
 
-                // Auto-send confirmation email
-                if (order.profiles?.email) {
-                    await fetch('/api/send-email', {
-                        method: 'POST',
-                        headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
-                        body: JSON.stringify({
-                            type: 'confirmed',
-                            data: {
-                                customerName: order.profiles.full_name || 'Khách hàng',
-                                customerEmail: order.profiles.email,
-                                orderCode: order.order_code,
-                                orderType: order.order_type,
-                                total: order.total,
-                                depositAmount: order.deposit_amount,
-                            },
-                        }),
-                    });
-                }
+                // Email is queued by the backend status update.
             } else {
                 const data = await res.json();
                 console.error('Update failed:', data.error);
@@ -353,30 +336,7 @@ export default function AdminOrderDetailPage() {
                 setOrder({ ...(freshOrder || order), status: freshOrder?.status || newStatus, ...(!freshOrder ? updates : {}) } as Order);
                 setShowTrackingModal(false);
 
-                // Auto-send email for trigger statuses
-                if (emailTriggerStatuses.includes(newStatus) && order.profiles?.email) {
-                    const emailData: Record<string, unknown> = {
-                        customerName: order.profiles.full_name || 'Khách hàng',
-                        customerEmail: order.profiles.email,
-                        orderCode: order.order_code,
-                    };
-
-                    // Add specific data based on status
-                    if (newStatus === 'shipping') {
-                        emailData.shippingCode = trackingCode;
-                        emailData.carrier = 'Viettel Post';
-                        emailData.shippingAddress = order.shipping_address;
-                    }
-                    if (newStatus === 'approved') {
-                        emailData.estimatedDays = 5;
-                    }
-
-                    await fetch('/api/send-email', {
-                        method: 'POST',
-                        headers: addCsrfToRequest({ 'Content-Type': 'application/json' }),
-                        body: JSON.stringify({ type: newStatus, data: emailData }),
-                    });
-                }
+                // Email is queued by the backend status update.
             } else {
                 const data = await res.json();
                 console.error('Update failed:', data.error);
@@ -434,7 +394,7 @@ export default function AdminOrderDetailPage() {
                 };
             });
 
-            alert('Upload thành công! Status đã chuyển sang "Chờ duyệt"');
+            alert('Upload thành công! Trạng thái đã chuyển sang "Chờ duyệt"');
 
             // Hold UI override for 3s to mask any server lag/cache issues
             setTimeout(() => {
@@ -449,7 +409,7 @@ export default function AdminOrderDetailPage() {
             }, 3000);
         } catch (error) {
             console.error('Demo upload error:', error);
-            alert('Upload thất bại: ' + (error as Error).message);
+            alert('Upload thành công! Trạng thái đã chuyển sang "Chờ duyệt"');
         } finally {
             setUploadingDemo(false);
             // Reset input
@@ -730,7 +690,7 @@ export default function AdminOrderDetailPage() {
                                             <div className="p-3 bg-white/5 rounded-lg">
                                                 <p className="text-white/50 text-xs mb-1">Công nghệ</p>
                                                 <p className="text-white font-medium">
-                                                    {order.printing_config.type === 'fdm' ? '🔧 FDM' : '✨ Resin'}
+                                                    {order.printing_config.type === 'fdm' ? 'FDM' : 'Resin'}
                                                 </p>
                                             </div>
                                             <div className="p-3 bg-white/5 rounded-lg">
@@ -803,7 +763,7 @@ export default function AdminOrderDetailPage() {
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="text-white font-medium truncate">{file.name}</p>
-                                                                <p className="text-white/40 text-xs">{file.url ? 'File 3D • Click để tải xuống' : 'File đã ghi nhận nhưng thiếu link tải'}</p>
+                                                                        <p className="text-white/40 text-xs">File 3D - Click để xem</p>
                                                             </div>
                                                         </>
                                                     );
@@ -1011,7 +971,7 @@ export default function AdminOrderDetailPage() {
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
                                                                         <p className="text-white text-sm truncate">{file.name}</p>
-                                                                        <p className="text-white/40 text-xs">File 3D • Click để xem</p>
+                                                                        <p className="text-white/40 text-xs">File 3D - Click để xem</p>
                                                                     </div>
                                                                     <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

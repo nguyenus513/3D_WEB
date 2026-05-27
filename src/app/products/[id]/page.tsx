@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { AnimatedSection } from '@/components/ui/Animations';
 import { useCartStore } from '@/lib/store/cart';
 import type { Product } from '@/types/database';
+import { getProductPriceInfo } from '@/lib/pricing/product-price';
 
 // Variant type from API (product_variants table)
 interface Variant {
@@ -92,7 +93,7 @@ export default function ProductDetailPage() {
         if (!product) return;
 
         const variant = variants[selectedVariant];
-        const price = variant?.price || product.sale_price || product.base_price;
+        const price = variant?.price || getProductPriceInfo(product).effective || 0;
 
         addItem({
             type: 'product',
@@ -148,7 +149,7 @@ export default function ProductDetailPage() {
         if (!product) return;
 
         const variant = variants[selectedVariant];
-        const price = variant?.price || product.sale_price || product.base_price;
+        const price = variant?.price || getProductPriceInfo(product).effective || 0;
 
         addItem({
             type: 'product',
@@ -191,8 +192,8 @@ export default function ProductDetailPage() {
     }
 
     const currentVariant = variants[selectedVariant];
-    const currentPrice = currentVariant?.price || product.sale_price || product.base_price;
-    const hasDiscount = product.sale_price && product.sale_price < product.base_price;
+    const currentPrice = currentVariant?.price || getProductPriceInfo(product).effective || 0;
+    const hasDiscount = variants.length === 0 && product.sale_price && product.sale_price < product.base_price;
 
     return (
         <div className="min-h-screen bg-[var(--bg-void)] pt-28 pb-20">
@@ -320,11 +321,11 @@ export default function ProductDetailPage() {
                         <AnimatedSection delay={0.2}>
                             <div className="mb-8 flex items-center gap-4">
                                 <span className="text-3xl font-bold text-[var(--text-primary)]">
-                                    {currentPrice.toLocaleString('vi-VN')}đ
+                                    {currentPrice > 0 ? `${currentPrice.toLocaleString('vi-VN')} VND` : 'Li?n h?'}
                                 </span>
                                 {hasDiscount && (
                                     <span className="text-xl text-[var(--text-tertiary)] line-through">
-                                        {product.base_price.toLocaleString('vi-VN')}đ
+                                        {product.base_price.toLocaleString('vi-VN')} VND
                                     </span>
                                 )}
                             </div>
@@ -347,7 +348,7 @@ export default function ProductDetailPage() {
                                             >
                                                 <span className="block text-sm font-medium">{variant.name}</span>
                                                 <span className="block text-xs opacity-70">
-                                                    {variant.price.toLocaleString('vi-VN')}đ
+                                                    {variant.price.toLocaleString('vi-VN')} VND
                                                 </span>
                                             </button>
                                         ))}

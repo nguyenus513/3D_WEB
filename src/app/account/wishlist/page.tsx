@@ -107,15 +107,15 @@ export default function WishlistPage() {
                                             {item.product.sale_price ? (
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold text-[var(--text-primary)]">
-                                                        {Number(item.product.sale_price).toLocaleString('vi-VN')}đ
+                                                        {Number(item.product.sale_price).toLocaleString('vi-VN')} VND
                                                     </span>
                                                     <span className="text-sm text-[var(--text-tertiary)] line-through">
-                                                        {Number(item.product.base_price).toLocaleString('vi-VN')}đ
+                                                        {Number(item.product.base_price).toLocaleString('vi-VN')} VND
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <span className="font-semibold text-[var(--text-primary)]">
-                                                    {Number(item.product.base_price).toLocaleString('vi-VN')}đ
+                                                    {Number(item.product.base_price).toLocaleString('vi-VN')} VND
                                                 </span>
                                             )}
                                         </div>

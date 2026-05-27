@@ -1,4 +1,4 @@
-﻿type RealtimeCallback = (payload: { new: Record<string, unknown> }) => void;
+type RealtimeCallback = (payload: { new: Record<string, unknown> }) => void;
 
 interface NoopChannel {
     on: (_event: string, _filter: Record<string, unknown>, _callback: RealtimeCallback) => NoopChannel;

@@ -47,7 +47,8 @@ const statusColors: Record<string, string> = {
     designing: 'bg-purple-500/20 text-purple-400',
     review: 'bg-cyan-500/20 text-cyan-400',
     approved: 'bg-emerald-500/20 text-emerald-400',
-    processing: 'bg-indigo-500/20 text-indigo-400',
+    producing: 'bg-indigo-500/20 text-indigo-400',
+    finished: 'bg-emerald-500/20 text-emerald-400',
     shipping: 'bg-orange-500/20 text-orange-400',
     delivered: 'bg-green-500/20 text-green-400',
     cancelled: 'bg-red-500/20 text-red-400',
@@ -65,7 +66,7 @@ const statusLabels: Record<string, string> = {
     cancelled: 'Đã hủy',
 };
 
-const statusFlow = ['paid', 'designing', 'review', 'approved', 'processing', 'shipping', 'delivered'];
+const statusFlow = ['confirmed', 'designing', 'review', 'approved', 'producing', 'finished', 'shipping', 'delivered'];
 
 export default function AdminCustomDetailPage() {
     const router = useRouter();
@@ -158,7 +159,7 @@ export default function AdminCustomDetailPage() {
             await fetch(`/api/admin/orders/${order.id}/update`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'paid' }),
+                body: JSON.stringify({ status: 'confirmed', deposit_paid: true, confirmed_at: new Date().toISOString(), paid_at: new Date().toISOString() }),
             });
             await fetchOrder();
         } catch (error) {
@@ -361,27 +362,27 @@ export default function AdminCustomDetailPage() {
                         <div className="space-y-3">
                             <div className="flex justify-between">
                                 <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')} VND</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-primary)]">{order.subtotal.toLocaleString('vi-VN')} VND</span>
                             </div>
                             <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
                                 <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
-                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-primary)] font-bold">{order.total.toLocaleString('vi-VN')} VND</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-[var(--text-secondary)]">Đã cọc (50%)</span>
                                 <span className={order.deposit_paid ? 'text-green-400' : 'text-yellow-400'}>
-                                    {order.deposit_amount.toLocaleString('vi-VN')}đ
+                                    {order.deposit_amount.toLocaleString('vi-VN')} VND
                                     {!order.deposit_paid && ' (chưa TT)'}
                                 </span>
                             </div>
                             {remaining > 0 && (
                                 <div className="flex justify-between">
                                     <span className="text-[var(--text-secondary)]">Còn lại</span>
-                                    <span className="text-[var(--text-primary)]">{remaining.toLocaleString('vi-VN')}đ</span>
+                                    <span className="text-[var(--text-primary)]">{remaining.toLocaleString('vi-VN')} VND</span>
                                 </div>
                             )}
                         </div>

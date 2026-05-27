@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useReducedMotion, type TargetAndTransition, type Transition } from 'framer-motion';
 
 export interface JellyMotionOptions {

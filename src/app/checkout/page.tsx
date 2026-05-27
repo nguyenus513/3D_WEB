@@ -38,7 +38,7 @@ function OrderItem({ item, onUpdateNotes }: { item: CartItem | any; onUpdateNote
                     </div>
                 </div>
                 <p className="text-[var(--text-primary)] font-medium whitespace-nowrap">
-                    {((item.price || item.total || 0) * (item.quantity || 1)).toLocaleString('vi-VN')}đ
+                    {((item.price || item.total || 0) * (item.quantity || 1)).toLocaleString('vi-VN')} VND
                 </p>
             </div>
             {onUpdateNotes ? (
@@ -243,12 +243,12 @@ function CheckoutContent() {
                             <div className="space-y-3 text-sm">
                                 <div className="flex justify-between text-[var(--text-secondary)]">
                                     <span>Tạm tính</span>
-                                    <span>{subtotal.toLocaleString('vi-VN')}đ</span>
+                                    <span>{subtotal.toLocaleString('vi-VN')} VND</span>
                                 </div>
                                 {hasCustom && (
                                     <div className="flex justify-between text-[var(--text-secondary)]">
                                         <span>Đặt cọc (50%)</span>
-                                        <span>{depositAmount.toLocaleString('vi-VN')}đ</span>
+                                        <span>{depositAmount.toLocaleString('vi-VN')} VND</span>
                                     </div>
                                 )}
                                 <div className="pt-3 border-t border-[var(--border-color)] flex justify-between items-end">
@@ -256,7 +256,7 @@ function CheckoutContent() {
                                         {hasCustom ? 'Cần thanh toán' : 'Thành tiền'}
                                     </span>
                                     <span className="text-2xl font-bold text-green-400">
-                                        {(hasCustom ? depositAmount : subtotal).toLocaleString('vi-VN')}đ
+                                        {(hasCustom ? depositAmount : subtotal).toLocaleString('vi-VN')} VND
                                     </span>
                                 </div>
                             </div>

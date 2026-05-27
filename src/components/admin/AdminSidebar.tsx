@@ -10,12 +10,13 @@
  */
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { clsx } from 'clsx';
-import { LayoutGrid, Box, Tag, Star, ClipboardList, Users, Settings, ChevronDown, Layers, LogOut } from 'lucide-react';
+import { LayoutGrid, Box, Tag, Star, ClipboardList, Users, Settings, ChevronDown, LogOut } from 'lucide-react';
 import { useAdminPath } from '@/hooks/useAdminPath';
 
 interface NavItem {
@@ -96,14 +97,8 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: 
         )}>
             {/* Logo */}
             <div className="p-6 border-b border-[var(--border-color)]">
-                <Link href={effectiveRoot} className="flex items-center gap-3 group">
-                    <div className="w-10 h-10 rounded-2xl bg-white shadow-lg flex items-center justify-center transition-transform group-hover:scale-105 group-hover:rotate-3">
-                        <Layers size={24} className="text-black" strokeWidth={2} />
-                    </div>
-                    <div>
-                        <span className="text-[var(--text-primary)] font-bold tracking-tight text-lg block">Miniver</span>
-                        <span className="text-[var(--text-secondary)] text-xs block font-medium">3D Lab Admin</span>
-                    </div>
+                <Link href={effectiveRoot} className="inline-flex items-center rounded-full bg-white shadow-lg transition-transform hover:scale-105" aria-label="Miniver Admin">
+                    <Image src="/brand/miniver-icon-round.png" alt="Miniver" width={48} height={48} priority className="h-12 w-12 rounded-full object-contain" />
                 </Link>
             </div>
 

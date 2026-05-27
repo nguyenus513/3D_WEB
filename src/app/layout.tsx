@@ -17,7 +17,12 @@ export const metadata: Metadata = {
   description: 'Dịch vụ in 3D chuyên nghiệp, thiết kế mô hình theo yêu cầu, và sản phẩm độc đáo.',
   keywords: ['3D print', 'mô hình 3D', 'custom', 'in 3D', 'tượng 3D', 'figure'],
   icons: {
-    icon: '/globe.svg',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/brand/miniver-icon-round.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/brand/miniver-icon-round.png',
   },
 };
 

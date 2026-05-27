@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Payment Config Service
  * MongoDB-backed payment configuration helpers.
  */

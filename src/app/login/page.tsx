@@ -91,7 +91,7 @@ function LoginForm() {
         if (!isMounted || sessionStatus !== 'authenticated') return;
         sessionStorage.removeItem('miniver.returnTo');
         const role = (activeSession?.user as { role?: string } | undefined)?.role;
-        window.location.replace(role === 'admin' ? '/sys_internal' : callbackUrl);
+        window.location.replace(role === 'admin' ? '/admin/verify-2fa' : callbackUrl);
     }, [isMounted, sessionStatus, activeSession, callbackUrl]);
 
     if (!isMounted) return null;
@@ -139,7 +139,7 @@ function LoginForm() {
                 const session = await sessionRes.json();
 
                 if (session?.user?.role === 'admin') {
-                    window.location.href = '/sys_internal';
+                    window.location.href = '/admin/verify-2fa';
                     return;
                 }
 

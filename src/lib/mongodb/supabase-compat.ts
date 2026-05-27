@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import type { Collection, Document, Filter } from 'mongodb';
 import { getMongoDb } from './client';
 
@@ -25,6 +25,10 @@ const TABLE_ALIASES: Record<string, string> = {
 const RELATION_FIELDS: Record<string, string> = {
     items: 'order_items',
     order_items: 'order_items',
+    product_variants: 'product_variants',
+    variants: 'product_variants',
+    categories: 'categories',
+    category: 'categories',
 };
 
 function normalizeTable(table: string): string {
@@ -51,6 +55,7 @@ function parseOrExpression(expression: string): Filter<Document>[] {
             if (!field || !op || !value) return null;
             const key = normalizeField(field);
             if (op === 'eq') return { [key]: value } as Filter<Document>;
+            if (op === 'is' && value === 'null') return { $or: [{ [key]: null }, { [key]: { $exists: false } }] } as Filter<Document>;
             if (op === 'ilike') {
                 const pattern = escapeRegExp(value).replace(/%/g, '.*');
                 return { [key]: { $regex: `^${pattern}$`, $options: 'i' } } as Filter<Document>;
@@ -140,6 +145,18 @@ class MongoSupabaseQuery<T = any> implements PromiseLike<QueryResult<T>> {
         return this;
     }
 
+    is(field: string, value: unknown): this {
+        const key = normalizeField(field);
+        this.filters[key] = value === null
+            ? { $in: [null], $exists: false }
+            : value;
+        if (value === null) {
+            delete this.filters[key];
+            this.filters.$or = [{ [key]: null }, { [key]: { $exists: false } }] as any;
+        }
+        return this;
+    }
+
     gt(field: string, value: unknown): this {
         this.mergeOperator(field, '$gt', value);
         return this;
@@ -162,11 +179,6 @@ class MongoSupabaseQuery<T = any> implements PromiseLike<QueryResult<T>> {
 
     in(field: string, values: unknown[]): this {
         this.filters[normalizeField(field)] = { $in: values };
-        return this;
-    }
-
-    is(field: string, value: unknown): this {
-        this.filters[normalizeField(field)] = value;
         return this;
     }
 
@@ -329,6 +341,31 @@ class MongoSupabaseQuery<T = any> implements PromiseLike<QueryResult<T>> {
             }
         }
 
+        if (this.selectedRelations.has('product_variants')) {
+            const productIds = hydrated.map((doc) => String(doc._id));
+            const variants = await db.collection('product_variants')
+                .find({ product_id: { $in: productIds }, deleted_at: { $exists: false } })
+                .sort({ sort_order: 1, created_at: 1 })
+                .toArray();
+            for (const doc of hydrated) {
+                doc.product_variants = fromMongoDocuments(variants.filter((variant) => variant.product_id === String(doc._id)));
+                doc.variants = doc.product_variants;
+            }
+        }
+
+        if (this.selectedRelations.has('categories')) {
+            const categoryIds = hydrated
+                .map((doc) => doc.category_id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0);
+            const categories = categoryIds.length > 0
+                ? await db.collection('categories').find({ _id: { $in: categoryIds } } as any).toArray()
+                : [];
+            for (const doc of hydrated) {
+                const category = categories.find((item) => String(item._id) === String(doc.category_id));
+                doc.category = category ? fromMongoDocument(category) : null;
+            }
+        }
+
         return hydrated;
     }
 }
@@ -349,18 +386,93 @@ export class MongoSupabaseCompatClient {
     async rpc(functionName: string, params: Record<string, unknown> = {}): Promise<QueryResult> {
         try {
             const db = await getMongoDb();
-            if (functionName === 'deduct_variant_stock_direct') {
+            const now = new Date().toISOString();
+            const qty = Math.max(0, Number(params.p_qty || params.qty || 0));
+            const variantId = String(params.p_variant_id || params.variant_id || '');
+            const productId = String(params.p_product_id || params.product_id || '');
+
+            const syncProductStock = async (id: string) => {
+                if (!id) return;
+                const variants = await db.collection('product_variants').find({ product_id: id, deleted_at: { $exists: false } }).toArray();
+                const stock = variants.reduce((sum, variant) => sum + Math.max(0, Number(variant.stock || 0)), 0);
+                await db.collection('products').updateOne({ _id: id } as any, { $set: { stock, updated_at: now } });
+            };
+
+            const updateLegacySizeStock = async (id: string, delta: number) => {
+                if (!id || delta === 0) return;
                 await db.collection('products').updateOne(
-                    { 'sizes.id': params.p_variant_id, 'sizes.stock': { $gte: params.p_qty } },
-                    { $inc: { 'sizes.$.stock': -Number(params.p_qty || 0) } },
+                    { 'sizes.id': id },
+                    { $inc: { 'sizes.$.stock': delta }, $set: { updated_at: now } },
                 );
+            };
+
+            const getVariant = async (id: string) => db.collection('product_variants').findOne({ _id: id } as any);
+
+            if (functionName === 'reserve_variant_stock') {
+                if (!variantId || qty <= 0) return { data: null, error: { message: 'variant_id and qty are required' } };
+                const result = await db.collection('product_variants').updateOne(
+                    ({
+                        _id: variantId,
+                        is_active: { $ne: false },
+                        deleted_at: { $exists: false },
+                        $expr: { $gte: [{ $subtract: [{ $ifNull: ['$stock', 0] }, { $ifNull: ['$reserved_stock', 0] }] }, qty] },
+                    } as any),
+                    { $inc: { reserved_stock: qty }, $set: { updated_at: now } },
+                );
+                if (result.matchedCount === 0) return { data: null, error: { message: 'Insufficient stock or variant not found' } };
+                return { data: null, error: null };
             }
+
+            if (functionName === 'confirm_variant_stock' || functionName === 'deduct_variant_stock_direct') {
+                if (!variantId || qty <= 0) return { data: null, error: { message: 'variant_id and qty are required' } };
+                let result = await db.collection('product_variants').updateOne(
+                    { _id: variantId, reserved_stock: { $gte: qty }, stock: { $gte: qty }, deleted_at: { $exists: false } } as any,
+                    { $inc: { stock: -qty, reserved_stock: -qty }, $set: { updated_at: now } },
+                );
+                if (result.matchedCount === 0) {
+                    result = await db.collection('product_variants').updateOne(
+                        { _id: variantId, stock: { $gte: qty }, deleted_at: { $exists: false } } as any,
+                        { $inc: { stock: -qty }, $set: { reserved_stock: 0, updated_at: now } },
+                    );
+                }
+                if (result.matchedCount === 0) return { data: null, error: { message: 'Insufficient stock or variant not found' } };
+                const variant = await getVariant(variantId);
+                await syncProductStock(String(variant?.product_id || ''));
+                await updateLegacySizeStock(variantId, -qty);
+                return { data: null, error: null };
+            }
+
+            if (functionName === 'release_variant_stock') {
+                if (!variantId || qty <= 0) return { data: null, error: { message: 'variant_id and qty are required' } };
+                const result = await db.collection('product_variants').updateOne(
+                    { _id: variantId, reserved_stock: { $gte: qty }, deleted_at: { $exists: false } } as any,
+                    { $inc: { reserved_stock: -qty }, $set: { updated_at: now } },
+                );
+                if (result.matchedCount === 0) return { data: null, error: { message: 'Reserved stock not found' } };
+                return { data: null, error: null };
+            }
+
             if (functionName === 'restore_variant_stock') {
-                await db.collection('products').updateOne(
-                    { 'sizes.id': params.p_variant_id },
-                    { $inc: { 'sizes.$.stock': Number(params.p_qty || 0) } },
+                if (!variantId || qty <= 0) return { data: null, error: { message: 'variant_id and qty are required' } };
+                await db.collection('product_variants').updateOne(
+                    { _id: variantId, deleted_at: { $exists: false } } as any,
+                    { $inc: { stock: qty }, $set: { updated_at: now } },
                 );
+                const variant = await getVariant(variantId);
+                await syncProductStock(String(variant?.product_id || ''));
+                await updateLegacySizeStock(variantId, qty);
+                return { data: null, error: null };
             }
+
+            if (functionName === 'increment_sold_count') {
+                if (!productId || qty <= 0) return { data: null, error: { message: 'product_id and qty are required' } };
+                await db.collection('products').updateOne(
+                    { _id: productId } as any,
+                    { $inc: { sold_count: qty }, $set: { updated_at: now } },
+                );
+                return { data: null, error: null };
+            }
+
             return { data: null, error: null };
         } catch (error) {
             return { data: null, error: { message: error instanceof Error ? error.message : String(error) } };

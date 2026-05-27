@@ -11,6 +11,7 @@ import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { generateId } from '@/lib/generateId';
 import { createLogger } from '@/lib/logger';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 const log = createLogger('custom-order');
 
@@ -31,7 +32,7 @@ interface CustomOrderRequest {
         name: string;
         url?: string;
         thumbnail?: string;
-        category?: 'main' | 'glasses' | 'hat';
+        category?: 'main' | 'glasses' | 'hat' | 'model_image';
         characterIndex?: number;
         size?: number;
         type?: string;
@@ -43,6 +44,14 @@ interface CustomOrderRequest {
         glassesDescription?: string;
         hasHat: boolean;
         hatDescription?: string;
+        extraDescription?: string;
+        modelImageDraft?: {
+            characterIndex: number;
+            prompt: string;
+            previewUrl?: string;
+            approved?: boolean;
+            generatedModelImage?: { url: string; key: string; fileId?: string } | null;
+        } | null;
     }>;
 }
 
@@ -105,6 +114,32 @@ export async function POST(request: NextRequest) {
         const now = new Date().toISOString();
 
         log.info('Creating custom order', { orderCode, type, size, totalPrice });
+        const modelImagesByCharacter = new Map<number, CustomOrderRequest['images'][number]>();
+        for (const image of images || []) {
+            if (image.category === 'model_image') modelImagesByCharacter.set(image.characterIndex || 1, image);
+        }
+
+        const modelImageDrafts = (charData || [])
+            .map((character) => {
+                if (!character.modelImageDraft) return null;
+                const uploadedModelImage = modelImagesByCharacter.get(character.index);
+                const modelKey = uploadedModelImage?.id || uploadedModelImage?.name;
+                return {
+                    ...character.modelImageDraft,
+                    characterIndex: character.index,
+                    extraDescription: character.extraDescription || '',
+                    glassesDescription: character.glassesDescription || '',
+                    hatDescription: character.hatDescription || '',
+                    approved: true,
+                    previewUrl: uploadedModelImage?.url || character.modelImageDraft.previewUrl || '',
+                    generatedModelImage: uploadedModelImage ? {
+                        url: uploadedModelImage.url || (modelKey ? `/api/files/${modelKey}` : ''),
+                        key: modelKey || '',
+                        fileId: uploadedModelImage.fileId,
+                    } : character.modelImageDraft.generatedModelImage || null,
+                };
+            })
+            .filter(Boolean);
 
         // Step 1: Create order (ĐƠN TỔNG)
         const { data: order, error: orderError } = await supabase
@@ -170,6 +205,7 @@ export async function POST(request: NextRequest) {
                     notes: notes || null,
                     image_count: images?.length || 0,
                     characters: charData || [],
+                    modelImageDrafts,
                 },
             })
             .select()
@@ -273,6 +309,12 @@ export async function POST(request: NextRequest) {
                 }
             }
         }
+
+        await sendOrderStatusEmail({
+            orderId: order.id,
+            oldStatus: null,
+            newStatus: 'pending',
+        });
 
         // Return success response
         return NextResponse.json({

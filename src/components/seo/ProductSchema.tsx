@@ -88,13 +88,14 @@ export function BreadcrumbSchema({ items }: BreadcrumbSchemaProps) {
  * Organization JSON-LD Schema (for homepage)
  */
 export function OrganizationSchema() {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.miniver.id.vn').replace(/\/$/, '');
     const schema = {
         '@context': 'https://schema.org',
         '@type': 'Organization',
         name: 'Miniver3D Lab',
         description: 'Studio thiết kế và sản xuất tượng 3D handmade cao cấp',
-        url: 'https://miniver3d.com',
-        logo: 'https://miniver3d.com/logo.png',
+        url: appUrl,
+        logo: `${appUrl}/brand/miniver-logo-full.png`,
         sameAs: [
             'https://facebook.com/miniver3d',
             'https://instagram.com/miniver3d',

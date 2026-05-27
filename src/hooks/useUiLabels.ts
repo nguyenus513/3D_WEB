@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 type LabelValue = string | number | boolean | null | undefined | LabelMap | LabelValue[];
 type LabelMap = { [key: string]: LabelValue };
@@ -8,7 +8,7 @@ const LABELS: Record<string, LabelValue> = {
     searchPlaceholder: 'Tìm kiếm...',
     notifications: {
       title: 'Thông báo',
-      pendingLabel: '{{count}} đơn chờ xử lý',
+      pendingLabel: '{{count}} chưa đọc',
       empty: 'Không có thông báo mới',
       viewAll: 'Xem tất cả',
     },
@@ -21,6 +21,7 @@ const LABELS: Record<string, LabelValue> = {
       product: 'Sản phẩm',
       custom: 'Thiết kế riêng',
       printing: 'In 3D',
+      print_3d: 'In 3D',
     },
     time: {
       justNow: 'Vừa xong',
@@ -50,9 +51,10 @@ export function useUiLabels(_namespaces: string[] = []) {
   const formatLabel = (template: string, values: Record<string, string | number> = {}) => {
     return Object.entries(values).reduce(
       (label, [key, value]) => label.replaceAll(`{{${key}}}`, String(value)),
-      template
+      template,
     );
   };
 
   return { t, formatLabel };
 }
+

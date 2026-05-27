@@ -102,9 +102,18 @@ async function insertFileRecord(data: {
                     .from('files')
                     .insert({
                         file_url: fileUrl,
+                        file_key: data.fileKey,
+                        object_key: data.fileKey,
+                        storage_provider: data.storageProvider,
                         mime_type: data.mimeType,
                         size_bytes: data.sizeBytes,
                         provider: data.storageProvider,
+                        original_filename: data.fileName,
+                        file_name: data.fileName,
+                        category: data.category,
+                        owner_id: data.ownerId,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
                     })
                     .select('id')
                     .single();
@@ -121,9 +130,18 @@ async function insertFileRecord(data: {
                 .from('files')
                 .insert({
                     file_url: fileUrl,
+                    file_key: data.fileKey,
+                    object_key: data.fileKey,
+                    storage_provider: data.storageProvider,
                     mime_type: data.mimeType,
                     size_bytes: data.sizeBytes,
                     provider: data.storageProvider,
+                    original_filename: data.fileName,
+                    file_name: data.fileName,
+                    category: data.category,
+                    owner_id: data.ownerId,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
                 })
                 .select('id')
                 .single();
@@ -379,7 +397,11 @@ export class UploadService {
             fileType = params.tech === 'resin' ? 'resin' : 'fdm';
         } else if (type.startsWith('custom_')) {
             // Check photo category for custom orders
-            fileType = params.photoCategory === 'accessory' ? 'acc' : 'main';
+            if (params.photoCategory === 'model_image') fileType = 'model';
+            else if (params.photoCategory === 'glasses') fileType = 'glasses';
+            else if (params.photoCategory === 'hat') fileType = 'hat';
+            else if (params.photoCategory === 'accessory') fileType = 'acc';
+            else fileType = 'main';
         }
 
         // Override if review flag is set

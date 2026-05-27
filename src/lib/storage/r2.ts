@@ -3,7 +3,7 @@
  * 
  * Hybrid Storage Flow:
  * - Product images: R2 (permanent, fast serving via Worker)
- * - Customer uploads (images): R2 â†’ Drive after order complete
+ * - Customer uploads (images): R2 → Drive after order complete
  * - STL/OBJ files: Direct to Google Drive
  */
 
@@ -144,12 +144,12 @@ export function generateCustomR2Key(
     orderCode: string,
     customType: 'single' | 'couple' | 'group',
     personCount: number,
-    photoCategory: 'main' | 'accessory' | 'glasses' | 'hat',
+    photoCategory: 'main' | 'accessory' | 'glasses' | 'hat' | 'model_image',
     photoIndex: number,
     extension: string
 ): string {
     const x = customType === 'single' ? 1 : customType === 'couple' ? 2 : Math.max(3, personCount);
-    const categoryMap: Record<string, number> = { main: 1, accessory: 2, glasses: 3, hat: 4 };
+    const categoryMap: Record<string, number> = { main: 1, accessory: 2, glasses: 3, hat: 4, model_image: 5 };
     const y = categoryMap[photoCategory] ?? 1;
     const ext = extension.startsWith('.') ? extension.slice(1) : extension;
     const fileName = `${orderCode}-${x}.${y}.${photoIndex}.${ext}`;
@@ -382,4 +382,3 @@ export function isR2Url(url: string): boolean {
     }
     return r2Indicators.some(indicator => url.includes(indicator));
 }
-

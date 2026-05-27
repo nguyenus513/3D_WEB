@@ -35,7 +35,7 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
     }, [isOpen, onClose]);
 
     const formatPrice = (price: number) =>
-        price.toLocaleString('vi-VN') + 'đ';
+        price.toLocaleString('vi-VN') + ' VND';
 
     /**
      * Download file via admin API.
@@ -151,8 +151,8 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
                                         <SpecItem
                                             label="Công nghệ"
                                             value={
-                                                isFdm ? '🔧 FDM'
-                                                    : isResin ? '✨ Resin (SLA)'
+                                                isFdm ? 'FDM'
+                                                    : isResin ? 'Resin (SLA)'
                                                         : tech?.toUpperCase() || '—'
                                             }
                                         />
@@ -162,7 +162,7 @@ export default function PrintFileDetail({ file, orderId, onClose }: PrintFileDet
                                                 file.spec.material
                                                     ? file.spec.material.replace(/_/g, ' ')
                                                     : isFdm ? 'PETG'
-                                                        : isResin ? 'Standard Resin'
+                                                    : isResin ? 'Resin (SLA)'
                                                             : '—'
                                             }
                                             capitalize

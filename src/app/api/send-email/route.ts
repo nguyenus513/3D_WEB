@@ -97,12 +97,13 @@ export async function POST(request: NextRequest) {
 
         if (success) {
             return NextResponse.json({ success: true });
-        } else {
-            return NextResponse.json(
-                { error: 'Failed to send email (check BREVO_API_KEY)' },
-                { status: 500 }
-            );
         }
+
+        return NextResponse.json({
+            success: false,
+            warning: 'EMAIL_SEND_FAILED',
+            error: 'Email provider failed; order update was not rolled back',
+        });
     } catch (error) {
         console.error('[API/send-email] Error:', error);
         return NextResponse.json(

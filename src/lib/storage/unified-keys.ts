@@ -16,7 +16,7 @@
 // Types
 // =============================================================================
 
-export type FileType = 'main' | 'acc' | 'fdm' | 'resin' | 'review' | 'product';
+export type FileType = 'main' | 'acc' | 'glasses' | 'hat' | 'model' | 'fdm' | 'resin' | 'review' | 'product';
 
 // NEW: Order-centric storage types (Production-Ready)
 // Categories aligned with order_files.category in database

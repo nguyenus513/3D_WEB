@@ -96,7 +96,7 @@ export default function AdminDashboardContent() {
         {
             name: `Thu nhập T${stats.currentMonth || new Date().getMonth() + 1}`,
             value: stats.revenue.toLocaleString('vi-VN'),
-            suffix: 'đ',
+            suffix: ' VND',
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -244,7 +244,7 @@ export default function AdminDashboardContent() {
                                         </td>
                                         <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{order.customer_name || 'Chưa có tên khách hàng'}</td>
                                         <td className="px-4 lg:px-5 py-4 text-[var(--text-secondary)] text-sm">{typeLabels[order.order_type] || order.order_type}</td>
-                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-primary)] text-sm whitespace-nowrap">{order.total.toLocaleString('vi-VN')}đ</td>
+                                        <td className="px-4 lg:px-5 py-4 text-[var(--text-primary)] text-sm whitespace-nowrap">{order.total.toLocaleString('vi-VN')} VND</td>
                                         <td className="px-4 lg:px-5 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[order.status]}`}>
                                                 {statusLabels[order.status] || order.status}

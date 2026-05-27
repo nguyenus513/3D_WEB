@@ -1,4 +1,4 @@
-﻿import { getMongoDb } from '@/lib/mongodb';
+import { getMongoDb } from '@/lib/mongodb';
 
 export const dbRequest = {
     async query(_text: string, _params?: unknown[]) {

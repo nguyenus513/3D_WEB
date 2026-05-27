@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Smart Profile ID Lookup Utility
  * 
  * Handles corrupted session IDs by falling back to email lookup.

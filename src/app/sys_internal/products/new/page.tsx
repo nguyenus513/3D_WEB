@@ -75,10 +75,19 @@ export default function AdminProductNewPage() {
             .toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd')
+            .replace(/ VND/g, 'd')
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-|-$/g, '');
     };
+
+    const getVariantBasePrice = () => {
+        const prices = formData.sizes
+            .map((size) => parseInt(size.price) || 0)
+            .filter((price) => price > 0);
+        return prices.length > 0 ? Math.min(...prices) : 0;
+    };
+
+    const getVariantStock = () => formData.sizes.reduce((sum, size) => sum + (parseInt(size.stock) || 0), 0);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -91,9 +100,9 @@ export default function AdminProductNewPage() {
                 name: formData.name,
                 slug: generateSlug(formData.name) + '-' + Date.now(),
                 status: formData.status,
-                base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : 0,
+                base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : getVariantBasePrice(),
                 sale_price: null,
-                stock: pricingMode === 'original' ? parseInt(formData.stock) || 0 : 0,
+                stock: pricingMode === 'original' ? parseInt(formData.stock) || 0 : getVariantStock(),
                 images: formData.images.map((img, i) => ({ url: img.url, is_main: i === 0 })),
                 variants: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
                     name: s.name,
@@ -493,7 +502,7 @@ export default function AdminProductNewPage() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Giá (VNĐ)</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Giá (VND)</label>
                                                         <input
                                                             type="number"
                                                             value={size.price}
@@ -712,7 +721,7 @@ export default function AdminProductNewPage() {
                                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
                                         <span className="text-[var(--text-secondary)]">Giá bán:</span>
                                         <span className="text-[var(--text-primary)] font-medium">
-                                            {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + 'đ' : '-'}
+                                            {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + ' VND' : '-'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-2">
@@ -736,7 +745,7 @@ export default function AdminProductNewPage() {
                                         <span className="text-[var(--text-secondary)]">Khoảng giá:</span>
                                         <span className="text-[var(--text-primary)] font-medium">
                                             {formData.sizes.length > 0
-                                                ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ`
+                                                ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')} VND - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')} VND`
                                                 : '-'
                                             }
                                         </span>

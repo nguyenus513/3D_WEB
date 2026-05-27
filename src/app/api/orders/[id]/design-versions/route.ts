@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Design Versions API
  * GET /api/orders/[id]/design-versions - List all design versions for an order
  *
@@ -46,6 +46,12 @@ export async function GET(
             }
         }
 
+        const { data: orderMeta } = await supabase
+            .from('orders')
+            .select('review_at, updated_at, created_at')
+            .eq('id', orderId)
+            .maybeSingle();
+
         // Fetch all versions with images
         const { data: versions, error } = await supabase
             .from('design_versions')
@@ -74,8 +80,10 @@ export async function GET(
         }
 
         // Sort images within each version
+        const fallbackCreatedAt = orderMeta?.review_at || orderMeta?.updated_at || orderMeta?.created_at || new Date().toISOString();
         const sortedVersions = (versions || []).map((v: any) => ({
             ...v,
+            created_at: v.created_at || fallbackCreatedAt,
             design_images: (v.design_images || []).sort(
                 (a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order
             ),
@@ -92,4 +100,3 @@ export async function GET(
         return NextResponse.json({ error: 'Internal error' }, { status: 500 });
     }
 }
-

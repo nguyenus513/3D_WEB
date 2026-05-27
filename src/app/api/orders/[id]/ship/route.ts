@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 export async function POST(
     request: NextRequest,
@@ -37,9 +38,9 @@ export async function POST(
         }
 
         // Validate current status
-        if (order.status !== 'producing') {
+        if (!['producing', 'finished'].includes(order.status)) {
             return NextResponse.json({
-                error: `Cannot ship. Current status: ${order.status}. Expected: producing`
+                error: `Cannot ship. Current status: ${order.status}. Expected: producing or finished`
             }, { status: 400 });
         }
 
@@ -61,6 +62,13 @@ export async function POST(
             console.error('[ShipOrder] Update error:', updateError);
             return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
         }
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'shipping',
+            shippingCode: tracking_number || undefined,
+        });
 
         // Revalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');

@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/security/admin-guard';
+import { revalidateTag } from 'next/cache';
+
+function createSlug(input: string): string {
+    return input
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\u0111/g, 'd')
+        .replace(/\u0110/g, 'D')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80) || `danh-muc-${Date.now()}`;
+}
+
+async function getUniqueCategorySlug(supabase: ReturnType<typeof getAdminSupabase>, name: string, currentId?: string): Promise<string> {
+    const base = createSlug(name);
+    let candidate = base;
+    for (let suffix = 2; suffix < 1000; suffix++) {
+        const { data: existing } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('slug', candidate)
+            .maybeSingle();
+        if (!existing || existing.id === currentId) return candidate;
+        candidate = `${base}-${suffix}`;
+    }
+    return `${base}-${Date.now()}`;
+}
+
 
 /**
  * GET /api/admin/categories
@@ -17,6 +46,7 @@ export async function GET(request: NextRequest) {
         const { data, error } = await supabase
             .from('categories')
             .select('*')
+            .or('deleted_at.is.null,deleted_at.eq.')
             .order('sort_order', { ascending: true });
 
         if (error) {
@@ -59,14 +89,18 @@ export async function POST(request: NextRequest) {
             .single();
 
         const sortOrder = (maxOrder?.sort_order || 0) + 1;
+        const slug = await getUniqueCategorySlug(supabase, name);
 
         const { data, error } = await supabase
             .from('categories')
             .insert({
                 name,
+                slug,
                 description: description || null,
                 sort_order: sortOrder,
                 is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             })
             .select()
             .single();
@@ -76,6 +110,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
+        revalidateTag('categories');
+        revalidateTag('products');
         return NextResponse.json({ category: data });
     } catch (error) {
         console.error('Create category error:', error);
@@ -100,9 +136,21 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'ID là bắt buộc' }, { status: 400 });
         }
 
+        const { data: activeProducts } = await supabase
+            .from('products')
+            .select('id')
+            .eq('category_id', id)
+            .eq('is_active', true)
+            .limit(1);
+
+        if (activeProducts && activeProducts.length > 0) {
+            return NextResponse.json({ error: 'Danh mục đang có sản phẩm hoạt động. Hãy chuyển/xóa sản phẩm trước.' }, { status: 409 });
+        }
+
+        const now = new Date().toISOString();
         const { error } = await supabase
             .from('categories')
-            .delete()
+            .update({ is_active: false, deleted_at: now, updated_at: now })
             .eq('id', id);
 
         if (error) {
@@ -110,6 +158,8 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
+        revalidateTag('categories');
+        revalidateTag('products');
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Delete category error:', error);
@@ -136,13 +186,18 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'ID và tên là bắt buộc' }, { status: 400 });
         }
 
+        const slug = await getUniqueCategorySlug(supabase, name, id);
+
         const { data, error } = await supabase
             .from('categories')
             .update({
                 name,
+                slug,
                 description: body.description || null,
                 sort_order: sort_order || 0,
                 is_active: body.is_active ?? true,
+                deleted_at: body.is_active === false ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString(),
             })
             .eq('id', id)
             .select()
@@ -153,6 +208,8 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
+        revalidateTag('categories');
+        revalidateTag('products');
         return NextResponse.json({ category: data });
     } catch (error) {
         console.error('Update category error:', error);

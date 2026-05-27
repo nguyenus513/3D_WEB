@@ -318,7 +318,7 @@ export default function CustomPage() {
                                             <h3 className="text-lg font-semibold">{type.name}</h3>
                                             <p className="text-sm opacity-70">{type.desc}</p>
                                             <p className="text-lg font-semibold mt-2">
-                                                {type.price.toLocaleString('vi-VN')}d
+                                                {type.price.toLocaleString('vi-VN')} VND
                                             </p>
                                         </button>
                                     ))}
@@ -470,7 +470,7 @@ export default function CustomPage() {
                                             <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
                                                 <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
                                                 <span className="text-[var(--text-primary)] font-bold text-lg">
-                                                    {totalPrice.toLocaleString('vi-VN')}d
+                                                    {totalPrice.toLocaleString('vi-VN')} VND
                                                 </span>
                                             </div>
                                             <p className="text-[var(--text-tertiary)] text-xs mt-2">
@@ -521,7 +521,7 @@ export default function CustomPage() {
                                         Đang xử lý...
                                     </span>
                                 ) : (
-                                    `Thêm vào giỏ hàng - ${totalPrice.toLocaleString('vi-VN')}đ`
+                                    `Thêm vào giỏ hàng - ${totalPrice.toLocaleString('vi-VN')} VND`
                                 )}
                             </Button>
                         )}

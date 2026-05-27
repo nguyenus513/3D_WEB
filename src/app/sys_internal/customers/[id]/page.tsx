@@ -161,7 +161,7 @@ export default function AdminCustomerDetailPage() {
                                 <p className="text-[var(--text-secondary)] text-sm">Đơn hàng</p>
                             </div>
                             <div className="text-center p-4 rounded-xl bg-[var(--material-glass)]">
-                                <p className="text-2xl font-bold text-green-400">{totalSpent.toLocaleString('vi-VN')}đ</p>
+                                <p className="text-2xl font-bold text-green-400">{totalSpent.toLocaleString('vi-VN')} VND</p>
                                 <p className="text-[var(--text-secondary)] text-sm">Tổng chi tiêu</p>
                             </div>
                             <div className="text-center p-4 rounded-xl bg-[var(--material-glass)]">
@@ -249,7 +249,7 @@ export default function AdminCustomerDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <span className="text-[var(--text-primary)] font-medium">
-                                        {order.total_amount.toLocaleString('vi-VN')}đ
+                                        {order.total_amount.toLocaleString('vi-VN')} VND
                                     </span>
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-[var(--material-glass)] text-[var(--text-secondary)]'}`}>
                                         {statusLabels[order.status] || order.status}

@@ -41,7 +41,7 @@ export type Tech = z.infer<typeof TechSchema>;
 // Photo Category Enum
 // =============================================================================
 
-export const PhotoCategorySchema = z.enum(['main', 'accessory', 'glasses', 'hat']);
+export const PhotoCategorySchema = z.enum(['main', 'accessory', 'glasses', 'hat', 'model_image']);
 export type PhotoCategory = z.infer<typeof PhotoCategorySchema>;
 
 // =============================================================================

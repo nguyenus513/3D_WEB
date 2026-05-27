@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { migrateOrderToArchive } from '@/lib/storage/migrate-to-drive';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 export async function POST(
     request: NextRequest,
@@ -56,6 +57,12 @@ export async function POST(
             console.error('[CompleteOrder] Update error:', updateError);
             return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
         }
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'delivered',
+        });
 
         // Migrate files from R2 to Google Drive & cleanup R2
         // This runs in background to not block the response

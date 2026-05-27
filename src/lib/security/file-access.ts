@@ -27,6 +27,97 @@ export interface FileAccessLogEntry {
     deniedReason?: string;
 }
 
+async function findTrackedFile(fileKey: string) {
+    const supabase = getAdminSupabase();
+    const proxyUrl = `/api/files/${fileKey}`;
+    const candidates = [
+        { column: 'file_url', value: proxyUrl },
+        { column: 'file_url', value: fileKey },
+        { column: 'object_key', value: fileKey },
+        { column: 'file_key', value: fileKey },
+    ];
+
+    for (const candidate of candidates) {
+        const { data, error } = await supabase
+            .from('files')
+            .select('id, file_url, owner_id')
+            .eq(candidate.column, candidate.value)
+            .maybeSingle();
+        if (!error && data) return data;
+    }
+
+    return null;
+}
+
+function getOrderCodeCandidates(fileKey: string): string[] {
+    const candidates = new Set<string>();
+    const orderMatch = fileKey.match(/orders\/([^/]+)\//);
+    if (orderMatch?.[1]) candidates.add(orderMatch[1]);
+
+    const legacyMatch = fileKey.match(/^[^/]+\/\d{4}-\d{2}-\d{2}\/([^/]+)\//);
+    if (legacyMatch?.[1]) candidates.add(legacyMatch[1]);
+
+    const basename = fileKey.split('/').pop() || '';
+    const basenameCode = basename.match(/^([0-9A-Fa-f]{8,})[-_.]/)?.[1];
+    if (basenameCode) candidates.add(basenameCode);
+
+    return [...candidates].map(code => code.toUpperCase());
+}
+
+async function canAccessByOrderCode(userId: string, fileKey: string): Promise<FileAccessCheck | null> {
+    const supabase = getAdminSupabase();
+    for (const orderCode of getOrderCodeCandidates(fileKey)) {
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .select('id, user_id')
+            .eq('order_code', orderCode)
+            .maybeSingle();
+
+        if (orderError) {
+            console.warn('[FileAccess] Order lookup error:', orderError.message, { fileKey, orderCode });
+            continue;
+        }
+
+        if (order?.user_id === userId) {
+            return { allowed: true, reason: 'order_owner' };
+        }
+    }
+
+    return null;
+}
+
+async function canAccessDesignImage(userId: string, fileKey: string, fileId?: string): Promise<FileAccessCheck | null> {
+    const supabase = getAdminSupabase();
+    const proxyUrl = `/api/files/${fileKey}`;
+    const { data: image } = await supabase
+        .from('design_images')
+        .select('id, version_id')
+        .eq('image_url', proxyUrl)
+        .maybeSingle();
+
+    if (!image?.version_id) return null;
+
+    const { data: version } = await supabase
+        .from('design_versions')
+        .select('order_id')
+        .eq('id', image.version_id)
+        .maybeSingle();
+
+    if (!version?.order_id) return null;
+
+    const { data: order } = await supabase
+        .from('orders')
+        .select('user_id')
+        .eq('id', version.order_id)
+        .maybeSingle();
+
+    if (order?.user_id === userId) {
+        return { allowed: true, reason: 'design_image_owner', fileId };
+    }
+
+    return null;
+}
+
 /**
  * Check if a user can access a file by its storage key
  */
@@ -52,46 +143,22 @@ export async function canAccessFile(
         return { allowed: false, reason: 'unauthenticated' };
     }
 
-    // Check file in database via files table (match by file_url)
-    const proxyUrl = `/api/files/${fileKey}`;
-    const { data: file } = await supabase
-        .from('files')
-        .select('id, file_url')
-        .or(`file_url.eq.${proxyUrl},file_url.eq.${fileKey}`)
-        .maybeSingle();
+    // Check file in database via files table (match proxy URL and raw R2 key)
+    const file = await findTrackedFile(fileKey);
 
     // File not tracked in DB - check by path pattern
     if (!file) {
-        // Order files - check by path pattern
-        // Pattern: orders/{order_code}/... (e.g. orders/DF637513/demo/...)
-        const orderMatch = fileKey.match(/orders\/([^/]+)\//);
-        if (orderMatch) {
-            const orderCode = orderMatch[1];
-            const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .select('user_id')
-                .eq('order_code', orderCode)
-                .maybeSingle();
+        const orderAccess = await canAccessByOrderCode(userId, fileKey);
+        if (orderAccess) return orderAccess;
 
-            if (orderError) {
-                console.warn('[FileAccess] Order lookup error:', orderError.message, { fileKey, orderCode });
-            }
-
-            if (order?.user_id === userId) {
-                return { allowed: true, reason: 'order_owner' };
-            }
-
-            // Log mismatch for debugging
-            if (order) {
-                console.warn('[FileAccess] Owner mismatch', {
-                    fileKey,
-                    sessionUserId: userId,
-                    orderUserId: order.user_id,
-                });
-            }
-        }
+        const designImageAccess = await canAccessDesignImage(userId, fileKey);
+        if (designImageAccess) return designImageAccess;
 
         return { allowed: false, reason: 'file_not_found' };
+    }
+
+    if (file.owner_id === userId) {
+        return { allowed: true, reason: 'file_owner', fileId: file.id };
     }
 
     // File found in DB - check ownership via file_links
@@ -103,9 +170,6 @@ export async function canAccessFile(
     if (links && links.length > 0) {
         for (const link of links) {
             if (link.ref_type === 'order' || link.ref_type === 'order_item') {
-                // Check if user owns the linked order
-                const tableName = link.ref_type === 'order' ? 'orders' : 'order_items';
-
                 if (link.ref_type === 'order') {
                     const { data: order } = await supabase
                         .from('orders')
@@ -136,6 +200,12 @@ export async function canAccessFile(
             }
         }
     }
+
+    const designImageAccess = await canAccessDesignImage(userId, fileKey, file.id);
+    if (designImageAccess) return designImageAccess;
+
+    const orderAccess = await canAccessByOrderCode(userId, fileKey);
+    if (orderAccess) return { ...orderAccess, fileId: file.id };
 
     return { allowed: false, reason: 'unauthorized', fileId: file.id };
 }

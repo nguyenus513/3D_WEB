@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Customer Review API
  * POST /api/orders/[id]/review - Customer approves or rejects design
  */

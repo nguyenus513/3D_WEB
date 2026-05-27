@@ -65,7 +65,7 @@ export function PaymentQR({
         }
     };
 
-    const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+    const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
 
     const handleConfirmPayment = async () => {
         setIsConfirming(true);

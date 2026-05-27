@@ -10,6 +10,8 @@ import { getAdminSupabase } from '@/lib/supabase/admin';
 import { BaseController, UnauthorizedError, NotFoundError } from '@/lib/core/BaseController';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { resolveOrderDate } from '@/lib/utils/orderDate';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
+import { adjustReadyMadeOrderStock } from '@/lib/stock/order-stock';
 
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
@@ -205,6 +207,38 @@ export class AdminOrderController extends BaseController {
                 throw new NotFoundError(`Order ${orderId} not found`);
             }
 
+            const { data: designVersions } = await this.supabase
+                .from('design_versions')
+                .select('id, version_number, status, user_feedback, reviewed_at, created_at')
+                .eq('order_id', orderId)
+                .order('version_number', { ascending: false }) as any;
+
+            const designVersionIds = (designVersions || []).map((version: any) => version.id).filter(Boolean);
+            let designImages: any[] = [];
+            if (designVersionIds.length > 0) {
+                const { data } = await this.supabase
+                    .from('design_images')
+                    .select('id, version_id, image_url, label, sort_order, created_at')
+                    .in('version_id', designVersionIds)
+                    .order('sort_order', { ascending: true }) as any;
+                designImages = data || [];
+            }
+
+            const latestVersion = (designVersions || [])[0] || null;
+            const latestFeedbackVersion = (designVersions || []).find((version: any) => version.user_feedback) || null;
+            const latestVersionImages = latestVersion
+                ? designImages.filter((image: any) => image.version_id === latestVersion.id)
+                : [];
+            const demoImages = latestVersionImages.map((image: any) => ({
+                id: image.id,
+                url: resolveFileUrl(image.image_url, 'r2'),
+                label: image.label || 'Demo',
+                sort_order: image.sort_order,
+                uploaded_at: image.created_at,
+                version_id: image.version_id,
+                version_number: latestVersion?.version_number || null,
+            }));
+
             // Fetch file_links separately (polymorphic ref_type/ref_id, no FK)
             // Files may be linked to the order OR to individual order_items
             const itemIds = (Array.isArray(order.items) ? order.items : []).map((i: any) => i.id).filter(Boolean);
@@ -273,6 +307,59 @@ export class AdminOrderController extends BaseController {
             if (orderType === 'custom') {
                 // Map images from either legacy itemConfig.photos OR new orderFiles (file_links)
                 const legacyPhotos = Array.isArray(itemConfig.photos) ? itemConfig.photos : [];
+                const linkedModelImages = orderFiles
+                    .filter((f: any) => f.category === 'model_image')
+                    .map((f: any) => ({
+                        id: f.id,
+                        name: f.file_name || `Ảnh Model ${f.character_index || 1}.png`,
+                        url: f.file_url,
+                        thumbnail: f.file_url,
+                        category: 'model_image',
+                        characterIndex: f.character_index || 1,
+                    }));
+
+                const modelImageMap = new Map<string, any>();
+                const addModelImage = (image: any) => {
+                    const url = image?.url || image?.image_url || image?.file_url || image?.generatedModelImage?.url || image?.previewUrl;
+                    if (!url || typeof url !== 'string') return;
+                    const key = url;
+                    if (modelImageMap.has(key)) return;
+                    const characterIndex = image?.characterIndex || image?.character_index || image?.index || image?.generatedModelImage?.characterIndex || 1;
+                    modelImageMap.set(key, {
+                        id: key,
+                        name: image?.name || `Ảnh Model ${characterIndex}.png`,
+                        url,
+                        thumbnail: image?.thumbnail || url,
+                        category: 'model_image',
+                        characterIndex,
+                    });
+                };
+
+                linkedModelImages.forEach(addModelImage);
+                const modelImageDrafts = Array.isArray(itemConfig.modelImageDrafts) ? itemConfig.modelImageDrafts : [];
+                modelImageDrafts.forEach((draft: any, index: number) => {
+                    const generated = draft?.generatedModelImage;
+                    addModelImage({
+                        id: generated?.id || generated?.key || `model-draft-${draft?.characterIndex || index + 1}`,
+                        name: `Ảnh Model ${draft?.characterIndex || index + 1}.png`,
+                        url: generated?.url || draft?.previewUrl,
+                        thumbnail: generated?.url || draft?.previewUrl,
+                        characterIndex: draft?.characterIndex || index + 1,
+                    });
+                });
+                const charactersConfig = Array.isArray(itemConfig.characters) ? itemConfig.characters : [];
+                charactersConfig.forEach((character: any, index: number) => {
+                    const generated = character?.generatedModelImage;
+                    addModelImage({
+                        id: generated?.id || generated?.key || `model-character-${index + 1}`,
+                        name: `Ảnh Model ${index + 1}.png`,
+                        url: generated?.url || character?.modelImageUrl || character?.model_image_url,
+                        thumbnail: generated?.url || character?.modelImageUrl || character?.model_image_url,
+                        characterIndex: index + 1,
+                    });
+                });
+                const modelImages = Array.from(modelImageMap.values());
+                const referenceFiles = orderFiles.filter((f: any) => f.category !== 'model_image');
                 const images = legacyPhotos.length > 0
                     ? legacyPhotos.map((p: any) => ({
                         id: p.drive_file_id || p.id,
@@ -280,7 +367,7 @@ export class AdminOrderController extends BaseController {
                         url: p.web_view_link || p.url,
                         thumbnail: p.thumbnail
                     }))
-                    : orderFiles.map((f: any) => ({
+                    : referenceFiles.map((f: any) => ({
                         id: f.id,
                         name: f.file_name,
                         url: f.file_url, // Already resolved by orderFiles mapping
@@ -294,7 +381,8 @@ export class AdminOrderController extends BaseController {
                     size: itemConfig.size || (mainItem.configuration as any)?.size || 'Chưa chọn',
                     notes: order.notes || (mainItem.configuration as any)?.notes || '',
                     images,
-                    characters: Array.isArray(itemConfig.characters) ? itemConfig.characters : [],
+                    modelImages,
+                    characters: charactersConfig,
                 };
             }
 
@@ -367,6 +455,18 @@ export class AdminOrderController extends BaseController {
                     deposit_amount: toAmount(order.deposit_amount),
                     customer_note: order.notes,
                     admin_note: order.admin_notes,
+                    demo_images: demoImages.length > 0 ? demoImages : (order.demo_images || []),
+                    demo_image_url: demoImages[demoImages.length - 1]?.url || order.demo_image_url,
+                    review_at: order.review_at || latestVersion?.created_at || null,
+                    revision_feedback: order.revision_feedback || latestFeedbackVersion?.user_feedback || null,
+                    revision_count: order.revision_count || latestFeedbackVersion?.version_number || 0,
+                    latest_design_version: latestVersion ? {
+                        id: latestVersion.id,
+                        version_number: latestVersion.version_number,
+                        status: latestVersion.status,
+                        user_feedback: latestVersion.user_feedback || null,
+                        reviewed_at: latestVersion.reviewed_at || null,
+                    } : null,
                     order_type: orderType,
                     custom_config,
                     printing_config,
@@ -388,6 +488,11 @@ export class AdminOrderController extends BaseController {
             if (!authorized) return authResponse as any;
 
             const body = await request.json();
+            const { data: beforeOrder } = await (this.supabase
+                .from('orders') as any)
+                .select('id, status, payment_status')
+                .eq('id', orderId)
+                .maybeSingle();
 
             // Build update object from whitelist only
             const update: Record<string, unknown> = {};
@@ -547,14 +652,23 @@ export class AdminOrderController extends BaseController {
 
                 // Process stock adjustments after successful update
                 if (shouldDeductStock) {
-                    try { await this.adjustStockForOrder(orderId, 'deduct'); } catch (e) {
+                    try { await adjustReadyMadeOrderStock(orderId, 'confirm'); } catch (e) {
                         console.error('[AdminOrder] Stock deduction failed (non-blocking):', e);
                     }
                 }
                 if (shouldRestoreStock) {
-                    try { await this.adjustStockForOrder(orderId, 'restore'); } catch (e) {
+                    try { await adjustReadyMadeOrderStock(orderId, 'restore'); } catch (e) {
                         console.error('[AdminOrder] Stock restore failed (non-blocking):', e);
                     }
+                }
+
+                if (update.status && beforeOrder?.status !== update.status) {
+                    await sendOrderStatusEmail({
+                        orderId,
+                        oldStatus: beforeOrder?.status,
+                        newStatus: String(update.status),
+                        shippingCode: typeof update.shipping_code === 'string' ? update.shipping_code : undefined,
+                    });
                 }
 
                 return this.handleSuccess({
@@ -576,6 +690,13 @@ export class AdminOrderController extends BaseController {
                     .maybeSingle();
 
                 if (!error && data) {
+                    if (beforeOrder?.status !== update.status) {
+                        await sendOrderStatusEmail({
+                            orderId,
+                            oldStatus: beforeOrder?.status,
+                            newStatus: String(update.status),
+                        });
+                    }
                     return this.handleSuccess({
                         success: true,
                         message: 'Order status updated (some fields skipped due to missing columns)',

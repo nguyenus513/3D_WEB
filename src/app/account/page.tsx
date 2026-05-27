@@ -23,15 +23,18 @@ interface RecentOrder {
     total: number;
     status: string;
     item_count: number;
+    order_type: string;
+    thumbnail?: string | null;
+    summary: string;
 }
 
 const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-500/20 text-yellow-400',
-    paid: 'bg-blue-500/20 text-blue-400',
-    preparing: 'bg-purple-500/20 text-purple-400',
-    shipped: 'bg-cyan-500/20 text-cyan-400',
-    delivered: 'bg-green-500/20 text-green-400',
-    cancelled: 'bg-red-500/20 text-red-400',
+    pending: 'bg-white/10 text-white/70',
+    paid: 'bg-white/10 text-white',
+    preparing: 'bg-white/10 text-white',
+    shipped: 'bg-white/10 text-white',
+    delivered: 'bg-white/15 text-white',
+    cancelled: 'bg-white/5 text-white/50',
 };
 
 const statusLabels: Record<string, string> = {
@@ -91,14 +94,20 @@ export default function AccountPage() {
                 const completed = orders.filter((o: any) => o.status === 'delivered').length;
                 setStats({ total, processing, completed });
 
-                const recent = orders.slice(0, 3).map((o: any) => ({
-                    id: o.id,
-                    order_code: o.order_code,
-                    created_at: o.created_at,
-                    total: o.total_amount || 0,
-                    status: o.status,
-                    item_count: Array.isArray(o.order_items) ? o.order_items.length : 1,
-                }));
+                const recent = orders.slice(0, 3).map((o: any) => {
+                    const items = Array.isArray(o.items) ? o.items : Array.isArray(o.order_items) ? o.order_items : [];
+                    return {
+                        id: o.id,
+                        order_code: o.order_code,
+                        created_at: o.created_at,
+                        total: o.total_amount || 0,
+                        status: o.status,
+                        item_count: items.length || 1,
+                        order_type: o.order_type || items[0]?.item_type || 'product',
+                        thumbnail: o.thumbnail || null,
+                        summary: o.summary || items[0]?.name || 'Sản phẩm',
+                    };
+                });
                 setRecentOrders(recent);
             }
         } catch (e) {
@@ -125,6 +134,16 @@ export default function AccountPage() {
             )
         },
     ];
+
+    const renderOrderThumb = (order: RecentOrder) => {
+        if (order.order_type === 'printing' || order.order_type === 'print_3d') {
+            return <span className="text-sm font-semibold tracking-widest text-[var(--text-secondary)]">3D</span>;
+        }
+        if (order.thumbnail) {
+            return <img src={order.thumbnail} alt={order.summary} className="h-full w-full object-cover" />;
+        }
+        return <Box size={22} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />;
+    };
 
     if (status === 'loading' || loading) {
         return (
@@ -202,21 +221,19 @@ export default function AccountPage() {
                                     className="flex items-center justify-between p-5 hover:bg-[var(--material-glass)] transition-colors"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center">
-                                            <svg className="w-6 h-6 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                            </svg>
+                                        <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center overflow-hidden">
+                                            {renderOrderThumb(order)}
                                         </div>
                                         <div>
                                             <p className="text-[var(--text-primary)] font-medium font-mono tracking-wider">{order.order_code}</p>
                                             <p className="text-[var(--text-tertiary)] text-sm">
-                                                {formatOrderDate(order.created_at)} • {order.item_count} sản phẩm
+                                                {formatOrderDate(order.created_at)} • {order.summary} • {order.item_count} sản phẩm
                                             </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[var(--text-primary)] font-medium">{Number(order.total).toLocaleString('vi-VN')}đ</p>
-                                        <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-500/20 text-gray-400'}`}>
+                                        <p className="text-[var(--text-primary)] font-medium">{Number(order.total).toLocaleString('vi-VN')} VND</p>
+                                        <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-white/10 text-white/60'}`}>
                                             {statusLabels[order.status] || order.status}
                                         </span>
                                     </div>

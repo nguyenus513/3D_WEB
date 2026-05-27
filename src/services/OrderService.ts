@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Order Service
  *
  * Business logic layer for orders.
@@ -280,7 +280,7 @@ export class OrderService {
 
     /**
      * Reserve stock for each item in the order
-     * Matches item.size â†’ product_variant, then calls reserveStock + increment_sold_count
+     * Matches item.size → product_variant, then calls reserveStock + increment_sold_count
      */
     private async reserveStockForOrder(items: CreateOrderInput['items']): Promise<void> {
         const supabase = getAdminSupabase();
@@ -309,7 +309,7 @@ export class OrderService {
                     continue;
                 }
 
-                // Cascade matching: size â†’ price â†’ first
+                // Cascade matching: size → price → first
                 let matchedVariant = null;
 
                 // 1. Match by size name or SKU (if size is provided and non-empty)

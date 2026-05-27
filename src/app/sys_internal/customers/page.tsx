@@ -164,7 +164,7 @@ export default function AdminCustomersPage() {
                                         </span>
                                     </td>
                                     <td className="px-5 py-4 text-[var(--text-primary)] font-medium">
-                                        {(customer.total_spent || 0).toLocaleString('vi-VN')}đ
+                                        {(customer.total_spent || 0).toLocaleString('vi-VN')} VND
                                     </td>
                                 </tr>
                             ))}

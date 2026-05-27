@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { stripHtml } from '@/lib/security/sanitize';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 import { generateId } from '@/lib/generateId';
 
 // Types from client-side
@@ -21,11 +22,17 @@ interface PrintItemAnalysis {
     grams: number;
     hours: number;
     price: number;
+    printRisk?: unknown;
+    aiContext?: unknown;
+    finalAnalysis?: unknown;
 }
 
 interface PrintItem {
     quantity: number;
     analysis: PrintItemAnalysis;
+    printRisk?: unknown;
+    aiContext?: unknown;
+    finalAnalysis?: unknown;
 }
 
 interface CreatePrintingOrderRequest {
@@ -134,6 +141,9 @@ export async function POST(request: NextRequest) {
                     fileId: file?.fileId || null,
                     fileType: file?.type || 'model/stl',
                     fileSize: file?.size || 0,
+                    printRisk: item.printRisk || item.analysis?.printRisk || null,
+                    aiContext: item.aiContext || item.analysis?.aiContext || null,
+                    finalAnalysis: item.finalAnalysis || item.analysis?.finalAnalysis || null,
                 },
                 created_at: now,
             };
@@ -213,7 +223,7 @@ export async function POST(request: NextRequest) {
                 }
 
                 if (fileRecord && linkedItem) {
-                    // Create file_link: file â†’ order_item
+                    // Create file_link: file → order_item
                     const { error: linkError } = await supabase
                         .from('file_links')
                         .insert({
@@ -260,6 +270,12 @@ export async function POST(request: NextRequest) {
                 }
             }
         }
+
+        await sendOrderStatusEmail({
+            orderId: orderData.id,
+            oldStatus: null,
+            newStatus: 'pending',
+        });
 
         return NextResponse.json({ success: true, orderId: orderData.id });
 

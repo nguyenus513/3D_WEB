@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -197,7 +197,7 @@ export function PaymentMethodSelector({
                                     <div className="flex justify-between pt-2 border-t border-[var(--border-color)]">
                                         <span className="text-[var(--text-secondary)]">Số tiền</span>
                                         <span className="text-green-400 font-bold text-lg">
-                                            {amount.toLocaleString('vi-VN')}đ
+                                            {amount.toLocaleString('vi-VN')} VND
                                         </span>
                                     </div>
                                 </div>
@@ -228,15 +228,15 @@ export function PaymentMethodSelector({
                             <button
                                 onClick={handleCardPayment}
                                 disabled={loading}
-                                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+                                className="w-full py-4 rounded-xl border border-white/70 bg-white text-black font-semibold transition-colors hover:bg-white/85 active:bg-white/75 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <span className="w-4 h-4 border-2 border-[var(--border-color)] border-t-white rounded-full animate-spin" />
+                                        <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
                                         Đang xử lý...
                                     </span>
                                 ) : (
-                                    `Thanh toán ${amount.toLocaleString('vi-VN')}đ`
+                                    `Thanh toán ${amount.toLocaleString('vi-VN')} VND`
                                 )}
                             </button>
 
@@ -253,3 +253,4 @@ export function PaymentMethodSelector({
         </div>
     );
 }
+

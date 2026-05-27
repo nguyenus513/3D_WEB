@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PaymentService } from '@/services/PaymentService';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 const paymentService = new PaymentService();
 const log = createLogger('payment-webhook');
@@ -99,6 +100,11 @@ async function handlePaymentSuccess(
     }
 
     const supabase = getAdminSupabase();
+    const { data: beforeOrder } = await supabase
+        .from('orders')
+        .select('status')
+        .eq('id', orderId)
+        .maybeSingle();
 
     // Update payment record
     await supabase
@@ -120,6 +126,12 @@ async function handlePaymentSuccess(
             updated_at: new Date().toISOString(),
         })
         .eq('id', orderId);
+
+    await sendOrderStatusEmail({
+        orderId,
+        oldStatus: beforeOrder?.status,
+        newStatus: 'confirmed',
+    });
 
     log.info('Payment successful', { orderId, amount });
 }

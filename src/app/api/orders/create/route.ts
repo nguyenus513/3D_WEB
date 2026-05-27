@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { generateId } from '@/lib/generateId';
 import { stripHtml } from '@/lib/security/sanitize';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 const supabaseAdmin = getAdminSupabase();
 
@@ -202,13 +203,17 @@ export async function POST(request: NextRequest) {
 
                     // Look up price from product_variants table
                     const variants = product.product_variants || [];
-                    if (item.size && variants.length > 0) {
-                        const matchedVariant = variants.find((v: any) =>
-                            v.name === item.size || v.sku === item.size
-                        );
+                    if (variants.length > 0) {
+                        const requested = String(item.size || item.sku || '').trim().toLowerCase();
+                        const activeVariants = variants.filter((v: any) => v.is_active !== false);
+                        const matchedVariant = activeVariants.find((v: any) => {
+                            const values = [v.id, v.name, v.sku].map((value) => String(value || '').trim().toLowerCase());
+                            return requested && values.includes(requested);
+                        }) || (requested === 'default' ? activeVariants[0] : null) || (activeVariants.length === 1 ? activeVariants[0] : null);
                         if (matchedVariant) {
                             unitPrice = matchedVariant.price;
                             matchedVariantId = matchedVariant.id;
+                            productSku = matchedVariant.sku || productSku;
                         }
                     }
 
@@ -286,18 +291,14 @@ export async function POST(request: NextRequest) {
                 }
             }
 
-            // Increment sold_count on product
-            if (item.product_id) {
-                try {
-                    await (supabaseAdmin.rpc as any)('increment_sold_count', {
-                        p_product_id: item.product_id,
-                        p_qty: item.quantity,
-                    });
-                } catch (err) {
-                    console.error(`[OrderCreate] Failed to increment sold_count:`, err);
-                }
-            }
+            // sold_count is incremented only after payment is confirmed.
         }
+
+        await sendOrderStatusEmail({
+            orderId: order.id,
+            oldStatus: null,
+            newStatus: 'pending',
+        });
 
         return NextResponse.json({
             success: true,

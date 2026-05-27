@@ -15,6 +15,13 @@ import { CreateProductInput, UpdateProductInput } from '@/validators/product.sch
 export class ProductService {
     constructor(private readonly productRepo: ProductRepository) { }
 
+    private getVariantSummary(variants?: { price: number; stock?: number; enabled?: boolean }[]): { minPrice: number | null; stock: number } {
+        const active = (variants || []).filter((variant) => variant.enabled !== false);
+        const prices = active.map((variant) => Number(variant.price)).filter((price) => Number.isFinite(price) && price > 0);
+        const stock = active.reduce((sum, variant) => sum + Math.max(0, Number(variant.stock || 0)), 0);
+        return { minPrice: prices.length > 0 ? Math.min(...prices) : null, stock };
+    }
+
     /**
      * List products with pagination
      */
@@ -45,6 +52,8 @@ export class ProductService {
      */
     async createProduct(input: CreateProductInput): Promise<Product> {
         try {
+            const variantSummary = this.getVariantSummary(input.variants);
+
             // 1. Create the product (without sizes JSONB)
             const product = await this.productRepo.create({
                 sku: input.sku.trim(),
@@ -53,9 +62,9 @@ export class ProductService {
                 status: input.status,
                 short_description: input.short_description,
                 description: input.description,
-                base_price: input.base_price,
+                base_price: variantSummary.minPrice ?? input.base_price,
                 sale_price: input.sale_price,
-                stock: 0, // Will be auto-computed by trigger
+                stock: input.variants?.length ? variantSummary.stock : input.stock,
                 images: input.images,
                 tags: input.tags,
                 is_featured: input.is_featured,
@@ -104,6 +113,8 @@ export class ProductService {
             throw new NotFoundError('Sản phẩm không tồn tại');
         }
 
+        const variantSummary = inputVariants !== undefined ? this.getVariantSummary(inputVariants) : null;
+
         // Build update object (product fields only)
         const updateData: Partial<Product> = {};
         if (updates.name) updateData.name = updates.name.trim();
@@ -111,9 +122,12 @@ export class ProductService {
         if (updates.status) updateData.status = updates.status;
         if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
         if (updates.base_price !== undefined) updateData.base_price = updates.base_price;
+        if (variantSummary?.minPrice !== null && variantSummary?.minPrice !== undefined) updateData.base_price = variantSummary.minPrice;
+        if (variantSummary) updateData.stock = variantSummary.stock;
         if (updates.sale_price !== undefined) updateData.sale_price = updates.sale_price;
         if (updates.is_featured !== undefined) updateData.is_featured = updates.is_featured;
         if (updates.images !== undefined) updateData.images = updates.images;
+        if (updates.category_id !== undefined) updateData.category_id = updates.category_id;
         if (updates.description !== undefined) updateData.description = updates.description;
 
         await this.productRepo.update(id, updateData);

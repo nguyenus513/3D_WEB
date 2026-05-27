@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { pingMongoDb } from '@/lib/mongodb';
 
 type ServiceStatus = { status: 'up' | 'down'; latency?: number; db?: string };

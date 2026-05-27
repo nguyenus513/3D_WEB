@@ -1,4 +1,4 @@
-﻿export interface ImageCompressionOptions {
+export interface ImageCompressionOptions {
     maxBytes?: number;
     maxDimension?: number;
     initialQuality?: number;

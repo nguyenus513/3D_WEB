@@ -56,6 +56,7 @@ export default function DemoReviewPage() {
     const [revisionFeedback, setRevisionFeedback] = useState('');
     const [designVersions, setDesignVersions] = useState<DesignVersion[]>([]);
     const [showHistory, setShowHistory] = useState(false);
+    const [imageLoadError, setImageLoadError] = useState(false);
 
     useEffect(() => {
         if (authStatus === 'authenticated' && session?.user?.email) {
@@ -153,13 +154,24 @@ export default function DemoReviewPage() {
         ? designVersions[designVersions.length - 1]
         : null;
 
-    const images: { url: string; label: string }[] = latestVersion
+    const versionImages = latestVersion?.design_images?.length
         ? latestVersion.design_images.map(img => ({ url: img.image_url, label: img.label || 'Demo' }))
-        : order?.demo_images?.length
-            ? order.demo_images.map(img => ({ url: img.url, label: img.label }))
+        : [];
+    const orderImages = order?.demo_images?.length
+        ? order.demo_images.map(img => ({ url: img.url, label: img.label }))
+        : [];
+    const images: { url: string; label: string }[] = versionImages.length
+        ? versionImages
+        : orderImages.length
+            ? orderImages
             : order?.demo_image_url
                 ? [{ url: order.demo_image_url, label: 'Demo' }]
                 : [];
+
+    useEffect(() => {
+        setSelectedImage(0);
+        setImageLoadError(false);
+    }, [images[0]?.url]);
 
     const versionNumber = latestVersion?.version_number || (order?.revision_count ? order.revision_count + 1 : 1);
 
@@ -264,11 +276,21 @@ export default function DemoReviewPage() {
                     >
                         {images.length > 0 && (
                             <div className="relative aspect-square lg:aspect-[4/3] rounded-2xl overflow-hidden bg-[var(--material-panel)] border border-white/[0.06] group">
-                                <img
-                                    src={images[selectedImage]?.url}
-                                    alt={images[selectedImage]?.label || 'Demo Preview'}
-                                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                                />
+                                {imageLoadError ? (
+                                    <div className="flex h-full items-center justify-center p-6 text-center">
+                                        <div>
+                                            <p className="text-[var(--text-secondary)] text-lg">Không tải được ảnh demo</p>
+                                            <p className="mt-2 text-xs text-[var(--text-tertiary)]">Vui lòng tải lại trang hoặc liên hệ Miniver nếu lỗi vẫn xảy ra.</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <img
+                                        src={images[selectedImage]?.url}
+                                        alt={images[selectedImage]?.label || 'Demo Preview'}
+                                        onError={() => setImageLoadError(true)}
+                                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                                    />
+                                )}
                                 {images.length > 1 && (
                                     <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full">
                                         <span className="text-white/80 text-xs font-mono">
@@ -284,7 +306,10 @@ export default function DemoReviewPage() {
                                 {images.map((img, i) => (
                                     <button
                                         key={i}
-                                        onClick={() => setSelectedImage(i)}
+                                        onClick={() => {
+                                            setSelectedImage(i);
+                                            setImageLoadError(false);
+                                        }}
                                         className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${i === selectedImage
                                             ? 'border-[var(--text-primary)] ring-1 ring-[var(--border-color)]'
                                             : 'border-white/[0.06] opacity-50 hover:opacity-80'

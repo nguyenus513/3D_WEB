@@ -10,6 +10,7 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 import { notifyAllAdmins } from '@/lib/notifications';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 export async function POST(
     request: NextRequest,
@@ -96,6 +97,12 @@ export async function POST(
             type: 'design_approved',
             refId: orderId,
             refType: 'order',
+        });
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'approved',
         });
 
         // Invalidate caches
@@ -201,6 +208,12 @@ export async function DELETE(
             type: 'design_rejected',
             refId: orderId,
             refType: 'order',
+        });
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'revising',
         });
 
         // Invalidate caches

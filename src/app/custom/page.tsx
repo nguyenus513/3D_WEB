@@ -24,6 +24,7 @@ type PackagingType = 'premium_box' | 'bento' | 'standard';
 interface CharacterData {
     image: File | null;
     imagePreview: string;
+    extraDescription: string;
     hasGlasses: boolean;
     glassesMode: 'upload' | 'text';
     glassesImage: File | null;
@@ -32,6 +33,11 @@ interface CharacterData {
     hatMode: 'upload' | 'text';
     hatImage: File | null;
     hatDescription: string;
+    modelImageStatus: 'idle' | 'processing' | 'ready' | 'error';
+    modelImageUrl: string;
+    modelImagePrompt: string;
+    modelImageError: string;
+    modelImageApproved: boolean;
 }
 
 interface FileInfo {
@@ -39,9 +45,29 @@ interface FileInfo {
     name: string;
     url: string;
     thumbnail: string;
-    category: 'main' | 'glasses' | 'hat';
+    category: 'main' | 'glasses' | 'hat' | 'model_image';
     characterIndex: number;
     fileId?: string;
+}
+
+function dataUrlToFile(dataUrl: string, fileName: string): File {
+    const [header, data] = dataUrl.split(',');
+    if (!header || !data) throw new Error('Invalid image data URL');
+    const mime = header.match(/data:(.*?);base64/)?.[1] || 'image/png';
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], fileName, { type: mime });
+}
+
+async function modelImageUrlToFile(imageUrl: string, fileName: string): Promise<File | null> {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('data:')) return dataUrlToFile(imageUrl, fileName);
+    if (imageUrl.startsWith('/api/files/')) return null;
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error('Không thể tải ảnh mô hình AI để lưu R2');
+    const blob = await response.blob();
+    return new File([blob], fileName, { type: blob.type || 'image/png' });
 }
 
 // ============================================================
@@ -116,6 +142,7 @@ function createEmptyCharacter(): CharacterData {
     return {
         image: null,
         imagePreview: '',
+        extraDescription: '',
         hasGlasses: false,
         glassesMode: 'text',
         glassesImage: null,
@@ -124,6 +151,11 @@ function createEmptyCharacter(): CharacterData {
         hatMode: 'text',
         hatImage: null,
         hatDescription: '',
+        modelImageStatus: 'idle',
+        modelImageUrl: '',
+        modelImagePrompt: '',
+        modelImageError: '',
+        modelImageApproved: false,
     };
 }
 
@@ -264,7 +296,7 @@ export default function CustomPage() {
             if (i !== index) return c;
             // Revoke old preview
             if (c.imagePreview) URL.revokeObjectURL(c.imagePreview);
-            return { ...c, image: file, imagePreview: preview };
+            return { ...c, image: file, imagePreview: preview, modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '', modelImageApproved: false, modelImageError: '' };
         }));
     }, []);
 
@@ -272,9 +304,34 @@ export default function CustomPage() {
         setCharacters(prev => prev.map((c, i) => {
             if (i !== index) return c;
             if (c.imagePreview) URL.revokeObjectURL(c.imagePreview);
-            return { ...c, image: null, imagePreview: '' };
+            return { ...c, image: null, imagePreview: '', modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '', modelImageApproved: false, modelImageError: '' };
         }));
     }, []);
+
+    const generateModelImage = async (index: number) => {
+        const char = characters[index];
+        if (!char?.image) return false;
+        setCharacters(prev => prev.map((c, i) => i === index ? { ...c, modelImageStatus: 'processing', modelImageError: '', modelImageApproved: false } : c));
+        try {
+            const formData = new FormData();
+            formData.append('mainImage', char.image);
+            formData.append('extraDescription', char.extraDescription || '');
+            if (char.hasGlasses && char.glassesDescription) formData.append('glassesDescription', char.glassesDescription);
+            if (char.hasHat && char.hatDescription) formData.append('hatDescription', char.hatDescription);
+            if (char.hasGlasses && char.glassesMode === 'upload' && char.glassesImage) formData.append('glassesImage', char.glassesImage);
+            if (char.hasHat && char.hatMode === 'upload' && char.hatImage) formData.append('hatImage', char.hatImage);
+            const res = await fetch('/api/custom/model-image/generate', { method: 'POST', body: formData });
+            const json = await res.json().catch(() => null);
+            if (!res.ok || !json?.success) throw new Error(json?.error || 'Không thể tạo ảnh mô hình');
+            const imageUrl = json.data?.previewUrl || json.data?.previewDataUrl;
+            if (!imageUrl) throw new Error('AI không trả về ảnh mô hình');
+            setCharacters(prev => prev.map((c, i) => i === index ? { ...c, modelImageStatus: 'ready', modelImageUrl: imageUrl, modelImagePrompt: json.data?.prompt || '', modelImageApproved: false, modelImageError: '' } : c));
+            return true;
+        } catch (err) {
+            setCharacters(prev => prev.map((c, i) => i === index ? { ...c, modelImageStatus: 'error', modelImageError: err instanceof Error ? err.message : 'Không thể tạo ảnh mô hình' } : c));
+            return false;
+        }
+    };
 
     const handleOrderTypeChange = (newType: OrderType) => {
         setOrderType(newType);
@@ -286,7 +343,7 @@ export default function CustomPage() {
         else setBaseType('couple_base');
     };
 
-    const nextStep = () => {
+    const nextStep = async () => {
         setError('');
         // Validation
         if (currentPhase.type === 'character') {
@@ -295,12 +352,22 @@ export default function CustomPage() {
                 setError('Vui lòng upload ảnh mô hình trước khi tiếp tục');
                 return;
             }
+            if (!char.modelImageApproved) {
+                if (char.modelImageStatus !== 'ready') {
+                    await generateModelImage(currentPhase.index);
+                    return;
+                }
+                updateCharacter(currentPhase.index, { modelImageApproved: true });
+            }
         }
         setCurrentStepIndex(prev => Math.min(prev + 1, steps.length - 1));
     };
 
     const prevStep = () => {
         setError('');
+        if (currentPhase.type === 'character') {
+            updateCharacter(currentPhase.index, { modelImageApproved: false });
+        }
         setCurrentStepIndex(prev => Math.max(prev - 1, 0));
     };
 
@@ -308,23 +375,20 @@ export default function CustomPage() {
     const uploadAllImages = async (orderCode: string): Promise<FileInfo[]> => {
         const uploaded: FileInfo[] = [];
 
-        for (let i = 0; i < characters.length; i++) {
-            const char = characters[i];
-            if (!char.image) continue;
-
-            const { file: uploadFile } = await prepareImageForServerUpload(char.image);
-
+        const uploadCustomImage = async (file: File, index: number, category: FileInfo['category']) => {
             const formData = new FormData();
-            formData.append('file', uploadFile);
+            formData.append('file', file);
             formData.append('type', `custom_${orderType}`);
             formData.append('customerCode', customerCode);
             formData.append('orderCode', orderCode);
-            formData.append('index', String(i + 1));
+            formData.append('index', String(index));
             formData.append('customType', orderType);
             formData.append('personCount', String(characterCount));
-            formData.append('photoCategory', 'main');
+            formData.append('photoCategory', category);
 
-            const res = await fetch('/api/upload', { method: 'POST', body: formData }).catch(() => { throw new Error('Không thể tải ảnh lên. Ảnh có thể quá lớn, vui lòng thử ảnh nhỏ hơn hoặc JPG/PNG.'); });
+            const res = await fetch('/api/upload', { method: 'POST', body: formData }).catch(() => {
+                throw new Error('Không thể tải ảnh lên. Ảnh có thể quá lớn, vui lòng thử ảnh nhỏ hơn hoặc JPG/PNG.');
+            });
             const data = await res.json();
 
             if (!res.ok || data.success === false) {
@@ -334,7 +398,26 @@ export default function CustomPage() {
 
             const fileData = data.data?.file || data.file;
             if (!fileData) throw new Error('Invalid upload response');
-            uploaded.push({ ...fileData, category: 'main' as const, characterIndex: i + 1 });
+            const uploadedFile = { ...fileData, category, characterIndex: index } as FileInfo;
+            uploaded.push(uploadedFile);
+            return uploadedFile;
+        };
+
+        for (let i = 0; i < characters.length; i++) {
+            const char = characters[i];
+            if (!char.image) continue;
+
+            const { file: uploadFile } = await prepareImageForServerUpload(char.image);
+            await uploadCustomImage(uploadFile, i + 1, 'main');
+
+            if (char.modelImageApproved && char.modelImageUrl) {
+                const modelSourceFile = await modelImageUrlToFile(char.modelImageUrl, `miniver-model-ai-${i + 1}.png`);
+                if (modelSourceFile) {
+                    const { file: modelUploadFile } = await prepareImageForServerUpload(modelSourceFile, { maxBytes: DEFAULT_IMAGE_UPLOAD_MAX_BYTES });
+                    const modelUploaded = await uploadCustomImage(modelUploadFile, i + 1, 'model_image');
+                    updateCharacter(i, { modelImageUrl: modelUploaded.url });
+                }
+            }
 
             // Upload glasses image if exists
             if (char.hasGlasses && char.glassesMode === 'upload' && char.glassesImage) {
@@ -396,6 +479,7 @@ export default function CustomPage() {
         try {
             const orderCode = generateId.custom();
             const images = await uploadAllImages(orderCode);
+            const modelImagesByCharacter = new Map(images.filter((img) => img.category === 'model_image').map((img) => [img.characterIndex, img]));
 
             const res = await fetch('/api/orders/custom', {
                 method: 'POST',
@@ -413,6 +497,18 @@ export default function CustomPage() {
                         glassesDescription: c.hasGlasses && c.glassesMode === 'text' ? c.glassesDescription : '',
                         hasHat: c.hasHat,
                         hatDescription: c.hasHat && c.hatMode === 'text' ? c.hatDescription : '',
+                        extraDescription: c.extraDescription || '',
+                        modelImageDraft: c.modelImageApproved ? {
+                            characterIndex: i + 1,
+                            prompt: c.modelImagePrompt,
+                            previewUrl: modelImagesByCharacter.get(i + 1)?.url || (c.modelImageUrl.startsWith('http') ? c.modelImageUrl : ''),
+                            approved: true,
+                            generatedModelImage: modelImagesByCharacter.get(i + 1) ? {
+                                url: modelImagesByCharacter.get(i + 1)?.url || '',
+                                key: modelImagesByCharacter.get(i + 1)?.id || '',
+                                fileId: modelImagesByCharacter.get(i + 1)?.fileId,
+                            } : undefined,
+                        } : null,
                     })),
                     shippingAddress: {
                         full_name: shippingAddress.full_name,
@@ -638,7 +734,7 @@ export default function CustomPage() {
                                             Đang xử lý...
                                         </span>
                                     ) : (
-                                        `Đặt hàng — ${depositAmount.toLocaleString('vi-VN')}đ`
+                                        `Đặt hàng — ${depositAmount.toLocaleString('vi-VN')} VND`
                                     )}
                                 </Button>
                             </div>
@@ -747,7 +843,7 @@ function StepOrderType({
                         <h3 className="text-lg font-semibold text-center">{type.name}</h3>
                         <p className="text-sm opacity-70 text-center">{type.desc}</p>
                         <p className="text-lg font-semibold mt-2 text-center">
-                            {type.price.toLocaleString('vi-VN')}đ
+                            {type.price.toLocaleString('vi-VN')} VND
                         </p>
                     </button>
                 ))}
@@ -810,8 +906,8 @@ function StepOrderType({
                             </button>
                         </div>
                         <p className="text-[var(--text-tertiary)] text-sm mt-3">
-                            Giá: {(750000 + (groupCount - 3) * 200000).toLocaleString('vi-VN')}đ
-                            {groupCount > 3 && <span className="text-[var(--text-tertiary)]"> (+{((groupCount - 3) * 200000).toLocaleString('vi-VN')}đ)</span>}
+                            Giá: {(750000 + (groupCount - 3) * 200000).toLocaleString('vi-VN')} VND
+                            {groupCount > 3 && <span className="text-[var(--text-tertiary)]"> (+{((groupCount - 3) * 200000).toLocaleString('vi-VN')} VND)</span>}
                         </p>
                     </div>
                 </motion.div>
@@ -962,6 +1058,17 @@ function StepCharacter({
                     </h3>
 
                     <div className="space-y-4">
+                        <div className="rounded-2xl border border-[var(--border-color)] bg-[#2D2D2F]/50 p-4">
+                            <label className="text-[var(--text-primary)] font-medium text-sm">Mô tả thêm</label>
+                            <textarea
+                                value={character.extraDescription}
+                                onChange={(e) => onUpdate({ extraDescription: e.target.value, modelImageApproved: false, modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '' })}
+                                placeholder="Ví dụ: áo hoodie đen, tóc ngắn, giày trắng, phong cách dễ thương..."
+                                className="mt-3 w-full p-3 bg-[#3D3D3F] rounded-xl text-[var(--text-primary)] text-sm placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:ring-1 focus:ring-white/20"
+                                rows={3}
+                            />
+                        </div>
+
                         {/* Glasses */}
                         <AccessoryOption
                             label="Thêm kính"
@@ -972,8 +1079,8 @@ function StepCharacter({
                             description={character.glassesDescription}
                             onToggle={(v) => onUpdate({ hasGlasses: v })}
                             onModeChange={(m) => onUpdate({ glassesMode: m })}
-                            onImageChange={(f) => onUpdate({ glassesImage: f })}
-                            onDescriptionChange={(d) => onUpdate({ glassesDescription: d })}
+                            onImageChange={(f) => onUpdate({ glassesImage: f, modelImageApproved: false, modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '' })}
+                            onDescriptionChange={(d) => onUpdate({ glassesDescription: d, modelImageApproved: false, modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '' })}
                             uploadId={`glasses-${index}`}
                         />
 
@@ -987,10 +1094,40 @@ function StepCharacter({
                             description={character.hatDescription}
                             onToggle={(v) => onUpdate({ hasHat: v })}
                             onModeChange={(m) => onUpdate({ hatMode: m })}
-                            onImageChange={(f) => onUpdate({ hatImage: f })}
-                            onDescriptionChange={(d) => onUpdate({ hatDescription: d })}
+                            onImageChange={(f) => onUpdate({ hatImage: f, modelImageApproved: false, modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '' })}
+                            onDescriptionChange={(d) => onUpdate({ hatDescription: d, modelImageApproved: false, modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '' })}
                             uploadId={`hat-${index}`}
                         />
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-white/10 bg-[#2D2D2F] p-4">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p className="text-[var(--text-primary)] font-medium">Ảnh mô hình AI</p>
+                                <p className="text-[var(--text-tertiary)] text-xs">Dùng ảnh chuẩn Miniver để giữ form mô hình (Hình ảnh mô phỏng)</p>
+                            </div>
+                        </div>
+                        {character.modelImageStatus === 'processing' && (
+                            <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+                                <span className="w-5 h-5 rounded-full border border-white/20 border-t-white animate-spin" />
+                                Đang xử lý...
+                            </div>
+                        )}
+                        {character.modelImageStatus === 'error' && (
+                            <p className="text-sm text-red-400">{character.modelImageError || 'Không thể tạo ảnh mô hình'}</p>
+                        )}
+                        {character.modelImageUrl && (
+                            <div className="space-y-3">
+                                <img src={character.modelImageUrl} alt={`Ảnh mô hình ${index + 1}`} className="w-full max-h-[420px] rounded-xl object-contain bg-black/30" />
+                                <p className="text-xs text-[var(--text-tertiary)]">Bấm Tiếp tục để dùng ảnh này. Bấm Quay lại để chỉnh sửa lại thông tin.</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button type="button" variant="outline" onClick={() => onUpdate({ modelImageStatus: 'idle', modelImageUrl: '', modelImagePrompt: '', modelImageApproved: false })}>Tạo lại</Button>
+                                </div>
+                            </div>
+                        )}
+                        {!character.modelImageUrl && character.modelImageStatus !== 'processing' && (
+                            <p className="text-xs text-[var(--text-tertiary)]">Bấm Tiếp tục để tạo ảnh mô hình trước khi qua bước tiếp theo.</p>
+                        )}
                     </div>
                 </motion.div>
             )}
@@ -1243,7 +1380,7 @@ function StepConfirm({
                     </div>
                     <div className="text-right">
                         <p className="text-xl font-bold text-[var(--text-primary)]">
-                            {totalPrice.toLocaleString('vi-VN')}đ
+                            {totalPrice.toLocaleString('vi-VN')} VND
                         </p>
                     </div>
                 </div>
@@ -1265,15 +1402,31 @@ function StepConfirm({
                 <h3 className="text-[var(--text-primary)] font-medium mb-4">Mô hình ({characters.length})</h3>
                 <div className="space-y-3">
                     {characters.map((char, i) => (
-                        <div key={i} className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#3D3D3F] flex-shrink-0">
-                                {char.imagePreview ? (
-                                    <img src={char.imagePreview} alt={`NV ${i + 1}`} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[var(--text-primary)]/20">?</div>
-                                )}
-                            </div>
-                            <div className="flex-1">
+                        <div key={i} className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                            <div className="flex items-start gap-4">
+                                <div className="grid grid-cols-2 gap-3 flex-shrink-0">
+                                    <div className="rounded-2xl border border-white/10 bg-black/20 p-2">
+                                        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Ảnh khách cung cấp</p>
+                                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#3D3D3F]">
+                                            {char.imagePreview ? (
+                                                <img src={char.imagePreview} alt={`Ảnh khách cung cấp ${i + 1}`} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-[var(--text-primary)]/20">?</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="rounded-2xl border border-white/10 bg-black/20 p-2">
+                                        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Ảnh mô hình AI</p>
+                                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#3D3D3F]">
+                                            {char.modelImageUrl ? (
+                                                <img src={char.modelImageUrl} alt={`Ảnh Model ${i + 1}`} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-[var(--text-primary)]/20">?</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
                                 <p className="text-[var(--text-primary)] font-medium">Mô hình {i + 1}</p>
                                 <div className="flex gap-3 mt-1">
                                     <span className={`text-xs ${char.image ? 'text-green-400' : 'text-red-400'}`}>
@@ -1283,8 +1436,12 @@ function StepConfirm({
                                         {char.hasGlasses ? '+ Kính' : '- Kính'}
                                     </span>
                                     <span className={`text-xs ${char.hasHat ? 'text-green-400' : 'text-[var(--text-tertiary)]'}`}>
-                                        {char.hasHat ? '+ Mũ' : '- Mũ'}
+                                        {char.hasHat ? '+ MÅ©' : '- MÅ©'}
                                     </span>
+                                    <span className={`text-xs ${char.modelImageApproved ? 'text-green-400' : 'text-[var(--text-tertiary)]'}`}>
+                                        {char.modelImageApproved ? '+ Ảnh mô hình' : '- Ảnh mô hình'}
+                                    </span>
+                                </div>
                                 </div>
                             </div>
                         </div>
@@ -1298,26 +1455,26 @@ function StepConfirm({
                 <div className="space-y-3">
                     <div className="flex justify-between text-[var(--text-secondary)]">
                         <span>Giá cơ bản ({orderConfig?.name})</span>
-                        <span>{orderConfig?.price.toLocaleString('vi-VN')}đ</span>
+                        <span>{orderConfig?.price.toLocaleString('vi-VN')} VND</span>
                     </div>
                     {/* Add-on costs logic here if needed */}
                     <div className="flex justify-between items-center text-[var(--text-primary)] pt-3 border-t border-[var(--border-color)]">
                         <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
-                        <span className="text-[var(--text-primary)] font-bold text-lg">{totalPrice.toLocaleString('vi-VN')}đ</span>
+                        <span className="text-[var(--text-primary)] font-bold text-lg">{totalPrice.toLocaleString('vi-VN')} VND</span>
                     </div>
                     <div className="flex justify-between text-green-400">
                         <span>Cọc 50%</span>
-                        <span className="font-bold">{depositAmount.toLocaleString('vi-VN')}đ</span>
+                        <span className="font-bold">{depositAmount.toLocaleString('vi-VN')} VND</span>
                     </div>
                     <p className="text-[var(--text-tertiary)] text-xs mt-1">
-                        Còn lại {(totalPrice - depositAmount).toLocaleString('vi-VN')}đ khi nhận hàng
+                        Còn lại {(totalPrice - depositAmount).toLocaleString('vi-VN')} VND khi nhận hàng
                     </p>
                 </div>
             </div>
 
             {/* Notes */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                <h3 className="text-[var(--text-primary)] font-medium mb-3">📝 Ghi chú (tùy chọn)</h3>
+                <h3 className="text-[var(--text-primary)] font-medium mb-3">Ghi chú (tùy chọn)</h3>
                 <textarea
                     value={notes}
                     onChange={(e) => onNotesChange(e.target.value)}
@@ -1330,7 +1487,7 @@ function StepConfirm({
 
             {/* Address */}
             <div className="bg-[#2D2D2F] rounded-2xl p-6">
-                <h3 className="text-[var(--text-primary)] font-medium mb-4">📍 Địa chỉ giao hàng</h3>
+                <h3 className="text-[var(--text-primary)] font-medium mb-4">Địa chỉ giao hàng</h3>
                 <AddressSelector
                     userId={userId}
                     value={shippingAddress}
@@ -1341,3 +1498,4 @@ function StepConfirm({
         </div>
     );
 }
+

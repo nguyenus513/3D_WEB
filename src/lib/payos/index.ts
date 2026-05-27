@@ -1,4 +1,4 @@
-﻿import { PayOS } from '@payos/node';
+import { PayOS } from '@payos/node';
 
 function getPayOSEnv(name: string) {
   return process.env[name]

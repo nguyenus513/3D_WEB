@@ -80,7 +80,7 @@ export default function AdminProductsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
+        if (!confirm('Bạn có chắc muốn xóa sản phẩm này VND')) return;
 
         setDeleting(id);
         try {
@@ -122,19 +122,19 @@ export default function AdminProductsPage() {
             const max = Math.max(...prices);
 
             if (min === max) {
-                return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}đ</span>;
+                return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')} VND</span>;
             }
-            return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')}đ - {max.toLocaleString('vi-VN')}đ</span>;
+            return <span className="text-[var(--text-primary)]">{min.toLocaleString('vi-VN')} VND - {max.toLocaleString('vi-VN')} VND</span>;
         }
 
         return (
             <>
                 <span className="text-[var(--text-primary)]">
-                    {Number(product.base_price).toLocaleString('vi-VN')}đ
+                    {Number(product.base_price).toLocaleString('vi-VN')} VND
                 </span>
                 {product.sale_price && (
                     <span className="text-green-400 text-sm ml-2">
-                        Sale: {Number(product.sale_price).toLocaleString('vi-VN')}đ
+                        Sale: {Number(product.sale_price).toLocaleString('vi-VN')} VND
                     </span>
                 )}
             </>

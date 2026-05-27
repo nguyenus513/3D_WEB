@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Profile Controller
  *
  * Request handling layer for profile API.

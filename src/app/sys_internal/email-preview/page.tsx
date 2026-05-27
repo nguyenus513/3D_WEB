@@ -45,7 +45,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <img src="/brand/miniver-logo-full.png" alt="Miniver 3D Lab" width="180" style="display:block;margin:0 auto;max-width:180px;height:auto" />
     </div>
     <div class="content">
         <div class="icon-box">
@@ -65,12 +65,12 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
             </div>
             <div class="row">
                 <span class="label">Đã thanh toán</span>
-                <span class="value highlight">${data.depositAmount.toLocaleString('vi-VN')}đ</span>
+                <span class="value highlight">${data.depositAmount.toLocaleString('vi-VN')} VND</span>
             </div>
             <div class="divider"></div>
             <div class="total-row">
                 <span class="total-label">Tổng giá trị đơn</span>
-                <span class="total-value">${data.total.toLocaleString('vi-VN')}đ</span>
+                <span class="total-value">${data.total.toLocaleString('vi-VN')} VND</span>
             </div>
         </div>
         
@@ -84,7 +84,7 @@ p{margin:0 0 24px;color:#86868b;font-size:16px;text-align:center}
             <a href="#" class="footer-link">Tra cứu đơn hàng</a> • 
             <a href="#" class="footer-link">Liên hệ hỗ trợ</a>
         </div>
-        <p>© 2026 3D Print Shop. All rights reserved.<br>123 Đường ABC, Quận XYZ, TP.HCM</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.<br>123 Đường ABC, Quận XYZ, TP.HCM</p>
     </div>
 </div>
 </body>
@@ -118,7 +118,7 @@ p{margin:0 0 32px;color:#424245;font-size:17px;text-align:center;line-height:1.6
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <img src="/brand/miniver-logo-full.png" alt="Miniver 3D Lab" width="180" style="display:block;margin:0 auto;max-width:180px;height:auto" />
     </div>
     <div class="content">
         <div style="text-align: center;">
@@ -141,7 +141,7 @@ p{margin:0 0 32px;color:#424245;font-size:17px;text-align:center;line-height:1.6
         <a href="#" class="cta-button">Xem chi tiết đơn hàng</a>
     </div>
     <div class="footer">
-        <p>© 2026 3D Print Shop. All rights reserved.</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.</p>
     </div>
 </div>
 </body>
@@ -177,7 +177,7 @@ p{margin:0 0 32px;color:#424245;font-size:16px;text-align:center}
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">3D Print Shop</div>
+        <img src="/brand/miniver-logo-full.png" alt="Miniver 3D Lab" width="180" style="display:block;margin:0 auto;max-width:180px;height:auto" />
     </div>
     <div class="content">
         <div class="truck-icon">🚚</div>
@@ -206,7 +206,7 @@ p{margin:0 0 32px;color:#424245;font-size:16px;text-align:center}
         </div>
     </div>
     <div class="footer">
-        <p>© 2026 3D Print Shop. All rights reserved.</p>
+        <p>© 2026 Miniver 3D Lab. All rights reserved.</p>
     </div>
 </div>
 </body>

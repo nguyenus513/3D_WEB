@@ -1,4 +1,4 @@
-﻿export type MongoId = string;
+export type MongoId = string;
 export type MongoDate = Date;
 export type Money = number;
 
@@ -13,6 +13,9 @@ export interface ProfileDocument {
   updated_at?: MongoDate | null;
   password?: string | null;
   email_verified?: boolean | null;
+  totp_enabled?: boolean | null;
+  totp_secret?: string | null;
+  totp_recovery_codes?: string[] | null;
   deleted_at?: MongoDate | null;
 }
 
@@ -37,6 +40,8 @@ export interface CategoryDocument {
   description?: string | null;
   parent_id?: MongoId | null;
   sort_order?: number | null;
+  is_active?: boolean | null;
+  deleted_at?: MongoDate | string | null;
   created_at?: MongoDate | null;
 }
 
@@ -48,6 +53,8 @@ export interface ProductDocument {
   category_id?: MongoId | null;
   type?: 'ready_made' | 'custom_template' | 'service' | null;
   status?: 'draft' | 'active' | 'archived' | null;
+  is_active?: boolean | null;
+  deleted_at?: MongoDate | string | null;
   short_description?: string | null;
   description?: string | null;
   base_price: Money;
@@ -64,6 +71,24 @@ export interface ProductDocument {
   is_featured?: boolean | null;
   view_count?: number | null;
   sold_count?: number | null;
+  created_at?: MongoDate | null;
+  updated_at?: MongoDate | null;
+}
+
+
+export interface ProductVariantDocument {
+  _id: MongoId;
+  product_id: MongoId;
+  sku?: string | null;
+  name: string;
+  price: Money;
+  stock?: number | null;
+  reserved_stock?: number | null;
+  image_url?: string | null;
+  images?: string[] | null;
+  is_active?: boolean | null;
+  sort_order?: number | null;
+  deleted_at?: MongoDate | string | null;
   created_at?: MongoDate | null;
   updated_at?: MongoDate | null;
 }

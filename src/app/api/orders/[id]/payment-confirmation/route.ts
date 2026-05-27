@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { SecurityLogger, getClientIP } from '@/lib/security';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 const supabaseAdmin = getAdminSupabase();
 
@@ -34,39 +35,21 @@ export async function POST(
             status: string;
             total: number;
         } | null = null;
-        let orderTable: 'order_child' | 'orders' = 'order_child';
 
-        const { data: childOrder } = await supabaseAdmin
-            .from('order_child')
-            .select('id, user_id, code_child, status, total_price')
+        const { data: canonicalOrder } = await supabaseAdmin
+            .from('orders')
+            .select('id, user_id, order_code, status, total_amount')
             .eq('id', orderId)
             .maybeSingle();
 
-        if (childOrder) {
+        if (canonicalOrder) {
             order = {
-                id: childOrder.id,
-                user_id: childOrder.user_id,
-                order_code: childOrder.code_child,
-                status: childOrder.status,
-                total: childOrder.total_price,
+                id: canonicalOrder.id,
+                user_id: canonicalOrder.user_id,
+                order_code: canonicalOrder.order_code,
+                status: canonicalOrder.status,
+                total: canonicalOrder.total_amount,
             };
-        } else {
-            const { data: legacyOrder } = await supabaseAdmin
-                .from('orders')
-                .select('id, user_id, order_code, status, total_amount')
-                .eq('id', orderId)
-                .maybeSingle();
-
-            if (legacyOrder) {
-                order = {
-                    id: legacyOrder.id,
-                    user_id: legacyOrder.user_id,
-                    order_code: legacyOrder.order_code,
-                    status: legacyOrder.status,
-                    total: legacyOrder.total_amount,
-                };
-                orderTable = 'orders';
-            }
         }
 
         if (!order) {
@@ -83,12 +66,10 @@ export async function POST(
             }, { status: 400 });
         }
 
-        const updatePayload = orderTable === 'order_child'
-            ? { status: 'pending_confirmation', updated_at: new Date().toISOString() }
-            : { status: 'pending_confirmation', payment_status: 'pending', updated_at: new Date().toISOString() };
+        const updatePayload = { status: 'pending_confirmation', payment_status: 'pending', updated_at: new Date().toISOString() };
 
         const { error: updateError } = await supabaseAdmin
-            .from(orderTable)
+            .from('orders')
             .update(updatePayload)
             .eq('id', orderId);
 
@@ -96,6 +77,12 @@ export async function POST(
             log.error('Update error', updateError);
             return NextResponse.json({ error: 'Không thể cập nhật đơn hàng' }, { status: 500 });
         }
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'pending_confirmation',
+        });
 
         await SecurityLogger.log({
             event_type: 'ADMIN_ACTION',
@@ -107,7 +94,7 @@ export async function POST(
                 orderId,
                 orderCode: order.order_code,
                 total: order.total,
-                orderTable,
+                orderTable: 'orders',
             },
         });
 

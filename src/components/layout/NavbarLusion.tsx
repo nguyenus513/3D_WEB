@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,7 +53,9 @@ export function NavbarLusion() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.6 }}
                             >
-                                <span className="text-lg font-semibold text-[var(--text-primary)]">3D Print</span>
+                                <span className="inline-flex rounded-full bg-white px-3 py-1.5 shadow-sm">
+                                    <Image src="/brand/miniver-logo-full.png" alt="Miniver" width={128} height={36} priority className="h-7 w-auto object-contain" />
+                                </span>
                             </motion.div>
                         </Link>
                     </Magnetic>
@@ -174,7 +177,7 @@ export function NavbarLusion() {
                                 className="absolute bottom-8 left-0 right-0 px-8"
                             >
                                 <div className="flex justify-between items-center text-sm text-[var(--text-secondary)]">
-                                    <span>© 2026 3D Print</span>
+                                    <span>© 2026 Miniver 3D Lab</span>
                                     <div className="flex gap-6">
                                         <Link href="/privacy" className="hover:text-[var(--text-primary)] transition-colors">Privacy</Link>
                                         <Link href="/terms" className="hover:text-[var(--text-primary)] transition-colors">Terms</Link>

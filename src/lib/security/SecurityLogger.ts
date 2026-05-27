@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Security Logger Service
  *
  * Centralized logging for security-related events.

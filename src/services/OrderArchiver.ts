@@ -1,4 +1,4 @@
-﻿import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadWithNaming } from '@/lib/google-drive-oauth';
 import { downloadFromR2, deleteFromR2 } from '@/lib/storage/r2';
 // Define Interfaces Locally as they are not exported from database types anymore

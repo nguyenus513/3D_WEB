@@ -51,7 +51,7 @@ interface PrintFileCardProps {
  */
 export default function PrintFileCard({ file, onClick }: PrintFileCardProps) {
     const formatPrice = (price: number): string =>
-        price.toLocaleString('vi-VN') + 'đ';
+        price.toLocaleString('vi-VN') + ' VND';
 
     const formatFileSize = (bytes: number | null): string => {
         if (!bytes) return '';

@@ -69,7 +69,7 @@ export default function RevenuePage() {
         }
     };
 
-    const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + 'đ';
+    const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' VND';
 
     // Find max for chart scaling
     const maxRevenue = data ? Math.max(...data.yearlyData.map(d => d.revenue), 1) : 1;

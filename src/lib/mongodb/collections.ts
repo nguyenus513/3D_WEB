@@ -10,6 +10,7 @@ import type {
   OrderItemDocument,
   PaymentDocument,
   ProductDocument,
+  ProductVariantDocument,
   ProfileDocument,
   QrPaymentDocument,
   RefreshTokenDocument,
@@ -23,6 +24,7 @@ export interface MongoCollections {
   addresses: Collection<AddressDocument>;
   categories: Collection<CategoryDocument>;
   products: Collection<ProductDocument>;
+  productVariants: Collection<ProductVariantDocument>;
   master_orders: Collection<MasterOrderDocument>;
   orders: Collection<OrderDocument>;
   order_items: Collection<OrderItemDocument>;
@@ -50,6 +52,7 @@ export async function getMongoCollections(): Promise<MongoCollections> {
     addresses: db.collection<AddressDocument>('addresses'),
     categories: db.collection<CategoryDocument>('categories'),
     products: db.collection<ProductDocument>('products'),
+    productVariants: db.collection<ProductVariantDocument>('product_variants'),
     master_orders: db.collection<MasterOrderDocument>('master_orders'),
     orders: db.collection<OrderDocument>('orders'),
     order_items: db.collection<OrderItemDocument>('order_items'),

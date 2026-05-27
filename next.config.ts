@@ -24,6 +24,8 @@ const scriptSrc = [
   "'unsafe-inline'",
   ...(allowUnsafeEval ? ["'unsafe-eval'"] : []),
   'https://www.googletagmanager.com',
+  'https://grid.space',
+  'https://*.grid.space',
 ];
 
 const securityHeaders = [
@@ -64,8 +66,9 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com",
       "img-src 'self' data: blob: https: http:",
       "media-src 'self' blob:",
-      "connect-src 'self' https://img.vietqr.io https://www.googleapis.com https://oauth2.googleapis.com https://provinces.open-api.vn https://accounts.google.com",
-      "frame-src 'self' https://accounts.google.com",
+      "connect-src 'self' https://img.vietqr.io https://www.googleapis.com https://oauth2.googleapis.com https://provinces.open-api.vn https://accounts.google.com https://grid.space https://*.grid.space",
+      "worker-src 'self' blob:",
+      "frame-src 'self' https://accounts.google.com https://grid.space https://*.grid.space",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",

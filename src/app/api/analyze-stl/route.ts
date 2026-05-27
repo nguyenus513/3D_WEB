@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { isRateLimited, rateLimitedResponse } from '@/lib/security';
+import { calculatePrintingPrice } from '@/lib/printing/pricing-engine';
 
 /**
  * STL Analysis API
@@ -195,7 +196,9 @@ export async function POST(request: NextRequest) {
 
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const printType = (formData.get('type') as string) || 'fdm';
+        const printType = (formData.get('type') as string) === 'resin' ? 'resin' : 'fdm';
+        const infill = String(formData.get('infill') || '20');
+        const layerHeight = String(formData.get('layerHeight') || '0.2');
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -271,22 +274,22 @@ export async function POST(request: NextRequest) {
         const speed = PRINT_SPEED[printType] || PRINT_SPEED.fdm;
         const hours = grams / speed;
 
-        // Calculate price
-        let price: number;
-        if (printType === 'fdm') {
-            // FDM: 600 × gram + 3000 × hour
-            price = 600 * grams + 3000 * hours;
-        } else {
-            // Resin: 3000 × hour + 3000 × gram
-            price = 3000 * hours + 3000 * grams;
-        }
+        const priceBreakdown = calculatePrintingPrice({
+            technology: printType,
+            grams,
+            timeHours: hours,
+            infill,
+            layerHeight,
+        });
+        const price = priceBreakdown.total;
 
         return NextResponse.json({
             success: true,
             volume: Math.round(volumeCm3 * 100) / 100,  // Round to 2 decimals
             grams: Math.round(grams),
             hours: Math.round(hours * 10) / 10,          // Round to 1 decimal
-            price: Math.round(price),
+            price,
+            pricing: priceBreakdown,
             boundingBox: {
                 x: Math.round(result.boundingBox.x * 10) / 10,
                 y: Math.round(result.boundingBox.y * 10) / 10,

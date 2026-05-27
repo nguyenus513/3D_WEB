@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { AnimatedSection } from '../ui/Animations';
+import { getProductPriceInfo } from '@/lib/pricing/product-price';
 
 interface FeaturedProduct {
     id: string;
@@ -13,6 +14,9 @@ interface FeaturedProduct {
     sale_price: number | null;
     images: { url: string; alt?: string }[] | null;
     short_description: string | null;
+    product_variants?: { price: number; is_active?: boolean; enabled?: boolean }[];
+    sizes?: { price: number; is_active?: boolean; enabled?: boolean }[];
+    display_price_text?: string | null;
 }
 
 export function FeaturedProducts() {
@@ -128,11 +132,11 @@ export function FeaturedProducts() {
                                             </h3>
                                             <div className="flex items-center gap-2">
                                                 <p className="text-[#1D1D1F] font-medium">
-                                                    {(product.sale_price || product.base_price).toLocaleString('vi-VN')}đ
+                                                    {getProductPriceInfo(product).text}
                                                 </p>
                                                 {product.sale_price && (
                                                     <p className="text-[#6E6E73] text-sm line-through">
-                                                        {product.base_price.toLocaleString('vi-VN')}đ
+                                                        {product.base_price.toLocaleString('vi-VN')} VND
                                                     </p>
                                                 )}
                                             </div>

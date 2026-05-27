@@ -31,11 +31,11 @@ export default function FAQPage() {
 
     // Fallback FAQs if none in database
     const defaultFaqs = [
-        { id: '1', question: 'Thời gian sản xuất mất bao lâu?', answer: 'Thời gian sản xuất thông thường từ 5-7 ngày làm việc đối với sản phẩm có sẵn, và 7-14 ngày với đơn hàng custom.' },
-        { id: '2', question: 'Tôi cần chuẩn bị gì để đặt hàng custom?', answer: 'Bạn chỉ cần upload ảnh chất lượng cao (tối thiểu 1-2 ảnh rõ mặt).' },
-        { id: '3', question: 'Chính sách đổi trả như thế nào?', answer: 'Chúng tôi hỗ trợ đổi trả trong vòng 7 ngày nếu sản phẩm bị lỗi do sản xuất.' },
-        { id: '4', question: 'Hình thức thanh toán nào được chấp nhận?', answer: 'Chúng tôi chấp nhận chuyển khoản ngân hàng qua mã QR VietQR. Đặt cọc 50% khi đặt hàng.' },
-        { id: '5', question: 'Có giao hàng toàn quốc không?', answer: 'Có, chúng tôi giao hàng toàn quốc qua các đơn vị vận chuyển uy tín.' },
+        { id: '1', question: 'Thời gian sản xuất mất bao lâu VND', answer: 'Thời gian sản xuất thông thường từ 5-7 ngày làm việc đối với sản phẩm có sẵn, và 7-14 ngày với đơn hàng custom.' },
+        { id: '2', question: 'Tôi cần chuẩn bị gì để đặt hàng custom VND', answer: 'Bạn chỉ cần upload ảnh chất lượng cao (tối thiểu 1-2 ảnh rõ mặt).' },
+        { id: '3', question: 'Chính sách đổi trả như thế nào VND', answer: 'Chúng tôi hỗ trợ đổi trả trong vòng 7 ngày nếu sản phẩm bị lỗi do sản xuất.' },
+        { id: '4', question: 'Hình thức thanh toán nào được chấp nhận VND', answer: 'Chúng tôi chấp nhận chuyển khoản ngân hàng qua mã QR VietQR. Đặt cọc 50% khi đặt hàng.' },
+        { id: '5', question: 'Có giao hàng toàn quốc không VND', answer: 'Có, chúng tôi giao hàng toàn quốc qua các đơn vị vận chuyển uy tín.' },
     ];
 
     const displayFaqs = faqs.length > 0 ? faqs : defaultFaqs;

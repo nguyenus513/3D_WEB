@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { motion } from 'framer-motion';
 import { TextReveal } from '../ui/Animations';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // Velocity tracking hook
 function useScrollVelocity() {
@@ -179,14 +180,16 @@ export function HeroJelly() {
                     className="text-center max-w-5xl"
                 >
                     {/* Pre-title */}
-                    <motion.p
+                    <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.3 }}
-                        className="text-sm md:text-base text-[var(--text-secondary)] font-medium tracking-widest uppercase mb-6"
+                        className="mb-6 flex justify-center"
                     >
-                        Miniver 3D Lab
-                    </motion.p>
+                        <span className="inline-flex rounded-full bg-white px-5 py-2 shadow-sm">
+                            <Image src="/brand/miniver-logo-full.png" alt="Miniver 3D Lab" width={190} height={54} priority className="h-10 w-auto object-contain" />
+                        </span>
+                    </motion.div>
 
                     {/* Main Title */}
                     <h1 className="text-[clamp(36px,10vw,120px)] font-bold leading-[1.2] tracking-[-0.04em] text-[var(--text-primary)] mb-8 whitespace-nowrap">

@@ -70,8 +70,10 @@ const STATUS_CONFIG: Record<VersionStatus, {
     },
 };
 
-function formatTimestamp(dateStr: string): string {
+function formatTimestamp(dateStr?: string | null): string {
+    if (!dateStr) return 'Chưa có thời gian';
     const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return 'Chưa có thời gian';
     return date.toLocaleDateString('vi-VN', {
         day: '2-digit',
         month: '2-digit',

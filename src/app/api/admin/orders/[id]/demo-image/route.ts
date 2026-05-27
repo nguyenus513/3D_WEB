@@ -14,6 +14,8 @@ import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, isR2Configured, deleteFromR2, extractR2KeyFromUrl } from '@/lib/storage/r2';
 import { generateStudioR2Key, getExtension } from '@/lib/naming';
 import { createNotification } from '@/lib/notifications';
+import { trackFileUpload } from '@/lib/security/file-access';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 const MAX_IMAGES_PER_VERSION = 10;
 const MAX_REVISIONS = 5;
@@ -181,6 +183,11 @@ export async function POST(
             index: String(imageIndex),
         });
 
+        await trackFileUpload(r2Key, order.user_id, orderId, {
+            fileName: file.name,
+            fileType: uploadContentType,
+        });
+
         const proxyUrl = `/api/files/${r2Key}`;
 
         // Insert design image
@@ -213,13 +220,24 @@ export async function POST(
             uploaded_at: img.created_at,
         }));
 
-        await supabase
+        const reviewAt = new Date().toISOString();
+        const demoImageUrl = demoImagesSync[demoImagesSync.length - 1]?.url || proxyUrl;
+
+        const { error: orderUpdateError } = await supabase
             .from('orders')
             .update({
+                status: 'review',
+                review_at: reviewAt,
                 demo_images: demoImagesSync,
+                demo_image_url: demoImageUrl,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);
+
+        if (orderUpdateError) {
+            console.error('[DemoUpload] Order sync failed:', orderUpdateError);
+            return NextResponse.json({ error: 'Failed to update order review status: ' + orderUpdateError.message }, { status: 500 });
+        }
 
         // Notify order owner
         if (order.user_id) {
@@ -233,6 +251,12 @@ export async function POST(
             });
         }
 
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'review',
+        });
+
         // Invalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
         revalidatePath('/sys_internal/orders', 'page');
@@ -241,6 +265,9 @@ export async function POST(
         return NextResponse.json({
             success: true,
             image: newImage,
+            new_status: 'review',
+            demo_image_url: demoImageUrl,
+            review_at: reviewAt,
             version: {
                 id: versionId,
                 version_number: versionNumber,

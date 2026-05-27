@@ -1,4 +1,4 @@
-﻿import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getAdminSupabase } from '@/lib/supabase/admin';
 import { CartRepository } from '@/repositories/CartRepository';
 import { OrderRepository } from '@/repositories/OrderRepository';
 import { generateId } from '@/lib/generateId';
@@ -98,46 +98,38 @@ export class CheckoutService {
             }))
         );
 
-        // Link uploaded files (order_files) to created order/items
+        // Link uploaded files through canonical file_links.
         try {
             const itemsByFullCode = new Map(
                 (order.items || []).map((item) => [item.full_code, item.id])
             );
 
-            const updates = cart.cart_items.map((cartItem) => {
+            const links = cart.cart_items.map((cartItem) => {
                 const orderItemId = itemsByFullCode.get(cartItem.full_code);
-                if (!orderItemId) return null;
+                const cartItemRecord = cartItem as typeof cartItem & { file_id?: string; type?: string; configuration?: { fileId?: string } };
+                const fileId = cartItemRecord.file_id || cartItemRecord.configuration?.fileId;
+                if (!orderItemId || !fileId) return null;
 
                 return supabaseAdmin
-                    .from('order_files')
-                    .update({
-                        order_id: order.id,
-                        order_item_id: orderItemId,
-                        cart_id: cart.id,
-                        cart_item_id: cartItem.id,
-                        cart_code: cart.cart_code,
-                        full_code: cartItem.full_code,
-                        order_code: order.order_code,
-                    })
-                    .eq('cart_code', cart.cart_code)
-                    .eq('full_code', cartItem.full_code);
+                    .from('file_links')
+                    .insert({
+                        file_id: fileId,
+                        ref_type: 'order_item',
+                        ref_id: orderItemId,
+                        tag: cartItem.item_type || cartItemRecord.type || 'cart_upload',
+                        metadata: {
+                            cart_id: cart.id,
+                            cart_item_id: cartItem.id,
+                            cart_code: cart.cart_code,
+                            full_code: cartItem.full_code,
+                            order_code: order.order_code,
+                        },
+                    });
             });
 
-            await Promise.all(updates.filter(Boolean));
-
-            // Attach any remaining cart-level files
-            await supabaseAdmin
-                .from('order_files')
-                .update({
-                    order_id: order.id,
-                    cart_id: cart.id,
-                    cart_code: cart.cart_code,
-                    order_code: order.order_code,
-                })
-                .eq('cart_code', cart.cart_code)
-                .is('order_id', null);
+            await Promise.all(links.filter(Boolean));
         } catch (err) {
-            console.error('[CheckoutService] Failed to link order_files:', err);
+            console.error('[CheckoutService] Failed to link file_links:', err);
         }
 
         // Create payment record (pending)
@@ -167,4 +159,3 @@ export class CheckoutService {
         };
     }
 }
-

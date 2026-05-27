@@ -8,6 +8,25 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
 
+function buildActionUrl(notification: any) {
+    if (notification.action_url) return notification.action_url;
+    const orderId = notification.ref_order_id || (notification.ref_type === 'order' ? notification.ref_id : null);
+    if (orderId) return `/account/orders/${orderId}`;
+    if (notification.ref_type === 'design_version' && notification.ref_id) return `/account/orders/${notification.ref_id}/demo`;
+    return '/account/orders';
+}
+
+function normalizeNotification(notification: any) {
+    const orderId = notification.ref_order_id || (notification.ref_type === 'order' ? notification.ref_id : null);
+    return {
+        ...notification,
+        ref_order_id: orderId,
+        severity: notification.severity || (notification.type === 'payment_paid' ? 'success' : 'info'),
+        action_url: buildActionUrl(notification),
+        total_amount: Number(notification.total_amount || 0) || null,
+    };
+}
+
 export async function GET(request: NextRequest) {
     try {
         const session = await auth();
@@ -57,7 +76,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            notifications: data || [],
+            notifications: (data || []).map(normalizeNotification),
             unread_count: count || 0,
         });
     } catch (error) {

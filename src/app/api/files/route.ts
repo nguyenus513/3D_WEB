@@ -3,7 +3,6 @@ import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { canAccessFileById, logFileAccess } from '@/lib/security/file-access';
 import { getR2SignedUrl } from '@/lib/storage/r2';
-import { getDirectUrl } from '@/lib/google-drive-oauth';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -40,8 +39,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = getAdminSupabase();
     const { data: file } = await supabase
-        .from('order_files')
-        .select('id, file_key, storage_provider, drive_url, drive_file_id, is_public')
+        .from('files')
+        .select('id, file_url, file_key, object_key, storage_provider, provider, is_public')
         .eq('id', id)
         .single();
 
@@ -50,13 +49,15 @@ export async function GET(request: NextRequest) {
     }
 
     let targetUrl: string | null = null;
-    if (file.storage_provider === 'r2') {
-        if (!file.file_key) {
+    const storageProvider = file.storage_provider || file.provider || 'r2';
+    const objectKey = file.object_key || file.file_key || (file.file_url?.startsWith('/api/files/') ? file.file_url.replace('/api/files/', '') : null);
+    if (storageProvider === 'r2') {
+        if (!objectKey) {
             return NextResponse.json({ error: 'Missing file key' }, { status: 500 });
         }
-        targetUrl = await getR2SignedUrl(file.file_key, 3600);
+        targetUrl = await getR2SignedUrl(objectKey, 3600);
     } else if (file.storage_provider === 'drive') {
-        targetUrl = file.drive_url || (file.drive_file_id ? getDirectUrl(file.drive_file_id) : null);
+        targetUrl = file.file_url || null;
     }
 
     if (!targetUrl) {
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
     }
 
     await logFileAccess({
-        fileKey: file.file_key || file.drive_file_id || id,
+        fileKey: objectKey || file.file_url || id,
         fileId: file.id,
         userId: userId || undefined,
         action: 'view',

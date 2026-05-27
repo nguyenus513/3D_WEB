@@ -1,4 +1,4 @@
-﻿/**
+/**
  * useNotifications Hook
  *
  * Provides notifications state, realtime subscription, and actions.
@@ -22,9 +22,19 @@ export interface Notification {
     title: string;
     message: string | null;
     type: string;
+    severity?: 'info' | 'success' | 'warning' | 'urgent';
     is_read: boolean;
     ref_id: string | null;
     ref_type: string | null;
+    ref_order_id?: string | null;
+    action_url?: string | null;
+    order_code?: string | null;
+    order_type?: string | null;
+    customer_name?: string | null;
+    total_amount?: number | null;
+    payment_status?: string | null;
+    order_status?: string | null;
+    metadata?: Record<string, unknown> | null;
     created_at: string;
     read_at: string | null;
 }
@@ -147,11 +157,12 @@ export function useNotifications(options: UseNotificationsOptions & { enabled?: 
     }, []);
 
     const markAsRead = useCallback(async (id: string) => {
+        const wasUnread = notifications.some(n => n.id === id && !n.is_read);
         // Optimistic update
         setNotifications(prev =>
             prev.map(n => n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n)
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
 
         try {
             await fetch(`/api/notifications/${id}`, { method: 'PATCH' });
@@ -160,7 +171,7 @@ export function useNotifications(options: UseNotificationsOptions & { enabled?: 
             // Revert on failure
             fetchNotifications();
         }
-    }, [fetchNotifications]);
+    }, [fetchNotifications, notifications]);
 
     const markAllAsRead = useCallback(async () => {
         // Optimistic update
@@ -192,4 +203,3 @@ export function useNotifications(options: UseNotificationsOptions & { enabled?: 
         clearLatest,
     };
 }
-

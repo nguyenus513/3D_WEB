@@ -1,6 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getPayOS, isPayOSConfigured } from '@/lib/payos';
+import { persistPaidCustomModelImages } from '@/lib/custom/model-image';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
+import { adjustReadyMadeOrderStock } from '@/lib/stock/order-stock';
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +39,11 @@ export async function POST(request: NextRequest) {
     }
 
     const paidAt = new Date().toISOString();
+    const { data: beforeOrder } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('id', payment.order_id)
+      .maybeSingle();
     const gatewayResponse = {
       ...(payment.gateway_response || {}),
       webhook: webhookData,
@@ -63,6 +71,20 @@ export async function POST(request: NextRequest) {
         updated_at: paidAt,
       })
       .eq('id', payment.order_id);
+
+    await adjustReadyMadeOrderStock(payment.order_id, 'confirm').catch((error) => {
+      console.error('[PayOSWebhook] Stock confirm failed:', error);
+    });
+
+    await persistPaidCustomModelImages(payment.order_id).catch((error) => {
+      console.error('[PayOSWebhook] Persist model images failed:', error);
+    });
+
+    await sendOrderStatusEmail({
+      orderId: payment.order_id,
+      oldStatus: beforeOrder?.status,
+      newStatus: 'confirmed',
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

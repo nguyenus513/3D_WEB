@@ -96,7 +96,7 @@ function getTypeColor(type: string) {
 }
 
 function formatCurrency(value: number) {
-    return `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+    return `${Number(value || 0).toLocaleString('vi-VN')} VND`;
 }
 
 export default function CheckoutSuccessPage() {

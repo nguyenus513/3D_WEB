@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cleanup Unverified Accounts API - MongoDB backed.
  */
 

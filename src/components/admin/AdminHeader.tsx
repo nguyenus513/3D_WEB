@@ -11,6 +11,12 @@ interface Notification {
     order_code: string;
     order_type: string;
     status: string;
+    payment_status?: string | null;
+    customer_name?: string | null;
+    severity?: 'info' | 'success' | 'warning' | 'urgent';
+    action_url?: string | null;
+    type?: string;
+    is_read: boolean;
     total: number;
     created_at: string;
     title?: string;
@@ -42,13 +48,14 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     const { adminRoot } = useAdminPath();
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const { t, formatLabel } = useUiLabels(['admin.header', 'admin.common']);
     const labels = t<AdminHeaderLabels>('labels', {}) as AdminHeaderLabels;
 
     useEffect(() => {
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 5000);
+        const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -64,6 +71,7 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
             if (res.ok) {
                 const data = await res.json();
                 setNotifications(data.orders || []);
+                setUnreadCount(Number(data.unread_count || 0));
             }
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
@@ -73,12 +81,14 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
     const formatCurrency = (value: number) => {
         const amount = Number.isFinite(Number(value)) ? Number(value) : 0;
-        return `${amount.toLocaleString('vi-VN')}đ`;
+        return `${amount.toLocaleString('vi-VN')} VND`;
     };
 
     const markAsRead = async (notification: Notification) => {
         if (!notification.notification_id) return;
-        setNotifications((current) => current.filter((item) => item.notification_id !== notification.notification_id));
+        const wasUnread = !notification.is_read;
+        setNotifications((current) => current.map((item) => item.notification_id === notification.notification_id ? { ...item, is_read: true } : item));
+        if (wasUnread) setUnreadCount((current) => Math.max(0, current - 1));
         try {
             await fetch(`/api/notifications/${notification.notification_id}`, { method: 'PATCH' });
         } catch (error) {
@@ -86,11 +96,14 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         }
     };
 
-    const formatTime = (dateStr: string) => {
+    const formatTime = (dateStr?: string | null) => {
+        if (!dateStr) return 'Chưa có thời gian';
         const date = new Date(dateStr);
+        if (Number.isNaN(date.getTime())) return 'Chưa có thời gian';
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
         const diffMins = Math.floor(diffMs / 60000);
+        if (!Number.isFinite(diffMins)) return 'Chưa có thời gian';
 
         if (diffMins < 1) return labels.time?.justNow || '';
         if (diffMins < 60) return formatLabel(labels.time?.minutesAgo || '', { count: diffMins });
@@ -102,7 +115,22 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         return formatLabel(labels.time?.daysAgo || '', { count: diffDays });
     };
 
-    const pendingCount = notifications.length;
+    const pendingCount = unreadCount;
+
+    const getAdminNotificationHref = (notification: Notification) => {
+        if (notification.action_url?.startsWith('/sys_internal')) {
+            return notification.action_url.replace('/sys_internal', adminRoot);
+        }
+        if (notification.action_url?.startsWith('/')) return notification.action_url;
+        return `${adminRoot}/orders/${notification.id}`;
+    };
+
+    const getStatusLabel = (notification: Notification) => {
+        if (notification.payment_status === 'paid') return 'Đã thanh toán';
+        if (notification.type?.includes('design')) return 'Demo';
+        if (notification.severity === 'urgent') return 'Cần xử lý';
+        return notification.status === 'pending' ? 'Chờ xử lý' : notification.status;
+    };
 
     return (
         <header className="sticky top-0 z-40 bg-[#1D1D1F] border-b border-white/5">
@@ -173,28 +201,30 @@ export function AdminHeader({ onMenuClick }: { onMenuClick?: () => void }) {
                                         notifications.map((n) => (
                                             <Link
                                                 key={n.id}
-                                                href={`${adminRoot}/orders/${n.id}`}
+                                                href={getAdminNotificationHref(n)}
                                                 onClick={() => {
                                                     markAsRead(n);
                                                     setShowNotifications(false);
                                                 }}
-                                                className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
+                                                className={`block p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${!n.is_read ? 'bg-white/5' : ''}`}
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.status === 'pending' ? 'bg-yellow-500/20' : 'bg-blue-500/20'
+                                                    {!n.is_read && <span className="mt-3 h-2.5 w-2.5 rounded-full bg-red-500 flex-shrink-0" />}
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.severity === 'urgent' ? 'bg-white/15' : 'bg-white/10'
                                                         }`}>
-                                                        <svg className={`w-4 h-4 ${n.status === 'pending' ? 'text-yellow-400' : 'text-blue-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                                         </svg>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-white text-sm font-medium">{n.title || n.order_code}</span>
-                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${n.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
-                                                                }`}>
-                                                                {n.status === 'pending' ? labels.status?.pending : labels.status?.paid}
+                                                            <span className={`text-sm ${!n.is_read ? 'text-white font-semibold' : 'text-white/65 font-medium'}`}>{n.title || n.order_code}</span>
+                                                            {!n.is_read && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300">Chưa đọc</span>}
+                                                            <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-white/80">
+                                                                {getStatusLabel(n)}
                                                             </span>
                                                         </div>
+                                                        {n.customer_name && <p className="text-white/60 text-xs mt-0.5">Khách: {n.customer_name}</p>}
                                                         <div className="flex items-center gap-2 mt-0.5">
                                                             <span className="text-white/50 text-xs">{labels.orderTypes?.[n.order_type] || n.order_type}</span>
                                                             <span className="text-white/30">&bull;</span>

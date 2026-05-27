@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 export async function POST(
     request: NextRequest,
@@ -53,6 +54,12 @@ export async function POST(
             console.error('[StartProduction] Update error:', updateError);
             return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
         }
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'producing',
+        });
 
         // Revalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');

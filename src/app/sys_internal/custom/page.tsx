@@ -8,10 +8,12 @@ import { formatOrderDate } from '@/lib/utils/orderStatus';
 
 const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/20 text-yellow-400',
+    confirmed: 'bg-blue-500/20 text-blue-400',
     paid: 'bg-blue-500/20 text-blue-400',
     designing: 'bg-purple-500/20 text-purple-400',
-    processing: 'bg-cyan-500/20 text-cyan-400', // Was review
-    confirmed: 'bg-green-500/20 text-green-400',
+    review: 'bg-cyan-500/20 text-cyan-400',
+    producing: 'bg-indigo-500/20 text-indigo-400',
+    approved: 'bg-green-500/20 text-green-400',
     completed: 'bg-green-500/20 text-green-400',
 };
 
@@ -44,8 +46,8 @@ export default function AdminCustomPage() {
             setOrders(rows);
             setStats({
                 pending: rows.filter((o: Order) => o.status === 'pending').length,
-                designing: rows.filter((o: Order) => o.status === 'designing' || o.status === 'paid').length,
-                processing: rows.filter((o: Order) => o.status === 'processing').length,
+                designing: rows.filter((o: Order) => o.status === 'designing' || o.status === 'confirmed' || o.status === 'paid').length,
+                processing: rows.filter((o: Order) => o.status === 'review' || o.status === 'producing').length,
                 completed: rows.filter((o: Order) => o.status === 'delivered' || o.status === 'completed').length,
             });
         } catch (error) {
@@ -148,9 +150,9 @@ export default function AdminCustomPage() {
                                 </div>
 
                                 <div className="text-right">
-                                    <p className="text-[var(--text-primary)] font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')}đ</p>
+                                    <p className="text-[var(--text-primary)] font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')} VND</p>
                                     <div className="flex items-center gap-2 mt-3">
-                                        {order.status === 'paid' && (
+                                        {(order.status === 'confirmed' || order.status === 'paid') && (
                                             <button
                                                 onClick={() => handleUpdateStatus(order.id, 'designing')}
                                                 className="px-3 py-1.5 bg-purple-500 text-[var(--text-primary)] text-xs rounded-lg hover:bg-purple-600"
@@ -160,7 +162,7 @@ export default function AdminCustomPage() {
                                         )}
                                         {order.status === 'designing' && (
                                             <button
-                                                onClick={() => handleUpdateStatus(order.id, 'processing')}
+                                                onClick={() => handleUpdateStatus(order.id, 'review')}
                                                 className="px-3 py-1.5 bg-cyan-500 text-[var(--text-primary)] text-xs rounded-lg hover:bg-cyan-600"
                                             >
                                                 Gửi duyệt

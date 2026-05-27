@@ -14,10 +14,10 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { getTwoFactorCookieName, getTwoFactorSessionFingerprint, verifyTwoFactorCookie } from '@/lib/security/twofa-cookie';
 
 const PROTECTED_ROUTES = ['/account', '/checkout'];
-const USER_ONLY_ROUTES = ['/cart', '/checkout', '/custom', '/printing', '/account', '/complete-profile'];
-
+const ADMIN_REDIRECT_ROUTES = ['/', '/cart', '/checkout', '/custom', '/printing', '/account', '/products'];
 const ROUTE_RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
     '/api/auth/register': { limit: 5, windowMs: 3600 * 1000 },
     '/api/auth/login': { limit: 10, windowMs: 60 * 1000 },
@@ -90,6 +90,17 @@ function getClientIp(request: NextRequest): string {
     return 'unknown';
 }
 
+async function hasVerified2FA(request: NextRequest, token: Record<string, unknown> | null): Promise<boolean> {
+    if (!token?.twoFactorEnabled) return true;
+    const userId = typeof token.id === 'string' ? token.id : '';
+    if (!userId) return false;
+    return verifyTwoFactorCookie(request.cookies.get(getTwoFactorCookieName())?.value, {
+        userId,
+        email: typeof token.email === 'string' ? token.email : undefined,
+        sessionFingerprint: await getTwoFactorSessionFingerprint(request.cookies),
+    });
+}
+
 export async function middleware(request: NextRequest) {
     const { pathname, search } = request.nextUrl;
     const bypassRateLimit = process.env.E2E_BYPASS_RATE_LIMIT === '1' && request.headers.get('x-e2e-test') === '1';
@@ -151,10 +162,8 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    const isUserOnlyRoute = USER_ONLY_ROUTES.some(route =>
-        pathname === route || pathname.startsWith(route + '/')
-    );
-    if (isAdmin && isUserOnlyRoute) {
+    const shouldForceAdminHome = isAdmin && ADMIN_REDIRECT_ROUTES.some(route => pathname === route || (route !== '/' && pathname.startsWith(route + '/')));
+    if (shouldForceAdminHome) {
         return NextResponse.redirect(new URL('/api/admin/launch', request.url));
     }
 
@@ -168,11 +177,16 @@ export async function middleware(request: NextRequest) {
         return NextResponse.rewrite(new URL(internalPath, request.url));
     }
 
-    if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !pathname.startsWith('/admin/verify-2fa')) {
+    if (pathname === '/admin') {
+        const target = isLoggedIn && isAdmin ? '/api/admin/launch' : '/login?callbackUrl=/admin/verify-2fa';
+        return NextResponse.redirect(new URL(target, request.url));
+    }
+
+    if (pathname.startsWith('/admin/') && !pathname.startsWith('/admin/verify-2fa')) {
         return NextResponse.rewrite(new URL('/404', request.url));
     }
 
-    if (pathname.startsWith('/sys_internal')) {
+    if (pathname === '/sys_internal' || pathname.startsWith('/sys_internal/')) {
         if (!isLoggedIn || !isAdmin) {
             return NextResponse.rewrite(new URL('/404', request.url));
         }

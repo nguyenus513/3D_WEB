@@ -84,7 +84,7 @@ function CartItemRow({ item, onUpdate, onRemove, onUpdateItem }: {
                     )}
 
                     <p className="text-[var(--text-primary)] font-medium mt-2">
-                        {item.price.toLocaleString('vi-VN')}đ
+                        {item.price.toLocaleString('vi-VN')} VND
                     </p>
                 </div>
 
@@ -106,7 +106,7 @@ function CartItemRow({ item, onUpdate, onRemove, onUpdateItem }: {
 
                 <div className="text-right min-w-[100px]">
                     <p className="text-[var(--text-primary)] font-semibold">
-                        {(item.price * item.quantity).toLocaleString('vi-VN')}đ
+                        {(item.price * item.quantity).toLocaleString('vi-VN')} VND
                     </p>
                 </div>
 
@@ -262,7 +262,7 @@ export default function CartPage() {
                                             <span className="text-[var(--text-secondary)] flex items-center gap-2">
                                                 <Box size={20} strokeWidth={1.5} /> Sản phẩm ({groupedTotals.products.count})
                                             </span>
-                                            <span className="text-[var(--text-primary)]">{groupedTotals.products.total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-[var(--text-primary)]">{groupedTotals.products.total.toLocaleString('vi-VN')} VND</span>
                                         </div>
                                     )}
                                     {groupedTotals.prints.count > 0 && (
@@ -270,7 +270,7 @@ export default function CartPage() {
                                             <span className="text-[var(--text-secondary)] flex items-center gap-2">
                                                 <Boxes size={20} strokeWidth={1.5} /> In 3D ({groupedTotals.prints.count})
                                             </span>
-                                            <span className="text-[var(--text-primary)]">{groupedTotals.prints.total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-[var(--text-primary)]">{groupedTotals.prints.total.toLocaleString('vi-VN')} VND</span>
                                         </div>
                                     )}
                                     {groupedTotals.customs.count > 0 && (
@@ -278,7 +278,7 @@ export default function CartPage() {
                                             <span className="text-[var(--text-secondary)] flex items-center gap-2">
                                                 <PenLine size={20} strokeWidth={1.5} /> Custom ({groupedTotals.customs.count})
                                             </span>
-                                            <span className="text-[var(--text-primary)]">{groupedTotals.customs.total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-[var(--text-primary)]">{groupedTotals.customs.total.toLocaleString('vi-VN')} VND</span>
                                         </div>
                                     )}
 
@@ -286,7 +286,7 @@ export default function CartPage() {
 
                                     <div className="flex justify-between">
                                         <span className="text-[var(--text-secondary)]">Tạm tính</span>
-                                        <span className="text-[var(--text-primary)]">{totalPrice.toLocaleString('vi-VN')}đ</span>
+                                        <span className="text-[var(--text-primary)]">{totalPrice.toLocaleString('vi-VN')} VND</span>
                                     </div>
                                 </div>
 
@@ -295,7 +295,7 @@ export default function CartPage() {
                                 <div className="flex justify-between mb-6">
                                     <span className="text-[var(--text-primary)] font-medium">Tổng cộng</span>
                                     <span className="text-[var(--text-primary)] text-xl font-bold">
-                                        {totalPrice.toLocaleString('vi-VN')}đ
+                                        {totalPrice.toLocaleString('vi-VN')} VND
                                     </span>
                                 </div>
 

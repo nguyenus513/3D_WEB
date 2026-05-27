@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Brute Force Protection backed by MongoDB.
  */
 

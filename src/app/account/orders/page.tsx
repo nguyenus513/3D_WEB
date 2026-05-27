@@ -18,6 +18,7 @@ interface OrderItem {
     total_price: number;
     production_status: string;
     item_type: string;
+    product_id?: string | null;
     print_tech?: string;
     color?: string;
     material?: string;
@@ -31,6 +32,8 @@ interface CartOrder {
     status: string;
     payment_status?: string;
     order_type?: string;
+    thumbnail?: string | null;
+    summary?: string;
     items?: OrderItem[];
     notes?: string;
 }
@@ -44,18 +47,18 @@ const tabs = [
 ];
 
 const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-500/20 text-yellow-400',
-    confirmed: 'bg-green-500/20 text-green-400',
-    processing: 'bg-blue-500/20 text-blue-400',
-    designing: 'bg-purple-500/20 text-purple-400',
-    review: 'bg-orange-500/20 text-orange-400',
-    revising: 'bg-pink-500/20 text-pink-400',
-    approved: 'bg-cyan-500/20 text-cyan-400',
-    producing: 'bg-indigo-500/20 text-indigo-400',
-    printing: 'bg-violet-500/20 text-violet-400',
-    shipping: 'bg-amber-500/20 text-amber-400',
-    delivered: 'bg-emerald-500/20 text-emerald-400',
-    cancelled: 'bg-red-500/20 text-red-400',
+    pending: 'bg-white/10 text-white/70',
+    confirmed: 'bg-white/10 text-white',
+    processing: 'bg-white/10 text-white',
+    designing: 'bg-white/10 text-white',
+    review: 'bg-white/10 text-white',
+    revising: 'bg-white/10 text-white',
+    approved: 'bg-white/10 text-white',
+    producing: 'bg-white/10 text-white',
+    printing: 'bg-white/10 text-white',
+    shipping: 'bg-white/10 text-white',
+    delivered: 'bg-white/15 text-white',
+    cancelled: 'bg-white/5 text-white/50',
 };
 
 const statusLabels: Record<string, string> = {
@@ -126,6 +129,16 @@ export default function AccountOrdersPage() {
     const visibleOrders = showAllOrders ? filteredOrders : filteredOrders.slice(0, 5);
     const hiddenOrderCount = Math.max(filteredOrders.length - visibleOrders.length, 0);
 
+    const renderOrderThumb = (order: CartOrder) => {
+        if (order.order_type === 'printing' || order.order_type === 'print_3d') {
+            return <span className="text-sm font-semibold tracking-widest text-[var(--text-secondary)]">3D</span>;
+        }
+        if (order.thumbnail) {
+            return <img src={order.thumbnail} alt={order.summary || order.order_code} className="h-full w-full object-cover" />;
+        }
+        return <Box size={24} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />;
+    };
+
     if (status === 'loading' || loading) {
         return (
             <div className="p-12 text-center">
@@ -183,7 +196,7 @@ export default function AccountOrdersPage() {
                                     {order.order_code}
                                 </span>
                                 <span className="text-[var(--text-secondary)] text-sm">
-                                    {formatOrderDate(order.created_at)}
+                                    {formatOrderDate(order.created_at)} • {order.summary || order.items?.[0]?.name || 'Sản phẩm'} • {order.items?.length || 1} sản phẩm
                                 </span>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
@@ -205,14 +218,14 @@ export default function AccountOrdersPage() {
                                 {/* Render ALL items (slice removed for showing at least first 3) */}
                                 {order.items && order.items.slice(0, 3).map((item, i) => (
                                     <div key={item.full_code || i} className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center">
-                                            <Box size={24} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />
+                                        <div className="w-12 h-12 rounded-xl bg-[var(--material-glass)] flex items-center justify-center overflow-hidden">
+                                            {i === 0 ? renderOrderThumb(order) : <Box size={24} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-[var(--text-primary)] truncate">{item.name}</p>
                                             <p className="text-[var(--text-secondary)] text-sm">x{item.quantity}</p>
                                         </div>
-                                        <p className="text-[var(--text-primary)] font-medium">{Number(item.total_price).toLocaleString('vi-VN')}đ</p>
+                                        <p className="text-[var(--text-primary)] font-medium">{Number(item.total_price).toLocaleString('vi-VN')} VND</p>
                                     </div>
                                 ))}
 
@@ -227,7 +240,7 @@ export default function AccountOrdersPage() {
                         <div className="px-5 py-4 bg-[var(--material-glass)] flex items-center justify-between">
                             <div>
                                 <span className="text-[var(--text-secondary)] text-sm">Tổng cộng: </span>
-                                <span className="text-[var(--text-primary)] font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')}đ</span>
+                                <span className="text-[var(--text-primary)] font-semibold">{Number(order.total_amount).toLocaleString('vi-VN')} VND</span>
                             </div>
                             <Link
                                 href={`/account/orders/${order.id}`}

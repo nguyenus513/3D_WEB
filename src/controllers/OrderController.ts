@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Order Controller
  *
  * Request handling layer for orders API.

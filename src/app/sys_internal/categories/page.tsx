@@ -96,7 +96,7 @@ export default function AdminCategoriesPage() {
     };
 
     const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Xóa danh mục "${name}"?`)) return;
+        if (!confirm(`Xóa danh mục "${name}" VND`)) return;
 
         try {
             const response = await fetch('/api/admin/categories', {

@@ -133,6 +133,15 @@ export default function AdminProductEditPage() {
         }
     };
 
+    const getVariantBasePrice = () => {
+        const prices = formData.sizes
+            .map((size) => parseInt(size.price) || 0)
+            .filter((price) => price > 0);
+        return prices.length > 0 ? Math.min(...prices) : 0;
+    };
+
+    const getVariantStock = () => formData.sizes.reduce((sum, size) => sum + (parseInt(size.stock) || 0), 0);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
@@ -145,7 +154,7 @@ export default function AdminProductEditPage() {
                 sku: formData.sku,
                 status: formData.status,
                 is_active: formData.status === 'active',
-                base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : 0,
+                base_price: pricingMode === 'original' ? parseInt(formData.basePrice) || 0 : getVariantBasePrice(),
                 sale_price: null,
                 images: formData.images.filter(img => img?.url).map((img, i) => ({ url: img.url, is_main: i === 0 })),
                 variants: pricingMode === 'multi_size' ? formData.sizes.map(s => ({
@@ -180,7 +189,7 @@ export default function AdminProductEditPage() {
     };
 
     const handleDelete = async () => {
-        if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
+        if (!confirm('Bạn có chắc muốn xóa sản phẩm này VND')) return;
 
         try {
             const response = await fetch(`/api/admin/products?id=${encodeURIComponent(String(params.id))}`, { method: 'DELETE' });
@@ -559,7 +568,7 @@ export default function AdminProductEditPage() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Giá (VNĐ)</label>
+                                                        <label className="text-xs text-[var(--text-secondary)] mb-1 block">Giá (VND)</label>
                                                         <input
                                                             type="number"
                                                             value={size.price}
@@ -778,7 +787,7 @@ export default function AdminProductEditPage() {
                                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
                                         <span className="text-[var(--text-secondary)]">Giá bán:</span>
                                         <span className="text-[var(--text-primary)] font-medium">
-                                            {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + 'đ' : '-'}
+                                            {formData.basePrice ? parseInt(formData.basePrice).toLocaleString('vi-VN') + ' VND' : '-'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-2">
@@ -802,7 +811,7 @@ export default function AdminProductEditPage() {
                                         <span className="text-[var(--text-secondary)]">Khoảng giá:</span>
                                         <span className="text-[var(--text-primary)] font-medium">
                                             {formData.sizes.length > 0
-                                                ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')}đ`
+                                                ? `${Math.min(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')} VND - ${Math.max(...formData.sizes.map(s => parseInt(s.price) || 0)).toLocaleString('vi-VN')} VND`
                                                 : '-'
                                             }
                                         </span>

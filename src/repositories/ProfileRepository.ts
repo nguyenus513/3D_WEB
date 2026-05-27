@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Profile Repository
  *
  * MongoDB data access layer for profiles.

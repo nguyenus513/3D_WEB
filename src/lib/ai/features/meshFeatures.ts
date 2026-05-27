@@ -197,9 +197,13 @@ export function extractMeshFeatures(
     if (lowerName.endsWith('.obj')) {
         mesh = parseOBJ(buffer);
     } else {
+        const view = new DataView(buffer);
+        const binaryTriangleCount = buffer.byteLength >= 84 ? view.getUint32(80, true) : 0;
+        const expectedBinarySize = 84 + binaryTriangleCount * 50;
+        const looksBinary = buffer.byteLength >= 84 && binaryTriangleCount > 0 && Math.abs(buffer.byteLength - expectedBinarySize) <= 4;
         const headerView = new Uint8Array(buffer, 0, Math.min(5, buffer.byteLength));
         const header = String.fromCharCode(...headerView).toLowerCase();
-        if (header.startsWith('solid')) {
+        if (header.startsWith('solid') && !looksBinary) {
             mesh = parseAsciiSTL(buffer);
         } else {
             mesh = parseBinarySTL(buffer);

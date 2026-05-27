@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Google Drive OAuth Integration
  * Uses Admin's personal Google account (15GB free storage)
  * Tokens stored securely in MongoDB
@@ -199,21 +199,21 @@ export async function getDriveClient(options: { useServiceAccount?: boolean } = 
                             expiry_date: credentials.expiry_date,
                         });
                         oauth2Client.setCredentials(credentials);
-                        console.log('[DRIVE] âœ“ Token refreshed successfully');
+                        console.log('[DRIVE] ✓ Token refreshed successfully');
                     } catch (refreshError) {
                         console.error('[DRIVE] Token refresh failed:', refreshError);
                         throw new Error('Google Drive token expired and refresh failed. Please re-login as admin.');
                     }
                 }
 
-                console.log('[DRIVE] âœ“ Using OAuth (personal account)');
+                console.log('[DRIVE] ✓ Using OAuth (personal account)');
                 return google.drive({ version: 'v3', auth: oauth2Client });
             }
         } catch (tokenError) {
             console.error('[DRIVE] OAuth token retrieval error:', tokenError);
         }
 
-        console.warn('[DRIVE] âš  No OAuth tokens in DB. Admin needs to re-login with Google.');
+        console.warn('[DRIVE] ? No OAuth tokens in DB. Admin needs to re-login with Google.');
     }
 
     // 2. Service Account — ONLY if explicitly requested

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 export async function POST(
     request: NextRequest,
@@ -57,6 +58,12 @@ export async function POST(
         // Revalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');
         revalidatePath('/sys_internal/orders', 'page');
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'designing',
+        });
 
         return NextResponse.json({
             success: true,

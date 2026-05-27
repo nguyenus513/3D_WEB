@@ -1,8 +1,11 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getPayOS, isPayOSConfigured } from '@/lib/payos';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getProfileId } from '@/lib/utils/getProfileId';
+import { persistPaidCustomModelImages } from '@/lib/custom/model-image';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
+import { adjustReadyMadeOrderStock } from '@/lib/stock/order-stock';
 
 type GatewayResponse = Record<string, unknown> | null;
 
@@ -110,6 +113,20 @@ export async function POST(request: NextRequest) {
         updated_at: paidAt,
       })
       .eq('id', order.id);
+
+    await adjustReadyMadeOrderStock(order.id, 'confirm').catch((error) => {
+      console.error('[PayOSSync] Stock confirm failed:', error);
+    });
+
+    await persistPaidCustomModelImages(order.id).catch((error) => {
+      console.error('[PayOSSync] Persist model images failed:', error);
+    });
+
+    await sendOrderStatusEmail({
+      orderId: order.id,
+      oldStatus: order.status,
+      newStatus: 'confirmed',
+    });
 
     return NextResponse.json({ success: true, paid: true, status: 'PAID' });
   } catch (error) {

@@ -76,11 +76,11 @@ export async function POST(request: NextRequest) {
         createJob(jobId);
 
         enqueue(jobId, async (): Promise<QuoteResult> => {
-            const slicerResult = await sliceModel(fileBuffer, file.name, params);
+            const slicerResult = await sliceModel(fileBuffer, file.name, { ...params, layerHeight: 0.2, infill: 20, quantity: 1 });
             let price: number;
 
             if (slicerResult.mode === 'fdm') {
-                const breakdown = calculateFdmPrice(slicerResult as FdmSlicerResult, quantity, params.layerHeight);
+                const breakdown = calculateFdmPrice(slicerResult as FdmSlicerResult, quantity, params.layerHeight, params.infill);
                 price = breakdown.total;
             } else {
                 const breakdown = calculateResinPrice(slicerResult as ResinSlicerResult, quantity);

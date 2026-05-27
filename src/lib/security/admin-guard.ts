@@ -10,11 +10,13 @@ import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 import { securityLog, getIpFromRequest, getUserAgentFromRequest } from './logger';
 import { cookies } from 'next/headers';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getMongoCollections } from '@/lib/mongodb';
+import { getTwoFactorCookieName, getTwoFactorSessionFingerprint, verifyTwoFactorCookie } from './twofa-cookie';
 
 interface AdminCheckResult {
     authorized: boolean;
     userId?: string;
+    session?: { user?: { id?: string; email?: string | null } } | null;
     response?: NextResponse;
 }
 
@@ -53,6 +55,13 @@ export async function requireAdmin(request?: Request, skip2FA = false): Promise<
         const userId = session.user.id;
         const role = (session.user as { role?: string }).role;
 
+        if (!userId) {
+            return {
+                authorized: false,
+                response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+            };
+        }
+
         if (role !== 'admin') {
             if (request) {
                 securityLog.permissionDenied(userId, 'admin_api', request);
@@ -66,21 +75,25 @@ export async function requireAdmin(request?: Request, skip2FA = false): Promise<
             };
         }
 
-        // Check 2FA if not skipped
-        if (!skip2FA) {
+        const enforceApi2FA = process.env.ADMIN_API_RECHECK_2FA === '1';
+
+        // Default policy: require 2FA at admin launch/login only.
+        // Optional env ADMIN_API_RECHECK_2FA=1 can re-enable per-API checks.
+        if (!skip2FA && enforceApi2FA) {
             try {
-                const supabase = getAdminSupabase();
-                const { data: profile } = await supabase
-                    .from('users')
-                    .select('totp_enabled')
-                    .eq('id', userId)
-                    .single();
+                const { profiles } = await getMongoCollections();
+                const profile = await profiles.findOne({ _id: userId });
 
                 if (profile?.totp_enabled) {
                     const cookieStore = await cookies();
-                    const twoFACookie = cookieStore.get('2fa-verified');
+                    const twoFACookie = cookieStore.get(getTwoFactorCookieName());
+                    const verified = await verifyTwoFactorCookie(twoFACookie?.value, {
+                        userId,
+                        email: session.user.email,
+                        sessionFingerprint: await getTwoFactorSessionFingerprint(cookieStore),
+                    });
 
-                    if (!twoFACookie || twoFACookie.value !== userId) {
+                    if (!verified) {
                         return {
                             authorized: false,
                             response: NextResponse.json(
@@ -107,6 +120,7 @@ export async function requireAdmin(request?: Request, skip2FA = false): Promise<
         return {
             authorized: true,
             userId,
+            session,
         };
     } catch (error) {
         const { createLogger } = await import('@/lib/logger');

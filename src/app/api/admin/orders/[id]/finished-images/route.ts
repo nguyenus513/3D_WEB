@@ -12,6 +12,7 @@ import { requireAdmin } from '@/lib/security/admin-guard';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { uploadToR2, isR2Configured } from '@/lib/storage/r2';
 import { generateStudioR2Key, getExtension } from '@/lib/naming';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 interface FinishedImage {
     url: string;
@@ -40,7 +41,7 @@ export async function POST(
 
         const { data: order, error: findError } = await supabase
             .from('orders')
-            .select('id, order_code, cart_code, finished_images')
+            .select('id, order_code, cart_code, status, finished_images')
             .eq('id', orderId)
             .maybeSingle();
 
@@ -128,6 +129,8 @@ export async function POST(
             .from('orders')
             .update({
                 finished_images: updatedImages,
+                status: ['shipping', 'delivered', 'cancelled'].includes(order.status) ? order.status : 'finished',
+                finished_at: ['shipping', 'delivered', 'cancelled'].includes(order.status) ? undefined : new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);
@@ -135,6 +138,15 @@ export async function POST(
         if (updateError) {
             console.error('[FinishedUpload] Update failed:', updateError);
             return NextResponse.json({ error: 'Failed to update: ' + updateError.message }, { status: 500 });
+        }
+
+        const nextStatus = ['shipping', 'delivered', 'cancelled'].includes(order.status) ? order.status : 'finished';
+        if (nextStatus !== order.status) {
+            await sendOrderStatusEmail({
+                orderId,
+                oldStatus: order.status,
+                newStatus: nextStatus,
+            });
         }
 
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * NextAuth.js Configuration
  *
  * MongoDB-backed auth for IE213.Q22.
@@ -228,6 +228,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         token.role = profile.role;
                         token.customerCode = profile.customer_code;
                         token.isNewUser = profile.role !== 'admin' && !profile.phone;
+                        token.twoFactorEnabled = Boolean(profile.totp_enabled);
                     }
                 } catch (error) {
                     console.error('[Auth] JWT profile refresh error:', error);

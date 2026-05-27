@@ -4,13 +4,6 @@ import { getAdminSupabase } from '@/lib/supabase/admin';
 import { getR2SignedUrl } from '@/lib/storage/r2';
 import { getDirectUrl } from '@/lib/google-drive-oauth';
 
-/**
- * GET /api/admin/orders/[id]/files/[fileId]/download
- * 
- * Admin-only endpoint to download a file from an order.
- * Bypasses user ownership check — only requires admin auth.
- * Returns JSON with signed download URL and file metadata.
- */
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string; fileId: string }> }
@@ -20,37 +13,41 @@ export async function GET(
         if (!authorized) return authResponse!;
 
         const { id: orderId, fileId } = await params;
-
         if (!orderId || !fileId) {
             return NextResponse.json({ error: 'Missing orderId or fileId' }, { status: 400 });
         }
 
         const supabase = getAdminSupabase();
+        const { data: link } = await supabase
+            .from('file_links')
+            .select('file_id')
+            .eq('file_id', fileId)
+            .eq('ref_type', 'order')
+            .eq('ref_id', orderId)
+            .maybeSingle();
 
-        // Fetch file record — must belong to the specified order
-        const { data: file, error } = await supabase
-            .from('order_files')
-            .select('id, file_name, file_key, file_type, file_url, storage_provider, size_bytes')
-            .eq('id', fileId)
-            .eq('order_id', orderId)
-            .single();
-
-        if (error || !file) {
-            console.error('[AdminDownload] File not found:', error?.message);
+        if (!link) {
             return NextResponse.json({ error: 'File not found' }, { status: 404 });
         }
 
-        // Generate download URL based on storage provider
+        const { data: file, error } = await supabase
+            .from('files')
+            .select('id, file_name, original_filename, file_key, object_key, file_type, mime_type, file_url, storage_provider, provider, size_bytes')
+            .eq('id', fileId)
+            .maybeSingle();
+
+        if (error || !file) {
+            return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
+
+        const storageProvider = file.storage_provider || file.provider || 'r2';
+        const objectKey = file.object_key || file.file_key || (file.file_url?.startsWith('/api/files/') ? file.file_url.replace('/api/files/', '') : null);
         let downloadUrl: string | null = null;
 
-        if (file.storage_provider === 'r2') {
-            if (!file.file_key) {
-                return NextResponse.json({ error: 'Missing file key in storage' }, { status: 500 });
-            }
-            // Generate a signed URL valid for 1 hour
-            downloadUrl = await getR2SignedUrl(file.file_key, 3600);
-        } else if (file.storage_provider === 'drive') {
-            // For Drive files, file_key holds driveFileId, file_url holds the direct URL
+        if (storageProvider === 'r2') {
+            if (!objectKey) return NextResponse.json({ error: 'Missing file key in storage' }, { status: 500 });
+            downloadUrl = await getR2SignedUrl(objectKey, 3600);
+        } else if (storageProvider === 'drive') {
             downloadUrl = file.file_url || (file.file_key ? getDirectUrl(file.file_key) : null);
         }
 
@@ -62,15 +59,15 @@ export async function GET(
             success: true,
             data: {
                 url: downloadUrl,
-                fileName: file.file_name || 'download',
-                fileType: file.file_type,
+                fileName: file.file_name || file.original_filename || 'download',
+                fileType: file.file_type || file.mime_type,
                 sizeBytes: file.size_bytes,
-            }
+            },
         });
-
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('[AdminDownload] Error:', message);
         return NextResponse.json({ error: message }, { status: 500 });
     }
 }
+

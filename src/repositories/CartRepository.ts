@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cart Repository v2
  *
  * Uses `orders` + `order_items` tables instead of deprecated `carts` + `cart_items`.

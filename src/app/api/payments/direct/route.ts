@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
         // Notify all admins about new order (fire-and-forget)
         notifyAllAdmins({
             title: `Đơn hàng mới #${codeParent}`,
-            message: `${body.productName} - ${finalAmount.toLocaleString('vi-VN')}đ`,
+            message: `${body.productName} - ${finalAmount.toLocaleString('vi-VN')} VND`,
             type: 'payment',
             refId: newOrder.id,
             refType: 'order',

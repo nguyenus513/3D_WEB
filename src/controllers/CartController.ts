@@ -1,10 +1,10 @@
-﻿/**
+/**
  * Cart Controller
  *
  * API controller for shopping cart endpoints.
  * Extends BaseController for standardized responses.
  *
- * @see backend-dev-guidelines.md - Rule #8: Route â†’ Controller â†’ Service
+ * @see backend-dev-guidelines.md - Rule #8: Route → Controller → Service
  */
 
 import { NextRequest } from 'next/server';

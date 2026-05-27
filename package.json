@@ -20,7 +20,11 @@
     "deploy:vercel:env": "powershell -ExecutionPolicy Bypass -File scripts/deploy/vercel-env.ps1",
     "deploy:vercel": "powershell -ExecutionPolicy Bypass -File scripts/deploy/vercel-deploy.ps1",
     "deploy:smoke": "powershell -ExecutionPolicy Bypass -File scripts/deploy/smoke-test.ps1",
-    "deploy:all": "powershell -ExecutionPolicy Bypass -File scripts/deploy/deploy-all.ps1"
+    "deploy:all": "powershell -ExecutionPolicy Bypass -File scripts/deploy/deploy-all.ps1",
+    "mongo:audit": "node scripts/mongodb/audit-production-schema.js",
+    "mongo:repair": "node scripts/mongodb/repair-production-data.js",
+    "mongo:legacy:refs": "node scripts/mongodb/assert-no-legacy-runtime.js",
+    "mongo:legacy:archive": "node scripts/mongodb/archive-legacy-collections.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.972.0",
@@ -62,6 +66,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dompurify": "^3.3.1",
+    "fflate": "^0.8.2",
     "framer-motion": "^12.26.2",
     "googleapis": "^170.0.0",
     "gsap": "^3.14.2",

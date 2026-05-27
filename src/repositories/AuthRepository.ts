@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Auth Repository
  *
  * MongoDB data access layer for auth-related collections.

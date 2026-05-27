@@ -1,7 +1,7 @@
-﻿/**
+/**
  * Admin API: Upload Demo (Simple)
  * POST /api/orders/[id]/upload-demo
- * Changes status: designing â†’ review
+ * Changes status: designing → review
  *
  * Simple URL-based upload (no file). Creates a design version.
  * For file uploads, use /api/admin/orders/[id]/demo-image instead.
@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { sendOrderStatusEmail } from '@/lib/email/orderStatusEmail';
 
 export async function POST(
     request: NextRequest,
@@ -122,6 +123,12 @@ export async function POST(
                 updated_at: new Date().toISOString(),
             })
             .eq('id', orderId);
+
+        await sendOrderStatusEmail({
+            orderId,
+            oldStatus: order.status,
+            newStatus: 'review',
+        });
 
         // Revalidate cache
         revalidatePath(`/sys_internal/orders/${orderId}`, 'page');

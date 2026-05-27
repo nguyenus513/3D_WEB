@@ -1,1 +1,3 @@
-export { default } from '../sys_internal/layout';
+export default function AdminPublicLayout({ children }: { children: React.ReactNode }) {
+    return children;
+}

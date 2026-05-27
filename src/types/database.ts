@@ -114,6 +114,21 @@ export interface ProductSpecs {
     [key: string]: unknown;
 }
 
+
+export interface ProductVariant {
+    id: string;
+    product_id?: string;
+    name: string;
+    sku?: string | null;
+    price: number;
+    stock: number;
+    enabled?: boolean;
+    is_active?: boolean;
+    image_url?: string | null;
+    images?: string[];
+    sort_order?: number;
+}
+
 export interface ProductSize {
     name: string;
     sku?: string;
@@ -142,6 +157,11 @@ export interface Product {
     tags: string[];
     low_stock_alert: number | null;
     sizes: ProductSize[] | null;
+    product_variants?: ProductVariant[] | null;
+    effective_price?: number | null;
+    display_price_min?: number | null;
+    display_price_max?: number | null;
+    display_price_text?: string | null;
     view_count: number;
     sold_count: number;
     archived_at: string | null; // Soft delete

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Product Repository
  *
  * Data access layer for products table.
@@ -111,6 +111,7 @@ export class ProductRepository {
         let query = this.db
             .from('products')
             .select('*, category:categories(id, name), product_variants(*)', { count: 'exact' })
+            .or('deleted_at.is.null,deleted_at.eq.')
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -149,6 +150,7 @@ export class ProductRepository {
             .from('products')
             .select('*, product_variants(*)')
             .eq('id', id)
+            .or('deleted_at.is.null,deleted_at.eq.')
             .single();
 
         if (error?.code === 'PGRST116') return null;
@@ -165,6 +167,7 @@ export class ProductRepository {
             .select('id, name, sku, base_price, sale_price, images, short_description, is_active')
             .eq('is_featured', true)
             .eq('is_active', true)
+            .or('deleted_at.is.null,deleted_at.eq.')
             .order('updated_at', { ascending: false })
             .limit(limit);
 
@@ -219,7 +222,7 @@ export class ProductRepository {
     async archive(id: string): Promise<void> {
         const { error } = await this.db
             .from('products')
-            .update({ status: 'archived', is_active: false, updated_at: new Date().toISOString() })
+            .update({ status: 'archived', is_active: false, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .eq('id', id);
 
         if (error) throw error;
@@ -270,6 +273,19 @@ export class ProductRepository {
             .select();
 
         if (error) throw error;
+
+        const activeRows = rows.filter((variant) => variant.is_active !== false);
+        const stock = activeRows.reduce((sum, variant) => sum + Math.max(0, Number(variant.stock || 0)), 0);
+        const prices = activeRows.map((variant) => Number(variant.price)).filter((price) => Number.isFinite(price) && price > 0);
+        await this.db
+            .from('products')
+            .update({
+                stock,
+                ...(prices.length > 0 ? { base_price: Math.min(...prices) } : {}),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', productId);
+
         return data || [];
     }
 

@@ -7,6 +7,7 @@ import { AnimatedSection } from '@/components/ui/Animations';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Product } from '@/types/database';
 import { Search, X, Box, Star } from 'lucide-react';
+import { getEffectiveProductPrice, getProductPriceInfo } from '@/lib/pricing/product-price';
 
 interface Category {
     id: string;
@@ -68,22 +69,8 @@ export default function ProductsPage() {
         }
     };
 
-    const getDisplayPrice = (product: Product) => {
-        const sizes = product.sizes as any[];
-        if (sizes && sizes.length > 0) {
-            const prices = sizes.filter(s => s.enabled !== false).map(s => s.price);
-            if (prices.length > 0) {
-                const min = Math.min(...prices);
-                const max = Math.max(...prices);
-                if (min === max) {
-                    return `${min.toLocaleString('vi-VN')}đ`;
-                }
-                return `${min.toLocaleString('vi-VN')} - ${max.toLocaleString('vi-VN')}đ`;
-            }
-        }
-        const price = product.sale_price || product.base_price;
-        return `${Number(price).toLocaleString('vi-VN')}đ`;
-    };
+    const getDisplayPrice = (product: Product) => getProductPriceInfo(product).text;
+
 
     const filteredProducts = products
         .filter(p => {
@@ -96,14 +83,14 @@ export default function ProductsPage() {
                 p.sku?.toLowerCase().includes(searchLower) ||
                 p.short_description?.toLowerCase().includes(searchLower);
 
-            const price = Number(p.sale_price || p.base_price);
+            const price = getEffectiveProductPrice(p);
             const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
 
             return matchesCategory && matchesSearch && matchesPrice;
         })
         .sort((a, b) => {
-            const priceA = Number(a.sale_price || a.base_price);
-            const priceB = Number(b.sale_price || b.base_price);
+            const priceA = getEffectiveProductPrice(a);
+            const priceB = getEffectiveProductPrice(b);
 
             switch (sortBy) {
                 case 'price_asc':

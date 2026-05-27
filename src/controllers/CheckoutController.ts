@@ -1,4 +1,4 @@
-﻿import { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { BaseController, UnauthorizedError } from '@/lib/core/BaseController';
 import { auth } from '@/auth';
 import { getAdminSupabase } from '@/lib/supabase/admin';

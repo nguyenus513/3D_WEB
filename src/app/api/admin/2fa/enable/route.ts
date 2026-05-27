@@ -1,98 +1,51 @@
-/**
- * 2FA Enable API
- *
- * POST /api/admin/2fa/enable
- * Verifies the TOTP token and enables 2FA with recovery codes.
- * Sets 2fa-verified cookie so admin isn't locked out immediately.
- */
-
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/security/admin-guard';
 import { verifyToken, generateRecoveryCodes } from '@/lib/security/totp';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { getMongoCollections } from '@/lib/mongodb';
 import { createLogger } from '@/lib/logger';
 import { auditLog } from '@/lib/audit';
+import { createTwoFactorCookie, getTwoFactorCookieName, getTwoFactorSessionFingerprint } from '@/lib/security/twofa-cookie';
 
 const log = createLogger('2fa-enable');
 
-export async function POST(request: Request) {
-    // skip2FA=true because 2FA isn't active yet during enable flow
-    const { authorized, response, userId } = await requireAdmin(request, true);
+export async function POST(request: NextRequest) {
+    const { authorized, response, userId, session } = await requireAdmin(request, true);
     if (!authorized || !userId) return response;
 
     try {
-        const body = await request.json();
-        const { token } = body;
-
+        const { token } = await request.json();
         if (!token || typeof token !== 'string' || token.length !== 6) {
-            return NextResponse.json(
-                { error: 'Invalid token. Must be 6 digits.' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Invalid token. Must be 6 digits.' }, { status: 400 });
         }
 
-        const supabase = getAdminSupabase();
+        const { profiles } = await getMongoCollections();
+        const profile = await profiles.findOne({ _id: userId });
+        if (!profile?.totp_secret) return NextResponse.json({ error: 'No 2FA setup in progress. Please start setup again.' }, { status: 400 });
+        if (profile.totp_enabled) return NextResponse.json({ error: '2FA is already enabled.' }, { status: 400 });
+        if (!verifyToken(profile.totp_secret, token)) return NextResponse.json({ error: 'Invalid verification code.' }, { status: 400 });
 
-        // Get the pending secret
-        const { data: profile } = await supabase
-            .from('users')
-            .select('totp_secret, totp_enabled')
-            .eq('id', userId)
-            .single();
-
-        if (!profile?.totp_secret) {
-            return NextResponse.json(
-                { error: 'No 2FA setup in progress. Call /api/admin/2fa/setup first.' },
-                { status: 400 }
-            );
-        }
-
-        if (profile.totp_enabled) {
-            return NextResponse.json(
-                { error: '2FA is already enabled.' },
-                { status: 400 }
-            );
-        }
-
-        // Verify the token
-        const isValid = verifyToken(profile.totp_secret, token);
-        if (!isValid) {
-            return NextResponse.json(
-                { error: 'Invalid verification code. Please try again.' },
-                { status: 400 }
-            );
-        }
-
-        // Generate recovery codes
         const { plainCodes, hashedCodes } = generateRecoveryCodes();
-
-        // Enable 2FA
-        await supabase
-            .from('users')
-            .update({
-                totp_enabled: true,
-                totp_recovery_codes: hashedCodes,
-            })
-            .eq('id', userId);
+        await profiles.updateOne(
+            { _id: userId },
+            { $set: { totp_enabled: true, totp_recovery_codes: hashedCodes, updated_at: new Date() } }
+        );
 
         log.info('2FA enabled', { userId });
         await auditLog(userId, 'UPDATE_SETTINGS', 'settings', userId, { action: '2fa_enabled' }, request);
 
-        // Set 2fa-verified cookie — admin just proved possession of OTP app
-        const res = NextResponse.json({
-            success: true,
-            recoveryCodes: plainCodes,
-            message: 'Lưu recovery codes ở nơi an toàn. Mỗi code chỉ dùng được 1 lần.',
+        const cookieValue = await createTwoFactorCookie({
+            userId,
+            email: session?.user?.email,
+            sessionFingerprint: await getTwoFactorSessionFingerprint(request.cookies),
         });
-
-        res.cookies.set('2fa-verified', userId, {
+        const res = NextResponse.json({ success: true, recoveryCodes: plainCodes });
+        res.cookies.set(getTwoFactorCookieName(), cookieValue, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: 60 * 60 * 24, // 24 hours
+            maxAge: 86400,
             path: '/',
         });
-
         return res;
     } catch (error) {
         log.error('2FA enable failed', error);
